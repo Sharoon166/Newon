@@ -199,7 +199,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
         variants: Array.isArray(data.variants)
           ? data.variants.map(v => ({
             ...v,
-            // Ensure required fields have default values
+          // Ensure required fields have default values
             purchasePrice: v.purchasePrice || 0,
             retailPrice: v.retailPrice || 0,
             wholesalePrice: v.wholesalePrice || 0,
@@ -248,12 +248,12 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                     {mode === 'edit' ? 'Update the product details' : 'Add a new product to your inventory'}
                   </p>
                 </div>
-                {mode == "edit" && <Button type="button" variant="destructive" className='w-full lg:max-w-sm lg:mx-auto' onClick={() => setShowDeleteConfirmationDialog(true)}> <Trash2 /> Delete</Button>}
+                {mode == "edit" && <Button type="button" variant="destructive" className='w-full lg:max-w-sm lg:mx-auto' onClick={() => setShowDeleteConfirmationDialog(true)}> <Trash2 /> Delete Product</Button>}
                 <ConfirmationDialog
                   open={showDeleteConfirmationDialog}
                   onOpenChange={setShowDeleteConfirmationDialog}
                   title="Are you sure you want to delete this product?"
-                  description="This action cannot be undone."
+                  description="This product will be deleted from your inventory and all its variants will be removed. This action cannot be undone."
                   confirmText="Delete"
                   variant="destructive"
                   onConfirm={async () => {

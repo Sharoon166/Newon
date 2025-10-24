@@ -126,7 +126,10 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: var(--secondary) var(--background);
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -142,6 +145,7 @@
   h3 {
     @apply text-xl font-semibold;
   }
+
 }
 
 :root {

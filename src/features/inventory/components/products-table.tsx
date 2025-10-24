@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import {
 	ColumnDef,
 	ColumnFiltersState,
@@ -30,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
 	ChevronDown,
+	ChevronUp,
 	ChevronsLeft,
 	ChevronsRight,
 	Download,
@@ -38,28 +38,66 @@ import {
 	MoreHorizontal,
 	Pencil,
 	Plus,
-	X
+	X,
 } from 'lucide-react';
 import { EnhancedVariants } from '../types';
-import type {  Color } from 'jspdf-autotable';
-import { formatDate } from '@/lib/utils';
+import type { Color } from 'jspdf-autotable';
+import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
+import { formatCurrency, formatDate } from '@/lib/utils';
+import { useMemo, useState } from 'react';
+
+
 
 // Define columns
 const columns: ColumnDef<EnhancedVariants>[] = [
 	{
 		accessorKey: 'productName',
-		header: 'Product',
+		header: ({ column }) => {
+			const isSorted = column.getIsSorted();
+			return (
+				<Button
+					variant="ghost"
+					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					className="p-0 hover:bg-transparent"
+				>
+					Product
+					{isSorted ? (
+						isSorted === 'asc' ? (
+							<ChevronUp className="ml-2 h-4 w-4" />
+						) : (
+							<ChevronDown className="ml-2 h-4 w-4" />
+						)
+					) : (
+						<ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+					)}
+				</Button>
+			);
+		},
 		cell: ({ row }) => (
-			<div className="flex items-center gap-3">
-				<Avatar className="h-8 w-8 rounded-md sm:h-10 sm:w-10">
-					<AvatarImage src={row.original.image} alt={row.original.productName} />
-					<AvatarFallback className="text-xs sm:text-sm">{row.original.productName.charAt(0)}</AvatarFallback>
-				</Avatar>
-				<div className="min-w-0">
-					<div className="truncate font-medium">{row.original.productName}</div>
-					<div className="text-xs text-muted-foreground truncate">SKU: {row.original.sku}</div>
+			<>
+				<div className="flex items-center gap-3">
+					<div
+						className="cursor-pointer hover:opacity-80 transition-opacity"
+					>
+						<Avatar className="h-8 w-8 rounded-md sm:h-10 sm:w-10">
+							<ImageZoom>
+								<AvatarImage
+									src={row.original.image}
+									alt={row.original.productName}
+									className='object-contain'
+								/>
+							</ImageZoom>
+							<AvatarFallback className="text-xs sm:text-sm">
+								{row.original.productName.charAt(0)}
+							</AvatarFallback>
+						</Avatar>
+					</div>
+					<div className="min-w-0">
+						<div className="truncate font-medium">{row.original.productName}</div>
+						<div className="text-xs text-muted-foreground truncate">SKU: {row.original.sku}</div>
+					</div>
 				</div>
-			</div>
+			</>
 		),
 		minSize: 200,
 		size: 300
@@ -68,7 +106,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 		accessorKey: 'categories',
 		header: 'Categories',
 		cell: ({ row }) => (
-			<div className="flex flex-wrap gap-1 max-w-[200px]">
+			<div className="flex flex-wrap gap-1 max-w-[300px]">
 				{row.original.categories.length === 0 && (
 					<Badge variant="outline" className="text-xs truncate">
 						No categories
@@ -100,7 +138,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 				)}
 			</div>
 		),
-		minSize: 150,
+		minSize: 250,
 		size: 350
 	},
 	{
@@ -108,11 +146,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 		header: 'Retail Price',
 		cell: ({ row }) => (
 			<div className="font-medium whitespace-nowrap">
-				Rs.{' '}
-				{row.original.retailPrice.toLocaleString('en-PK', {
-					minimumFractionDigits: 0,
-					maximumFractionDigits: 0
-				})}
+				{formatCurrency(row.original.retailPrice)}
 			</div>
 		),
 		minSize: 100,
@@ -123,11 +157,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 		header: 'Purchase Price',
 		cell: ({ row }) => (
 			<div className="text-sm text-muted-foreground whitespace-nowrap">
-				Rs.{' '}
-				{row.original.purchasePrice.toLocaleString('en-PK', {
-					minimumFractionDigits: 0,
-					maximumFractionDigits: 0
-				})}
+				{formatCurrency(row.original.purchasePrice)}
 			</div>
 		),
 		minSize: 100,
@@ -138,11 +168,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 		header: 'Wholesale Price',
 		cell: ({ row }) => (
 			<div className={`font-medium ${row.original.availableStock <= 0 ? 'text-destructive' : ''}`}>
-				Rs.{' '}
-				{row.original.wholesalePrice.toLocaleString('en-PK', {
-					minimumFractionDigits: 0,
-					maximumFractionDigits: 0
-				})}
+				{formatCurrency(row.original.wholesalePrice)}
 			</div>
 		),
 		minSize: 100,
@@ -168,7 +194,27 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 	},
 	{
 		accessorKey: 'supplier',
-		header: 'Supplier',
+		header: ({ column }) => {
+			const isSorted = column.getIsSorted();
+			return (
+				<Button
+					variant="ghost"
+					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					className="p-0 hover:bg-transparent"
+				>
+					Supplier
+					{isSorted ? (
+						isSorted === 'asc' ? (
+							<ChevronUp className="ml-2 h-4 w-4" />
+						) : (
+							<ChevronDown className="ml-2 h-4 w-4" />
+						)
+					) : (
+						<ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+					)}
+				</Button>
+			);
+		},
 		cell: ({ row }) => (
 			<div className="text-sm text-muted-foreground truncate max-w-[120px]">{row.original.supplier}</div>
 		),
@@ -177,7 +223,27 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 	},
 	{
 		accessorKey: 'location',
-		header: 'Location',
+		header: ({ column }) => {
+			const isSorted = column.getIsSorted();
+			return (
+				<Button
+					variant="ghost"
+					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+					className="p-0 hover:bg-transparent"
+				>
+					Location
+					{isSorted ? (
+						isSorted === 'asc' ? (
+							<ChevronUp className="ml-2 h-4 w-4" />
+						) : (
+							<ChevronDown className="ml-2 h-4 w-4" />
+						)
+					) : (
+						<ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+					)}
+				</Button>
+			);
+		},
 		cell: ({ row }) => (
 			<div className="text-sm text-muted-foreground truncate max-w-[120px]">{row.original.location || '-'}</div>
 		),
@@ -207,7 +273,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 		),
 		enableHiding: false,
 		minSize: 50,
-		size: 50
+		size: 50,
 	}
 ];
 
@@ -216,20 +282,20 @@ interface ProductsTableProps {
 }
 
 export function ProductsTable({ data = [] }: ProductsTableProps) {
-	const [sorting, setSorting] = React.useState<SortingState>([]);
-	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-	const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-	const [rowSelection, setRowSelection] = React.useState({});
-	const [pagination, setPagination] = React.useState({
+	const [sorting, setSorting] = useState<SortingState>([]);
+	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+	const [rowSelection, setRowSelection] = useState({});
+	const [pagination, setPagination] = useState({
 		pageIndex: 0,
 		pageSize: 10
 	});
-	const [supplierFilter, setSupplierFilter] = React.useState<string>('all');
-	const [stockFilter, setStockFilter] = React.useState<string>('all');
-	const [searchTerm, setSearchTerm] = React.useState('');
+	const [supplierFilter, setSupplierFilter] = useState<string>('all');
+	const [stockFilter, setStockFilter] = useState<string>('all');
+	const [searchTerm, setSearchTerm] = useState('');
 
 	// Get unique suppliers for filter
-	const suppliers = React.useMemo(() => {
+	const suppliers = useMemo(() => {
 		const supplierSet = new Set<string>();
 		if (Array.isArray(data)) {
 			data.forEach(item => {
@@ -242,7 +308,7 @@ export function ProductsTable({ data = [] }: ProductsTableProps) {
 	}, [data]);
 
 	// Filter data based on search and filters
-	const filteredData = React.useMemo(() => {
+	const filteredData = useMemo(() => {
 		if (!Array.isArray(data)) return [];
 
 		const search = searchTerm.toLowerCase();
@@ -412,13 +478,13 @@ export function ProductsTable({ data = [] }: ProductsTableProps) {
 		document.body.removeChild(link);
 	};
 
-	if (!data.length) {
-		return (
-			<div className="w-full flex items-center justify-center p-8">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-gray-100"></div>
-			</div>
-		);
-	}
+	// if (!data.length) {
+	// 	return (
+	// 		<div className="w-full border h-[70vh] flex items-center justify-center p-8">
+	// 			<Loader2 className="size-12 animate-spin text-primary" />
+	// 		</div>
+	// 	);
+	// }
 
 	return (
 		<div className="w-full max-w-6xl mx-auto">
@@ -480,25 +546,25 @@ export function ProductsTable({ data = [] }: ProductsTableProps) {
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button>
-							<Download className="mr-2 h-4 w-4" />
-							Export
-							<ChevronDown className="ml-2 h-4 w-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem onClick={exportAsPDF}>
-							<Download className="mr-2 h-4 w-4" />
-							Export as PDF
-						</DropdownMenuItem>
-						<DropdownMenuItem onClick={exportAsCSV}>
-							<FileSpreadsheet className="mr-2 h-4 w-4" />
-							Export as CSV
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button>
+								<Download className="mr-2 h-4 w-4" />
+								Export
+								<ChevronDown className="ml-2 h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={exportAsPDF}>
+								<Download className="mr-2 h-4 w-4" />
+								Export as PDF
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={exportAsCSV}>
+								<FileSpreadsheet className="mr-2 h-4 w-4" />
+								Export as CSV
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 
 				{supplierFilter !== 'all' || stockFilter !== 'all' ? (

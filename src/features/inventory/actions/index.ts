@@ -170,6 +170,7 @@ export const updateProduct = async (id: string, data: Product) => {
   const updatedProduct = await product.save();
 
   revalidatePath('/inventory');
+  revalidatePath(`/inventory/${id}/edit`);
   return updatedProduct;
 };
 
@@ -177,6 +178,5 @@ export const getProductById = async (id: string) => {
   await dbConnect();
   const product = await ProductModel.findById(id).lean();
   if (!product) return null;
-  // Convert _id to string for serialization
   return product as unknown as Product;
 };

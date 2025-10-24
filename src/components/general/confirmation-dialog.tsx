@@ -9,6 +9,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 import { useState } from "react"
 
 interface ConfirmationDialogProps {
@@ -72,7 +73,7 @@ const ConfirmationDialog = ({
                 )}
                 <SheetHeader className="text-center m-0 py-0">
                     <SheetTitle>{title}</SheetTitle>
-                    <SheetDescription>{description}</SheetDescription>
+                    <SheetDescription className={cn({ "text-left text-destructive bg-destructive/10 p-2 border-l-2 border-destructive": variant === "destructive" })}>{description}</SheetDescription>
                 </SheetHeader>
 
                 <SheetFooter className="sm:justify-end">

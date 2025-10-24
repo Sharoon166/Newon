@@ -22,13 +22,15 @@ type VariantFormProps = {
 
 // Image upload component with preview and dropzone
 function ImageUpload({
+  existing,
   value,
   onChange,
 }: {
+  existing?: string;
   value: ProductVariantImage | undefined;
   onChange: (image: ProductVariantImage | undefined) => void;
 }) {
-  const [preview, setPreview] = useState<string | null>(value?.dataUrl || null);
+  const [preview, setPreview] = useState<string | null>(value?.dataUrl || existing || null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -129,6 +131,15 @@ function ImageUpload({
     noKeyboard: !!value, // Prevent keyboard navigation when there's an image
   });
 
+  const removeImage = async () => {
+    if(existing){
+      const publicId = existing.split('/').slice(-2).join('/').replace(/\.[^/.]+$/, '');
+      await deleteCloudinaryImage(publicId);
+      setPreview(null);
+    }
+    onChange(undefined);
+  };
+
   return (
     <div className="space-y-2 cursor-pointer">
       <Label>Variant Image</Label>
@@ -138,10 +149,11 @@ function ImageUpload({
           'border-2 border-dashed rounded-md p-4 text-center transition-colors',
           isDragActive ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50',
           (preview || value) && 'p-0 border-0',
-          (isUploading || value) && 'opacity-50 cursor-not-allowed'
+          (isUploading || value) && 'opacity-50 cursor-not-allowed',
+          !!existing && 'opacity-50 cursor-not-allowed border-destructive'
         )}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()}  disabled={!!existing}/>
         {preview || value?.dataUrl ? (
           <div className="relative group">
             <Image
@@ -167,10 +179,11 @@ function ImageUpload({
                 <p>Drag & drop an image here, or click to select</p>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">Supports: JPG, PNG, WEBP, GIF</p>
+            <p className="text-xs text-muted-foreground">Supports: JPG, PNG, WEBP</p>
           </div>
         )}
       </div>
+      {existing && <p className="text-xs text-destructive">Delete the uploaded image to replace it</p>}
       {isUploading ? (
         <div className="flex items-center justify-center p-4 border rounded-md">
           <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -181,7 +194,8 @@ function ImageUpload({
           {uploadError}
         </div>
       ) : null}
-      {preview && (
+      {/* if local image and existing image */}
+      {preview && value?.publicId && (
         <Button
           type="button"
           variant="destructive"
@@ -205,6 +219,10 @@ function ImageUpload({
           Remove Image
         </Button>
       )}
+      {/* if existing image and no local image */}
+      {existing && !value && <Button type="button" variant="destructive" onClick={removeImage} className='w-full'>
+        <X className="h-4 w-4" /> <span>Remove Image</span>
+      </Button>}
       {value?.fileName && (
         <p className="text-xs text-muted-foreground truncate">
           {value.fileName} • {value.size ? Math.round(value.size / 1024) : 0}KB
@@ -228,16 +246,20 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
     });
   };
 
+
   return (
     <div className="space-y-4 rounded-lg pt-6 relative">
       <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-2 h-6 w-6" onClick={onRemove}>
         <X className="h-4 w-4" />
       </Button>
       {variant.image && (
+        <div className='relative w-max'>
         <Image height={100} width={100} src={variant.image} alt="current variant image" className="rounded-2xl" />
+        </div>
       )}
       <div className="grid lg:grid-cols-2 gap-4 rounded-2xl">
         <ImageUpload
+          existing={variant.image}
           value={variant.imageFile}
           onChange={imageFile =>
             updateVariant({
@@ -297,7 +319,7 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
             min="0"
             step="0.01"
             value={variant.purchasePrice}
-            onChange={e => updateVariant({ purchasePrice: parseFloat(e.target.value) || 0 })}
+            onChange={e => updateVariant({ purchasePrice: parseFloat(e.target.value) })}
           />
         </div>
         <div className="space-y-2">
@@ -307,7 +329,7 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
             min="0"
             step="0.01"
             value={variant.retailPrice}
-            onChange={e => updateVariant({ retailPrice: parseFloat(e.target.value) || 0 })}
+            onChange={e => updateVariant({ retailPrice: parseFloat(e.target.value) })}
             required
           />
         </div>
@@ -318,7 +340,7 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
             min="0"
             step="0.01"
             value={variant.wholesalePrice}
-            onChange={e => updateVariant({ wholesalePrice: parseFloat(e.target.value) || 0 })}
+            onChange={e => updateVariant({ wholesalePrice: parseFloat(e.target.value) })}
           />
         </div>
         <div className="space-y-2">
@@ -328,7 +350,7 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
             min="0"
             step="0.01"
             value={variant.shippingCost}
-            onChange={e => updateVariant({ shippingCost: parseFloat(e.target.value) || 0 })}
+            onChange={e => updateVariant({ shippingCost: parseFloat(e.target.value) })}
           />
         </div>
       </div>
@@ -340,7 +362,7 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
             type="number"
             min="0"
             value={variant.availableStock}
-            onChange={e => updateVariant({ availableStock: parseInt(e.target.value) || 0 })}
+            onChange={e => updateVariant({ availableStock: parseInt(e.target.value) })}
             required
           />
         </div>
@@ -350,7 +372,7 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
             type="number"
             min="0"
             value={variant.stockOnBackorder}
-            onChange={e => updateVariant({ stockOnBackorder: parseInt(e.target.value) || 0 })}
+            onChange={e => updateVariant({ stockOnBackorder: parseInt(e.target.value) })}
           />
         </div>
       </div>

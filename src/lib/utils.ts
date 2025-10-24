@@ -10,3 +10,20 @@ export function formatDate(date: Date | string) {
     dateStyle: 'medium'
   });
 }
+
+export function formatNumber(num: number) {
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+}
+
+export function formatCurrency(num: number) {
+  return num.toLocaleString('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    notation: 'compact',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3
+  });
+}
