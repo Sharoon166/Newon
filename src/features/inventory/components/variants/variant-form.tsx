@@ -3,22 +3,35 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { X, Upload, Image as ImageIcon, Trash2, Loader2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { X, Upload, Image as ImageIcon, Trash2, Loader2, Package, MapPin } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDropzone } from 'react-dropzone';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { ProductVariant, ProductAttribute, ProductVariantImage } from '../../types';
+import { ProductVariant, ProductAttribute, ProductVariantImage, LocationInventory } from '../../types';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { deleteCloudinaryImage } from '@/app/actions/cloudinary';
 
-type VariantFormProps = {
+type InventoryLocation = {
+  id: string;
+  name: string;
+  address?: string;
+  isActive: boolean;
+};
+
+interface VariantFormProps {
+  variantNumber?: number;
   variant: ProductVariant;
   attributes: ProductAttribute[];
+  locations: InventoryLocation[];
   onVariantChange: (updatedVariant: ProductVariant) => void;
-  onRemove: () => void;
-};
+  onRemove?: () => void;
+  isSimpleProduct?: boolean;
+}
 
 // Image upload component with preview and dropzone
 function ImageUpload({
@@ -49,7 +62,7 @@ function ImageUpload({
       setUploadError(null);
 
       try {
-        console.log({value})
+        console.log({ value })
         // If there's an existing image, delete it first
         if (value?.publicId) {
           // await deleteImageFromCloudinary(value.publicId);
@@ -60,7 +73,7 @@ function ImageUpload({
         // Create a temporary preview
         const dataUrl = URL.createObjectURL(file);
         setPreview(dataUrl);
-        
+
         // Upload to Cloudinary
         const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
         const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
@@ -68,12 +81,12 @@ function ImageUpload({
         if (!cloudName) {
           throw new Error('Cloudinary is not properly configured');
         }
-        
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', uploadPreset);
         formData.append('folder', 'product-images');
-        
+
         const response = await fetch(
           `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
           {
@@ -81,16 +94,16 @@ function ImageUpload({
             body: formData,
           }
         );
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
           console.error('Cloudinary upload error:', result);
           throw new Error(result.error?.message || 'Failed to upload image to Cloudinary');
         }
-        
+
         console.log('Cloudinary upload successful:', result);
-        
+
         // Update image data with Cloudinary response
         const updatedImage: ProductVariantImage = {
           dataUrl,
@@ -103,7 +116,7 @@ function ImageUpload({
           height: result.height,
           format: result.format
         };
-        
+
         onChange(updatedImage);
       } catch (error) {
         console.error('Error handling image:', error);
@@ -132,7 +145,7 @@ function ImageUpload({
   });
 
   const removeImage = async () => {
-    if(existing){
+    if (existing) {
       const publicId = existing.split('/').slice(-2).join('/').replace(/\.[^/.]+$/, '');
       await deleteCloudinaryImage(publicId);
       setPreview(null);
@@ -142,7 +155,6 @@ function ImageUpload({
 
   return (
     <div className="space-y-2 cursor-pointer">
-      <Label>Variant Image</Label>
       <div
         {...getRootProps()}
         className={cn(
@@ -153,7 +165,7 @@ function ImageUpload({
           !!existing && 'opacity-50 cursor-not-allowed border-destructive'
         )}
       >
-        <input {...getInputProps()}  disabled={!!existing}/>
+        <input {...getInputProps()} disabled={!!existing} />
         {preview || value?.dataUrl ? (
           <div className="relative group">
             <Image
@@ -232,52 +244,210 @@ function ImageUpload({
   );
 }
 
-export function VariantForm({ variant, attributes, onVariantChange, onRemove }: VariantFormProps) {
-  const updateVariant = (updates: Partial<ProductVariant>) => {
-    onVariantChange({ ...variant, ...updates });
-  };
 
-  const updateAttribute = (attributeId: string, value: string) => {
+export function VariantForm({
+  variantNumber,
+  variant,
+  attributes,
+  locations = [],
+  onVariantChange,
+  onRemove,
+  isSimpleProduct = false
+}: VariantFormProps) {
+  const [activeTab, setActiveTab] = useState('details');
+  const [activeLocations, setActiveLocations] = useState<InventoryLocation[]>([]);
+
+  // Update active locations when locations prop changes
+  useEffect(() => {
+    setActiveLocations(locations.filter(loc => loc.isActive));
+  }, [locations]);
+
+  // Initialize inventory if not present
+  useEffect(() => {
+    if (!variant.inventory) {
+      onVariantChange({
+        ...variant,
+        inventory: []
+      });
+    }
+  }, [variant, onVariantChange]);
+
+  // Update inventory when locations change
+  const updateInventoryForLocations = useCallback(() => {
+    const activeLocations = locations.filter(loc => loc.isActive);
+    const currentInventory = Array.isArray(variant.inventory) ? variant.inventory : [];
+    const updatedInventory = [...currentInventory];
+
+    let needsUpdate = false;
+
+    // Add missing locations to inventory
+    activeLocations.forEach(location => {
+      if (!updatedInventory.some(item => item.locationId === location.id)) {
+        updatedInventory.push({
+          locationId: location.id,
+          availableStock: 0,
+          backorderStock: 0
+        });
+        needsUpdate = true;
+      }
+    });
+
+    // Remove inventory for inactive locations
+    const locationIds = new Set(activeLocations.map(loc => loc.id));
+    const filteredInventory = updatedInventory.filter(item => locationIds.has(item.locationId));
+
+    if (needsUpdate || filteredInventory.length !== updatedInventory.length) {
+      onVariantChange({
+        ...variant,
+        inventory: filteredInventory
+      });
+    }
+  }, [locations, variant, onVariantChange]);
+
+  const updateVariant = useCallback((updates: Partial<ProductVariant>) => {
+    const updatedVariant = { ...variant, ...updates };
+    
+    // If inventory is being updated, ensure it has the correct structure
+    if ('inventory' in updates) {
+      updatedVariant.inventory = (updates.inventory || []).map(item => ({
+        locationId: item.locationId,
+        availableStock: Number(item.availableStock) || 0,
+        backorderStock: Number(item.backorderStock) || 0
+      }));
+      
+      // Update legacy fields for backward compatibility
+      updatedVariant.availableStock = updatedVariant.inventory.reduce(
+        (sum, item) => sum + (item.availableStock || 0), 0
+      );
+      updatedVariant.stockOnBackorder = updatedVariant.inventory.reduce(
+        (sum, item) => sum + (item.backorderStock || 0), 0
+      );
+    }
+    
+    // Handle image updates
+    if ('imageFile' in updates) {
+      updatedVariant.image = updates.imageFile?.cloudinaryUrl || '';
+    } else if ('image' in updates && !updates.image) {
+      // If image is being cleared, also clear imageFile
+      updatedVariant.imageFile = undefined;
+    }
+    
+    onVariantChange(updatedVariant);
+  }, [variant, onVariantChange]);
+
+  const updateInventory = useCallback((locationId: string, updates: Partial<LocationInventory>) => {
+    const currentInventory = Array.isArray(variant.inventory) ? variant.inventory : [];
+    const updatedInventory = [...currentInventory];
+    
+    // Find the inventory item for this location
+    const inventoryIndex = updatedInventory.findIndex(item => item.locationId === locationId);
+    
+    if (inventoryIndex >= 0) {
+      // Update existing inventory item
+      updatedInventory[inventoryIndex] = {
+        ...updatedInventory[inventoryIndex],
+        ...updates,
+        availableStock: Number(updates.availableStock ?? updatedInventory[inventoryIndex].availableStock),
+        backorderStock: Number(updates.backorderStock ?? updatedInventory[inventoryIndex].backorderStock)
+      };
+    } else if (updates.availableStock !== undefined || updates.backorderStock !== undefined) {
+      // Add new inventory item if it doesn't exist
+      updatedInventory.push({
+        locationId,
+        availableStock: Number(updates.availableStock ?? 0),
+        backorderStock: Number(updates.backorderStock ?? 0)
+      });
+    }
+    
+    // Calculate totals for legacy support
+    const totalAvailable = updatedInventory.reduce((sum, item) => sum + (item.availableStock || 0), 0);
+    const totalBackorder = updatedInventory.reduce((sum, item) => sum + (item.backorderStock || 0), 0);
+
+    // Update the variant with the new inventory and legacy fields
+    updateVariant({
+      inventory: updatedInventory,
+      availableStock: totalAvailable,
+      stockOnBackorder: totalBackorder
+    });
+  }, [variant, updateVariant]);
+
+  // Run the location update effect
+  useEffect(() => {
+    updateInventoryForLocations();
+  }, [updateInventoryForLocations]);
+
+  const updateAttribute = useCallback((attributeId: string, value: string) => {
     updateVariant({
       attributes: {
         ...variant.attributes,
         [attributeId]: value
       }
     });
-  };
+  }, [variant.attributes, updateVariant]);
 
 
   return (
-    <div className="space-y-4 rounded-lg pt-6 relative">
-      <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-2 h-6 w-6" onClick={onRemove}>
-        <X className="h-4 w-4" />
-      </Button>
-      {variant.image && (
-        <div className='relative w-max'>
-        <Image height={100} width={100} src={variant.image} alt="current variant image" className="rounded-2xl" />
+    <div className="space-y-4">
+      {!isSimpleProduct && (
+        <div className="flex items-center justify-between">
+          <h4 className="text-lg font-semibold">
+            Variant {variantNumber}
+          </h4>
+          {onRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={onRemove}
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">Remove variant</span>
+            </Button>
+          )}
         </div>
       )}
-      <div className="grid lg:grid-cols-2 gap-4 rounded-2xl">
-        <ImageUpload
-          existing={variant.image}
-          value={variant.imageFile}
-          onChange={imageFile =>
-            updateVariant({
-              image: imageFile?.cloudinaryUrl || '',
-              imageFile: imageFile
-            })
-          }
-        />
-        <div className="space-y-2">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="details" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="inventory" className="flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            Inventory
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input
-                id="sku"
-                value={variant.sku}
-                onChange={e => onVariantChange({ ...variant, sku: e.target.value })}
-                placeholder="SKU-001"
+              <Label className='font-semibold'>Image</Label>
+              <ImageUpload
+                existing={variant.image}
+                value={variant.imageFile}
+                onChange={(image) => {
+                  updateVariant({
+                    image: image?.cloudinaryUrl || '',
+                    imageFile: image
+                  });
+                }}
               />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor={`variant-sku-${variant.id}`}>
+                  {isSimpleProduct ? 'SKU' : 'Variant SKU'}
+                </Label>
+                <Input
+                  id={`variant-sku-${variant.id}`}
+                  value={variant.sku}
+                  onChange={(e) =>
+                    onVariantChange({ ...variant, sku: e.target.value })
+                  }
+                  placeholder={isSimpleProduct ? 'PROD-001' : 'VARIANT-001'}
+                />
+              </div>
             </div>
           </div>
           <h2>Attributes</h2>
@@ -304,8 +474,83 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
               </div>
             ))}
           </div>
-        </div>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="inventory" className="space-y-4">
+          <div className="space-y-4">
+            <h2>Inventory by Location</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {activeLocations.map((location) => {
+                const inventory = (Array.isArray(variant.inventory) ? variant.inventory : []).find(
+                  item => item.locationId === location.id
+                ) || { availableStock: 0, backorderStock: 0 };
+
+                return (
+                  <div key={location.id} className="border rounded-lg p-4 space-y-3 relative">
+                    <div className="flex items-center justify-between">
+                      <h5 className="font-medium">{location.name}</h5>
+                      {location.address && (
+                        <p className="text-xs text-muted-foreground">{location.address}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`available-${variant.id}-${location.id}`} className="text-xs">
+                          Available
+                        </Label>
+                        <Input
+                          id={`available-${variant.id}-${location.id}`}
+                          type="number"
+                          min="0"
+                          value={inventory.availableStock}
+                          onChange={(e) =>
+                            updateInventory(location.id, {
+                              availableStock: Number(e.target.value),
+                            })
+                          }
+                          className="h-8"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor={`backorder-${variant.id}-${location.id}`} className="text-xs">
+                          Backorder
+                        </Label>
+                        <Input
+                          id={`backorder-${variant.id}-${location.id}`}
+                          type="number"
+                          min="0"
+                          value={inventory.backorderStock}
+                          onChange={(e) =>
+                            updateInventory(location.id, {
+                              backorderStock: Number(e.target.value),
+                            })
+                          }
+                          className="h-8"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-1 text-xs text-muted-foreground">
+                      Total: {inventory.availableStock + inventory.backorderStock} units
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+
+            <div className="pt-2 text-xs text-muted-foreground">
+              <p>Total available stock: {variant.availableStock || 0} units</p>
+              <p>Total on backorder: {variant.stockOnBackorder || 0} units</p>
+              <p className="font-medium mt-1">
+                Combined total: {(variant.availableStock || 0) + (variant.stockOnBackorder || 0)} units
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <Separator />
 
@@ -357,22 +602,24 @@ export function VariantForm({ variant, attributes, onVariantChange, onRemove }: 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
         <div className="space-y-2">
-          <Label>Available Stock</Label>
+          <Label>Available Stock <span className="text-xs text-muted-foreground">(calculated)</span></Label>
           <Input
             type="number"
+            readOnly
             min="0"
             value={variant.availableStock}
-            onChange={e => updateVariant({ availableStock: parseInt(e.target.value) })}
+            // onChange={e => updateVariant({ availableStock: parseInt(e.target.value) })}
             required
           />
         </div>
         <div className="space-y-2">
-          <Label>Stock on Backorder</Label>
+          <Label>Stock on Backorder <span className="text-xs text-muted-foreground">(Total)</span></Label>
           <Input
             type="number"
+            readOnly
             min="0"
             value={variant.stockOnBackorder}
-            onChange={e => updateVariant({ stockOnBackorder: parseInt(e.target.value) })}
+            // onChange={e => updateVariant({ stockOnBackorder: parseInt(e.target.value) })}
           />
         </div>
       </div>

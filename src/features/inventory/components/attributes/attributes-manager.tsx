@@ -100,11 +100,20 @@ export function AttributesManager({ attributes, onChange }: AttributesManagerPro
         </SortableContext>
       </DndContext>
 
+      {attributes.length === 0 && (
+        <div className="rounded-md border border-dashed p-8 text-center">
+          <p className="text-muted-foreground">
+            No attributes added yet. Click &quot;Add Attribute&quot; to get started.
+          </p>
+        </div>
+      )}
+      
       <div className="flex justify-center">
         <Button
           type="button"
           onClick={addAttribute}
           variant="secondary"
+          size="sm"
           disabled={attributes.at(-1)?.values.length == 0}
           className="w-full max-w-md"
         >
@@ -113,13 +122,6 @@ export function AttributesManager({ attributes, onChange }: AttributesManagerPro
         </Button>
       </div>
 
-      {attributes.length === 0 && (
-        <div className="rounded-md border border-dashed p-8 text-center">
-          <p className="text-muted-foreground">
-            No attributes added yet. Click &quot;Add Attribute&quot; to get started.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

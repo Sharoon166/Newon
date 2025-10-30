@@ -1,3 +1,4 @@
+import { ProductVariant } from '@/features/inventory/types';
 import mongoose from 'mongoose';
 
 // Define the variant schema
@@ -34,30 +35,56 @@ const variantSchema = new mongoose.Schema(
       required: true,
       min: [0, 'Shipping cost cannot be negative']
     },
+    // Legacy fields - kept for backward compatibility
     availableStock: {
       type: Number,
-      required: true,
+      default: 0,
       min: [0, 'Available stock cannot be negative']
     },
     stockOnBackorder: {
       type: Number,
-      required: true,
+      default: 0,
       min: [0, 'Backorder stock cannot be negative']
     },
+    // New inventory structure
+    inventory: [{
+      locationId: {
+        type: String,
+        required: true
+      },
+      availableStock: {
+        type: Number,
+        required: true,
+        min: [0, 'Available stock cannot be negative'],
+        default: 0
+      },
+      backorderStock: {
+        type: Number,
+        required: true,
+        min: [0, 'Backorder stock cannot be negative'],
+        default: 0
+      }
+    }],
+    // Image fields
     image: {
       type: String,
       validate: {
         validator: function (v: string) {
-          if (!v) return true; // Optional field
-          try {
-            new URL(v);
-            return true;
-          } catch {
-            return false;
-          }
+          return v === '' || v.startsWith('http');
         },
-        message: () => `Invalid URL`
+        message: 'Please provide a valid image URL'
       }
+    },
+    imageFile: {
+      dataUrl: String,
+      fileName: String,
+      fileType: String,
+      size: Number,
+      cloudinaryUrl: String,
+      publicId: String,
+      width: Number,
+      height: Number,
+      format: String
     }
   },
   { _id: false }
@@ -110,9 +137,15 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Supplier information is required']
     },
-    location: {
-      type: String,
-      default: ''
+    locations: {
+      type: [{
+        id: String,
+        name: String,
+        address: String,
+        isActive: Boolean,
+        order: Number
+      }],
+      default: []
     },
     categories: {
       type: [String],
@@ -125,16 +158,30 @@ const productSchema = new mongoose.Schema(
     variants: {
       type: [variantSchema],
       default: [],
-      validate: {
-        validator: function (this: { attributes: { length: number } }, v: unknown[]) {
-          // If there are no attributes, we should have exactly one variant
-          if (this.attributes.length === 0 && v.length !== 1) {
-            return false;
-          }
-          return true;
+      validate: [
+        {
+          validator: function(variants: ProductVariant[]) {
+            // If there are no attributes, we should have exactly one variant
+            if (this.attributes && this.attributes.length === 0) {
+              return variants.length === 1;
+            }
+            return true;
+          },
+          message: 'Products without attributes must have exactly one variant'
         },
-        message: 'Products without attributes must have exactly one variant'
-      }
+        {
+          validator: function(variants: ProductVariant[]) {
+            // Ensure all variants have required fields
+            return variants.every(variant => 
+              variant && 
+              variant.sku && 
+              variant.purchasePrice !== undefined &&
+              variant.retailPrice !== undefined
+            );
+          },
+          message: 'All variants must have required fields (sku, purchasePrice, retailPrice)'
+        }
+      ]
     }
   },
   {
@@ -154,6 +201,8 @@ productSchema.pre('save', function (next) {
   if (Array.isArray(this.variants) && this.variants.length === 0) {
     throw new Error('Products without attributes must have exactly one variant');
   }
+  console.log("VARIANTS",this.variants);
+  console.log("LOCATIONS",this.locations)
   next();
 });
 

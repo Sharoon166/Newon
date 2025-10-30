@@ -18,6 +18,12 @@ export interface ProductVariantImage {
   format?: string;
 }
 
+export interface LocationInventory {
+  locationId: string;
+  availableStock: number;
+  backorderStock: number;
+}
+
 export interface ProductVariant {
   id: string;
   sku: string;
@@ -28,13 +34,22 @@ export interface ProductVariant {
   retailPrice: number;
   wholesalePrice: number;
   shippingCost: number;
-  availableStock: number;
-  stockOnBackorder: number;
+  availableStock: number; // Legacy field, will be removed in future
+  stockOnBackorder: number; // Legacy field, will be removed in future
+  inventory: LocationInventory[]; // New inventory tracking per location
 }
 
 export interface AttributeValue {
   id: string;
   value: string;
+}
+
+export interface ProductLocation {
+  id: string;
+  name: string;
+  address?: string;
+  isActive: boolean;
+  order: number;
 }
 
 export interface ProductType {
@@ -43,9 +58,22 @@ export interface ProductType {
   supplier: string;
   categories: string[];
   description: string;
-  location?: string; // Location of the product (all variants share the same location)
+  locations: ProductLocation[]; // Available locations for this product
   variants: ProductVariant[];
   attributes: ProductAttribute[];
+}
+
+export interface InventoryItem {
+  locationId: string;
+  availableStock: number;
+  backorderStock: number;
+  location?: {
+    id: string;
+    name: string;
+    address?: string;
+    isActive: boolean;
+    order: number;
+  };
 }
 
 export interface EnhancedVariants extends ProductVariant {
@@ -54,5 +82,6 @@ export interface EnhancedVariants extends ProductVariant {
   categories: string[];
   description: string;
   productId: string;
-  location?: string; // Location of the product
+  locations?: ProductLocation[];
+  inventory: InventoryItem[];
 }

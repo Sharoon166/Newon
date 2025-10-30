@@ -76,8 +76,8 @@ export function AttributeInput({
 
   return (
     <div ref={setNodeRef} style={style} className="relative rounded-lg border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-8 mb-3">
+        <div className="flex items-center gap-2 grow max-w-lg">
           <button {...listeners} {...dndAttributes} className="cursor-grab active:cursor-grabbing">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -97,11 +97,11 @@ export function AttributeInput({
               onChange={e => setAttributeName(e.target.value)}
               onBlur={handleNameUpdate}
               onKeyDown={e => e.key === 'Enter' && handleNameUpdate()}
-              className="h-8 rounded border px-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-8 rounded border px-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary grow"
               autoFocus
             />
           ) : (
-            <h4 className="text-sm font-medium hover:bg-muted/50 px-2 py-1 rounded cursor-text">{attribute.name}</h4>
+            <h4 className="text-sm font-semibold hover:bg-muted/50 px-2 py-1 rounded cursor-text" onClick={() => setIsEditingName(true)}>{attribute.name}</h4>
           )}
         </div>
         <Button variant="ghost" size="icon" className="h-6 w-6" type="button" onClick={() => onRemove(attribute.id)}>
@@ -110,25 +110,26 @@ export function AttributeInput({
       </div>
 
       <div className="space-y-2">
-        <form onSubmit={addValue} className="flex items-center gap-2">
-          <Input
-            type="text"
-            value={newValue}
-            onChange={e => setNewValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add value and press Enter or comma"
-            className="w-full"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            variant="outline"
-            className={cn('shrink-0', !newValue.trim() && 'opacity-50 cursor-not-allowed')}
-            disabled={!newValue.trim()}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-        </form>
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={newValue}
+              onChange={e => setNewValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Add value and press Enter or comma"
+              className="w-full"
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={addValue}
+              className={cn('shrink-0', !newValue.trim() && 'opacity-50 cursor-not-allowed')}
+              disabled={!newValue.trim()}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         <div className="flex flex-wrap gap-2 mb-2">
           {attribute.values.map(value => (
             <Badge key={value} className="gap-3 text-sm border border-muted">

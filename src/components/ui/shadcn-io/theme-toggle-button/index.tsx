@@ -173,6 +173,7 @@ export const ThemeToggleButton = ({
 
   return (
     <Button
+      type='button'
       variant="outline"
       size={showLabel ? 'default' : 'icon'}
       onClick={handleClick}

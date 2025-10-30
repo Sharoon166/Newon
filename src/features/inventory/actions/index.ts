@@ -5,37 +5,48 @@ import ProductModel from '@/models/Product';
 import type { EnhancedVariants } from '../types';
 import { revalidatePath } from 'next/cache';
 
+import { ProductVariant, ProductAttribute } from '../types';
+
 type Product = {
   _id?: string;
   name: string;
   supplier: string;
   categories: string[];
-  location?: string;
-  attributes: {
-    id: string;
-    name: string;
-    values: string[];
-    isRequired: boolean;
-    order: number;
-  }[];
-  variants: {
-    id: string;
-    sku: string;
-    attributes: Record<string, string>;
-    purchasePrice: number;
-    retailPrice: number;
-    wholesalePrice: number;
-    shippingCost: number;
-    availableStock: number;
-    stockOnBackorder: number;
-    image?: string | undefined;
-  }[];
-  description?: string | undefined;
+  hasVariants: boolean;
+  locations?: Array<{ id: string; name: string; address?: string; isActive: boolean; order: number }>;
+  description?: string;
+  attributes: ProductAttribute[];
+  variants: (ProductVariant & {
+    // Add any additional fields that might be needed for the form
+    inventory: Array<{
+      locationId: string;
+      availableStock: number;
+      backorderStock: number;
+    }>;
+  })[];
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
-export const createProduct = async (product: Product) => {
+export const createProduct = async (product: Omit<Product, '_id'>) => {
   await dbConnect();
-  await ProductModel.create(product);
+  
+  // Ensure variants have the required inventory structure
+  const productWithDefaults = {
+    ...product,
+    variants: product.variants.map(variant => ({
+      ...variant,
+      // Ensure inventory exists and has the correct structure
+      inventory: Array.isArray(variant.inventory) 
+        ? variant.inventory 
+        : [],
+      // Set default values if not provided
+      availableStock: variant.availableStock ?? 0,
+      stockOnBackorder: variant.stockOnBackorder ?? 0,
+    })),
+  };
+
+  await ProductModel.create(productWithDefaults);
   revalidatePath('/inventory');
 };
 
@@ -46,16 +57,24 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
     // 1️⃣ Unwind variants — creates one document per variant
     { $unwind: '$variants' },
 
-    // 2️⃣ Project both product-level and variant-level fields
+    // 2️⃣ Add a new field with the product's locations
+    {
+      $addFields: {
+        'variants.locations': '$locations' // Add the locations array to each variant
+      }
+    },
+
+    // 3️⃣ Project both product-level and variant-level fields
     {
       $project: {
-        _id: 0, // exclude MongoDB’s default _id
+        _id: 0, // exclude MongoDB's default _id
         productId: '$_id',
         productName: '$name',
         supplier: '$supplier',
         categories: '$categories',
         description: '$description',
-        location: '$location',
+        hasVariants: '$hasVariants',
+        locations: '$locations', // Keep the locations array
 
         // Variant fields
         id: '$variants.id',
@@ -68,11 +87,41 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
         wholesalePrice: '$variants.wholesalePrice',
         shippingCost: '$variants.shippingCost',
         availableStock: '$variants.availableStock',
-        stockOnBackorder: '$variants.stockOnBackorder'
+        stockOnBackorder: '$variants.stockOnBackorder',
+        inventory: {
+          $ifNull: [
+            {
+              $map: {
+                input: '$variants.inventory',
+                as: 'inv',
+                in: {
+                  $mergeObjects: [
+                    '$$inv',
+                    {
+                      // Add location details to each inventory item
+                      location: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: '$locations',
+                              as: 'loc',
+                              cond: { $eq: ['$$loc.id', '$$inv.locationId'] }
+                            }
+                          },
+                          0
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            []
+          ]
+        }
       }
     }
   ]);
-
 
   return data as EnhancedVariants[];
 };
@@ -155,23 +204,94 @@ export const deleteProductByName = async (name: string) => {
   revalidatePath('/inventory');
 };
 
+// export const updateProduct = async (id: string, data: Product) => {
+//   await dbConnect();
+  
+//   console.log('INPUT DATA:', JSON.stringify(data, null, 2));
+
+//   const product = await ProductModel.findById(id);
+  
+//   if (!product) {
+//     throw new Error('Product not found');
+//   }
+
+//   // Assign all fields
+//   // Object.assign(product, data);
+//   product.set(data);
+
+  
+//   // Explicitly mark nested arrays as modified
+//   product.markModified('variants');
+//   product.markModified('locations');
+  
+//   await product.save();
+  
+//   const updatedProduct = product.toObject();
+  
+//   console.log('UPDATED PRODUCT:', JSON.stringify(updatedProduct, null, 2));
+
+//   revalidatePath('/inventory');
+//   revalidatePath(`/inventory/${id}/edit`);
+
+//   return updatedProduct;
+// };
+
 export const updateProduct = async (id: string, data: Product) => {
   await dbConnect();
-  // First find the product to ensure it exists
-  const product = await ProductModel.findById(id);
-  if (!product) {
-    throw new Error('Product not found');
+  
+  try {
+    console.log('INPUT DATA:', JSON.stringify(data, null, 2));
+
+    // Ensure variants have the correct structure
+    const updateData = {
+      ...data,
+      // Ensure variants is an array and has required fields
+      variants: Array.isArray(data.variants) 
+        ? data.variants.map(v => ({
+            ...v,
+            // Ensure inventory is an array of valid objects
+            inventory: Array.isArray(v.inventory) 
+              ? v.inventory.map(i => ({
+                  locationId: i.locationId,
+                  availableStock: Number(i.availableStock) || 0,
+                  backorderStock: Number(i.backorderStock) || 0
+                }))
+              : []
+          }))
+        : []
+    };
+
+    // First find the product to ensure it exists
+    const product = await ProductModel.findByIdAndUpdate(id, updateData, { new: true });
+    if (!product) {
+      throw new Error('Product not found');
+    }
+
+    // Update the product fields
+    // Object.assign(product, updateData);
+    
+    // // Mark nested arrays as modified
+    // product.markModified('variants');
+    // product.markModified('locations');
+
+  
+    
+    // Save with validation
+    // const updatedProduct = await product.save();
+    
+    // Convert to plain object
+    // const result = updatedProduct.toObject();
+    
+    console.log('UPDATED PRODUCT:', JSON.stringify(updateProduct, null, 2));
+
+    revalidatePath('/inventory');
+    revalidatePath(`/inventory/${id}/edit`);
+
+    return updateProduct;
+  } catch (error) {
+    console.error('Error updating product:', error);
+    throw error;
   }
-
-  // Update the product fields
-  Object.assign(product, data);
-
-  // Save with validation
-  const updatedProduct = await product.save();
-
-  revalidatePath('/inventory');
-  revalidatePath(`/inventory/${id}/edit`);
-  return updatedProduct;
 };
 
 export const getProductById = async (id: string) => {

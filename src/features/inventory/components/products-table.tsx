@@ -40,7 +40,7 @@ import {
 	Plus,
 	X,
 } from 'lucide-react';
-import { EnhancedVariants } from '../types';
+import { EnhancedVariants, ProductLocation } from '../types';
 import type { Color } from 'jspdf-autotable';
 import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -79,18 +79,18 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 					<div
 						className="cursor-pointer hover:opacity-80 transition-opacity"
 					>
-						<Avatar className="h-8 w-8 rounded-md sm:h-10 sm:w-10">
 							<ImageZoom>
+						<Avatar className="h-8 w-8 rounded-md sm:h-10 sm:w-10">
 								<AvatarImage
 									src={row.original.image}
 									alt={row.original.productName}
 									className='object-contain'
 								/>
-							</ImageZoom>
-							<AvatarFallback className="text-xs sm:text-sm">
+							<AvatarFallback className="text-xs rounded-md sm:text-sm">
 								{row.original.productName.charAt(0)}
 							</AvatarFallback>
 						</Avatar>
+							</ImageZoom>
 					</div>
 					<div className="min-w-0">
 						<div className="truncate font-medium">{row.original.productName}</div>
@@ -222,33 +222,65 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 		size: 120
 	},
 	{
-		accessorKey: 'location',
-		header: ({ column }) => {
-			const isSorted = column.getIsSorted();
+		accessorKey: 'inventory',
+		header: () => (
+			<div className="text-sm font-medium text-center">Locations</div>
+		),
+		cell: ({ row }) => {
+			const inventory = row.original.inventory || [];
+
+			if (inventory.length === 0) {
+				return <div className="text-sm text-muted-foreground text-center">-</div>;
+			}
+
 			return (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-					className="p-0 hover:bg-transparent"
-				>
-					Location
-					{isSorted ? (
-						isSorted === 'asc' ? (
-							<ChevronUp className="ml-2 h-4 w-4" />
-						) : (
-							<ChevronDown className="ml-2 h-4 w-4" />
-						)
-					) : (
-						<ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-					)}
-				</Button>
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button 
+							variant="ghost" 
+							className="h-auto p-0 text-sm font-normal hover:bg-transparent hover:underline underline-offset-2"
+						>
+							{inventory.length} location{inventory.length !== 1 ? 's' : ''}
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent className="w-64 p-2" align="start">
+						<div className="space-y-2 divide-y-2 divide-muted">
+							{inventory.map((item, index) => {
+								const location: Partial<ProductLocation> = item.location || {};
+								return (
+									<div 
+										key={location.id} 
+										className="flex flex-col gap-1 text-sm not-last:pb-2"
+									>
+										<div className="font-medium">{index + 1}. {location.name || 'Unknown Location'}</div>
+										<div className="flex justify-between items-center">
+											{location.address && (
+												<span className="text-muted-foreground text-xs">
+													{location.address}
+												</span>
+											)}
+										</div>
+											<div className="flex gap-2">
+												<Badge variant={item.availableStock > 0 ? 'default' : 'secondary'}>
+													{item.availableStock} in stock
+												</Badge>
+												{item.backorderStock > 0 && (
+													<Badge variant="outline" className="border-amber-500 text-amber-500">
+														{item.backorderStock} backorder
+													</Badge>
+												)}
+											</div>
+									</div>
+								);
+							})}
+						</div>
+					</PopoverContent>
+				</Popover>
 			);
 		},
-		cell: ({ row }) => (
-			<div className="text-sm text-muted-foreground truncate max-w-[120px]">{row.original.location || '-'}</div>
-		),
-		minSize: 100,
-		size: 120
+		minSize: 120,
+		size: 140,
+		enableSorting: false
 	},
 	{
 		id: 'actions',
