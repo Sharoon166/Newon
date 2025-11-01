@@ -15,6 +15,8 @@ import { ProductVariant, ProductAttribute, ProductVariantImage, LocationInventor
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 import { deleteCloudinaryImage } from '@/app/actions/cloudinary';
+import { getPurchasesByProductId, getPurchasesByVariantId } from '@/features/purchases/actions';
+import { AlertTriangle } from 'lucide-react';
 
 type InventoryLocation = {
   id: string;
@@ -31,6 +33,8 @@ interface VariantFormProps {
   onVariantChange: (updatedVariant: ProductVariant) => void;
   onRemove?: () => void;
   isSimpleProduct?: boolean;
+  productId?: string;
+  variantId?: string;
 }
 
 // Image upload component with preview and dropzone
@@ -62,7 +66,6 @@ function ImageUpload({
       setUploadError(null);
 
       try {
-        console.log({ value })
         // If there's an existing image, delete it first
         if (value?.publicId) {
           // await deleteImageFromCloudinary(value.publicId);
@@ -101,8 +104,6 @@ function ImageUpload({
           console.error('Cloudinary upload error:', result);
           throw new Error(result.error?.message || 'Failed to upload image to Cloudinary');
         }
-
-        console.log('Cloudinary upload successful:', result);
 
         // Update image data with Cloudinary response
         const updatedImage: ProductVariantImage = {
@@ -252,15 +253,50 @@ export function VariantForm({
   locations = [],
   onVariantChange,
   onRemove,
-  isSimpleProduct = false
+  isSimpleProduct = false,
+  productId,
+  variantId
 }: VariantFormProps) {
   const [activeTab, setActiveTab] = useState('details');
   const [activeLocations, setActiveLocations] = useState<InventoryLocation[]>([]);
+  const [purchasesAvailableStock, setPurchasesAvailableStock] = useState<number>(0);
+  const [purchasesTotalQuantity, setPurchasesTotalQuantity] = useState<number>(0);
+  const [loadingPurchases, setLoadingPurchases] = useState(false);
 
   // Update active locations when locations prop changes
   useEffect(() => {
     setActiveLocations(locations.filter(loc => loc.isActive));
   }, [locations]);
+
+  // Fetch purchases and calculate available stock
+  useEffect(() => {
+    if (productId) {
+      const fetchPurchases = async () => {
+        try {
+          setLoadingPurchases(true);
+          // Use variant-specific purchases if variantId is available, otherwise use product purchases
+          const purchases = variantId 
+            ? await getPurchasesByVariantId(productId, variantId)
+            : await getPurchasesByProductId(productId);
+                    
+          const totalAvailable = purchases.reduce((sum, p) => sum + (p.remaining || 0), 0);
+          const totalQuantity = purchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
+          
+          setPurchasesAvailableStock(totalAvailable);
+          setPurchasesTotalQuantity(totalQuantity);
+        } catch (error) {
+          console.error('Error fetching purchases:', error);
+        } finally {
+          setLoadingPurchases(false);
+        }
+      };
+      fetchPurchases();
+    } else {
+      // Reset if no productId
+      setPurchasesAvailableStock(0);
+      setPurchasesTotalQuantity(0);
+    }
+  }, [productId, variantId]);
 
   // Initialize inventory if not present
   useEffect(() => {
@@ -478,6 +514,64 @@ export function VariantForm({
 
         <TabsContent value="inventory" className="space-y-4">
           <div className="space-y-4">
+            {productId && (
+              <div className="space-y-2">
+                {loadingPurchases ? (
+                  <p className="text-sm text-muted-foreground">Calculating available stock from purchases...</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-4">
+                      <p className="text-sm font-medium">
+                        Total Purchased: <span className="font-bold">{purchasesTotalQuantity}</span> units
+                      </p>
+                      <p className="text-sm font-medium">
+                        Remaining Available: <span className="font-bold">{purchasesAvailableStock}</span> units
+                      </p>
+                    </div>
+                    {purchasesTotalQuantity > 0 && purchasesAvailableStock !== purchasesTotalQuantity && (
+                      <p className="text-xs text-muted-foreground">
+                        {purchasesTotalQuantity - purchasesAvailableStock} units have been allocated/sold.
+                      </p>
+                    )}
+                    {(() => {
+                      // Calculate combined total (available + backorder) across all locations
+                      const combinedTotal = (Array.isArray(variant.inventory) ? variant.inventory : []).reduce(
+                        (sum, item) => sum + (item.availableStock || 0) + (item.backorderStock || 0), 0
+                      );
+                      
+                      // Show error if combined total exceeds available purchases
+                      if (combinedTotal > purchasesAvailableStock) {
+                        const excess = combinedTotal - purchasesAvailableStock;
+                        return (
+                          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-red-800">
+                              <strong>Error:</strong> Combined inventory (available + backorder) of <strong>{combinedTotal}</strong> units exceeds available purchases of <strong>{purchasesAvailableStock}</strong> units by <strong>{excess}</strong> {excess === 1 ? 'unit' : 'units'}.
+                            </p>
+                          </div>
+                        );
+                      }
+                      
+                      // Show warning if there's untracked stock (comparing with combined total: available + backorder)
+                      if (purchasesAvailableStock > 0) {
+                        const untracked = purchasesAvailableStock - combinedTotal;
+                        if (untracked > 0) {
+                          return (
+                            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <p className="text-sm text-amber-800">
+                                <strong>{untracked}</strong> {untracked === 1 ? 'product is' : 'products are'} untracked. Backorder will be calculated from inventory.
+                              </p>
+                            </div>
+                          );
+                        }
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
             <h2>Inventory by Location</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activeLocations.map((location) => {

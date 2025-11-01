@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, FolderTree, Layers, Loader2, MapPin, Package, Package2, Save, Settings, Trash2, X } from 'lucide-react';
+import { AlertCircle, FolderTree, Layers, Loader2, MapPin, Package, Package2, Save, Settings, ShoppingCart, Trash2, X } from 'lucide-react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { AttributesManager } from './attributes/attributes-manager';
 import { VariantsManager } from './variants/variants-manager';
 import { LocationsManager } from './locations/locations-manager';
+import { PurchasesManager } from '@/features/purchases/components/purchases-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { createProduct, updateProduct, deleteProduct } from '../actions';
@@ -172,18 +173,17 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
     mode: 'onChange'
   });
 
-  // Initialize form with initialData when it changes
-  useEffect(() => {
-    if (initialData) {
-      form.reset(initialData);
-    }
-  }, [initialData, form]);
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
 
   const attributes = form.watch('attributes') || [];
 
   const { formState, reset, setValue, watch } = form;
 
   // Watch locations to update variants when locations change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const locations = watch('locations') || [];
 
   // Update variants when locations change to ensure all variants have inventory for all locations
@@ -254,14 +254,17 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
           : []
       };
       if (mode === 'edit' && initialData?._id) {
-        console.log({ initialData, formData });
         await updateProduct(initialData._id, formData);
       } else {
         await createProduct(formData);
       }
 
       if (!createMoreThanOne) {
-        router.push('/inventory');
+        if (mode === 'edit' && initialData?._id) {
+          router.push(`/inventory/${initialData._id}`);
+        } else {
+          router.push('/inventory');
+        }
         router.refresh(); // Refresh the page to show updated data
       } else {
         reset()
@@ -464,7 +467,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
               />
             </Card>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
               <TabsList className='h-max'>
                 <TabsTrigger value="attributes" >
                   <Layers className="h-4 w-4 max-sm:size-5" />
@@ -483,6 +486,12 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                     <span className="max-sm:hidden">Product info</span>
                   </>}
                 </TabsTrigger>
+                {mode === 'edit' && (
+                  <TabsTrigger value="purchases" disabled={formState.isSubmitting}>
+                    <ShoppingCart className="h-4 w-4 max-sm:size-5" />
+                    <span className="max-sm:hidden">Purchases</span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="settings" disabled={formState.isSubmitting}>
                   <Settings className="h-4 w-4 max-sm:size-5" />
                   <span className="max-sm:hidden">Settings</span>
@@ -529,21 +538,32 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                     </p>
                   </div>}
                 </div>
-                {!hasVariants && (
-                  <div className="rounded-md bg-blue-50 p-4 mb-4">
-                    <p className="text-sm text-blue-700">
-                      Simple product mode. You can add attributes with the attributes tab.
-                    </p>
-                  </div>
-                )}
                 <VariantsManager
                   attributes={form.watch('attributes')}
                   variants={form.watch('variants')}
                   locations={form.watch('locations')}
                   onChange={(variants) => form.setValue('variants', variants)}
                   isSimpleProduct={!hasVariants}
+                  productId={mode === 'edit' ? initialData?._id : undefined}
                 />
               </TabsContent>
+
+              {mode === 'edit' && initialData?._id && (
+                <TabsContent value="purchases" className="space-y-4">
+                  <Card className="p-6">
+                    <CardTitle>Purchase Management</CardTitle>
+                    <CardDescription>
+                      Track and manage purchase history for product variants. Purchases are tracked per variant and help track incoming stock and costs.
+                    </CardDescription>
+                    <PurchasesManager
+                      productId={initialData._id}
+                      variants={watch('variants') || []}
+                      locations={watch('locations') || []}
+                      suppliers={watch('supplier') ? [watch('supplier')] : []}
+                    />
+                  </Card>
+                </TabsContent>
+              )}
 
               <TabsContent value="settings">
                 <Card className="p-6">

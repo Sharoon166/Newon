@@ -19,6 +19,7 @@ type VariantsManagerProps = {
   }>;
   onChange: (variants: ProductVariant[]) => void;
   isSimpleProduct?: boolean;
+  productId?: string;
 };
 
 export function VariantsManager({ 
@@ -26,7 +27,8 @@ export function VariantsManager({
   variants, 
   locations = [], 
   onChange, 
-  isSimpleProduct = false 
+  isSimpleProduct = false,
+  productId
 }: VariantsManagerProps) {
   const updateVariant = (id: string, updates: Partial<ProductVariant>) => {
     onChange(variants.map(variant => (variant.id === id ? { ...variant, ...updates } : variant)));
@@ -100,6 +102,8 @@ export function VariantsManager({
                     onRemove={isSimpleProduct ? undefined : () => removeVariant(variant.id)}
                     locations={locations}
                     isSimpleProduct={isSimpleProduct}
+                    productId={productId}
+                    variantId={variant.id}
                   />
                 </Card>
               ))}

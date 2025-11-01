@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 
 import { ProductVariant, ProductAttribute } from '../types';
 
-type Product = {
+type LeanProduct = {
   _id?: string;
   name: string;
   supplier: string;
@@ -28,7 +28,7 @@ type Product = {
   updatedAt?: Date;
 };
 
-export const createProduct = async (product: Omit<Product, '_id'>) => {
+export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
   await dbConnect();
   
   // Ensure variants have the required inventory structure
@@ -54,29 +54,38 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
   await dbConnect();
 
   const data = await ProductModel.aggregate([
-    // 1️⃣ Unwind variants — creates one document per variant
-    { $unwind: '$variants' },
-
-    // 2️⃣ Add a new field with the product's locations
-    {
-      $addFields: {
-        'variants.locations': '$locations' // Add the locations array to each variant
+    { 
+      $unwind: {
+        path: '$variants',
+        preserveNullAndEmptyArrays: false
       }
     },
 
-    // 3️⃣ Project both product-level and variant-level fields
     {
       $project: {
-        _id: 0, // exclude MongoDB's default _id
-        productId: '$_id',
+        _id: 0,
+        productId: { $toString: '$_id' }, // Convert ObjectId to string
         productName: '$name',
         supplier: '$supplier',
         categories: '$categories',
         description: '$description',
         hasVariants: '$hasVariants',
-        locations: '$locations', // Keep the locations array
+        locations: {
+          $map: {
+            input: '$locations',
+            as: 'loc',
+            in: {
+              id: '$$loc.id',
+              name: '$$loc.name',
+              address: '$$loc.address',
+              isActive: '$$loc.isActive',
+              order: '$$loc.order',
+              // Exclude _id or convert it
+              // If you need it: _id: { $toString: '$$loc._id' }
+            }
+          }
+        },
 
-        // Variant fields
         id: '$variants.id',
         sku: '$variants.sku',
         attributes: '$variants.attributes',
@@ -88,36 +97,45 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
         shippingCost: '$variants.shippingCost',
         availableStock: '$variants.availableStock',
         stockOnBackorder: '$variants.stockOnBackorder',
+        
         inventory: {
-          $ifNull: [
-            {
-              $map: {
-                input: '$variants.inventory',
-                as: 'inv',
-                in: {
-                  $mergeObjects: [
-                    '$$inv',
-                    {
-                      // Add location details to each inventory item
-                      location: {
-                        $arrayElemAt: [
-                          {
-                            $filter: {
-                              input: '$locations',
-                              as: 'loc',
-                              cond: { $eq: ['$$loc.id', '$$inv.locationId'] }
-                            }
-                          },
-                          0
-                        ]
+          $map: {
+            input: { $ifNull: ['$variants.inventory', []] },
+            as: 'inv',
+            in: {
+              $mergeObjects: [
+                '$$inv',
+                {
+                  location: {
+                    $let: {
+                      vars: {
+                        foundLoc: {
+                          $arrayElemAt: [
+                            {
+                              $filter: {
+                                input: '$locations',
+                                as: 'loc',
+                                cond: { $eq: ['$$loc.id', '$$inv.locationId'] }
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      in: {
+                        id: '$$foundLoc.id',
+                        name: '$$foundLoc.name',
+                        address: '$$foundLoc.address',
+                        isActive: '$$foundLoc.isActive',
+                        order: '$$foundLoc.order'
+                        // Exclude _id
                       }
                     }
-                  ]
+                  }
                 }
-              }
-            },
-            []
-          ]
+              ]
+            }
+          }
         }
       }
     }
@@ -236,12 +254,10 @@ export const deleteProductByName = async (name: string) => {
 //   return updatedProduct;
 // };
 
-export const updateProduct = async (id: string, data: Product) => {
+export const updateProduct = async (id: string, data: LeanProduct) => {
   await dbConnect();
   
   try {
-    console.log('INPUT DATA:', JSON.stringify(data, null, 2));
-
     // Ensure variants have the correct structure
     const updateData = {
       ...data,
@@ -282,8 +298,6 @@ export const updateProduct = async (id: string, data: Product) => {
     // Convert to plain object
     // const result = updatedProduct.toObject();
     
-    console.log('UPDATED PRODUCT:', JSON.stringify(updateProduct, null, 2));
-
     revalidatePath('/inventory');
     revalidatePath(`/inventory/${id}/edit`);
 
@@ -298,5 +312,5 @@ export const getProductById = async (id: string) => {
   await dbConnect();
   const product = await ProductModel.findById(id).lean();
   if (!product) return null;
-  return product as unknown as Product;
+  return product as unknown as LeanProduct;
 };

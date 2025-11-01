@@ -13,8 +13,6 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const publicId = searchParams.get('publicId');
 
-    console.log("DELETE API WAS HIT")
-
     if (!publicId) {
       return NextResponse.json(
         { message: 'Missing publicId parameter' },

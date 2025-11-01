@@ -25,6 +25,7 @@ import {
 	DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -314,6 +315,7 @@ interface ProductsTableProps {
 }
 
 export function ProductsTable({ data = [] }: ProductsTableProps) {
+	const router = useRouter();
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -660,6 +662,15 @@ export function ProductsTable({ data = [] }: ProductsTableProps) {
 								<TableRow
 									key={row.id}
 									data-state={row.getIsSelected() && "selected"}
+									className="cursor-pointer hover:bg-muted/50 transition-colors"
+									onClick={(e) => {
+										// Don't navigate if clicking on interactive elements
+										const target = e.target as HTMLElement;
+										if (target.closest('button') || target.closest('a') || target.closest('[role="button"]')) {
+											return;
+										}
+										router.push(`/inventory/${row.original.productId}`);
+									}}
 								>
 									{row.getVisibleCells().map((cell) => (
 										<TableCell key={cell.id} className="whitespace-nowrap px-3 py-3 text-sm text-gray-900 dark:text-gray-100">

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Coins, LayoutDashboard, Lightbulb, MapPin, ScrollTextIcon, Settings2, ShoppingCart } from 'lucide-react';
+import { Coins, LayoutDashboard, Lightbulb, ScrollTextIcon, Settings2, ShoppingCart, Users } from 'lucide-react';
 
 import {
   Sidebar,
@@ -25,7 +25,7 @@ const data = {
   navSecondary: [
     {
       title: 'Setting',
-      url: '/setting',
+      url: '/settings',
       icon: Settings2
     }
   ],
@@ -41,6 +41,11 @@ const data = {
       icon: ShoppingCart
     },
     {
+      name: 'Staff Management',
+      url: '/staff',
+      icon: Users
+    },
+    {
       name: 'Billing & quotation',
       url: '#',
       icon: ScrollTextIcon
@@ -49,10 +54,6 @@ const data = {
       name: 'Ledger',
       url: '/ledger',
       icon: Coins
-    }, {
-      name: 'Locations',
-      url: '/locations',
-      icon: MapPin
     }
   ]
 };

@@ -11,6 +11,7 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 export function NavProjects({
   projects
@@ -22,7 +23,7 @@ export function NavProjects({
   }[];
 }) {
   const { isMobile } = useSidebar();
-  console.log(isMobile);
+  console.log(isMobile); 
   const pathname = usePathname();
 
   return (
@@ -32,13 +33,13 @@ export function NavProjects({
         {projects.map(item => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild>
-              <a
+              <Link
                 href={item.url}
                 className={pathname.includes(item.url) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
               >
                 <item.icon className="size-6" />
                 <span>{item.name}</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         ))}

@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
-import DashboardLayout from '@/components/layout/dashboard-layout';
 import { ProductsTable } from '@/features/inventory/components/products-table';
 import Link from 'next/link';
 import { getProducts } from '@/features/inventory/actions';
@@ -9,7 +8,6 @@ export default async function InventoryPage() {
   const products = await getProducts();
 
   return (
-    <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-6">
           <div>
@@ -27,6 +25,5 @@ export default async function InventoryPage() {
           <ProductsTable data={products} />
         </div>
       </div>
-    </DashboardLayout>
   );
 }

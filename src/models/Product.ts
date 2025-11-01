@@ -201,8 +201,6 @@ productSchema.pre('save', function (next) {
   if (Array.isArray(this.variants) && this.variants.length === 0) {
     throw new Error('Products without attributes must have exactly one variant');
   }
-  console.log("VARIANTS",this.variants);
-  console.log("LOCATIONS",this.locations)
   next();
 });
 

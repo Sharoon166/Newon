@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { AlertCircle } from 'lucide-react';
+import { ThemeProvider } from '@/providers/theme-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -25,11 +26,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}
-        <Toaster position="bottom-right" richColors theme="light" visibleToasts={1} icons={{
-          error: <AlertCircle className="size-6 text-destructive" />,
-        }} />
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster 
+            position="bottom-right" 
+            richColors 
+            theme="light" 
+            visibleToasts={1} 
+            icons={{
+              error: <AlertCircle className="h-4 w-4 text-destructive" />,
+            }} 
+          />
+        </ThemeProvider>
       </body>
     </html>
   );
