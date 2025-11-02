@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 import type { CreatePurchaseDto, UpdatePurchaseDto } from '../types';
 
 // Type for lean purchase document from MongoDB
-type LeanPurchase = {
+export type LeanPurchase = {
   _id: mongoose.Types.ObjectId;
   productId: mongoose.Types.ObjectId;
   variantId: string;
@@ -25,6 +25,63 @@ type LeanPurchase = {
   __v?: number;
 };
 
+
+export const getAllPurchases = async () => {
+  await dbConnect();
+  
+  const purchases = await PurchaseModel.aggregate([
+    {
+      $lookup: {
+        from: 'products',
+        localField: 'productId',
+        foreignField: '_id',
+        as: 'product'
+      }
+    },
+    {
+      $unwind: {
+        path: '$product',
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    {
+      $sort: { purchaseDate: -1 }
+    },
+    {
+      $project: {
+        id: { $toString: '$_id' },
+        productId: { $toString: '$productId' },
+        variantId: 1,
+        supplier: 1,
+        locationId: 1,
+        quantity: 1,
+        unitPrice: 1,
+        totalCost: 1,
+        purchaseDate: 1,
+        remaining: 1,
+        notes: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        productName: '$product.name',
+        productSupplier: '$product.supplier',
+        variant: {
+          $arrayElemAt: [
+            {
+              $filter: {
+                input: '$product.variants',
+                as: 'variant',
+                cond: { $eq: ['$$variant.id', '$variantId'] }
+              }
+            },
+            0
+          ]
+        }
+      }
+    }
+  ]);
+  
+  return purchases;
+};
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
   await dbConnect();
@@ -193,6 +250,7 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   revalidatePath(`/inventory/${data.productId}/edit`);
   revalidatePath(`/inventory/${data.productId}`);
   revalidatePath('/inventory');
+  revalidatePath('/purchases');
   
   const purchaseObj = newPurchase.toObject();
   return {
@@ -230,6 +288,54 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     }
   }
   
+  // If quantity is being updated and there's a locationId, adjust inventory
+  const quantityDiff = data.quantity !== undefined ? data.quantity - purchase.quantity : 0;
+  
+  if (quantityDiff !== 0 && purchase.locationId) {
+    const product = await ProductModel.findById(purchase.productId);
+    if (product && product.variants) {
+      const variantIndex = product.variants.findIndex(v => v.id === purchase.variantId);
+      if (variantIndex >= 0) {
+        const variant = product.variants[variantIndex];
+        const inventory = Array.isArray(variant.inventory) ? variant.inventory : [];
+        
+        // Find inventory entry for this location
+        const locationInventoryIndex = inventory.findIndex(
+          inv => inv.locationId === purchase.locationId
+        );
+        
+        if (locationInventoryIndex >= 0) {
+          // Update existing inventory entry by adding the difference
+          inventory[locationInventoryIndex].availableStock += quantityDiff;
+          // Ensure it doesn't go below 0
+          if (inventory[locationInventoryIndex].availableStock < 0) {
+            inventory[locationInventoryIndex].availableStock = 0;
+          }
+        } else if (quantityDiff > 0) {
+          // Add new inventory entry if quantity is increased and location doesn't exist
+          inventory.push({
+            locationId: purchase.locationId!,
+            availableStock: quantityDiff,
+            backorderStock: 0
+          });
+        }
+        
+        // Update variant inventory
+        variant.inventory = inventory;
+        
+        // Update legacy fields for backward compatibility
+        const totalAvailable = inventory.reduce((sum, inv) => sum + (inv.availableStock || 0), 0);
+        const totalBackorder = inventory.reduce((sum, inv) => sum + (inv.backorderStock || 0), 0);
+        variant.availableStock = totalAvailable;
+        variant.stockOnBackorder = totalBackorder;
+        
+        // Mark variants as modified
+        product.markModified('variants');
+        await product.save();
+      }
+    }
+  }
+  
   const updateData: Partial<UpdatePurchaseDto & { totalCost?: number }> = { ...data };
   
   // Recalculate totalCost if quantity or unitPrice is updated
@@ -252,7 +358,9 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   const productId = updatedPurchase.productId.toString();
   
   revalidatePath(`/inventory/${productId}/edit`);
+  revalidatePath(`/inventory/${productId}`);
   revalidatePath('/inventory');
+  revalidatePath('/purchases');
   
   return {
     ...updatedPurchase,
@@ -274,9 +382,49 @@ export const deletePurchase = async (id: string) => {
   
   const productId = purchase.productId.toString();
   
+  // If locationId is provided, update the variant inventory for that location by subtracting the quantity
+  if (purchase.locationId) {
+    const product = await ProductModel.findById(productId);
+    if (product && product.variants) {
+      const variantIndex = product.variants.findIndex(v => v.id === purchase.variantId);
+      if (variantIndex >= 0) {
+        const variant = product.variants[variantIndex];
+        const inventory = Array.isArray(variant.inventory) ? variant.inventory : [];
+        
+        // Find inventory entry for this location
+        const locationInventoryIndex = inventory.findIndex(
+          inv => inv.locationId === purchase.locationId
+        );
+        
+        if (locationInventoryIndex >= 0) {
+          // Update existing inventory entry by subtracting the quantity
+          inventory[locationInventoryIndex].availableStock -= purchase.quantity;
+          // Ensure it doesn't go below 0
+          if (inventory[locationInventoryIndex].availableStock < 0) {
+            inventory[locationInventoryIndex].availableStock = 0;
+          }
+        }
+        
+        // Update variant inventory
+        variant.inventory = inventory;
+        
+        // Update legacy fields for backward compatibility
+        const totalAvailable = inventory.reduce((sum, inv) => sum + (inv.availableStock || 0), 0);
+        const totalBackorder = inventory.reduce((sum, inv) => sum + (inv.backorderStock || 0), 0);
+        variant.availableStock = totalAvailable;
+        variant.stockOnBackorder = totalBackorder;
+        
+        // Mark variants as modified
+        product.markModified('variants');
+        await product.save();
+      }
+    }
+  }
+  
   await PurchaseModel.deleteOne({ _id: id });
   
   revalidatePath(`/inventory/${productId}/edit`);
+  revalidatePath(`/inventory/${productId}`);
   revalidatePath('/inventory');
 };
 

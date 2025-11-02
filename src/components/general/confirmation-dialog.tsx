@@ -78,7 +78,7 @@ const ConfirmationDialog = ({
 
                 <SheetFooter className="sm:justify-end">
                     <Button
-                        variant={variant === "destructive" ? "destructive" : "default"}
+                        variant={variant === "destructive" ? "destructive" : "success"}
                         onClick={handleConfirm}
                         disabled={isLoading || isProcessing}
                     >

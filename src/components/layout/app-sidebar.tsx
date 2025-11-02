@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Coins, LayoutDashboard, Lightbulb, ScrollTextIcon, Settings2, ShoppingCart, Users } from 'lucide-react';
+import { Coins, LayoutDashboard, Lightbulb, Package, ScrollTextIcon, Settings2, ShoppingCart, Users } from 'lucide-react';
 
 import {
   Sidebar,
@@ -39,6 +39,11 @@ const data = {
       name: 'Inventory',
       url: '/inventory',
       icon: ShoppingCart
+    },
+    {
+      name: 'Purchases',
+      url: '/purchases',
+      icon: Package
     },
     {
       name: 'Staff Management',

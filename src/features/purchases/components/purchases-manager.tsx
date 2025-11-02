@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import {
@@ -32,6 +33,7 @@ export function PurchasesManager({
   locations = [],
   suppliers = [],
 }: PurchasesManagerProps) {
+  const router = useRouter();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -87,6 +89,14 @@ export function PurchasesManager({
 
   const handleFormSuccess = () => {
     loadPurchases();
+    // Refresh the page to get updated product data with inventory changes
+    router.refresh();
+  };
+
+  const handleDeleteSuccess = () => {
+    loadPurchases();
+    // Refresh the page to get updated product data with inventory changes
+    router.refresh();
   };
 
   const handleFormClose = () => {
@@ -219,7 +229,7 @@ export function PurchasesManager({
           purchases={purchases}
           locations={locations}
           onEdit={handleEdit}
-          onRefresh={loadPurchases}
+          onRefresh={handleDeleteSuccess}
         />
       )}
 

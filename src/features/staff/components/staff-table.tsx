@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  ColumnDef, 
-  ColumnFiltersState, 
-  Row, 
-  SortingState, 
-  flexRender, 
-  getCoreRowModel, 
-  getFilteredRowModel, 
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  Row,
+  SortingState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
   useReactTable,
   getSortedRowModel,
   getPaginationRowModel,
@@ -20,8 +20,9 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowUpDown, Pencil, Search } from 'lucide-react';
 import { StaffMember } from '../types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatDate } from '@/lib/utils';
+import { cn, formatDate } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { TablePagination } from '@/components/general/table-pagination';
 
 interface StaffTableProps {
   data: StaffMember[];
@@ -58,7 +59,8 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
         </Button>
       ),
       cell: ({ row }) => (
-        <div className="font-medium">
+        <div className="font-medium inline-flex items-center gap-2">
+          <div className={cn("size-2 rounded-full", row.original.isActive ? "bg-green-500" : "bg-red-500")} />
           {row.original.firstName} {row.original.lastName}
           {!row.original.isActive && (
             <Badge variant="outline" className="ml-2 text-xs">Inactive</Badge>
@@ -117,8 +119,8 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
         return (
           <div className="flex justify-end">
             {onEdit && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => onEdit(member.id)}
                 className="h-8 w-8"
@@ -164,12 +166,12 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center justify-between w-full space-x-4">
           <InputGroup className='max-w-sm'>
-          <InputGroupInput placeholder='Search staff...' value={globalFilter ?? ''}
-            onChange={(event) => setGlobalFilter(event.target.value)}
+            <InputGroupInput placeholder='Search staff...' value={globalFilter ?? ''}
+              onChange={(event) => setGlobalFilter(event.target.value)}
             />
-          <InputGroupAddon>
-          <Search className="h-4 w-4" />
-          </InputGroupAddon>
+            <InputGroupAddon>
+              <Search className="h-4 w-4" />
+            </InputGroupAddon>
           </InputGroup>
           <Select
             onValueChange={(value) =>
@@ -181,8 +183,8 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
               table.getColumn('isActive')?.getFilterValue() === undefined
                 ? 'all'
                 : table.getColumn('isActive')?.getFilterValue()
-                ? 'active'
-                : 'inactive'
+                  ? 'active'
+                  : 'inactive'
             }
           >
             <SelectTrigger className="w-[180px]">
@@ -190,8 +192,12 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="active">
+                <div className="size-2 rounded-full border bg-green-500" />
+                Active</SelectItem>
+              <SelectItem value="inactive">
+                <div className="size-2 rounded-full border bg-red-500" />
+                Inactive</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -208,9 +214,9 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
@@ -223,7 +229,7 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={!row.original.isActive ? 'opacity-60 pointer-events-none cursor-not-allowed' : ''}
+                  className={!row.original.isActive ? 'opacity-60 cursor-not-allowed' : ''}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -249,83 +255,12 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-2">
-        <div className="text-sm text-muted-foreground">
-          Showing {table.getRowModel().rows.length} of{' '}
-          {table.getFilteredRowModel().rows.length} row{table.getFilteredRowModel().rows.length !== 1 ? 's' : ''}
-        </div>
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
-            <Select
-              value={`${table.getState().pagination.pageSize}`}
-              onValueChange={(value) => {
-                table.setPageSize(Number(value));
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue placeholder={table.getState().pagination.pageSize} />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 20, 30, 40, 50].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-            Page {table.getState().pagination.pageIndex + 1} of{' '}
-            {table.getPageCount()}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              className="h-8 w-8 p-0"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              <span className="sr-only">Go to previous page</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-8 w-8 p-0"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              <span className="sr-only">Go to next page</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
-            </Button>
-          </div>
-        </div>
+      <div className="flex items-center space-x-2">
+        <TablePagination
+          table={table}
+          itemName="Staff"
+          className="mt-4"
+        />
       </div>
     </div>
   );

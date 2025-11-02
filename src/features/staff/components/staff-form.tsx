@@ -146,7 +146,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             <FormItem>
               <FormLabel>Phone Number</FormLabel>
               <FormControl>
-                <Input placeholder="+1 (555) 123-4567" {...field} />
+                <Input placeholder="+92 300 1234567" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -166,7 +166,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
+                  {/* <SelectItem value="admin">Administrator</SelectItem> */}
                   <SelectItem value="staff">Staff</SelectItem>
                 </SelectContent>
               </Select>

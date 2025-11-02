@@ -203,7 +203,7 @@
   --spacing: 0.25rem;
 }
 
-.dark {
+/* .dark {
   --background: oklch(17.97% 0.00435 308.034 / 0.575);
   --foreground: oklch(0.8109 0 0);
   --card: oklch(0.1822 0 0);
@@ -254,7 +254,7 @@
   --shadow-lg: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 4px 6px -1px hsl(0 0% 0% / 0.05);
   --shadow-xl: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 8px 10px -1px hsl(0 0% 0% / 0.05);
   --shadow-2xl: 0px 1px 4px 0px hsl(0 0% 0% / 0.13);
-}
+} */
 
 @theme inline {
   --color-background: var(--background);

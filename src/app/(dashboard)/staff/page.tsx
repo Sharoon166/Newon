@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { getStaffMembers, toggleStaffStatus, deleteStaffMember } from '@/features/staff/actions';
 import { PageHeader } from '@/components/general/page-header';
 import { StaffTableWrapper } from '@/features/staff/components/staff-table-wrapper';
+
+const MAX_STAFF = 2;
 
 export default async function StaffPage() {
   // Fetch staff members on the server
@@ -39,16 +41,31 @@ export default async function StaffPage() {
         title="Staff Management"
         description="Manage your staff members and their permissions"
       >
-        <Button asChild>
-          <Link href="/staff/add">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Staff
-          </Link>
-        </Button>
+        {
+          staffMembers.length < MAX_STAFF
+            ? <Button asChild>
+              <Link href="/staff/add">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Staff
+              </Link>
+            </Button>
+            : <Button disabled>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Staff
+            </Button>}
       </PageHeader>
 
+      {
+        staffMembers.length >= MAX_STAFF && <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-amber-800">
+            A max of <strong>{MAX_STAFF} staff members</strong> are allowed.
+          </p>
+        </div>
+      }
+
       <div className="mt-6">
-        <StaffTableWrapper 
+        <StaffTableWrapper
           initialData={staffMembers}
           toggleStatusAction={toggleStatusAction}
           deleteStaffAction={deleteStaffAction}

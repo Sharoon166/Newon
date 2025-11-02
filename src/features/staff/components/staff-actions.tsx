@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+import { cn } from '@/lib/utils';
 
 export function StaffActions({
   id,
@@ -93,6 +94,7 @@ export function StaffActions({
         onConfirm={handleStatusChange}
         isProcessing={isProcessing}
         variant={isActive ? 'destructive' : 'default'}
+        icon={<Power className={cn("mr-2 h-4 w-4", isActive ? "text-destructive" : "text-green-500")} />}
       />
 
       {/* Delete Confirmation */}
