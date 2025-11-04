@@ -27,15 +27,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Search, X, ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight, Download, FileSpreadsheet, MoreHorizontal, Pencil, LucideColumns3Cog } from 'lucide-react';
+import { Plus, Search, X, ChevronDown, ChevronUp, Download, FileSpreadsheet, MoreHorizontal, Pencil, LucideColumns3Cog } from 'lucide-react';
 import { EnhancedVariants, ProductLocation } from '../types';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency} from '@/lib/utils';
 import { useMemo, useState } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
-import type { Color } from 'jspdf-autotable';
-import { exportToCsv, prepareProductExportData } from '../utils/export-utils';
-import { exportToPdf } from '@/lib/export-utils';
+import { exportToCsv, exportToPdf, prepareProductExportData } from '../utils/export-utils';
 import { TablePagination } from '@/components/general/table-pagination';
 
 // Define columns
@@ -578,7 +576,7 @@ export function ProductsTable({ data = [] }: ProductsTableProps) {
 				</Table>
 			</div>
 
-			<TablePagination table={table} itemName="Products" className='mt-4' />
+			<TablePagination table={table} itemName="Products" />
 		</div>
 	);
 }

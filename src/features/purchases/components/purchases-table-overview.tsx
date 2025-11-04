@@ -17,12 +17,12 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight, Search, ExternalLink, Download, FileSpreadsheet } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, ExternalLink, Download, FileSpreadsheet } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase } from '../types';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
-import { exportToCsv, exportToPdf, type CsvExportData } from '../utils/export-utils';
+import { exportToCsv, exportToPdf } from '../utils/export-utils';
 import { TablePagination } from '@/components/general/table-pagination';
 
 // Extend the Purchase type with additional properties from the API
@@ -365,7 +365,7 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
         </Table>
       </div>
 
-      <TablePagination table={table} className="mt-4" itemName="Purchases" />
+      <TablePagination table={table} itemName="Purchases" />
     </div>
   );
 }

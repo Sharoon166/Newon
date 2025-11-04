@@ -25,5 +25,5 @@ export function formatCurrency(num: number) {
     notation: 'compact',
     minimumFractionDigits: 0,
     maximumFractionDigits: 3
-  });
+  }).replace(/\u00A0/g, ' ');
 }

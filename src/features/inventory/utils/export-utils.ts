@@ -1,17 +1,18 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { EnhancedVariants } from '../types';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 // Type for the CSV export data
 export type CsvExportData = {
-  'Product Name': string;
+  'Product': string;
   'SKU': string;
   'Categories': string;
   'Retail Price': string;
   'Purchase Price': string;
   'Wholesale Price': string;
-  'Available Stock': number;
-  'Stock on Backorder': number;
+  'Available': number;
+  'Backorder': number;
   'Supplier': string;
 };
 
@@ -46,7 +47,7 @@ export const exportToCsv = (data: CsvExportData[], filename: string): void => {
   // Create a Blob with the CSV data
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  
+
   // Create a temporary link and trigger download
   const link = document.createElement('a');
   link.setAttribute('href', url);
@@ -66,13 +67,14 @@ export const exportToPdf = <T extends ExportData>(data: T[], filename: string): 
   if (!data || data.length === 0) return;
 
   const doc = new jsPDF({
-    orientation: 'l',
+    orientation: 'p',
     unit: 'mm',
-    format: 'a4'
+    format: 'a4',
+    compress: true
   });
 
   const headers = Object.keys(data[0]);
-  const tableData = data.map(item => 
+  const tableData = data.map(item =>
     headers.map(header => {
       const value = item[header];
       return typeof value === 'object' ? JSON.stringify(value) : String(value || '');
@@ -80,34 +82,64 @@ export const exportToPdf = <T extends ExportData>(data: T[], filename: string): 
   );
 
   // Add header
-  doc.setFillColor(41, 128, 185);
-  doc.rect(0, 0, 297, 35, 'F');
+  doc.setFillColor(216, 121, 67);
+  doc.rect(0, 0, 297, 30, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
-  doc.text('Inventory Report', 14, 22);
-  doc.setFontSize(10);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+  doc.text('Inventory Report', 14, 18);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.text(`${formatDate(new Date())}`, 14, 24);
 
-  // Add table
+  let pageNumber = 1;
+
+  // Add table with horizontal lines only
   autoTable(doc, {
     head: [headers],
     body: tableData,
     startY: 40,
-    theme: 'grid',
+    theme: 'striped',
+    columnStyles: {
+      0: { cellWidth: 'auto' }
+    },
     headStyles: {
-      fillColor: [41, 128, 185],
-      textColor: 255,
-      fontStyle: 'bold',
+      fillColor: [255, 255, 255],
+      textColor: [50, 50, 50],
+      font: 'helvetica',
+      fontStyle: 'bolditalic',
+      halign: 'left',
+      fontSize: 8,
+      lineWidth: 0.3,
+      lineColor: [25, 25, 25]
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [60, 60, 60],
+      lineWidth: 0.3,
+      lineColor: [25, 25, 25],
+      valign: 'middle'
     },
     alternateRowStyles: {
-      fillColor: [245, 245, 245]
+      fillColor: [255, 255, 255]
     },
-    margin: { top: 40 },
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-    },
+    margin: { top: 40, left: 15, right: 15 },
+    didDrawPage: () => {
+      // Add page number at the bottom right of each page
+      const pageSize = doc.internal.pageSize;
+      const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+      const pageCount = doc.getNumberOfPages();
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Page ${pageNumber} of ${pageCount}`,
+        pageSize.width - 15,
+        pageHeight - 10,
+        { align: 'right' }
+      );
+      pageNumber++;
+    }
   });
 
   doc.save(`${filename}.pdf`);
@@ -118,14 +150,14 @@ export const exportToPdf = <T extends ExportData>(data: T[], filename: string): 
  */
 export const prepareProductExportData = (variants: EnhancedVariants[]): CsvExportData[] => {
   return variants.map(variant => ({
-    'Product Name': variant.productName,
+    'Product': `${variant.productName}\n(${variant.sku})`,
     'SKU': variant.sku,
     'Categories': variant.categories.join(', '),
-    'Retail Price': `$${variant.retailPrice?.toFixed(2) || '0.00'}`,
-    'Purchase Price': `$${variant.purchasePrice?.toFixed(2) || '0.00'}`,
-    'Wholesale Price': `$${variant.wholesalePrice?.toFixed(2) || '0.00'}`,
-    'Available Stock': variant.availableStock,
-    'Stock on Backorder': variant.stockOnBackorder || 0,
+    'Retail Price': `${formatCurrency(variant.retailPrice) || '0.00'}`,
+    'Purchase Price': `${formatCurrency(variant.purchasePrice) || '0.00'}`,
+    'Wholesale Price': `${formatCurrency(variant.wholesalePrice) || '0.00'}`,
+    'Available': variant.availableStock,
+    'Backorder': variant.stockOnBackorder || 0,
     'Supplier': variant.supplier || 'N/A',
   }));
 };

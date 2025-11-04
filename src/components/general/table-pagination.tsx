@@ -113,7 +113,7 @@ export function TablePagination<TData>({
     };
 
     return (
-        <div className={cn(`flex flex-col sm:flex-row items-center justify-between gap-3 w-full`, className)}>
+        <div className={cn(`my-1 mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 w-full`, className)}>
             <div className="flex items-center space-x-2">
                 <p className="text-sm text-muted-foreground">
                     Showing <span className="font-medium">

@@ -259,7 +259,6 @@ export function StaffTable({ data, onEdit, actions }: StaffTableProps) {
         <TablePagination
           table={table}
           itemName="Staff"
-          className="mt-4"
         />
       </div>
     </div>

@@ -11,6 +11,12 @@ interface PurchaseData {
   locationId?: string;
   productId?: string;
   purchaseDate?: Date;
+  quantity?: number;
+  unitPrice?: number;
+  totalCost?: number;
+  remaining?: number;
+  supplier?: string;
+  notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
   variant?: {
@@ -20,20 +26,30 @@ interface PurchaseData {
     updatedAt?: Date;
     // [key: string]: string;
   };
-  // [key: string]: string;
+  product?: {
+    _id?: string;
+    name?: string;
+    sku?: string;
+    // Add other product fields as needed
+  };
 }
 
 // Helper function to serialize MongoDB documents
 const serializePurchase = (purchase: PurchaseData) => {
   return {
     ...purchase,
-    _id: purchase._id.toString(),
+    _id: purchase._id?.toString(),
     variantId: purchase.variantId?.toString(),
     locationId: purchase.locationId?.toString(),
     productId: purchase.productId?.toString(),
     purchaseDate: purchase.purchaseDate?.toISOString(),
     createdAt: purchase.createdAt?.toISOString(),
     updatedAt: purchase.updatedAt?.toISOString(),
+    quantity: purchase.quantity,
+    unitPrice: purchase.unitPrice,
+    totalCost: purchase.totalCost,
+    remaining: purchase.remaining,
+    supplier: purchase.supplier,
     variant: purchase.variant ? {
       ...purchase.variant,
       _id: purchase.variant._id?.toString(),
@@ -45,7 +61,8 @@ const serializePurchase = (purchase: PurchaseData) => {
 };
 
 export default async function PurchasesPage() {
-  const purchases = (await getAllPurchases()).map(serializePurchase);
+  // const purchases = (await getAllPurchases()).map(serializePurchase);
+  const purchases = (await getAllPurchases());
 
   // Calculate statistics
   const totalPurchased = purchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
@@ -54,7 +71,7 @@ export default async function PurchasesPage() {
     ? purchases.reduce((sum, p) => sum + (p.unitPrice || 0), 0) / purchases.length
     : 0;
   const uniqueSuppliers = new Set(purchases.map(p => p.supplier)).size;
-  const uniqueProducts = new Set(purchases.map(p => p.productId)).size;
+  // const uniqueProducts = new Set(purchases.map(p => p.productId)).size;
 
   return (
     <>

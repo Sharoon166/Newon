@@ -80,6 +80,7 @@ export const exportToPdf = <T extends ExportData>(data: T[], filename: string): 
       fillColor: [41, 128, 185],
       textColor: 255,
       fontStyle: 'bold',
+      fontSize: 8,
     },
     alternateRowStyles: {
       fillColor: [245, 245, 245]
@@ -93,3 +94,4 @@ export const exportToPdf = <T extends ExportData>(data: T[], filename: string): 
 
   doc.save(`${filename}.pdf`);
 };
+
