@@ -22,7 +22,7 @@ export function formatCurrency(num: number) {
   return num.toLocaleString('en-PK', {
     style: 'currency',
     currency: 'PKR',
-    notation: 'compact',
+    notation: num > 1_000_000 ? 'compact' : 'standard',
     minimumFractionDigits: 0,
     maximumFractionDigits: 3
   }).replace(/\u00A0/g, ' ');
