@@ -87,7 +87,6 @@ const customerSchema = new Schema<ICustomer>(
 );
 
 // Index for faster querying
-customerSchema.index({ email: 1 }, { unique: true });
 customerSchema.index({ name: 1 });
 customerSchema.index({ outstandingBalance: 1 });
 customerSchema.index({ lastInvoiceDate: -1 });
