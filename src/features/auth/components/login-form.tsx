@@ -1,6 +1,7 @@
 "use client"
 import { Eye, EyeOff, GalleryVerticalEnd } from "lucide-react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { signIn } from "@/services/auth/auth-client"
 
 export function LoginForm({
   className,
@@ -18,17 +20,37 @@ export function LoginForm({
 }: React.ComponentProps<"div">) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const router = useRouter()
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true);
-    // Handle login logic here
-    toast.error("Login not implemented yet!!!")
-    setIsLoading(false) // Uncomment and use after implementing actual login
+    setIsLoading(true)
+    
+    try {
+      const result = await signIn.email({
+        email,
+        password,
+        callbackURL: "/"
+      })
+
+      if (result.error) {
+        toast.error(result.error.message || "Invalid credentials")
+      } else {
+        toast.success("Welcome back!")
+        router.push("/")
+      }
+    } catch (error) {
+      console.error("💥 Login error:", error)
+      toast.error("Something went wrong. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -58,6 +80,8 @@ export function LoginForm({
                 autoComplete="email"
                 required
                 className="h-10"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </Field>
             
@@ -84,6 +108,8 @@ export function LoginForm({
                   autoComplete="current-password"
                   required
                   className="h-10 pr-10"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                   type="button"

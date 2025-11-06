@@ -1,68 +1,13 @@
 import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
+import { getProducts } from '@/features/inventory/actions';
 import { formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
-import { PurchasesTable } from '@/features/purchases/components/purchases-table-overview';
-
-// // Type for the purchase data
-interface PurchaseData {
-  _id: string;
-  variantId?: string;
-  locationId?: string;
-  productId?: string;
-  purchaseDate?: Date;
-  quantity?: number;
-  unitPrice?: number;
-  totalCost?: number;
-  remaining?: number;
-  supplier?: string;
-  notes?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  variant?: {
-    _id?: string;
-    productId?: string;
-    createdAt?: Date;
-    updatedAt?: Date;
-    // [key: string]: string;
-  };
-  product?: {
-    _id?: string;
-    name?: string;
-    sku?: string;
-    // Add other product fields as needed
-  };
-}
-
-// Helper function to serialize MongoDB documents
-const serializePurchase = (purchase: PurchaseData) => {
-  return {
-    ...purchase,
-    _id: purchase._id?.toString(),
-    variantId: purchase.variantId?.toString(),
-    locationId: purchase.locationId?.toString(),
-    productId: purchase.productId?.toString(),
-    purchaseDate: purchase.purchaseDate?.toISOString(),
-    createdAt: purchase.createdAt?.toISOString(),
-    updatedAt: purchase.updatedAt?.toISOString(),
-    quantity: purchase.quantity,
-    unitPrice: purchase.unitPrice,
-    totalCost: purchase.totalCost,
-    remaining: purchase.remaining,
-    supplier: purchase.supplier,
-    variant: purchase.variant ? {
-      ...purchase.variant,
-      _id: purchase.variant._id?.toString(),
-      productId: purchase.variant.productId?.toString(),
-      createdAt: purchase.variant.createdAt?.toISOString(),
-      updatedAt: purchase.variant.updatedAt?.toISOString(),
-    } : undefined
-  };
-};
+import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
 
 export default async function PurchasesPage() {
-  // const purchases = (await getAllPurchases()).map(serializePurchase);
-  const purchases = (await getAllPurchases());
+  const purchases = await getAllPurchases();
+  const products = await getProducts();
 
   // Calculate statistics
   const totalPurchased = purchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
@@ -71,13 +16,12 @@ export default async function PurchasesPage() {
     ? purchases.reduce((sum, p) => sum + (p.unitPrice || 0), 0) / purchases.length
     : 0;
   const uniqueSuppliers = new Set(purchases.map(p => p.supplier)).size;
-  // const uniqueProducts = new Set(purchases.map(p => p.productId)).size;
 
   return (
     <>
       <PageHeader
         title="Purchase History"
-        description="View all purchase records across all product variants"
+        description="View and manage all purchase records across all product variants"
       />
 
       {/* Statistics Cards */}
@@ -128,9 +72,12 @@ export default async function PurchasesPage() {
         </Card>
       </div>
 
-      {/* Purchases Table */}
+      {/* Purchases Table with Actions */}
       <div className="mt-6">
-        <PurchasesTable purchases={purchases} />
+        <PurchasesTableWithActions 
+          purchases={purchases} 
+          products={products}
+        />
       </div>
     </>
   );

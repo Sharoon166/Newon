@@ -207,7 +207,6 @@ export function PurchasesManager({
             handleAddClick(e);
           }}
           onMouseDown={(e) => {
-            // Prevent form submission on mouse down as well
             if (e.button === 0) {
               e.preventDefault();
             }

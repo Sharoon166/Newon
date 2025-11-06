@@ -40,9 +40,7 @@ export function StaffTableWrapper({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this staff member?')) return;
-    
+  const handleDelete = async (id: string) => {    
     try {
       const result = await deleteStaffAction(id);
       

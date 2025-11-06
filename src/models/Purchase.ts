@@ -34,6 +34,21 @@ const purchaseSchema = new mongoose.Schema(
       required: [true, 'Unit price is required'],
       min: [0, 'Unit price cannot be negative']
     },
+    retailPrice: {
+      type: Number,
+      required: [true, 'Retail price is required'],
+      min: [0, 'Retail price cannot be negative']
+    },
+    wholesalePrice: {
+      type: Number,
+      required: [true, 'Wholesale price is required'],
+      min: [0, 'Wholesale price cannot be negative']
+    },
+    shippingCost: {
+      type: Number,
+      required: [true, 'Shipping cost is required'],
+      min: [0, 'Shipping cost cannot be negative']
+    },
     totalCost: {
       type: Number,
       required: [true, 'Total cost is required'],

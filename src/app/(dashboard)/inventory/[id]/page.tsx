@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getProductById } from '@/features/inventory/actions';
+import { getProductWithPricing } from '@/features/inventory/actions';
 import { PageHeader } from '@/components/general/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
 import { VariantPurchaseHistoryButton } from '@/features/purchases/components/variant-purchase-history-button';
+import { PricingInfo, PricingBadge } from '@/components/inventory/pricing-info';
+import type { ProductAttribute, ProductLocation, ProductVariant } from '@/features/inventory/types';
 
 interface ProductDetailPageProps {
   params: {
@@ -18,25 +20,55 @@ interface ProductDetailPageProps {
   };
 }
 
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const { id } = await params;
-  const product = await getProductById(id);
+interface EnhancedProductVariant extends ProductVariant {
+  purchasePrice?: number;
+  retailPrice?: number;
+  wholesalePrice?: number;
+  shippingCost?: number;
+  unitPrice?: number;
+}
 
-  if (!product) {
+interface ProductWithPricing {
+  _id?: string;
+  name: string;
+  description?: string;
+  supplier: string;
+  categories: string[];
+  locations?: ProductLocation[];
+  attributes?: ProductAttribute[];
+  variants?: EnhancedProductVariant[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+interface LocationWithStock extends ProductLocation {
+  totalAvailable: number;
+  totalBackorder: number;
+}
+
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+  const { id } = params;
+  const productData = await getProductWithPricing(id);
+
+  if (!productData) {
     notFound();
   }
 
-  // Calculate total stock across all variants
-  const totalStock = product.variants?.reduce((sum, variant) => {
-    return sum + (variant.availableStock || 0);
-  }, 0) || 0;
+  const product = productData as unknown as ProductWithPricing;
 
-  const totalBackorder = product.variants?.reduce((sum, variant) => {
-    return sum + (variant.stockOnBackorder || 0);
-  }, 0) || 0;
+  // Calculate total stock across all variants
+  const totalStock =
+    product.variants?.reduce((sum, variant) => {
+      return sum + (variant.availableStock || 0);
+    }, 0) || 0;
+
+  const totalBackorder =
+    product.variants?.reduce((sum, variant) => {
+      return sum + (variant.stockOnBackorder || 0);
+    }, 0) || 0;
 
   // Get all unique locations from variants
-  const allLocations = new Map();
+  const allLocations = new Map<string, LocationWithStock>();
   product.variants?.forEach(variant => {
     variant.inventory?.forEach(inv => {
       const location = product.locations?.find(loc => loc.id === inv.locationId);
@@ -49,8 +81,10 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       }
       if (location) {
         const locData = allLocations.get(location.id);
-        locData.totalAvailable += inv.availableStock || 0;
-        locData.totalBackorder += inv.backorderStock || 0;
+        if (locData) {
+          locData.totalAvailable += inv.availableStock || 0;
+          locData.totalBackorder += inv.backorderStock || 0;
+        }
       }
     });
   });
@@ -59,10 +93,10 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
 
   // Check if product has only one variant
   const isSingleVariant = product.variants?.length === 1;
-  const singleVariant = isSingleVariant ? product.variants[0] : null;
+  const singleVariant: EnhancedProductVariant | null = isSingleVariant && product.variants ? product.variants[0] : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-7xl mx-auto">
       <PageHeader
         title={product.name || 'Product Details'}
         backLink="/inventory"
@@ -91,9 +125,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                         alt={product.name}
                         className="object-contain"
                       />
-                      <AvatarFallback className="text-2xl rounded-lg">
-                        {product.name?.charAt(0) || 'P'}
-                      </AvatarFallback>
+                      <AvatarFallback className="text-2xl rounded-lg">{product.name?.charAt(0) || 'P'}</AvatarFallback>
                     </Avatar>
                   </ImageZoom>
                 </div>
@@ -105,11 +137,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     </CardDescription>
                   )}
                   {/* Only show SKU here if it's a single variant product without attributes, otherwise it's redundant */}
-                  {product.variants?.[0]?.sku && isSingleVariant && (!product.attributes || product.attributes.length === 0) && (
-                    <div className="mt-3 text-sm text-muted-foreground">
-                      SKU: <span className="font-mono">{product.variants[0].sku}</span>
-                    </div>
-                  )}
+                  {product.variants?.[0]?.sku &&
+                    isSingleVariant &&
+                    (!product.attributes || product.attributes.length === 0) && (
+                      <div className="mt-3 text-sm text-muted-foreground">
+                        SKU: <span className="font-mono">{product.variants[0].sku}</span>
+                      </div>
+                    )}
                 </div>
               </div>
             </CardHeader>
@@ -125,15 +159,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 <div className="text-sm font-medium mb-2">Supplier</div>
                 <div className="text-sm text-muted-foreground">{product.supplier || 'Not specified'}</div>
               </div>
-              
+
               {product.categories && product.categories.length > 0 && (
                 <div>
                   <div className="text-sm font-medium mb-2">Categories</div>
                   <div className="flex flex-wrap gap-2">
                     {product.categories.map((category, index) => (
-                      <Badge key={index}>
-                        {category}
-                      </Badge>
+                      <Badge key={index}>{category}</Badge>
                     ))}
                   </div>
                 </div>
@@ -143,7 +175,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 <div>
                   <div className="text-sm font-medium mb-2">Attributes</div>
                   <div className="space-y-2">
-                    {product.attributes.map((attr) => (
+                    {product.attributes.map(attr => (
                       <div key={attr.id} className="text-sm">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium">{attr.name}:</span>
@@ -168,6 +200,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             </CardContent>
           </Card>
 
+          <PricingInfo variant="compact" />
           {/* Variants - only show if multiple variants */}
           {!isSingleVariant && product.variants && product.variants.length > 0 && (
             <Card>
@@ -179,7 +212,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   {product.variants.map((variant, index) => {
                     const variantAttributes = variant.attributes || {};
                     const attributeEntries = Object.entries(variantAttributes);
-                    
+
                     return (
                       <div key={variant.id || index}>
                         {index > 0 && <Separator className="my-4" />}
@@ -188,9 +221,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                             <div>
                               <div className="font-medium">Variant {index + 1}</div>
                               {variant.sku && (
-                                <div className="text-sm text-muted-foreground font-mono">
-                                  SKU: {variant.sku}
-                                </div>
+                                <div className="text-sm text-muted-foreground font-mono">SKU: {variant.sku}</div>
                               )}
                               {attributeEntries.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-2">
@@ -213,9 +244,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                                     alt={`Variant ${index + 1}`}
                                     className="object-contain"
                                   />
-                                  <AvatarFallback className="text-xs rounded-md">
-                                    {index + 1}
-                                  </AvatarFallback>
+                                  <AvatarFallback className="text-xs rounded-md">{index + 1}</AvatarFallback>
                                 </Avatar>
                               </ImageZoom>
                             ) : null}
@@ -231,27 +260,31 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                               <div className="font-medium">{formatCurrency(variant.wholesalePrice || 0)}</div>
                             </div>
                             <div>
-                              <div className="text-muted-foreground">Purchase Price</div>
-                              <div className="font-medium text-muted-foreground">{formatCurrency(variant.purchasePrice || 0)}</div>
+                              <div className="text-muted-foreground flex items-center gap-1">Purchase Price</div>
+                              <div className="font-medium text-muted-foreground">
+                                {formatCurrency(variant.purchasePrice || 0)}
+                              </div>
                             </div>
                             <div>
                               <div className="text-muted-foreground">Shipping Cost</div>
-                              <div className="font-medium text-muted-foreground">{formatCurrency(variant.shippingCost || 0)}</div>
+                              <div className="font-medium text-muted-foreground">
+                                {formatCurrency(variant.shippingCost || 0)}
+                              </div>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                               <div className="text-muted-foreground">Available Stock</div>
-                              <div className={`font-medium ${(variant.availableStock || 0) < 10 ? 'text-amber-500' : ''}`}>
+                              <div
+                                className={`font-medium ${(variant.availableStock || 0) < 10 ? 'text-amber-500' : ''}`}
+                              >
                                 {variant.availableStock || 0}
                               </div>
                             </div>
                             <div>
                               <div className="text-muted-foreground">Backorder Stock</div>
-                              <div className="font-medium">
-                                {variant.stockOnBackorder || 0}
-                              </div>
+                              <div className="font-medium">{variant.stockOnBackorder || 0}</div>
                             </div>
                           </div>
 
@@ -284,9 +317,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 <div className="flex items-start justify-between">
                   <div>
                     {singleVariant.sku && (
-                      <div className="text-sm text-muted-foreground font-mono mb-2">
-                        SKU: {singleVariant.sku}
-                      </div>
+                      <div className="text-sm text-muted-foreground font-mono mb-2">SKU: {singleVariant.sku}</div>
                     )}
                     {singleVariant.attributes && Object.entries(singleVariant.attributes).length > 0 && (
                       <div className="flex flex-wrap gap-2">
@@ -309,9 +340,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                           alt="Variant"
                           className="object-contain"
                         />
-                        <AvatarFallback className="text-xs rounded-md">
-                          V
-                        </AvatarFallback>
+                        <AvatarFallback className="text-xs rounded-md">V</AvatarFallback>
                       </Avatar>
                     </ImageZoom>
                   ) : null}
@@ -327,14 +356,25 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     <div className="font-medium">{formatCurrency(singleVariant.wholesalePrice || 0)}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Purchase Price</div>
-                    <div className="font-medium text-muted-foreground">{formatCurrency(singleVariant.purchasePrice || 0)}</div>
+                    <div className="text-muted-foreground flex items-center gap-1">
+                      Purchase Price
+                      <PricingBadge />
+                    </div>
+                    <div className="font-medium text-muted-foreground">
+                      {formatCurrency(singleVariant.purchasePrice || 0)}
+                    </div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Shipping Cost</div>
-                    <div className="font-medium text-muted-foreground">{formatCurrency(singleVariant.shippingCost || 0)}</div>
+                    <div className="font-medium text-muted-foreground">
+                      {formatCurrency(singleVariant.shippingCost || 0)}
+                    </div>
                   </div>
                 </div>
+
+                {((singleVariant.purchasePrice || 0) > 0 || (singleVariant.retailPrice || 0) > 0) && (
+                  <PricingInfo variant="compact" />
+                )}
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -345,9 +385,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   </div>
                   <div>
                     <div className="text-muted-foreground">Backorder Stock</div>
-                    <div className="font-medium">
-                      {singleVariant.stockOnBackorder || 0}
-                    </div>
+                    <div className="font-medium">{singleVariant.stockOnBackorder || 0}</div>
                   </div>
                 </div>
 
@@ -376,22 +414,16 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             <CardContent className="space-y-4">
               <div>
                 <div className="text-sm font-medium mb-1">Total Available Stock</div>
-                <div className={`text-2xl font-bold ${totalStock < 10 ? 'text-amber-500' : ''}`}>
-                  {totalStock}
-                </div>
+                <div className={`text-2xl font-bold ${totalStock < 10 ? 'text-amber-500' : ''}`}>{totalStock}</div>
               </div>
               <div>
                 <div className="text-sm font-medium mb-1">Total Backorder Stock</div>
-                <div className="text-2xl font-bold">
-                  {totalBackorder}
-                </div>
+                <div className="text-2xl font-bold">{totalBackorder}</div>
               </div>
               {!isSingleVariant && (
                 <div>
                   <div className="text-sm font-medium mb-1">Total Variants</div>
-                  <div className="text-2xl font-bold">
-                    {product.variants?.length || 0}
-                  </div>
+                  <div className="text-2xl font-bold">{product.variants?.length || 0}</div>
                 </div>
               )}
             </CardContent>
@@ -400,36 +432,55 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           {/* Pricing Summary - Only show for single variant if it's not already shown in variant details */}
           {/* Removed to avoid redundancy - pricing is already shown in variant details section */}
 
-          {/* Pricing Summary - Only show for multiple variants */}
-          {!isSingleVariant && product.variants && product.variants.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Pricing Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="text-sm font-medium mb-1">Lowest Retail Price</div>
-                  <div className="text-xl font-bold">
-                    {formatCurrency(Math.min(...product.variants.map(v => v.retailPrice || 0)))}
+          {/* Pricing Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Pricing Information</CardTitle>
+              <CardDescription>Pricing calculated using FIFO (First In, First Out) method</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!isSingleVariant && product.variants && product.variants.length > 0 ? (
+                <>
+                  <div>
+                    <div className="text-sm font-medium mb-1">Lowest Retail Price</div>
+                    <div className="text-xl font-bold">
+                      {formatCurrency(Math.min(...product.variants.map(v => v.retailPrice || 0)))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium mb-1">Highest Retail Price</div>
-                  <div className="text-xl font-bold">
-                    {formatCurrency(Math.max(...product.variants.map(v => v.retailPrice || 0)))}
+                  <div>
+                    <div className="text-sm font-medium mb-1">Highest Retail Price</div>
+                    <div className="text-xl font-bold">
+                      {formatCurrency(Math.max(...product.variants.map(v => v.retailPrice || 0)))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="text-sm font-medium mb-1">Average Purchase Price</div>
-                  <div className="text-xl font-bold text-muted-foreground">
-                    {formatCurrency(
-                      product.variants.reduce((sum, v) => sum + (v.purchasePrice || 0), 0) / product.variants.length
-                    )}
+                  <div>
+                    <div className="text-sm font-medium mb-1 flex items-center gap-1">Average Purchase Price</div>
+                    <div className="text-xl font-bold text-muted-foreground">
+                      {formatCurrency(
+                        product.variants.reduce((sum, v) => sum + (v.purchasePrice || 0), 0) / product.variants.length
+                      )}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </>
+              ) : singleVariant ? (
+                <>
+                  <div>
+                    <div className="text-sm font-medium mb-1">Current Retail Price</div>
+                    <div className="text-xl font-bold">{formatCurrency(singleVariant.retailPrice || 0)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium mb-1 flex items-center gap-1">
+                      Current Purchase Price
+                      <PricingBadge />
+                    </div>
+                    <div className="text-xl font-bold text-muted-foreground">
+                      {formatCurrency(singleVariant.purchasePrice || 0)}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </CardContent>
+          </Card>
 
           {/* Locations */}
           {locationsArray.length > 0 && (
@@ -439,12 +490,10 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {locationsArray.map((location) => (
+                  {locationsArray.map(location => (
                     <div key={location.id} className="space-y-1">
                       <div className="font-medium text-sm">{location.name}</div>
-                      {location.address && (
-                        <div className="text-xs text-muted-foreground">{location.address}</div>
-                      )}
+                      {location.address && <div className="text-xs text-muted-foreground">{location.address}</div>}
                       <div className="flex gap-2 mt-2">
                         <Badge variant={location.totalAvailable > 0 ? 'default' : 'secondary'}>
                           {location.totalAvailable} in stock
@@ -466,4 +515,3 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     </div>
   );
 }
-

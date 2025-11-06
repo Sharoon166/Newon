@@ -14,31 +14,29 @@ type LeanStaffMember = Omit<StaffMember, '_id' | '__v'> & {
 export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMember[]> {
   try {
     await dbConnect();
-    
+
     const query: {
       $or?: Array<{
         [key: string]: { $regex: string; $options: string };
       }>;
       isActive?: boolean;
     } = {};
-    
+
     if (filters?.search) {
       query.$or = [
         { firstName: { $regex: filters.search, $options: 'i' } },
         { lastName: { $regex: filters.search, $options: 'i' } },
-        { email: { $regex: filters.search, $options: 'i' } },
+        { email: { $regex: filters.search, $options: 'i' } }
       ];
     }
-    
+
     // Only search and status filters are supported
-    
+
     if (filters?.isActive !== undefined) {
       query.isActive = filters.isActive;
     }
 
-    const staffMembers = await Staff.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+    const staffMembers = await Staff.find(query).sort({ createdAt: -1 }).lean();
 
     return staffMembers.map(member => {
       const memberObj = member as LeanStaffMember;
@@ -46,7 +44,7 @@ export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMemb
         ...memberObj,
         id: memberObj._id.toString(),
         _id: undefined,
-        __v: undefined,
+        __v: undefined
       } as StaffMember;
     });
   } catch (error) {
@@ -58,7 +56,7 @@ export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMemb
 export async function getStaffMember(id: string): Promise<StaffMember> {
   try {
     await dbConnect();
-    
+
     const staffMember = await Staff.findById(id).lean();
 
     if (!staffMember) {
@@ -70,7 +68,7 @@ export async function getStaffMember(id: string): Promise<StaffMember> {
       ...staffMemberObj,
       id: staffMemberObj._id.toString(),
       _id: undefined,
-      __v: undefined,
+      __v: undefined
     } as StaffMember;
   } catch (error) {
     console.error(`Error fetching staff member ${id}:`, error);
@@ -81,31 +79,31 @@ export async function getStaffMember(id: string): Promise<StaffMember> {
 export async function createStaffMember(data: CreateStaffDto): Promise<StaffMember> {
   try {
     await dbConnect();
-    
+
     // Check if email already exists
     const existingStaff = await Staff.findOne({ email: data.email });
     if (existingStaff) {
       throw new Error('Email already in use');
     }
-    
+
     // In a real app, you would hash the password here
     const hashedPassword = data.password; // Replace with actual hashing
-    
+
     const newStaff = new Staff({
       ...data,
-      password: hashedPassword,
+      password: hashedPassword
     });
-    
+
     const savedStaff = await newStaff.save();
-    
+
     revalidatePath('/(dashboard)/staff');
-    
+
     const savedStaffObj = savedStaff.toObject() as LeanStaffMember;
     return {
       ...savedStaffObj,
       id: savedStaffObj._id.toString(),
       _id: undefined,
-      __v: undefined,
+      __v: undefined
     } as StaffMember;
   } catch (error: unknown) {
     console.error('Error creating staff member:', error);
@@ -116,9 +114,9 @@ export async function createStaffMember(data: CreateStaffDto): Promise<StaffMemb
 export async function updateStaffMember(id: string, data: UpdateStaffDto): Promise<StaffMember> {
   try {
     await dbConnect();
-    
+
     const updateData = { ...data };
-    
+
     // Don't update password if not provided
     if (updateData.password === '') {
       delete updateData.password;
@@ -132,20 +130,20 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto): Promi
       { $set: updateData },
       { new: true, runValidators: true }
     ).lean();
-    
+
     if (!updatedStaff) {
       throw new Error('Staff member not found');
     }
 
     revalidatePath('/(dashboard)/staff');
     revalidatePath(`/(dashboard)/staff/${id}`);
-    
+
     const updatedStaffObj = updatedStaff as LeanStaffMember;
     return {
       ...updatedStaffObj,
       id: updatedStaffObj._id.toString(),
       _id: undefined,
-      __v: undefined,
+      __v: undefined
     } as StaffMember;
   } catch (error) {
     console.error(`Error updating staff member ${id}:`, error);
@@ -156,9 +154,9 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto): Promi
 export async function deleteStaffMember(id: string): Promise<void> {
   try {
     await dbConnect();
-    
+
     const result = await Staff.deleteOne({ _id: id });
-    
+
     if (result.deletedCount === 0) {
       throw new Error('Staff member not found');
     }
@@ -173,13 +171,9 @@ export async function deleteStaffMember(id: string): Promise<void> {
 export async function toggleStaffStatus(id: string, isActive: boolean): Promise<void> {
   try {
     await dbConnect();
-    
-    const result = await Staff.findByIdAndUpdate(
-      id,
-      { $set: { isActive } },
-      { new: true }
-    );
-    
+
+    const result = await Staff.findByIdAndUpdate(id, { $set: { isActive } }, { new: true });
+
     if (!result) {
       throw new Error('Staff member not found');
     }

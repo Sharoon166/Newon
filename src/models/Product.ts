@@ -15,26 +15,7 @@ const variantSchema = new mongoose.Schema(
       of: String,
       default: {}
     },
-    purchasePrice: {
-      type: Number,
-      required: true,
-      min: [0, 'Purchase price cannot be negative']
-    },
-    retailPrice: {
-      type: Number,
-      required: true,
-      min: [0, 'Retail price cannot be negative']
-    },
-    wholesalePrice: {
-      type: Number,
-      required: true,
-      min: [0, 'Wholesale price cannot be negative']
-    },
-    shippingCost: {
-      type: Number,
-      required: true,
-      min: [0, 'Shipping cost cannot be negative']
-    },
+
     // Legacy fields - kept for backward compatibility
     availableStock: {
       type: Number,
@@ -174,12 +155,10 @@ const productSchema = new mongoose.Schema(
             // Ensure all variants have required fields
             return variants.every(variant => 
               variant && 
-              variant.sku && 
-              variant.purchasePrice !== undefined &&
-              variant.retailPrice !== undefined
+              variant.sku
             );
           },
-          message: 'All variants must have required fields (sku, purchasePrice, retailPrice)'
+          message: 'All variants must have required fields (sku)'
         }
       ]
     }

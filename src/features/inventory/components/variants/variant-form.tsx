@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDropzone } from 'react-dropzone';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { NumberInput } from '@/components/ui/number-input';
 import { ProductVariant, ProductAttribute, ProductVariantImage, LocationInventory } from '../../types';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
@@ -593,16 +594,14 @@ export function VariantForm({
                         <Label htmlFor={`available-${variant.id}-${location.id}`} className="text-xs">
                           Available
                         </Label>
-                        <Input
-                          id={`available-${variant.id}-${location.id}`}
-                          type="number"
-                          min="0"
+                        <NumberInput
                           value={inventory.availableStock}
-                          onChange={(e) =>
+                          onChange={(value) =>
                             updateInventory(location.id, {
-                              availableStock: Number(e.target.value),
+                              availableStock: value,
                             })
                           }
+                          min={0}
                           className="h-8"
                         />
                       </div>
@@ -611,16 +610,14 @@ export function VariantForm({
                         <Label htmlFor={`backorder-${variant.id}-${location.id}`} className="text-xs">
                           Backorder
                         </Label>
-                        <Input
-                          id={`backorder-${variant.id}-${location.id}`}
-                          type="number"
-                          min="0"
+                        <NumberInput
                           value={inventory.backorderStock}
-                          onChange={(e) =>
+                          onChange={(value) =>
                             updateInventory(location.id, {
-                              backorderStock: Number(e.target.value),
+                              backorderStock: value,
                             })
                           }
+                          min={0}
                           className="h-8"
                         />
                       </div>
@@ -650,49 +647,7 @@ export function VariantForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2"></div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-        <div className="space-y-2">
-          <Label>Purchase Price</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={variant.purchasePrice}
-            onChange={e => updateVariant({ purchasePrice: parseFloat(e.target.value) })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Retail Price</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={variant.retailPrice}
-            onChange={e => updateVariant({ retailPrice: parseFloat(e.target.value) })}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Wholesale Price</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={variant.wholesalePrice}
-            onChange={e => updateVariant({ wholesalePrice: parseFloat(e.target.value) })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Shipping Cost</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={variant.shippingCost}
-            onChange={e => updateVariant({ shippingCost: parseFloat(e.target.value) })}
-          />
-        </div>
-      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
         <div className="space-y-2">

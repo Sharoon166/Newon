@@ -2,14 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Edit2, Trash2 } from 'lucide-react';
 import { Purchase } from '../types';
@@ -32,7 +25,7 @@ export function PurchasesTable({
   locations = [],
   onEdit,
   onRefresh,
-  readOnly = false,
+  readOnly = false
 }: PurchasesTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [purchaseToDelete, setPurchaseToDelete] = useState<Purchase | null>(null);
@@ -67,13 +60,13 @@ export function PurchasesTable({
     return d.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
+      day: 'numeric'
     });
   };
 
   const getLocationName = (locationId: string | undefined) => {
     if (!locationId) return 'N/A';
-    const location = locations.find((loc) => loc.id === locationId);
+    const location = locations.find(loc => loc.id === locationId);
     return location?.name || locationId;
   };
 
@@ -87,8 +80,8 @@ export function PurchasesTable({
   }
 
   return (
-    <>
-      <div className="rounded-md border">
+    <div className="overflow-auto max-w-6xl mx-auto">
+      <div className="rounded-md border-2">
         <Table>
           <TableHeader>
             <TableRow>
@@ -98,13 +91,16 @@ export function PurchasesTable({
               <TableHead className="text-right">Quantity</TableHead>
               <TableHead className="text-right">Remaining</TableHead>
               <TableHead className="text-right">Unit Price</TableHead>
+              <TableHead className="text-right">Retail Price</TableHead>
+              <TableHead className="text-right">Wholesale Price</TableHead>
+              <TableHead className="text-right">Shipping Cost</TableHead>
               <TableHead className="text-right">Total Cost</TableHead>
               <TableHead>Notes</TableHead>
               {!readOnly && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {purchases.map((purchase) => (
+            {purchases.map(purchase => (
               <TableRow key={purchase.id || purchase._id}>
                 <TableCell>{formatDate(purchase.purchaseDate)}</TableCell>
                 <TableCell>
@@ -117,15 +113,12 @@ export function PurchasesTable({
                     {purchase.remaining}
                   </span>
                 </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(purchase.unitPrice)}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatCurrency(purchase.totalCost)}
-                </TableCell>
-                <TableCell className="max-w-[200px] truncate">
-                  {purchase.notes || '-'}
-                </TableCell>
+                <TableCell className="text-right">{formatCurrency(purchase.unitPrice)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(purchase.retailPrice || 0)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(purchase.wholesalePrice || 0)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(purchase.shippingCost || 0)}</TableCell>
+                <TableCell className="text-right font-medium">{formatCurrency(purchase.totalCost)}</TableCell>
+                <TableCell className="max-w-[200px] truncate">{purchase.notes || '-'}</TableCell>
                 {!readOnly && (
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -168,7 +161,6 @@ export function PurchasesTable({
         onConfirm={handleDelete}
         isProcessing={isDeleting}
       />
-    </>
+    </div>
   );
 }
-

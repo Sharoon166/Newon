@@ -30,10 +30,6 @@ export interface ProductVariant {
   attributes: Record<string, string>; // attributeId: value
   image?: string; // Keep for backward compatibility
   imageFile?: ProductVariantImage;
-  purchasePrice: number;
-  retailPrice: number;
-  wholesalePrice: number;
-  shippingCost: number;
   availableStock: number; // Legacy field, will be removed in future
   stockOnBackorder: number; // Legacy field, will be removed in future
   inventory: LocationInventory[]; // New inventory tracking per location
@@ -84,4 +80,9 @@ export interface EnhancedVariants extends ProductVariant {
   productId: string;
   locations?: ProductLocation[];
   inventory: InventoryItem[];
+  // Pricing fields populated from latest purchases
+  purchasePrice?: number;
+  retailPrice?: number;
+  wholesalePrice?: number;
+  shippingCost?: number;
 }

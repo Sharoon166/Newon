@@ -132,7 +132,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="john.doe@example.com" {...field} disabled={isEditMode} />
+                <Input type="email" placeholder="john.doe@example.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -166,7 +166,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {/* <SelectItem value="admin">Administrator</SelectItem> */}
+                  <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="staff">Staff</SelectItem>
                 </SelectContent>
               </Select>

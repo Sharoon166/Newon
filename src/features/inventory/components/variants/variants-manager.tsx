@@ -44,10 +44,6 @@ export function VariantsManager({
       id: `var_${uuidv4()}`,
       sku: '',
       attributes: {},
-      purchasePrice: 0,
-      retailPrice: 0,
-      wholesalePrice: 0,
-      shippingCost: 0,
       availableStock: 0,
       stockOnBackorder: 0,
       inventory: locations.map(location => ({
@@ -65,13 +61,7 @@ export function VariantsManager({
 
   const isAllVariantsValid = variants.every(variant => {
     return (
-      variant.sku.length > 0 &&
-      variant.purchasePrice > 0 &&
-      variant.retailPrice > 0 &&
-      variant.wholesalePrice > 0 &&
-      variant.shippingCost > 0 &&
-      variant.availableStock > 0 &&
-      variant.stockOnBackorder > 0
+      variant.sku.length > 0
     );
   });
 

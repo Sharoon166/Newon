@@ -7,6 +7,9 @@ export interface Purchase {
   locationId?: string;
   quantity: number;
   unitPrice: number;
+  retailPrice: number;
+  wholesalePrice: number;
+  shippingCost: number;
   totalCost: number;
   purchaseDate: Date | string;
   remaining: number;
@@ -22,6 +25,9 @@ export interface CreatePurchaseDto {
   locationId?: string;
   quantity: number;
   unitPrice: number;
+  retailPrice: number;
+  wholesalePrice: number;
+  shippingCost: number;
   purchaseDate: Date | string;
   notes?: string;
 }
@@ -31,6 +37,9 @@ export interface UpdatePurchaseDto {
   locationId?: string;
   quantity?: number;
   unitPrice?: number;
+  retailPrice?: number;
+  wholesalePrice?: number;
+  shippingCost?: number;
   purchaseDate?: Date | string;
   remaining?: number;
   notes?: string;

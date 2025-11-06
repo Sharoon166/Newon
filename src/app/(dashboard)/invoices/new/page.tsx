@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NewInvoiceForm } from '@/features/invoices/components/new-invoice-form';
-import { NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
+import { InvoiceData, NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
 import { NewQuotationForm } from '@/features/invoices/components/new-quotation-form';
-import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import { PageHeader } from '@/components/general/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import QuotationTemplate from '@/features/invoices/components/quotation-template';
+import { getCustomers } from '@/features/customers/actions';
+import { Customer } from '@/features/customers/types';
 
 type ViewMode = 'form' | 'preview';
 type DocumentType = 'invoice' | 'quotation';
@@ -14,10 +16,18 @@ type DocumentType = 'invoice' | 'quotation';
 export default function NewDocument() {
   const [viewMode, setViewMode] = useState<ViewMode>('form');
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
-  const [documentData, setDocumentData] = useState<any>(null);
+  const [documentData, setDocumentData] = useState<InvoiceData>({} as InvoiceData);
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
-  const handlePreview = (data: any) => {
-    setDocumentData(data);
+  useEffect(() => {
+    const retrieveCustomers = async () => {
+      setCustomers(await getCustomers());
+    };
+    retrieveCustomers();
+  }, []);
+
+  const handlePreview = (data: Record<string, unknown>) => {
+    setDocumentData(data as InvoiceData);
     setViewMode('preview');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -42,20 +52,16 @@ export default function NewDocument() {
       <PageHeader title={viewMode === 'form' ? `New ${documentType}` : `Preview ${documentType}`} />
 
       {viewMode === 'form' ? (
-        <Tabs 
-          defaultValue="invoice" 
-          className="w-full"
-          onValueChange={(value) => setDocumentType(value as DocumentType)}
-        >
+        <Tabs defaultValue="invoice" className="w-full" onValueChange={value => setDocumentType(value as DocumentType)}>
           <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
             <TabsTrigger value="invoice">Invoice</TabsTrigger>
             <TabsTrigger value="quotation">Quotation</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="invoice">
-            <NewInvoiceForm onPreview={handlePreview} />
+            <NewInvoiceForm onPreview={handlePreview} customers={customers} />
           </TabsContent>
-          
+
           <TabsContent value="quotation">
             <NewQuotationForm onPreview={handlePreview} />
           </TabsContent>

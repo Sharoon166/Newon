@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { categories } from '../data';
+import { EnhancedVariants } from '../types';
 
 // Attribute schema defines the structure of product attributes
 const attributeSchema = z
@@ -51,10 +52,6 @@ const variantSchema = z.object({
   id: z.string(),
   sku: z.string().min(3, 'SKU must be at least 3 characters'),
   attributes: z.record(z.string(), z.string()),
-  purchasePrice: z.number().min(0, 'Must be a positive number'),
-  retailPrice: z.number().min(0, 'Must be a positive number'),
-  wholesalePrice: z.number().min(0, 'Must be a positive number'),
-  shippingCost: z.number().min(0, 'Must be a positive number'),
   availableStock: z.number().min(0, 'Must be a positive number'),
   stockOnBackorder: z.number().min(0, 'Must be a positive number'),
   inventory: z.array(z.object({
@@ -130,10 +127,6 @@ const defaultValues: ProductFormValues = {
       id: `var_${crypto.randomUUID()}`,
       sku: '',
       attributes: {},
-      purchasePrice: 0,
-      retailPrice: 0,
-      wholesalePrice: 0,
-      shippingCost: 0,
       availableStock: 0,
       stockOnBackorder: 0,
       inventory: [
@@ -162,11 +155,17 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
   const [showDeleteConfirmationDialog, setShowDeleteConfirmationDialog] = useState(false);
   const [createMoreThanOne, setCreateMoreThanOne] = useState(false);
 
+  // Clean initialData to remove any old pricing fields
+  const cleanInitialData = initialData ? {
+    ...initialData,
+    variants: initialData.variants
+  } : undefined;
+
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       ...defaultValues,
-      ...initialData,
+      ...cleanInitialData,
       hasVariants: initialData?.hasVariants ?? defaultValues.hasVariants ?? false
     },
 
@@ -221,10 +220,6 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
         id: `var_${Date.now()}`,
         sku: '',
         attributes: {},
-        purchasePrice: 0,
-        retailPrice: 0,
-        wholesalePrice: 0,
-        shippingCost: 0,
         availableStock: 0,
         stockOnBackorder: 0,
         inventory: []
@@ -239,18 +234,18 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
         ...data,
         // Ensure variants is always an array
         variants: Array.isArray(data.variants)
-          ? data.variants.map(v => ({
-            ...v,
-            // Ensure required fields have default values
-            purchasePrice: v.purchasePrice || 0,
-            retailPrice: v.retailPrice || 0,
-            wholesalePrice: v.wholesalePrice || 0,
-            shippingCost: v.shippingCost || 0,
-            availableStock: v.availableStock || 0,
-            stockOnBackorder: v.stockOnBackorder || 0,
-            // Clean up attributes
-            attributes: v.attributes || {},
-          }))
+          ? data.variants.map(v => {
+              // Remove any pricing fields that might have been added
+              const {...cleanVariant } = v as EnhancedVariants;
+              return {
+                ...cleanVariant,
+                // Ensure required fields have default values
+                availableStock: cleanVariant.availableStock || 0,
+                stockOnBackorder: cleanVariant.stockOnBackorder || 0,
+                // Clean up attributes
+                attributes: cleanVariant.attributes || {},
+              };
+            })
           : []
       };
       if (mode === 'edit' && initialData?._id) {
@@ -315,10 +310,6 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                                 id: `var_${Date.now()}`,
                                 sku: '',
                                 attributes: {},
-                                purchasePrice: 0,
-                                retailPrice: 0,
-                                wholesalePrice: 0,
-                                shippingCost: 0,
                                 availableStock: 0,
                                 stockOnBackorder: 0,
                                 inventory: []

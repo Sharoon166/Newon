@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Download, Save } from "lucide-react";
+import Image from "next/image";
 
 type InvoiceItem = {
   id: string;
@@ -21,12 +22,12 @@ type CompanyDetails = {
   zip: string;
   phone: string;
   email: string;
-  website: string;
+  website?: string;
 };
 
 type ClientDetails = {
   name: string;
-  company: string;
+  company?: string;
   address: string;
   city: string;
   state: string;
@@ -41,7 +42,7 @@ type PaymentDetails = {
   iban: string;
 };
 
-type InvoiceData = {
+export type InvoiceData = {
   logo?: string;
   company: CompanyDetails;
   client: ClientDetails;
@@ -51,13 +52,13 @@ type InvoiceData = {
   items: InvoiceItem[];
   taxRate: number;
   discount: number;
-  notes: string;
-  terms: string;
+  notes?: string;
+  terms?: string;
   paymentDetails: PaymentDetails;
   previousBalance: number;
   paid: number;
   remainingPayment: number;
-  amountInWords: string;
+  amountInWords?: string;
 };
 
 type InvoiceTemplateProps = {
@@ -81,7 +82,7 @@ export function NewonInvoiceTemplate({
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch (error) {
+    } catch {
       return dateString;
     }
   };
@@ -94,9 +95,10 @@ export function NewonInvoiceTemplate({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-8 border-b">
         <div className="mb-6 md:mb-0">
           {invoiceData.logo ? (
-            <img 
+            <Image
               src={invoiceData.logo} 
               alt="Company Logo" 
+              fill
               className="h-16 mb-4"
             />
           ) : (

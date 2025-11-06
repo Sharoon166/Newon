@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Coins, LayoutDashboard, Package, ScrollTextIcon, Settings2, ShoppingCart, Users } from 'lucide-react';
+import { Coins, LayoutDashboard, Package, ScrollTextIcon, Settings2, ShoppingCart, Users, UserSquare } from 'lucide-react';
 
 import {
   Sidebar,
@@ -22,16 +22,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 const data = {
-  user: {
-    name: 'shadcn',
-    email: 'm@example.com',
-    avatar: '/avatars/shadcn.jpg'
-  },
   navSecondary: [
     {
       title: 'Setting',
@@ -59,6 +54,10 @@ const data = {
       name: 'Staff Management',
       url: '/staff',
       icon: Users
+    },
+    {name: 'Customers',
+      url: '/customers',
+      icon: UserSquare
     },
     {
       name: 'Invoices & Quotations',
@@ -89,33 +88,34 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <DropdownMenuTrigger asChild>
                       <div>
                         <div className="flex items-center gap-3 cursor-pointer group">
-                          <div className={cn(
-                            'flex aspect-square size-10 items-center justify-center rounded-md',
-                            currentBrand.id === 'newon'
-                              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                              : 'bg-blue-600 text-white'
-                          )}>
-                            {currentBrand.icon && (
-                              <currentBrand.icon className="size-5" />
+                          <div
+                            className={cn(
+                              'flex aspect-square size-10 items-center justify-center rounded-md',
+                              currentBrand.id === 'newon'
+                                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                                : 'bg-blue-600 text-white'
                             )}
+                          >
+                            {currentBrand.icon && <currentBrand.icon className="size-5" />}
                           </div>
                           <div className="flex items-center w-full justify-between gap-2">
                             <div className="">
                               <div className="truncate font-medium group-hover:underline">
                                 {currentBrand.displayName}
                               </div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {currentBrand.address}
-                              </div>
+                              <div className="truncate text-xs text-muted-foreground">{currentBrand.address}</div>
                             </div>
-                              <ChevronsUpDown className="ml-1 size-4 opacity-50" />
+                            <ChevronsUpDown className="ml-1 size-4 opacity-50" />
                           </div>
                         </div>
                       </div>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64 rounded-lg p-2" side={isMobile ? 'bottom' : 'right'}
+                    <DropdownMenuContent
+                      className="w-64 rounded-lg p-2"
+                      side={isMobile ? 'bottom' : 'right'}
                       align="end"
-                      sideOffset={4}>
+                      sideOffset={4}
+                    >
                       <DropdownMenuItem
                         onClick={() => setBrand('newon')}
                         className={cn(
@@ -128,9 +128,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         </div>
                         <div className="grid flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className={cn('font-medium truncate', { 'text-primary': currentBrand.id === 'newon' })}>{brands[0].displayName}</span>
+                            <span
+                              className={cn('font-medium truncate', { 'text-primary': currentBrand.id === 'newon' })}
+                            >
+                              {brands[0].displayName}
+                            </span>
                             {currentBrand.id === 'newon' && (
-                              <span className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">Current</span>
+                              <span className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">
+                                Current
+                              </span>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground truncate">Inventory Management System</span>
@@ -148,9 +154,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         </div>
                         <div className="grid flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className={cn('font-medium truncate', { 'text-primary': currentBrand.id === 'waymor' })}>{brands[1].displayName}</span>
+                            <span
+                              className={cn('font-medium truncate', { 'text-primary': currentBrand.id === 'waymor' })}
+                            >
+                              {brands[1].displayName}
+                            </span>
                             {currentBrand.id === 'waymor' && (
-                              <span className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">Current</span>
+                              <span className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">
+                                Current
+                              </span>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground truncate">Waymor Inventory System</span>
@@ -169,7 +181,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );

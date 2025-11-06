@@ -18,12 +18,12 @@ const staffSchema = new Schema<IStaff>(
     firstName: {
       type: String,
       required: [true, 'First name is required'],
-      trim: true,
+      trim: true
     },
     lastName: {
       type: String,
       required: [true, 'Last name is required'],
-      trim: true,
+      trim: true
     },
     email: {
       type: String,
@@ -31,31 +31,31 @@ const staffSchema = new Schema<IStaff>(
       unique: true,
       trim: true,
       lowercase: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
+      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
     },
     phoneNumber: {
       type: String,
-      trim: true,
+      trim: true
     },
     role: {
       type: String,
       required: [true, 'Role is required'],
       enum: ['admin', 'manager', 'staff'],
-      default: 'staff',
+      default: 'staff'
     },
     password: {
       type: String,
       required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters long'],
-      select: false, // Don't return password by default
+      select: false // Don't return password by default
     },
     isActive: {
       type: Boolean,
-      default: true,
-    },
+      default: true
+    }
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt fields
+    timestamps: true // Adds createdAt and updatedAt fields
   }
 );
 
@@ -63,24 +63,29 @@ const staffSchema = new Schema<IStaff>(
 // staffSchema.index({ email: 1 }, { unique: true });
 staffSchema.index({ isActive: 1 });
 
-// Pre-save hook for password hashing (example, you can implement your own)
+// Pre-save hook for password hashing
 staffSchema.pre<IStaff>('save', async function (next) {
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) return next();
 
-  // In a real app, you would hash the password here
-  // For example:
-  // this.password = await bcrypt.hash(this.password, 10);
-  
-  next();
+  try {
+    const bcrypt = await import('bcryptjs');
+    this.password = await bcrypt.hash(this.password, 12);
+    next();
+  } catch (error) {
+    next(error as Error);
+  }
 });
 
 // Method to compare passwords
 staffSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
-  // In a real app, you would compare the hashed password
-  // For example:
-  // return await bcrypt.compare(candidatePassword, this.password);
-  return candidatePassword === this.password;
+  try {
+    const bcrypt = await import('bcryptjs');
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    console.log(error)
+    return false;
+  }
 };
 
 // Create the model if it doesn't exist
