@@ -21,7 +21,7 @@ const purchaseSchema = new mongoose.Schema(
     },
     locationId: {
       type: String,
-      required: false, // Optional as per requirements
+      required: true,
       trim: true
     },
     quantity: {
@@ -95,4 +95,3 @@ purchaseSchema.pre('save', function (next) {
 const Purchase = mongoose.models.Purchase || mongoose.model('Purchase', purchaseSchema);
 
 export default Purchase;
-

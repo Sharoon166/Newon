@@ -27,6 +27,7 @@ export interface LocationInventory {
 export interface ProductVariant {
   id: string;
   sku: string;
+  disabled: boolean;
   attributes: Record<string, string>; // attributeId: value
   image?: string; // Keep for backward compatibility
   imageFile?: ProductVariantImage;

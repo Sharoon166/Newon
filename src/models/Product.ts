@@ -10,6 +10,10 @@ const variantSchema = new mongoose.Schema(
       required: [true, 'SKU is required'],
       minlength: [3, 'SKU must be at least 3 characters']
     },
+    disabled: {
+      type: Boolean,
+      default: false
+    },
     attributes: {
       type: Map,
       of: String,

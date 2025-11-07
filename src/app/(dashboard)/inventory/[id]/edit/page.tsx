@@ -112,6 +112,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     variants: (product.variants || []).map(variant => ({
       id: String(variant.id || ''),
       sku: String(variant.sku || ''),
+      disabled: Boolean(variant.disabled || false),
       availableStock: Number(variant.availableStock || 0),
       stockOnBackorder: Number(variant.stockOnBackorder || 0),
       attributes: variant.attributes || {},

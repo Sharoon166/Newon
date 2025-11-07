@@ -52,6 +52,7 @@ export const getAllPurchases = async () => {
     },
     {
       $project: {
+        _id: 0,
         id: { $toString: '$_id' },
         productId: { $toString: '$productId' },
         variantId: 1,
@@ -86,7 +87,13 @@ export const getAllPurchases = async () => {
     }
   ]);
 
-  return purchases;
+  // Serialize dates to strings for client components
+  return purchases.map(purchase => ({
+    ...purchase,
+    purchaseDate: purchase.purchaseDate?.toISOString() || null,
+    createdAt: purchase.createdAt?.toISOString() || null,
+    updatedAt: purchase.updatedAt?.toISOString() || null,
+  }));
 };
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {

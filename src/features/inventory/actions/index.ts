@@ -32,9 +32,9 @@ type LeanProduct = {
 
 export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
   await dbConnect();
-  
+
   // Ensure attributes are properly structured
-  const processedAttributes = Array.isArray(product.attributes) 
+  const processedAttributes = Array.isArray(product.attributes)
     ? product.attributes.map(attr => ({
         id: attr.id || `attr_${Date.now()}_${Math.random()}`,
         name: attr.name || '',
@@ -48,31 +48,30 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
   const processedVariants = product.variants.map(variant => ({
     ...variant,
     // Ensure inventory exists and has the correct structure
-    inventory: Array.isArray(variant.inventory) 
-      ? variant.inventory 
-      : [],
+    inventory: Array.isArray(variant.inventory) ? variant.inventory : [],
     // Set default values if not provided
     availableStock: variant.availableStock ?? 0,
-    stockOnBackorder: variant.stockOnBackorder ?? 0,
+    stockOnBackorder: variant.stockOnBackorder ?? 0
   }));
 
   const productWithDefaults = {
     ...product,
     attributes: processedAttributes,
-    variants: processedVariants,
+    variants: processedVariants
   };
 
   console.log('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
-  
+
   await ProductModel.create(productWithDefaults);
-  revalidatePath('/inventory');
+  revalidatePath('/inventory', 'page');
+  revalidatePath('/purchases', 'page');
 };
 
 export const getProducts = async (): Promise<EnhancedVariants[]> => {
   await dbConnect();
 
   const data = await ProductModel.aggregate([
-    { 
+    {
       $unwind: {
         path: '$variants',
         preserveNullAndEmptyArrays: false
@@ -97,7 +96,7 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
               name: '$$loc.name',
               address: '$$loc.address',
               isActive: '$$loc.isActive',
-              order: '$$loc.order',
+              order: '$$loc.order'
               // Exclude _id or convert it
               // If you need it: _id: { $toString: '$$loc._id' }
             }
@@ -106,13 +105,14 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
 
         id: '$variants.id',
         sku: '$variants.sku',
+        disabled: '$variants.disabled',
         attributes: '$variants.attributes',
         image: '$variants.image',
         imageFile: '$variants.imageFile',
 
         availableStock: '$variants.availableStock',
         stockOnBackorder: '$variants.stockOnBackorder',
-        
+
         inventory: {
           $map: {
             input: { $ifNull: ['$variants.inventory', []] },
@@ -158,10 +158,10 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
 
   // Fetch all purchases for pricing calculation
   const purchases = await PurchaseModel.find({}).lean();
-  
+
   // Group purchases by productId-variantId
   const purchaseMap = new Map<string, Purchase[]>();
-  (purchases as unknown[]).forEach((purchase) => {
+  (purchases as unknown[]).forEach(purchase => {
     const purchaseObj = purchase as Record<string, unknown>;
     const key = `${(purchaseObj.productId as string).toString()}-${purchaseObj.variantId as string}`;
     if (!purchaseMap.has(key)) {
@@ -170,7 +170,7 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
     purchaseMap.get(key)!.push({
       ...purchaseObj,
       id: (purchaseObj._id as string).toString(),
-      productId: (purchaseObj.productId as string).toString(),
+      productId: (purchaseObj.productId as string).toString()
     } as Purchase);
   });
 
@@ -186,7 +186,7 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
       retailPrice: pricing.retailPrice,
       wholesalePrice: pricing.wholesalePrice,
       shippingCost: pricing.shippingCost,
-      unitPrice: pricing.unitPrice,
+      unitPrice: pricing.unitPrice
     } as unknown as EnhancedVariants;
   });
 
@@ -212,19 +212,80 @@ interface DeleteVariantResult {
     }>;
   };
   error?: string;
+  canDisable?: boolean;
 }
+
+export const toggleVariantDisabled = async (productId: string, variantId: string): Promise<DeleteVariantResult> => {
+  try {
+    await dbConnect();
+
+    const product = await ProductModel.findById(productId);
+
+    if (!product) {
+      return {
+        success: false,
+        message: 'Product not found'
+      };
+    }
+
+    const variant = product.variants.find((v: ProductVariant) => v.id === variantId);
+
+    if (!variant) {
+      return {
+        success: false,
+        message: 'Variant not found'
+      };
+    }
+
+    // Toggle disabled status
+    variant.disabled = !variant.disabled;
+    product.markModified('variants');
+    await product.save();
+
+    revalidatePath('/inventory');
+    revalidatePath(`/inventory/${productId}`);
+    revalidatePath(`/inventory/${productId}/edit`);
+
+    return {
+      success: true,
+      message: variant.disabled ? 'Variant disabled successfully' : 'Variant enabled successfully'
+    };
+  } catch (error) {
+    console.error('Error toggling variant disabled status:', error);
+    return {
+      success: false,
+      message: 'An error occurred while updating the variant',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+};
 
 export const deleteProductVariant = async (variantId: string): Promise<DeleteVariantResult> => {
   try {
     await dbConnect();
 
     // Find the product containing the variant
-    const product = await ProductModel.findOne({ 'variants._id': variantId });
+    const product = await ProductModel.findOne({ 'variants.id': variantId });
 
     if (!product) {
       return {
         success: false,
         message: 'Variant not found'
+      };
+    }
+    
+    // Check if variant has any purchases
+    const PurchaseModel = (await import('@/models/Purchase')).default;
+    const purchaseCount = await PurchaseModel.countDocuments({
+      productId: product._id,
+      variantId: variantId
+    });
+
+    if (purchaseCount > 0) {
+      return {
+        success: false,
+        message: `Cannot delete variant with ${purchaseCount} purchase(s). Please disable it instead.`,
+        canDisable: true
       };
     }
 
@@ -236,20 +297,14 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
       };
     }
 
-    // Delete the variant using $pull
-    const result = await ProductModel.updateOne(
-      { 'variants._id': variantId },
-      { $pull: { variants: { _id: variantId } } }
-    );
-
-    if (result.modifiedCount === 0) {
-      return {
-        success: false,
-        message: 'Failed to delete variant. Variant may have already been deleted.'
-      };
-    }
+    // Delete the variant using filter
+    product.variants = product.variants.filter((v: ProductVariant) => v.id !== variantId);
+    product.markModified('variants');
+    await product.save();
 
     revalidatePath('/inventory');
+    revalidatePath(`/inventory/${product._id}`);
+    revalidatePath(`/inventory/${product._id}/edit`);
 
     return {
       success: true,
@@ -273,11 +328,11 @@ export const deleteProductByName = async (name: string) => {
 
 // export const updateProduct = async (id: string, data: Product) => {
 //   await dbConnect();
-  
+
 //   console.log('INPUT DATA:', JSON.stringify(data, null, 2));
 
 //   const product = await ProductModel.findById(id);
-  
+
 //   if (!product) {
 //     throw new Error('Product not found');
 //   }
@@ -286,15 +341,14 @@ export const deleteProductByName = async (name: string) => {
 //   // Object.assign(product, data);
 //   product.set(data);
 
-  
 //   // Explicitly mark nested arrays as modified
 //   product.markModified('variants');
 //   product.markModified('locations');
-  
+
 //   await product.save();
-  
+
 //   const updatedProduct = product.toObject();
-  
+
 //   console.log('UPDATED PRODUCT:', JSON.stringify(updatedProduct, null, 2));
 
 //   revalidatePath('/inventory');
@@ -305,10 +359,10 @@ export const deleteProductByName = async (name: string) => {
 
 export const updateProduct = async (id: string, data: LeanProduct) => {
   await dbConnect();
-  
+
   try {
     // Ensure attributes are properly structured
-    const processedAttributes = Array.isArray(data.attributes) 
+    const processedAttributes = Array.isArray(data.attributes)
       ? data.attributes.map(attr => ({
           id: attr.id || `attr_${Date.now()}_${Math.random()}`,
           name: attr.name || '',
@@ -319,11 +373,11 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
       : [];
 
     // Ensure variants have the correct structure
-    const processedVariants = Array.isArray(data.variants) 
+    const processedVariants = Array.isArray(data.variants)
       ? data.variants.map(v => ({
           ...v,
           // Ensure inventory is an array of valid objects
-          inventory: Array.isArray(v.inventory) 
+          inventory: Array.isArray(v.inventory)
             ? v.inventory.map(i => ({
                 locationId: i.locationId,
                 availableStock: Number(i.availableStock) || 0,
@@ -336,7 +390,7 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
     const updateData = {
       ...data,
       attributes: processedAttributes,
-      variants: processedVariants,
+      variants: processedVariants
     };
 
     console.log('Updating product with attributes:', JSON.stringify(processedAttributes, null, 2));
@@ -349,19 +403,17 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
 
     // Update the product fields
     // Object.assign(product, updateData);
-    
+
     // // Mark nested arrays as modified
     // product.markModified('variants');
     // product.markModified('locations');
 
-  
-    
     // Save with validation
     // const updatedProduct = await product.save();
-    
+
     // Convert to plain object
     // const result = updatedProduct.toObject();
-    
+
     revalidatePath('/inventory');
     revalidatePath(`/inventory/${id}/edit`);
 
@@ -384,19 +436,19 @@ export const getProductById = async (id: string) => {
  */
 export const getVariantPricing = async (productId: string, variantId: string) => {
   await dbConnect();
-  
+
   // Get purchases for this specific variant
   const purchases = await PurchaseModel.find({
     productId: productId,
     variantId: variantId
   }).lean();
 
-  const purchaseData = (purchases as unknown[]).map((purchase) => {
+  const purchaseData = (purchases as unknown[]).map(purchase => {
     const purchaseObj = purchase as Record<string, unknown>;
     return {
       ...purchaseObj,
       id: (purchaseObj._id as string).toString(),
-      productId: (purchaseObj.productId as string).toString(),
+      productId: (purchaseObj.productId as string).toString()
     } as Purchase;
   });
 
@@ -408,16 +460,16 @@ export const getVariantPricing = async (productId: string, variantId: string) =>
  */
 export const getProductWithPricing = async (productId: string) => {
   await dbConnect();
-  
+
   const product = await ProductModel.findById(productId).lean();
   if (!product) return null;
 
   // Get all purchases for this product
   const purchases = await PurchaseModel.find({ productId }).lean();
-  
+
   // Group purchases by variantId
   const purchaseMap = new Map<string, Purchase[]>();
-  (purchases as unknown[]).forEach((purchase) => {
+  (purchases as unknown[]).forEach(purchase => {
     const purchaseObj = purchase as Record<string, unknown>;
     const variantId = purchaseObj.variantId as string;
     if (!purchaseMap.has(variantId)) {
@@ -426,22 +478,24 @@ export const getProductWithPricing = async (productId: string) => {
     purchaseMap.get(variantId)!.push({
       ...purchaseObj,
       id: (purchaseObj._id as string).toString(),
-      productId: (purchaseObj.productId as string).toString(),
+      productId: (purchaseObj.productId as string).toString()
     } as Purchase);
   });
 
   // Add pricing to variants
-  const enhancedVariants = (product as Record<string, unknown> & { variants?: Array<Record<string, unknown> & { id: string }> }).variants?.map((variant: Record<string, unknown> & { id: string }) => {
+  const enhancedVariants = (
+    product as Record<string, unknown> & { variants?: Array<Record<string, unknown> & { id: string }> }
+  ).variants?.map((variant: Record<string, unknown> & { id: string }) => {
     const variantPurchases = purchaseMap.get(variant.id) || [];
     const pricing = calculateVariantPricing(variantPurchases);
-    
+
     return {
       ...variant,
       purchasePrice: pricing.purchasePrice,
       retailPrice: pricing.retailPrice,
       wholesalePrice: pricing.wholesalePrice,
       shippingCost: pricing.shippingCost,
-      unitPrice: pricing.unitPrice,
+      unitPrice: pricing.unitPrice
     };
   });
 

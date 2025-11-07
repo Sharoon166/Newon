@@ -43,6 +43,7 @@ export function VariantsManager({
     const newVariant: ProductVariant = {
       id: `var_${uuidv4()}`,
       sku: '',
+      disabled: false,
       attributes: {},
       availableStock: 0,
       stockOnBackorder: 0,

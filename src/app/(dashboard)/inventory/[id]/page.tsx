@@ -12,6 +12,7 @@ import { Pencil } from 'lucide-react';
 import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
 import { VariantPurchaseHistoryButton } from '@/features/purchases/components/variant-purchase-history-button';
 import { PricingInfo, PricingBadge } from '@/components/inventory/pricing-info';
+import { VariantActions } from '@/features/inventory/components/variants/variant-actions';
 import type { ProductAttribute, ProductLocation, ProductVariant } from '@/features/inventory/types';
 
 interface ProductDetailPageProps {
@@ -47,7 +48,7 @@ interface LocationWithStock extends ProductLocation {
 }
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const { id } = params;
+  const { id } = await params;
   const productData = await getProductWithPricing(id);
 
   if (!productData) {
@@ -218,8 +219,15 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                         {index > 0 && <Separator className="my-4" />}
                         <div className="space-y-3">
                           <div className="flex items-start justify-between">
-                            <div>
-                              <div className="font-medium">Variant {index + 1}</div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium">Variant {index + 1}</div>
+                                {variant.disabled && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    Disabled
+                                  </Badge>
+                                )}
+                              </div>
                               {variant.sku && (
                                 <div className="text-sm text-muted-foreground font-mono">SKU: {variant.sku}</div>
                               )}
@@ -288,7 +296,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                             </div>
                           </div>
 
-                          <div className="mt-2">
+                          <div className="mt-2 flex gap-2">
                             <VariantPurchaseHistoryButton
                               productId={id}
                               variantId={variant.id}
@@ -296,6 +304,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                               variantAttributes={variant.attributes}
                               productAttributes={product.attributes || []}
                               locations={product.locations || []}
+                            />
+                            <VariantActions
+                              productId={id}
+                              variantId={variant.id}
+                              disabled={variant.disabled || false}
+                              variantSku={variant.sku}
                             />
                           </div>
                         </div>
@@ -311,7 +325,14 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           {isSingleVariant && singleVariant && (
             <Card>
               <CardHeader>
-                <CardTitle>Variant Details</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle>Variant Details</CardTitle>
+                  {singleVariant.disabled && (
+                    <Badge variant="destructive" className="text-xs">
+                      Disabled
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start justify-between">
@@ -385,7 +406,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   </div>
                 </div>
 
-                <div className="mt-2">
+                <div className="mt-2 flex gap-2">
                   <VariantPurchaseHistoryButton
                     productId={id}
                     variantId={singleVariant.id}
@@ -393,6 +414,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     variantAttributes={singleVariant.attributes}
                     productAttributes={product.attributes || []}
                     locations={product.locations || []}
+                  />
+                  <VariantActions
+                    productId={id}
+                    variantId={singleVariant.id}
+                    disabled={singleVariant.disabled || false}
+                    variantSku={singleVariant.sku}
                   />
                 </div>
               </CardContent>

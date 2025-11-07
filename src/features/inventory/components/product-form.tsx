@@ -64,6 +64,7 @@ const attributeSchema = z
 const variantSchema = z.object({
   id: z.string(),
   sku: z.string().min(3, 'SKU must be at least 3 characters'),
+  disabled: z.boolean(),
   attributes: z.record(z.string(), z.string()),
   availableStock: z.number().min(0, 'Must be a positive number'),
   stockOnBackorder: z.number().min(0, 'Must be a positive number'),
@@ -143,6 +144,7 @@ const defaultValues: ProductFormValues = {
     {
       id: `var_${crypto.randomUUID()}`,
       sku: '',
+      disabled: false,
       attributes: {},
       availableStock: 0,
       stockOnBackorder: 0,
@@ -241,6 +243,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
         {
           id: `var_${Date.now()}`,
           sku: '',
+          disabled: false,
           attributes: {},
           availableStock: 0,
           stockOnBackorder: 0,
@@ -331,6 +334,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                                   {
                                     id: `var_${Date.now()}`,
                                     sku: '',
+                                    disabled: false,
                                     attributes: {},
                                     availableStock: 0,
                                     stockOnBackorder: 0,

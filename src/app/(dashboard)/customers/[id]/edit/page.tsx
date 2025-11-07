@@ -21,10 +21,6 @@ export default async function EditCustomerPage({ params }: { params: Promise<{ i
     <div className="container mx-auto space-y-8">
       <PageHeader title="Edit Customer" description={`Edit ${customer.name}'s information`} backLink="/customers" />
 
-      <pre>
-        {JSON.stringify(customer, null, 2)}
-      </pre>
-
       <div className="mt-8 max-w-xl mx-auto">
         <CustomerFormWrapper initialData={customer} />
       </div>

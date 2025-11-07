@@ -4,6 +4,8 @@ import { ProductsTable } from '@/features/inventory/components/products-table';
 import Link from 'next/link';
 import { getProducts } from '@/features/inventory/actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function InventoryPage() {
   const products = await getProducts();
 

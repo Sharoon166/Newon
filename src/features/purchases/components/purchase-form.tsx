@@ -54,6 +54,7 @@ interface PurchaseFormProps {
     productId?: string;
     productName?: string;
     supplier?: string;
+    disabled?: boolean;
     locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   }>;
   purchase?: Purchase;
@@ -97,11 +98,11 @@ export function PurchaseForm({
     }
   });
 
-  // Get filtered variants based on selected product
+  // Get filtered variants based on selected product (exclude disabled variants)
   const selectedProductId = form.watch('productId') || productId;
   const filteredVariants = useMemo(() => {
     if (!selectedProductId) return [];
-    return variants.filter(v => v.productId === selectedProductId);
+    return variants.filter(v => v.productId === selectedProductId && !v.disabled)
   }, [selectedProductId, variants]);
 
   // Get filtered locations based on selected product's variants

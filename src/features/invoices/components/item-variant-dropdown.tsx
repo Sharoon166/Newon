@@ -80,9 +80,12 @@ export function ItemVariantDropdown({
           });
         });
 
-        // Filter variants based on search term
+        // Filter variants based on search term and exclude disabled variants
         const filteredVariants = Array.from(variantMap.values())
           .filter(variant => {
+            // Exclude disabled variants (check explicitly for true to handle undefined)
+            if (variant.disabled === true) return false;
+            
             const searchLower = searchTerm.toLowerCase();
             return (
               variant.productName.toLowerCase().includes(searchLower) ||

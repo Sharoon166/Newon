@@ -86,7 +86,14 @@ const columns: ColumnDef<EnhancedVariants>[] = [
             </ImageZoom>
           </div>
           <div className="min-w-0">
-            <div className="truncate font-medium">{row.original.productName}</div>
+            <div className="flex items-center gap-2">
+              <div className="truncate font-medium">{row.original.productName}</div>
+              {row.original.disabled && (
+                <Badge variant="destructive" className="text-xs shrink-0">
+                  Disabled
+                </Badge>
+              )}
+            </div>
             <div className="text-xs text-muted-foreground truncate">SKU: {row.original.sku}</div>
           </div>
         </div>

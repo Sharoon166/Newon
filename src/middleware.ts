@@ -29,7 +29,7 @@ export function middleware(request: NextRequest) {
 
   // Redirect root to customers (keeping this active)
   if (pathname === '/') {
-    const dashboardUrl = new URL('/customers', request.url);
+    const dashboardUrl = new URL('/inventory', request.url);
     return NextResponse.redirect(dashboardUrl);
   }
 

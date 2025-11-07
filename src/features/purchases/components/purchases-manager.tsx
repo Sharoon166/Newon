@@ -12,16 +12,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
-import { PurchaseForm } from './purchase-form';
 import { PurchasesTable } from './purchases-table';
 import { Purchase } from '../types';
 import { getPurchasesByProductId, getPurchasesByVariantId } from '../actions';
 import { formatCurrency } from '@/lib/utils';
+import { PurchaseForm } from './purchase-form';
 
 interface PurchasesManagerProps {
   productId: string;
   variantId?: string;
-  variants?: Array<{ id: string; sku: string; attributes: Record<string, string> }>;
+  variants?: Array<{ id: string; sku: string; disabled?: boolean; attributes: Record<string, string> }>;
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   suppliers?: string[];
 }
