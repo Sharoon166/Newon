@@ -131,8 +131,8 @@ const columns: ColumnDef<EnhancedVariants>[] = [
         )}
       </div>
     ),
-    minSize: 250,
-    size: 350
+    minSize: 450,
+    size: 550
   },
   {
     accessorKey: 'retailPrice',

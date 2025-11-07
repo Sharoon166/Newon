@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -18,10 +21,10 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Loader2, Plus, Info } from 'lucide-react';
+import { Loader2, Info, CalendarIcon } from 'lucide-react';
 import { Purchase, CreatePurchaseDto, UpdatePurchaseDto } from '../types';
 import { createPurchase, updatePurchase } from '../actions';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { NumberInput } from '@/components/ui/number-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -29,7 +32,7 @@ const purchaseFormSchema = z.object({
   productId: z.string().optional(), // Optional for when productId is provided via props
   variantId: z.string().min(1, 'Variant is required'),
   supplier: z.string().min(1, 'Supplier is required'),
-  locationId: z.string().optional(),
+  locationId: z.string().min(1, 'Location is required'),
   quantity: z.number().min(1, 'Quantity must be at least 1'),
   unitPrice: z.number().min(0, 'Unit price must be non-negative'),
   retailPrice: z.number().min(0, 'Retail price must be non-negative'),
@@ -50,6 +53,8 @@ interface PurchaseFormProps {
     attributes: Record<string, string>;
     productId?: string;
     productName?: string;
+    supplier?: string;
+    locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   }>;
   purchase?: Purchase;
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
@@ -65,7 +70,7 @@ export function PurchaseForm({
   variants = [],
   purchase,
   locations = [],
-  suppliers = [],
+  // suppliers = [],
   open,
   onOpenChange,
   onSuccess
@@ -92,6 +97,33 @@ export function PurchaseForm({
     }
   });
 
+  // Get filtered variants based on selected product
+  const selectedProductId = form.watch('productId') || productId;
+  const filteredVariants = useMemo(() => {
+    if (!selectedProductId) return [];
+    return variants.filter(v => v.productId === selectedProductId);
+  }, [selectedProductId, variants]);
+
+  // Get filtered locations based on selected product's variants
+  const filteredLocations = useMemo(() => {
+    if (!selectedProductId) return locations;
+
+    // Find the product's locations from its variants
+    const productVariant = variants.find(v => v.productId === selectedProductId);
+    if (productVariant?.locations && productVariant.locations.length > 0) {
+      return productVariant.locations.filter(loc => loc.isActive);
+    }
+
+    return locations;
+  }, [selectedProductId, variants, locations]);
+
+  // Get the product's supplier
+  const productSupplier = useMemo(() => {
+    if (!selectedProductId) return '';
+    const productVariant = variants.find(v => v.productId === selectedProductId);
+    return productVariant?.supplier || '';
+  }, [selectedProductId, variants]);
+
   // Reset form when purchase or open state changes
   useEffect(() => {
     if (open) {
@@ -105,6 +137,7 @@ export function PurchaseForm({
 
         const editVariantId = purchase.variantId || variantId || (variants.length === 1 ? variants[0].id : '');
         form.reset({
+          productId: productId || '',
           variantId: editVariantId,
           supplier: purchase.supplier || '',
           locationId: purchase.locationId || '',
@@ -118,6 +151,7 @@ export function PurchaseForm({
         });
       } else {
         form.reset({
+          productId: productId || '',
           variantId: defaultVariantId,
           supplier: '',
           locationId: '',
@@ -131,7 +165,22 @@ export function PurchaseForm({
         });
       }
     }
-  }, [purchase, open, form, variantId, defaultVariantId, variants]);
+  }, [purchase, open, form, variantId, defaultVariantId, variants, productId]);
+
+  // Reset variant, location, and set supplier when product changes
+  const watchedProductId = form.watch('productId');
+  useEffect(() => {
+    if (open && !productId && !isEditMode && watchedProductId) {
+      // Reset variant and location when product changes
+      form.setValue('variantId', '');
+      form.setValue('locationId', '');
+
+      // Auto-select the product's supplier
+      if (productSupplier) {
+        form.setValue('supplier', productSupplier);
+      }
+    }
+  }, [watchedProductId, open, productId, isEditMode, form, productSupplier]);
 
   const onSubmit = async (data: PurchaseFormValues) => {
     try {
@@ -139,8 +188,7 @@ export function PurchaseForm({
 
       const purchaseData = {
         ...data,
-        purchaseDate: new Date(data.purchaseDate),
-        locationId: data.locationId || undefined
+        purchaseDate: new Date(data.purchaseDate)
       };
 
       if (isEditMode && purchase) {
@@ -149,10 +197,10 @@ export function PurchaseForm({
         toast.success('Purchase updated successfully');
       } else {
         const createData: CreatePurchaseDto = {
-          productId,
+          productId: data.productId || productId,
           variantId: data.variantId,
           supplier: data.supplier,
-          locationId: data.locationId || undefined,
+          locationId: data.locationId,
           quantity: data.quantity,
           unitPrice: data.unitPrice,
           retailPrice: data.retailPrice,
@@ -263,7 +311,7 @@ export function PurchaseForm({
                   />
                 )}
 
-                {variants.length > 0 ? (
+                {filteredVariants.length > 0 ? (
                   <FormField
                     control={form.control}
                     name="variantId"
@@ -278,34 +326,23 @@ export function PurchaseForm({
                             onValueChange={value => {
                               field.onChange(value);
                             }}
-                            disabled={isEditMode || variants.length === 1}
+                            disabled={isEditMode || filteredVariants.length === 0}
                           >
                             <SelectTrigger className="w-full truncate">
                               <SelectValue placeholder="Select variant" />
                             </SelectTrigger>
                             <SelectContent>
-                              {variants
-                                .filter(
-                                  variant =>
-                                    !productId ||
-                                    !form.watch('productId') ||
-                                    variant.productId === (productId || form.watch('productId'))
-                                )
-                                .map(variant => {
-                                  const attrString = Object.entries(variant.attributes || {})
-                                    .map(([, value]) => value)
-                                    .join(', ');
-                                  const displayText = attrString ? `${variant.sku} (${attrString})` : variant.sku;
-                                  const fullDisplayText =
-                                    !productId && variant.productName
-                                      ? `${variant.productName} - ${displayText}`
-                                      : displayText;
-                                  return (
-                                    <SelectItem key={variant.id} value={variant.id}>
-                                      {fullDisplayText}
-                                    </SelectItem>
-                                  );
-                                })}
+                              {filteredVariants.map(variant => {
+                                const attrString = Object.entries(variant.attributes || {})
+                                  .map(([, value]) => value)
+                                  .join(', ');
+                                const displayText = attrString ? `${variant.sku} (${attrString})` : variant.sku;
+                                return (
+                                  <SelectItem key={variant.id} value={variant.id}>
+                                    {displayText}
+                                  </SelectItem>
+                                );
+                              })}
                             </SelectContent>
                           </Select>
                         </FormControl>
@@ -315,7 +352,7 @@ export function PurchaseForm({
                   />
                 ) : (
                   <div className="text-sm text-muted-foreground p-2">
-                    No variants available. Please add variants to the product first.
+                    {selectedProductId ? 'No variants available for this product.' : 'Please select a product first.'}
                   </div>
                 )}
 
@@ -328,39 +365,14 @@ export function PurchaseForm({
                         Supplier <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
-                        <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                          <Select
-                            value={field.value}
-                            onValueChange={value => {
-                              field.onChange(value);
-                            }}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select or enter supplier" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {suppliers.map(supplier => (
-                                <SelectItem key={supplier} value={supplier}>
-                                  {supplier}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {!suppliers.includes(field.value) && field.value && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              title="Add as new supplier"
-                              onClick={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                        <Input
+                          {...field}
+                          value={productSupplier || field.value}
+                          readOnly
+                          disabled
+                          className="bg-muted cursor-not-allowed"
+                          placeholder={selectedProductId ? 'Select a product first' : 'No supplier set'}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -371,61 +383,78 @@ export function PurchaseForm({
                   control={form.control}
                   name="purchaseDate"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex flex-col">
                       <FormLabel>
                         Purchase Date <span className="text-destructive">*</span>
                       </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          {...field}
-                          onChange={e => {
-                            e.stopPropagation();
-                            field.onChange(e.target.value);
-                          }}
-                          onClick={e => e.stopPropagation()}
-                        />
-                      </FormControl>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date</span>}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? new Date(field.value) : undefined}
+                            onSelect={date => {
+                              field.onChange(date ? format(date, 'yyyy-MM-dd') : '');
+                            }}
+                            disabled={date => date > new Date() || date < new Date('1900-01-01')}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                {locations.length > 0 && (
-                  <FormField
-                    control={form.control}
-                    name="locationId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Location</FormLabel>
-                        <FormControl>
-                          <Select
-                            value={field.value || undefined}
-                            onValueChange={value => {
-                              // Convert empty string or special value to undefined
-                              field.onChange(value && value !== 'none' ? value : undefined);
-                            }}
-                          >
-                            <SelectTrigger className="w-full truncate">
-                              <SelectValue placeholder="Select location (optional)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {locations
-                                .filter(loc => loc.isActive || loc.id === field.value)
-                                .map(location => (
-                                  <SelectItem key={location.id} value={location.id}>
-                                    {location.name}
-                                    {!location.isActive ? ' (Inactive)' : ''}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                <FormField
+                  control={form.control}
+                  name="locationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Location <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={value => {
+                            field.onChange(value);
+                          }}
+                        >
+                          <SelectTrigger className="w-full truncate">
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredLocations.length > 0 ? (
+                              filteredLocations.map(location => (
+                                <SelectItem key={location.id} value={location.id}>
+                                  {location.name}
+                                  {!location.isActive ? ' (Inactive)' : ''}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="text-sm text-muted-foreground p-2">No locations available</div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}

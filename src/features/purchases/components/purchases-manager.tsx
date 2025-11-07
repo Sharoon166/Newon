@@ -39,6 +39,7 @@ export function PurchasesManager({
   const [formOpen, setFormOpen] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | undefined>(undefined);
   const [selectedVariantId, setSelectedVariantId] = useState<string>(variantId || 'all');
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
 
   const loadPurchases = React.useCallback(async () => {
     try {
@@ -104,11 +105,17 @@ export function PurchasesManager({
     setEditingPurchase(undefined);
   };
 
-  // Calculate summary stats
-  const totalPurchased = purchases.reduce((sum, p) => sum + p.quantity, 0);
-  const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
-  const averageUnitPrice = purchases.length > 0
-    ? purchases.reduce((sum, p) => sum + p.unitPrice, 0) / purchases.length
+  // Filter purchases by location
+  const filteredPurchases = React.useMemo(() => {
+    if (selectedLocationId === 'all') return purchases;
+    return purchases.filter(p => p.locationId === selectedLocationId);
+  }, [purchases, selectedLocationId]);
+
+  // Calculate summary stats for filtered purchases
+  const totalPurchased = filteredPurchases.reduce((sum, p) => sum + p.quantity, 0);
+  const totalCost = filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+  const averageUnitPrice = filteredPurchases.length > 0
+    ? filteredPurchases.reduce((sum, p) => sum + p.unitPrice, 0) / filteredPurchases.length
     : 0;
 
   // Extract unique suppliers from purchases and product supplier
@@ -165,39 +172,67 @@ export function PurchasesManager({
             Manage purchase records for {selectedVariantId && selectedVariantId !== 'all' ? 'this variant' : 'this product'}
           </p>
         </div>
-        {variants.length > 0 && !variantId && (
-          <div className="flex items-center gap-2">
-            <label htmlFor="variant-select" className="text-sm font-medium">
-              Filter by variant:
-            </label>
-            <Select
-              value={selectedVariantId}
-              onValueChange={(value) => {
-                setSelectedVariantId(value);
-              }}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All variants" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All variants</SelectItem>
-                {variants.map((variant) => {
-                  const attrString = Object.entries(variant.attributes || {})
-                    .map(([, value]) => value)
-                    .join(', ');
-                  const displayText = attrString 
-                    ? `${variant.sku} (${attrString})`
-                    : variant.sku;
-                  return (
-                    <SelectItem key={variant.id} value={variant.id}>
-                      {displayText}
+        <div className="flex flex-wrap items-center gap-2">
+          {variants.length > 0 && !variantId && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="variant-select" className="text-sm font-medium">
+                Variant:
+              </label>
+              <Select
+                value={selectedVariantId}
+                onValueChange={(value) => {
+                  setSelectedVariantId(value);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All variants" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All variants</SelectItem>
+                  {variants.map((variant) => {
+                    const attrString = Object.entries(variant.attributes || {})
+                      .map(([, value]) => value)
+                      .join(', ');
+                    const displayText = attrString 
+                      ? `${variant.sku} (${attrString})`
+                      : variant.sku;
+                    return (
+                      <SelectItem key={variant.id} value={variant.id}>
+                        {displayText}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {locations.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="location-select" className="text-sm font-medium">
+                Location:
+              </label>
+              <Select
+                value={selectedLocationId}
+                onValueChange={(value) => {
+                  setSelectedLocationId(value);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All locations</SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
                     </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+                  ))}
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
         <Button 
           type="button"
           onClick={(e) => {
@@ -225,7 +260,7 @@ export function PurchasesManager({
         </div>
       ) : (
         <PurchasesTable
-          purchases={purchases}
+          purchases={filteredPurchases}
           locations={locations}
           onEdit={handleEdit}
           onRefresh={handleDeleteSuccess}

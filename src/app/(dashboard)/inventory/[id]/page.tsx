@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
@@ -372,10 +372,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   </div>
                 </div>
 
-                {((singleVariant.purchasePrice || 0) > 0 || (singleVariant.retailPrice || 0) > 0) && (
-                  <PricingInfo variant="compact" />
-                )}
-
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <div className="text-muted-foreground">Available Stock</div>
@@ -471,7 +467,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   <div>
                     <div className="text-sm font-medium mb-1 flex items-center gap-1">
                       Current Purchase Price
-                      <PricingBadge />
                     </div>
                     <div className="text-xl font-bold text-muted-foreground">
                       {formatCurrency(singleVariant.purchasePrice || 0)}
@@ -486,24 +481,70 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           {locationsArray.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Locations ({locationsArray.length})</CardTitle>
+                <CardTitle>Inventory by Location</CardTitle>
+                <CardDescription>Stock levels across all locations</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {locationsArray.map(location => (
-                    <div key={location.id} className="space-y-1">
-                      <div className="font-medium text-sm">{location.name}</div>
-                      {location.address && <div className="text-xs text-muted-foreground">{location.address}</div>}
-                      <div className="flex gap-2 mt-2">
-                        <Badge variant={location.totalAvailable > 0 ? 'default' : 'secondary'}>
-                          {location.totalAvailable} in stock
+                    <div key={location.id} className="space-y-2 p-3 border rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium">{location.name}</div>
+                          {location.address && (
+                            <div className="text-xs text-muted-foreground mt-1">{location.address}</div>
+                          )}
+                        </div>
+                        <Badge variant={location.isActive ? 'default' : 'secondary'} className="ml-2">
+                          {location.isActive ? 'Active' : 'Inactive'}
                         </Badge>
-                        {location.totalBackorder > 0 && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-500">
-                            {location.totalBackorder} backorder
-                          </Badge>
-                        )}
                       </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <div className="text-sm">
+                          <div className="text-muted-foreground">Available</div>
+                          <div className={cn(
+                            "text-lg font-semibold",
+                            location.totalAvailable < 10 && "text-amber-500"
+                          )}>
+                            {location.totalAvailable}
+                          </div>
+                        </div>
+                        <div className="text-sm">
+                          <div className="text-muted-foreground">Backorder</div>
+                          <div className="text-lg font-semibold">
+                            {location.totalBackorder}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Show variant breakdown for this location if multiple variants */}
+                      {!isSingleVariant && product.variants && product.variants.length > 1 && (
+                        <div className="pt-2 border-t mt-2">
+                          <div className="text-xs font-medium text-muted-foreground mb-2">Variants at this location:</div>
+                          <div className="space-y-1">
+                            {product.variants
+                              .filter(v => v.inventory?.some(inv => inv.locationId === location.id && inv.availableStock > 0))
+                              .map(variant => {
+                                const locationInv = variant.inventory?.find(inv => inv.locationId === location.id);
+                                if (!locationInv) return null;
+                                
+                                const attrString = Object.entries(variant.attributes || {})
+                                  .map(([, value]) => value)
+                                  .join(', ');
+                                
+                                return (
+                                  <div key={variant.id} className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">
+                                      {attrString || variant.sku}
+                                    </span>
+                                    <span className="font-medium">{locationInv.availableStock} units</span>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

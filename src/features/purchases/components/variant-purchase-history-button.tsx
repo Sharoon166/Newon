@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { History, ChevronDown, ChevronUp } from 'lucide-react';
 import { PurchasesTable } from './purchases-table';
 import { Purchase } from '../types';
 import { getPurchasesByVariantId } from '../actions';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +28,7 @@ export function VariantPurchaseHistoryButton({
   const [isOpen, setIsOpen] = useState(false);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
 
   const loadPurchases = useCallback(async () => {
     if (!productId || !variantId) return;
@@ -48,12 +50,35 @@ export function VariantPurchaseHistoryButton({
     }
   }, [isOpen, productId, variantId, loadPurchases]);
 
-  // Calculate summary stats
-  const totalPurchased = purchases.reduce((sum, p) => sum + p.quantity, 0);
-  const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
-  const averageUnitPrice = purchases.length > 0
-    ? purchases.reduce((sum, p) => sum + p.unitPrice, 0) / purchases.length
+  // Filter purchases by location
+  const filteredPurchases = useMemo(() => {
+    if (selectedLocation === 'all') return purchases;
+    return purchases.filter(p => p.locationId === selectedLocation);
+  }, [purchases, selectedLocation]);
+
+  // Calculate summary stats for filtered purchases
+  const totalPurchased = filteredPurchases.reduce((sum, p) => sum + p.quantity, 0);
+  const totalCost = filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+  const averageUnitPrice = filteredPurchases.length > 0
+    ? filteredPurchases.reduce((sum, p) => sum + p.unitPrice, 0) / filteredPurchases.length
     : 0;
+
+  // Calculate location-based statistics
+  const locationStats = useMemo(() => {
+    const stats = new Map<string, { quantity: number; cost: number; count: number }>();
+    
+    purchases.forEach(p => {
+      const locationId = p.locationId || 'unassigned';
+      const current = stats.get(locationId) || { quantity: 0, cost: 0, count: 0 };
+      stats.set(locationId, {
+        quantity: current.quantity + p.quantity,
+        cost: current.cost + p.totalCost,
+        count: current.count + 1
+      });
+    });
+    
+    return stats;
+  }, [purchases]);
 
   return (
     <div className="space-y-4">
@@ -81,11 +106,33 @@ export function VariantPurchaseHistoryButton({
       >
         {isOpen && (
           <div className="space-y-6 pt-4 border-t">
+            {/* Location Filter */}
+            {locations.length > 0 && (
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium">Filter by Location:</label>
+                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <SelectTrigger className="w-[250px]">
+                    <SelectValue placeholder="All Locations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Locations</SelectItem>
+                    {locations.map(location => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Purchased
+                  {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
                 <CardContent className="p-0 text-2xl font-semibold mt-2">
                   {totalPurchased.toLocaleString()}
@@ -94,6 +141,7 @@ export function VariantPurchaseHistoryButton({
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Cost
+                  {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
                 <CardContent className="p-0 text-2xl font-semibold mt-2">
                   {formatCurrency(totalCost)}
@@ -102,12 +150,45 @@ export function VariantPurchaseHistoryButton({
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Average Unit Price
+                  {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
                 <CardContent className="p-0 text-2xl font-semibold mt-2">
                   {formatCurrency(averageUnitPrice)}
                 </CardContent>
               </Card>
             </div>
+
+            {/* Location Breakdown - Only show when viewing all locations */}
+            {selectedLocation === 'all' && locationStats.size > 0 && (
+              <Card>
+                <CardTitle className="text-base font-semibold p-4 pb-0">
+                  Purchases by Location
+                </CardTitle>
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    {Array.from(locationStats.entries()).map(([locationId, stats]) => {
+                      const location = locations.find(loc => loc.id === locationId);
+                      const locationName = location?.name || (locationId === 'unassigned' ? 'Unassigned' : locationId);
+                      
+                      return (
+                        <div key={locationId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <div className="font-medium">{locationName}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {stats.count} purchase{stats.count !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">{stats.quantity.toLocaleString()} units</div>
+                            <div className="text-sm text-muted-foreground">{formatCurrency(stats.cost)}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Purchases Table */}
             {loading ? (
@@ -116,7 +197,7 @@ export function VariantPurchaseHistoryButton({
               </div>
             ) : (
               <PurchasesTable
-                purchases={purchases}
+                purchases={filteredPurchases}
                 locations={locations}
                 onEdit={() => {
                   // Purchase editing should be done from the product edit page

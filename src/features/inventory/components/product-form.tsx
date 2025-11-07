@@ -3,7 +3,20 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, FolderTree, Layers, Loader2, MapPin, Package, Package2, Save, Settings, ShoppingCart, Trash2, X } from 'lucide-react';
+import {
+  AlertCircle,
+  FolderTree,
+  Layers,
+  Loader2,
+  MapPin,
+  Package,
+  Package2,
+  Save,
+  Settings,
+  ShoppingCart,
+  Trash2,
+  X
+} from 'lucide-react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -54,11 +67,13 @@ const variantSchema = z.object({
   attributes: z.record(z.string(), z.string()),
   availableStock: z.number().min(0, 'Must be a positive number'),
   stockOnBackorder: z.number().min(0, 'Must be a positive number'),
-  inventory: z.array(z.object({
-    locationId: z.string(),
-    availableStock: z.number().min(0, 'Must be a positive number'),
-    backorderStock: z.number().min(0, 'Must be a positive number')
-  })),
+  inventory: z.array(
+    z.object({
+      locationId: z.string(),
+      availableStock: z.number().min(0, 'Must be a positive number'),
+      backorderStock: z.number().min(0, 'Must be a positive number')
+    })
+  ),
   image: z.url('Please enter a valid URL').optional().or(z.literal(''))
 });
 
@@ -69,13 +84,15 @@ const productFormSchema = z
     }),
     description: z.string().optional(),
     supplier: z.string().min(1, 'Enter supplier information'),
-    locations: z.array(z.object({
-      id: z.string(),
-      name: z.string().min(1, 'Location name is required'),
-      address: z.string().optional(),
-      isActive: z.boolean(),
-      order: z.number()
-    })),
+    locations: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string().min(1, 'Location name is required'),
+        address: z.string().optional(),
+        isActive: z.boolean(),
+        order: z.number()
+      })
+    ),
     categories: z.array(z.string()),
     image: z.any().optional(),
     hasVariants: z.boolean(),
@@ -156,10 +173,12 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
   const [createMoreThanOne, setCreateMoreThanOne] = useState(false);
 
   // Clean initialData to remove any old pricing fields
-  const cleanInitialData = initialData ? {
-    ...initialData,
-    variants: initialData.variants
-  } : undefined;
+  const cleanInitialData = initialData
+    ? {
+        ...initialData,
+        variants: initialData.variants
+      }
+    : undefined;
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -192,11 +211,13 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
       const currentInventory = variant.inventory || [];
       const updatedInventory = locations.map(location => {
         const existing = currentInventory.find(i => i.locationId === location.id);
-        return existing || {
-          locationId: location.id,
-          availableStock: 0,
-          backorderStock: 0
-        };
+        return (
+          existing || {
+            locationId: location.id,
+            availableStock: 0,
+            backorderStock: 0
+          }
+        );
       });
 
       return {
@@ -216,14 +237,16 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
   useEffect(() => {
     // If switching to simple product and no variant exists, add a default variant
     if (!hasVariants && form.getValues('variants').length === 0) {
-      form.setValue('variants', [{
-        id: `var_${Date.now()}`,
-        sku: '',
-        attributes: {},
-        availableStock: 0,
-        stockOnBackorder: 0,
-        inventory: []
-      }]);
+      form.setValue('variants', [
+        {
+          id: `var_${Date.now()}`,
+          sku: '',
+          attributes: {},
+          availableStock: 0,
+          stockOnBackorder: 0,
+          inventory: []
+        }
+      ]);
     }
   }, [hasVariants, form]);
 
@@ -236,14 +259,14 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
         variants: Array.isArray(data.variants)
           ? data.variants.map(v => {
               // Remove any pricing fields that might have been added
-              const {...cleanVariant } = v as EnhancedVariants;
+              const { ...cleanVariant } = v as EnhancedVariants;
               return {
                 ...cleanVariant,
                 // Ensure required fields have default values
                 availableStock: cleanVariant.availableStock || 0,
                 stockOnBackorder: cleanVariant.stockOnBackorder || 0,
                 // Clean up attributes
-                attributes: cleanVariant.attributes || {},
+                attributes: cleanVariant.attributes || {}
               };
             })
           : []
@@ -262,7 +285,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
         }
         router.refresh(); // Refresh the page to show updated data
       } else {
-        reset()
+        reset();
       }
     } catch (error) {
       console.error(`Error ${mode === 'edit' ? 'updating' : 'creating'} product:`, error);
@@ -283,46 +306,47 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="space-y-8">
-            <div className="flex justify-end">
-              <FormField
-                control={form.control}
-                name="hasVariants"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2 space-y-0">
-                    <FormLabel className="text-sm font-medium">Product with Variants</FormLabel>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          const currentVariants = form.getValues('variants');
-                          field.onChange(checked);
-                          
-                          if (checked && currentVariants.length === 0 && mode === 'edit' && initialData && initialData?.variants?.length > 0) {
-                            // When enabling variants in edit mode, use the existing variant data
-                            form.setValue('variants', initialData.variants);
-                          } else if (!checked) {
-                            // Reset attributes when switching to simple product
-                            form.setValue('attributes', []);
-                            
-                            // If no variants exist, add a default one for simple product
-                            if (currentVariants.length === 0) {
-                              form.setValue('variants', [{
-                                id: `var_${Date.now()}`,
-                                sku: '',
-                                attributes: {},
-                                availableStock: 0,
-                                stockOnBackorder: 0,
-                                inventory: []
-                              }]);
+            {mode === 'create' && (
+              <div className="flex justify-end">
+                <FormField
+                  control={form.control}
+                  name="hasVariants"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                      <FormLabel className="text-sm font-medium">Product with Variants</FormLabel>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={checked => {
+                            const currentVariants = form.getValues('variants');
+                            field.onChange(checked);
+
+                            if (!checked) {
+                              // Reset attributes when switching to simple product
+                              form.setValue('attributes', []);
+
+                              // If no variants exist, add a default one for simple product
+                              if (currentVariants.length === 0) {
+                                form.setValue('variants', [
+                                  {
+                                    id: `var_${Date.now()}`,
+                                    sku: '',
+                                    attributes: {},
+                                    availableStock: 0,
+                                    stockOnBackorder: 0,
+                                    inventory: []
+                                  }
+                                ]);
+                              }
                             }
-                          }
-                        }}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
               <div className="flex flex-wrap justify-between items-center gap-6">
                 <div className="space-y-2">
@@ -333,7 +357,17 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                     {mode === 'edit' ? 'Update the product details' : 'Add a new product to your inventory'}
                   </p>
                 </div>
-                {mode == "edit" && <Button type="button" variant="destructive" className='w-full lg:max-w-sm lg:mx-auto' onClick={() => setShowDeleteConfirmationDialog(true)}> <Trash2 /> Delete Product</Button>}
+                {mode == 'edit' && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full lg:max-w-sm lg:mx-auto"
+                    onClick={() => setShowDeleteConfirmationDialog(true)}
+                  >
+                    {' '}
+                    <Trash2 /> Delete Product
+                  </Button>
+                )}
                 <ConfirmationDialog
                   open={showDeleteConfirmationDialog}
                   onOpenChange={setShowDeleteConfirmationDialog}
@@ -343,7 +377,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                   variant="destructive"
                   onConfirm={async () => {
                     await deleteCurrentProduct();
-                    toast.success("Product deleted successfully")
+                    toast.success('Product deleted successfully');
                   }}
                   icon={<AlertCircle className="h-12 w-12 text-destructive" />}
                 />
@@ -441,8 +475,9 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                                   : currentCategories.filter(id => id !== category);
                                 field.onChange(newCategories);
                               }}
-                              className={`px-3 py-1.5 text-sm rounded-full transition-colors flex items-center gap-2 ${isSelected ? 'bg-primary text-zinc-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
+                              className={`px-3 py-1.5 text-sm rounded-full transition-colors flex items-center gap-2 ${
+                                isSelected ? 'bg-primary text-zinc-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
                             >
                               {category}
                               {isSelected && <X className="h-3.5 w-3.5" />}
@@ -459,8 +494,8 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
             </Card>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-              <TabsList className='h-max'>
-                <TabsTrigger value="attributes" >
+              <TabsList className="h-max">
+                <TabsTrigger value="attributes">
                   <Layers className="h-4 w-4 max-sm:size-5" />
                   <span className="max-sm:hidden">Attributes</span>
                 </TabsTrigger>
@@ -469,13 +504,17 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                   <span className="max-sm:hidden">Locations</span>
                 </TabsTrigger>
                 <TabsTrigger value="variants">
-                  {hasVariants ? <>
-                    <Package className="h-4 w-4 max-sm:size-5" />
-                    <span className="max-sm:hidden">Variants</span>
-                  </> : <>
-                    <Package2 className="h-4 w-4 max-sm:size-5" />
-                    <span className="max-sm:hidden">Product info</span>
-                  </>}
+                  {hasVariants ? (
+                    <>
+                      <Package className="h-4 w-4 max-sm:size-5" />
+                      <span className="max-sm:hidden">Variants</span>
+                    </>
+                  ) : (
+                    <>
+                      <Package2 className="h-4 w-4 max-sm:size-5" />
+                      <span className="max-sm:hidden">Product info</span>
+                    </>
+                  )}
                 </TabsTrigger>
                 {mode === 'edit' && (
                   <TabsTrigger value="purchases" disabled={formState.isSubmitting}>
@@ -492,12 +531,10 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
               <TabsContent value="attributes" className="space-y-4">
                 <Card className="p-6">
                   <CardTitle>Product Attributes</CardTitle>
-                  <CardDescription>
-                    Define the attributes that will be used to create product variants.
-                  </CardDescription>
+                  <CardDescription>Define the attributes that will be used to create product variants.</CardDescription>
                   <AttributesManager
                     attributes={attributes}
-                    onChange={(updatedAttributes) => setValue('attributes', updatedAttributes)}
+                    onChange={updatedAttributes => setValue('attributes', updatedAttributes)}
                   />
                 </Card>
               </TabsContent>
@@ -505,35 +542,35 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
               <TabsContent value="locations" className="space-y-4">
                 <Card className="p-6">
                   <CardTitle>Inventory Locations</CardTitle>
-                  <CardDescription>
-                    Manage the locations where this product will be stocked.
-                  </CardDescription>
+                  <CardDescription>Manage the locations where this product will be stocked.</CardDescription>
                   <LocationsManager
                     locations={watch('locations') || []}
-                    onChange={(updatedLocations) => setValue('locations', updatedLocations)}
+                    onChange={updatedLocations => setValue('locations', updatedLocations)}
                   />
                 </Card>
               </TabsContent>
 
               <TabsContent value="variants">
                 <div className="flex items-center justify-between mb-4">
-                  {hasVariants ? <div>
-                    <h3>Product Variants</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Configure different variants of this product with their own pricing and stock.
-                    </p>
-                  </div> : <div>
-                    <h3>Product Information</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Configure the product information.
-                    </p>
-                  </div>}
+                  {hasVariants ? (
+                    <div>
+                      <h3>Product Variants</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Configure different variants of this product with their own pricing and stock.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <h3>Product Information</h3>
+                      <p className="text-sm text-muted-foreground mb-4">Configure the product information.</p>
+                    </div>
+                  )}
                 </div>
                 <VariantsManager
                   attributes={form.watch('attributes')}
                   variants={form.watch('variants')}
                   locations={form.watch('locations')}
-                  onChange={(variants) => form.setValue('variants', variants)}
+                  onChange={variants => form.setValue('variants', variants)}
                   isSimpleProduct={!hasVariants}
                   productId={mode === 'edit' ? initialData?._id : undefined}
                 />
@@ -544,7 +581,8 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                   <Card className="p-6">
                     <CardTitle>Purchase Management</CardTitle>
                     <CardDescription>
-                      Track and manage purchase history for product variants. Purchases are tracked per variant and help track incoming stock and costs.
+                      Track and manage purchase history for product variants. Purchases are tracked per variant and help
+                      track incoming stock and costs.
                     </CardDescription>
                     <PurchasesManager
                       productId={initialData._id}
@@ -557,26 +595,28 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
               )}
 
               <TabsContent value="settings">
-                <Card className="p-6">
-                  It&apos;s a work in progress.
-                </Card>
+                <Card className="p-6">It&apos;s a work in progress.</Card>
               </TabsContent>
             </Tabs>
 
-            <div className={cn("flex justify-between gap-4", {
-              "justify-end": mode == "edit"
-            })}>
-              {mode == "create" && <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    <Switch id='create-more' checked={createMoreThanOne} onCheckedChange={setCreateMoreThanOne} />
-                    <Label htmlFor='create-more'>Create more than one </Label>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent className='max-w-48'>
-                  <p>When enabled, you can create multiple products at once</p>
-                </TooltipContent>
-              </Tooltip>}
+            <div
+              className={cn('flex justify-between gap-4', {
+                'justify-end': mode == 'edit'
+              })}
+            >
+              {mode == 'create' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      <Switch id="create-more" checked={createMoreThanOne} onCheckedChange={setCreateMoreThanOne} />
+                      <Label htmlFor="create-more">Create more than one </Label>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-48">
+                    <p>When enabled, you can create multiple products at once</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
 
               <div className="flex justify-end gap-4 pt-4">
                 <Button type="button" variant="outline" onClick={() => router.push('/inventory')} disabled={isLoading}>
@@ -598,7 +638,6 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
               </div>
             </div>
           </div>
-          
         </form>
       </Form>
     </>
