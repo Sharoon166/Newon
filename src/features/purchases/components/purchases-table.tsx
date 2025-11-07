@@ -80,7 +80,7 @@ export function PurchasesTable({
   }
 
   return (
-    <div className="overflow-auto max-w-6xl mx-auto">
+    <div className="overflow-auto w-full max-w-6xl mx-auto">
       <div className="rounded-md border-2">
         <Table>
           <TableHeader>
@@ -131,7 +131,7 @@ export function PurchasesTable({
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button
+                      {purchase.remaining !== purchase.quantity && <Button
                         type="button"
                         variant="ghost"
                         size="icon"
@@ -139,7 +139,7 @@ export function PurchasesTable({
                         title="Delete purchase"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      </Button>}
                     </div>
                   </TableCell>
                 )}

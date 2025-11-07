@@ -23,7 +23,7 @@ interface VariantPurchaseHistoryButtonProps {
 export function VariantPurchaseHistoryButton({
   productId,
   variantId,
-  locations = [],
+  locations = []
 }: VariantPurchaseHistoryButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -32,7 +32,7 @@ export function VariantPurchaseHistoryButton({
 
   const loadPurchases = useCallback(async () => {
     if (!productId || !variantId) return;
-    
+
     try {
       setLoading(true);
       const data = await getPurchasesByVariantId(productId, variantId);
@@ -59,14 +59,15 @@ export function VariantPurchaseHistoryButton({
   // Calculate summary stats for filtered purchases
   const totalPurchased = filteredPurchases.reduce((sum, p) => sum + p.quantity, 0);
   const totalCost = filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0);
-  const averageUnitPrice = filteredPurchases.length > 0
-    ? filteredPurchases.reduce((sum, p) => sum + p.unitPrice, 0) / filteredPurchases.length
-    : 0;
+  const averageUnitPrice =
+    filteredPurchases.length > 0
+      ? filteredPurchases.reduce((sum, p) => sum + p.unitPrice, 0) / filteredPurchases.length
+      : 0;
 
   // Calculate location-based statistics
   const locationStats = useMemo(() => {
     const stats = new Map<string, { quantity: number; cost: number; count: number }>();
-    
+
     purchases.forEach(p => {
       const locationId = p.locationId || 'unassigned';
       const current = stats.get(locationId) || { quantity: 0, cost: 0, count: 0 };
@@ -76,26 +77,16 @@ export function VariantPurchaseHistoryButton({
         count: current.count + 1
       });
     });
-    
+
     return stats;
   }, [purchases]);
 
   return (
     <div className="space-y-4">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full sm:w-auto"
-      >
+      <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(!isOpen)} className="w-full sm:w-auto">
         <History className="mr-2 h-4 w-4" />
         View Purchase History
-        {isOpen ? (
-          <ChevronUp className="ml-2 h-4 w-4" />
-        ) : (
-          <ChevronDown className="ml-2 h-4 w-4" />
-        )}
+        {isOpen ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
       </Button>
 
       <div
@@ -134,18 +125,14 @@ export function VariantPurchaseHistoryButton({
                   Total Purchased
                   {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
-                <CardContent className="p-0 text-2xl font-semibold mt-2">
-                  {totalPurchased.toLocaleString()}
-                </CardContent>
+                <CardContent className="p-0 text-2xl font-semibold mt-2">{totalPurchased.toLocaleString()}</CardContent>
               </Card>
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Cost
                   {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
-                <CardContent className="p-0 text-2xl font-semibold mt-2">
-                  {formatCurrency(totalCost)}
-                </CardContent>
+                <CardContent className="p-0 text-2xl font-semibold mt-2">{formatCurrency(totalCost)}</CardContent>
               </Card>
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -161,15 +148,13 @@ export function VariantPurchaseHistoryButton({
             {/* Location Breakdown - Only show when viewing all locations */}
             {selectedLocation === 'all' && locationStats.size > 0 && (
               <Card>
-                <CardTitle className="text-base font-semibold p-4 pb-0">
-                  Purchases by Location
-                </CardTitle>
+                <CardTitle className="text-base font-semibold p-4 pb-0">Purchases by Location</CardTitle>
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {Array.from(locationStats.entries()).map(([locationId, stats]) => {
                       const location = locations.find(loc => loc.id === locationId);
                       const locationName = location?.name || (locationId === 'unassigned' ? 'Unassigned' : locationId);
-                      
+
                       return (
                         <div key={locationId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                           <div>
@@ -192,20 +177,20 @@ export function VariantPurchaseHistoryButton({
 
             {/* Purchases Table */}
             {loading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading purchases...
-              </div>
+              <div className="text-center py-8 text-muted-foreground">Loading purchases...</div>
             ) : (
-              <PurchasesTable
-                purchases={filteredPurchases}
-                locations={locations}
-                onEdit={() => {
-                  // Purchase editing should be done from the product edit page
-                  // This section is read-only for viewing purchase history
-                }}
-                onRefresh={loadPurchases}
-                readOnly={true}
-              />
+              <div className='border-2 border-red-500 w-full'>
+                <PurchasesTable
+                  purchases={filteredPurchases}
+                  locations={locations}
+                  onEdit={() => {
+                    // Purchase editing should be done from the product edit page
+                    // This section is read-only for viewing purchase history
+                  }}
+                  onRefresh={loadPurchases}
+                  readOnly={true}
+                />
+              </div>
             )}
           </div>
         )}
@@ -213,4 +198,3 @@ export function VariantPurchaseHistoryButton({
     </div>
   );
 }
-

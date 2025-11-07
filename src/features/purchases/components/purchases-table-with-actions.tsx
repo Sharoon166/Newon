@@ -26,9 +26,9 @@ import { exportToCsv, exportToPdf } from '../utils/export-utils';
 import { TablePagination } from '@/components/general/table-pagination';
 import { deletePurchase } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
-import { PurchaseForm } from './purchase-form';
 import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
+import { PurchaseForm } from './purchase-form';
 
 // Extend the Purchase type with additional properties from the API
 export interface EnhancedPurchase extends Purchase {
@@ -347,27 +347,6 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
     table.setGlobalFilter(debouncedSearchValue);
   }, [debouncedSearchValue, table]);
 
-  if (purchases.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground border rounded-md">
-        <p>No purchase records found.</p>
-        <p className="text-sm mt-2">Purchase records will appear here once you add products to your inventory.</p>
-        <Button 
-          onClick={() => setAddPurchaseOpen(true)} 
-          className="mt-4"
-          disabled={products.length === 0}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add First Purchase
-        </Button>
-        {products.length === 0 && (
-          <p className="text-xs text-muted-foreground mt-2">
-            You need to create products first before adding purchases.
-          </p>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="w-full max-w-7xl overflow-x-auto mx-auto">

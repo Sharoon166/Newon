@@ -367,6 +367,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   ) : null}
                 </div>
 
+                      <PricingBadge />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <div className="text-muted-foreground">Retail Price</div>
@@ -379,7 +380,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   <div>
                     <div className="text-muted-foreground flex items-center gap-1">
                       Purchase Price
-                      <PricingBadge />
                     </div>
                     <div className="font-medium text-muted-foreground">
                       {formatCurrency(singleVariant.purchasePrice || 0)}

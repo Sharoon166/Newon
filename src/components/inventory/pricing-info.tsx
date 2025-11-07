@@ -31,7 +31,7 @@ export function PricingInfo({ variant = 'default', className }: PricingInfoProps
 
 export function PricingBadge({ className }: { className?: string }) {
   return (
-    <div className={`inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded ${className}`}>
+    <div className={`inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-current px-2 py-1 rounded-sm ${className}`}>
       <Info className="h-3 w-3" />
       FIFO Pricing
     </div>
