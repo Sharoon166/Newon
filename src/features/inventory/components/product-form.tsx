@@ -256,13 +256,13 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
   const onSubmit: SubmitHandler<ProductFormValues> = async (data: ProductFormValues) => {
     setIsLoading(true);
     try {
-      // Validate that all attributes have values in variants
-      if (data.hasVariants && data.attributes.length > 0) {
+      // Validate that all attributes have values in variants (for both simple and variant products)
+      if (data.attributes.length > 0) {
         for (const variant of data.variants) {
           for (const attribute of data.attributes) {
             const attributeValue = variant.attributes[attribute.name];
             if (!attributeValue || attributeValue.trim() === '') {
-              toast.error(`All variants must have a value for attribute\nNo value for "${attribute.name}"`);
+              toast.error(`All variants must have a value for attribute "${attribute.name}"`);
               setIsLoading(false);
               return;
             }
