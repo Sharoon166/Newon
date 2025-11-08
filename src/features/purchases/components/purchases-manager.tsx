@@ -275,6 +275,7 @@ export function PurchasesManager({
         purchase={editingPurchase}
         locations={locations}
         suppliers={uniqueSuppliers}
+        supplier={suppliers.length > 0 ? suppliers[0] : undefined}
         open={formOpen}
         onOpenChange={handleFormClose}
         onSuccess={handleFormSuccess}

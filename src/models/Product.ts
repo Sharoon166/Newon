@@ -32,24 +32,26 @@ const variantSchema = new mongoose.Schema(
       min: [0, 'Backorder stock cannot be negative']
     },
     // New inventory structure
-    inventory: [{
-      locationId: {
-        type: String,
-        required: true
-      },
-      availableStock: {
-        type: Number,
-        required: true,
-        min: [0, 'Available stock cannot be negative'],
-        default: 0
-      },
-      backorderStock: {
-        type: Number,
-        required: true,
-        min: [0, 'Backorder stock cannot be negative'],
-        default: 0
+    inventory: [
+      {
+        locationId: {
+          type: String,
+          required: true
+        },
+        availableStock: {
+          type: Number,
+          required: true,
+          min: [0, 'Available stock cannot be negative'],
+          default: 0
+        },
+        backorderStock: {
+          type: Number,
+          required: true,
+          min: [0, 'Backorder stock cannot be negative'],
+          default: 0
+        }
       }
-    }],
+    ],
     // Image fields
     image: {
       type: String,
@@ -123,13 +125,15 @@ const productSchema = new mongoose.Schema(
       required: [true, 'Supplier information is required']
     },
     locations: {
-      type: [{
-        id: String,
-        name: String,
-        address: String,
-        isActive: Boolean,
-        order: Number
-      }],
+      type: [
+        {
+          id: String,
+          name: String,
+          address: String,
+          isActive: Boolean,
+          order: Number
+        }
+      ],
       default: []
     },
     categories: {
@@ -145,7 +149,7 @@ const productSchema = new mongoose.Schema(
       default: [],
       validate: [
         {
-          validator: function(variants: ProductVariant[]) {
+          validator: function (variants: ProductVariant[]) {
             // If there are no attributes, we should have exactly one variant
             if (this.attributes && this.attributes.length === 0) {
               return variants.length === 1;
@@ -155,12 +159,9 @@ const productSchema = new mongoose.Schema(
           message: 'Products without attributes must have exactly one variant'
         },
         {
-          validator: function(variants: ProductVariant[]) {
+          validator: function (variants: ProductVariant[]) {
             // Ensure all variants have required fields
-            return variants.every(variant => 
-              variant && 
-              variant.sku
-            );
+            return variants.every(variant => variant && variant.sku);
           },
           message: 'All variants must have required fields (sku)'
         }
@@ -178,13 +179,47 @@ productSchema.index({
   'variants.sku': 'text'
 });
 
+// Note: We don't use a unique index on variants.sku because variants are embedded documents
+// and MongoDB unique indexes don't work well with arrays of embedded documents.
+// Instead, we validate uniqueness in the pre-save hook below.
+
 // Add a pre-save hook to ensure data consistency
-productSchema.pre('save', function (next) {
-  // If no variants exist, create a default one
-  if (Array.isArray(this.variants) && this.variants.length === 0) {
-    throw new Error('Products without attributes must have exactly one variant');
+productSchema.pre('save', async function (next) {
+  try {
+    // If no variants exist, create a default one
+    if (Array.isArray(this.variants) && this.variants.length === 0) {
+      throw new Error('Products without attributes must have exactly one variant');
+    }
+
+    // Check for duplicate SKUs within this product
+    const skus = this.variants.map((v: { sku: string }) => v.sku);
+    const uniqueSkus = new Set(skus);
+    if (skus.length !== uniqueSkus.size) {
+      const duplicates = skus.filter((sku, index) => skus.indexOf(sku) !== index);
+      throw new Error(`Duplicate SKU "${duplicates[0]}" found within the same product`);
+    }
+
+    // TODO: Migrate SKUs to a separate ProductCodes collection to enforce uniqueness across all products
+    // This will allow for better performance and proper unique constraints at the database level
+    // For now, SKUs can be duplicated across different products
+
+    // Commented out cross-product SKU validation:
+    // const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+    // for (const variant of this.variants) {
+    //   const variantSku = (variant as { sku: string }).sku;
+    //   const existingProduct = await Product.findOne({
+    //     'variants.sku': variantSku,
+    //     _id: { $ne: this._id }
+    //   }).lean();
+    //   if (existingProduct) {
+    //     throw new Error(`SKU "${variantSku}" already exists in another product`);
+    //   }
+    // }
+
+    next();
+  } catch (error) {
+    next(error as Error);
   }
-  next();
 });
 
 // Create and export the model

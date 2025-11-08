@@ -60,6 +60,7 @@ interface PurchaseFormProps {
   purchase?: Purchase;
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   suppliers?: string[];
+  supplier?: string; // Direct supplier prop for single-product context
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -71,7 +72,8 @@ export function PurchaseForm({
   variants = [],
   purchase,
   locations = [],
-  // suppliers = [],
+  suppliers = [],
+  supplier,
   open,
   onOpenChange,
   onSuccess
@@ -102,8 +104,13 @@ export function PurchaseForm({
   const selectedProductId = form.watch('productId') || productId;
   const filteredVariants = useMemo(() => {
     if (!selectedProductId) return [];
-    return variants.filter(v => v.productId === selectedProductId && !v.disabled)
-  }, [selectedProductId, variants]);
+    // If productId is provided as prop (single product context), don't filter by productId
+    if (productId) {
+      return variants.filter(v => !v.disabled);
+    }
+    // Otherwise filter by productId (multi-product context)
+    return variants.filter(v => v.productId === selectedProductId && !v.disabled);
+  }, [selectedProductId, variants, productId]);
 
   // Get filtered locations based on selected product's variants
   const filteredLocations = useMemo(() => {
@@ -121,9 +128,18 @@ export function PurchaseForm({
   // Get the product's supplier
   const productSupplier = useMemo(() => {
     if (!selectedProductId) return '';
+    // If supplier is provided directly as prop (single product context), use it
+    if (supplier) {
+      return supplier;
+    }
+    // If productId is provided as prop, try to get supplier from first variant
+    if (productId && variants.length > 0) {
+      return variants[0]?.supplier || '';
+    }
+    // Otherwise find by productId (multi-product context)
     const productVariant = variants.find(v => v.productId === selectedProductId);
     return productVariant?.supplier || '';
-  }, [selectedProductId, variants]);
+  }, [selectedProductId, variants, productId, supplier]);
 
   // Reset form when purchase or open state changes
   useEffect(() => {
@@ -151,10 +167,12 @@ export function PurchaseForm({
           notes: purchase.notes || ''
         });
       } else {
+        // Get supplier for initial form state
+        const initialSupplier = supplier || (productId && variants.length > 0 ? variants[0]?.supplier || '' : '');
         form.reset({
           productId: productId || '',
           variantId: defaultVariantId,
-          supplier: '',
+          supplier: initialSupplier,
           locationId: '',
           quantity: 1,
           unitPrice: 0,

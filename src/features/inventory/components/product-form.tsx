@@ -276,8 +276,10 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
       };
       if (mode === 'edit' && initialData?._id) {
         await updateProduct(initialData._id, formData);
+        toast.success('Product updated successfully');
       } else {
         await createProduct(formData);
+        toast.success('Product created successfully');
       }
 
       if (!createMoreThanOne) {
@@ -292,6 +294,11 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
       }
     } catch (error) {
       console.error(`Error ${mode === 'edit' ? 'updating' : 'creating'} product:`, error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${mode === 'edit' ? 'update' : 'create'} product. Please try again.`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -304,10 +311,61 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
     // router.refresh();
   };
 
+  const onInvalid = (errors: typeof form.formState.errors) => {
+    console.log('Form validation errors:', errors);
+
+    // Check for specific common errors first
+    if (errors.name) {
+      toast.error(errors.name.message || 'Product name is required');
+      return;
+    }
+    if (errors.supplier) {
+      toast.error(errors.supplier.message || 'Supplier is required');
+      return;
+    }
+    if (errors.variants) {
+      // Check if it's an array error or specific variant error
+      if (typeof errors.variants === 'object' && 'message' in errors.variants) {
+        toast.error(errors.variants.message as string);
+        return;
+      }
+      // Check for SKU errors in variants
+      const variantsArray = errors.variants as Array<{ sku?: { message?: string } }>;
+      if (Array.isArray(variantsArray)) {
+        for (let i = 0; i < variantsArray.length; i++) {
+          if (variantsArray[i]?.sku?.message) {
+            toast.error(`Variant ${i + 1}: ${variantsArray[i].sku?.message}`);
+            return;
+          }
+        }
+      }
+      toast.error('Please check all variant fields');
+      return;
+    }
+    if (errors.attributes) {
+      toast.error('Please check all attribute fields');
+      return;
+    }
+
+    // Show toast for first error found
+    const firstError = Object.values(errors)[0];
+    if (firstError?.message) {
+      toast.error(firstError.message as string);
+    } else if (firstError) {
+      // Handle nested errors
+      const nestedError = Object.values(firstError)[0];
+      if (nestedError && typeof nestedError === 'object' && 'message' in nestedError) {
+        toast.error(nestedError.message as string);
+      } else {
+        toast.error('Please check all required fields');
+      }
+    }
+  };
+
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
           <div className="space-y-8">
             {mode === 'create' && (
               <div className="flex justify-end">
@@ -499,7 +557,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
               <TabsList className="h-max">
-                <TabsTrigger value="attributes">
+                <TabsTrigger value="attributes" className='w-40'>
                   <Layers className="h-4 w-4 max-sm:size-5" />
                   <span className="max-sm:hidden">Attributes</span>
                 </TabsTrigger>
@@ -604,14 +662,14 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
             </Tabs>
 
             <div
-              className={cn('flex justify-between gap-4', {
+              className={cn('flex flex-col sm:flex-row justify-between gap-4', {
                 'justify-end': mode == 'edit'
               })}
             >
               {mode == 'create' && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 max-w-fit">
                       <Switch id="create-more" checked={createMoreThanOne} onCheckedChange={setCreateMoreThanOne} />
                       <Label htmlFor="create-more">Create more than one </Label>
                     </div>

@@ -31,40 +31,58 @@ type LeanProduct = {
 };
 
 export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
-  await dbConnect();
+  try {
+    await dbConnect();
 
-  // Ensure attributes are properly structured
-  const processedAttributes = Array.isArray(product.attributes)
-    ? product.attributes.map(attr => ({
-        id: attr.id || `attr_${Date.now()}_${Math.random()}`,
-        name: attr.name || '',
-        values: Array.isArray(attr.values) ? attr.values : [],
-        isRequired: Boolean(attr.isRequired),
-        order: Number(attr.order) || 0
-      }))
-    : [];
+    // Ensure attributes are properly structured
+    const processedAttributes = Array.isArray(product.attributes)
+      ? product.attributes.map(attr => ({
+          id: attr.id || `attr_${Date.now()}_${Math.random()}`,
+          name: attr.name || '',
+          values: Array.isArray(attr.values) ? attr.values : [],
+          isRequired: Boolean(attr.isRequired),
+          order: Number(attr.order) || 0
+        }))
+      : [];
 
-  // Ensure variants have the required inventory structure
-  const processedVariants = product.variants.map(variant => ({
-    ...variant,
-    // Ensure inventory exists and has the correct structure
-    inventory: Array.isArray(variant.inventory) ? variant.inventory : [],
-    // Set default values if not provided
-    availableStock: variant.availableStock ?? 0,
-    stockOnBackorder: variant.stockOnBackorder ?? 0
-  }));
+    // Ensure variants have the required inventory structure
+    const processedVariants = product.variants.map(variant => ({
+      ...variant,
+      // Ensure inventory exists and has the correct structure
+      inventory: Array.isArray(variant.inventory) ? variant.inventory : [],
+      // Set default values if not provided
+      availableStock: variant.availableStock ?? 0,
+      stockOnBackorder: variant.stockOnBackorder ?? 0
+    }));
 
-  const productWithDefaults = {
-    ...product,
-    attributes: processedAttributes,
-    variants: processedVariants
-  };
+    const productWithDefaults = {
+      ...product,
+      attributes: processedAttributes,
+      variants: processedVariants
+    };
 
-  console.log('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
+    console.log('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
 
-  await ProductModel.create(productWithDefaults);
-  revalidatePath('/inventory', 'page');
-  revalidatePath('/purchases', 'page');
+    await ProductModel.create(productWithDefaults);
+    revalidatePath('/inventory', 'page');
+    revalidatePath('/purchases', 'page');
+  } catch (error) {
+    console.error('Error creating product:', error);
+    // Provide user-friendly error messages
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate key') || error.message.includes('already exists')) {
+        throw new Error(error.message.includes('SKU') ? error.message : 'A product with this SKU already exists');
+      }
+      if (error.message.includes('Duplicate SKUs')) {
+        throw new Error(error.message);
+      }
+      if (error.message.includes('validation')) {
+        throw new Error('Please check all required fields are filled correctly');
+      }
+      throw new Error(error.message);
+    }
+    throw new Error('Failed to create product. Please try again.');
+  }
 };
 
 export const getProducts = async (): Promise<EnhancedVariants[]> => {
@@ -420,7 +438,23 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
     return updateProduct;
   } catch (error) {
     console.error('Error updating product:', error);
-    throw error;
+    // Provide user-friendly error messages
+    if (error instanceof Error) {
+      if (error.message.includes('duplicate key') || error.message.includes('already exists')) {
+        throw new Error(error.message.includes('SKU') ? error.message : 'A product with this SKU already exists');
+      }
+      if (error.message.includes('Duplicate SKUs')) {
+        throw new Error(error.message);
+      }
+      if (error.message.includes('validation')) {
+        throw new Error('Please check all required fields are filled correctly');
+      }
+      if (error.message.includes('not found')) {
+        throw new Error('Product not found');
+      }
+      throw new Error(error.message);
+    }
+    throw new Error('Failed to update product. Please try again.');
   }
 };
 
