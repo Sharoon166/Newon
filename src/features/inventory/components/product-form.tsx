@@ -256,6 +256,20 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
   const onSubmit: SubmitHandler<ProductFormValues> = async (data: ProductFormValues) => {
     setIsLoading(true);
     try {
+      // Validate that all attributes have values in variants
+      if (data.hasVariants && data.attributes.length > 0) {
+        for (const variant of data.variants) {
+          for (const attribute of data.attributes) {
+            const attributeValue = variant.attributes[attribute.name];
+            if (!attributeValue || attributeValue.trim() === '') {
+              toast.error(`All variants must have a value for attribute\nNo value for "${attribute.name}"`);
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+      }
+
       const formData = {
         ...data,
         // Ensure variants is always an array
@@ -374,10 +388,17 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                   name="hasVariants"
                   render={({ field }) => (
                     <FormItem className="flex items-center space-x-2 space-y-0">
-                      <FormLabel className="text-sm font-medium">Product with Variants</FormLabel>
+                      <FormLabel
+                        className={cn('text-sm font-medium', {
+                          'opacity-40 cursor-not-allowed': form.getValues('hasVariants')
+                        })}
+                      >
+                        Product with Variants
+                      </FormLabel>
                       <FormControl>
                         <Switch
                           checked={field.value}
+                          disabled={form.getValues('hasVariants')}
                           onCheckedChange={checked => {
                             const currentVariants = form.getValues('variants');
                             field.onChange(checked);
@@ -557,7 +578,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
               <TabsList className="h-max">
-                <TabsTrigger value="attributes" className='w-40'>
+                <TabsTrigger value="attributes" className="w-40">
                   <Layers className="h-4 w-4 max-sm:size-5" />
                   <span className="max-sm:hidden">Attributes</span>
                 </TabsTrigger>

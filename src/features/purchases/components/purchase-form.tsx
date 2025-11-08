@@ -184,7 +184,7 @@ export function PurchaseForm({
         });
       }
     }
-  }, [purchase, open, form, variantId, defaultVariantId, variants, productId]);
+  }, [supplier, purchase, open, form, variantId, defaultVariantId, variants, productId]);
 
   // Reset variant, location, and set supplier when product changes
   const watchedProductId = form.watch('productId');
@@ -229,6 +229,7 @@ export function PurchaseForm({
           notes: data.notes
         };
         await createPurchase(createData);
+        window.location.reload(); // to update the inventory tab
         toast.success('Purchase created successfully');
       }
 

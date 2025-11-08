@@ -21,7 +21,7 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+// import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, MapPin, GripVertical, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -86,14 +86,15 @@ const SortableLocationItem = ({
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <div className="flex items-center space-x-1">
+        {/* ability to toggle a location's status is hidden for now */}
+        {/* <div className="flex items-center space-x-1">
           <span className="text-sm text-muted-foreground">Active</span>
           <Switch
             checked={location.isActive}
             onCheckedChange={(checked) => onToggleActive(location.id, checked)}
             onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </div> */}
         <Button
           type="button"
           variant="ghost"
