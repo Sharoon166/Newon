@@ -102,7 +102,17 @@ const productFormSchema = z
   })
   .superRefine((data, ctx) => {
     // For simple products (no variants), ensure there's exactly one variant
-    if (!data.hasVariants && data.variants.length !== 1) {
+    // Only validate this if the product explicitly doesn't have variants AND has more than one variant
+    if (!data.hasVariants && data.variants.length > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Simple products cannot have multiple variants',
+        path: ['variants']
+      });
+    }
+
+    // For simple products, ensure there's at least one variant
+    if (!data.hasVariants && data.variants.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Simple products must have exactly one variant',
@@ -187,7 +197,11 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
     defaultValues: {
       ...defaultValues,
       ...cleanInitialData,
-      hasVariants: initialData?.hasVariants ?? defaultValues.hasVariants ?? false
+      // If product has multiple variants, it must be a variant product
+      hasVariants:
+        initialData?.variants && initialData.variants.length > 1
+          ? true
+          : (initialData?.hasVariants ?? defaultValues.hasVariants ?? false)
     },
 
     mode: 'onChange'
