@@ -468,10 +468,12 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                 <ConfirmationDialog
                   open={showDeleteConfirmationDialog}
                   onOpenChange={setShowDeleteConfirmationDialog}
-                  title="Are you sure you want to delete this product?"
-                  description="This product will be deleted from your inventory and all its variants will be removed. This action cannot be undone."
-                  confirmText="Delete"
+                  title="Delete Product - Permanent Action"
+                  description="WARNING: This will permanently delete this product and ALL associated data including: all variants, purchase history, inventory records, and transaction history. This action cannot be undone and the data cannot be recovered."
+                  confirmText="Delete Product"
                   variant="destructive"
+                  requireTextConfirmation={initialData?.name || ''}
+                  confirmationLabel="Enter product name to confirm deletion"
                   onConfirm={async () => {
                     await deleteCurrentProduct();
                     toast.success('Product deleted successfully');
