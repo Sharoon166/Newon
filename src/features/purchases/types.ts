@@ -1,6 +1,7 @@
 export interface Purchase {
   _id?: string;
   id?: string;
+  purchaseId: string;
   productId: string;
   variantId: string;
   supplier: string;

@@ -3,6 +3,13 @@ import mongoose from 'mongoose';
 // Define the purchase schema
 const purchaseSchema = new mongoose.Schema(
   {
+    purchaseId: {
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true, // Allow multiple null values
+      index: true
+    },
     productId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product',
@@ -79,8 +86,16 @@ const purchaseSchema = new mongoose.Schema(
 purchaseSchema.index({ productId: 1, variantId: 1, purchaseDate: -1 });
 purchaseSchema.index({ supplier: 1 });
 
+// Counter schema for auto-incrementing purchase IDs
+const counterSchema = new mongoose.Schema({
+  year: { type: Number, required: true, unique: true },
+  sequence: { type: Number, default: 0 }
+});
+
+const PurchaseCounter = mongoose.models.PurchaseCounter || mongoose.model('PurchaseCounter', counterSchema);
+
 // Pre-save hook to calculate totalCost and initialize remaining
-purchaseSchema.pre('save', function (next) {
+purchaseSchema.pre('save', async function (next) {
   if (this.isModified('quantity') || this.isModified('unitPrice')) {
     this.totalCost = this.quantity * this.unitPrice;
   }
@@ -88,6 +103,37 @@ purchaseSchema.pre('save', function (next) {
   if (this.isNew && this.remaining === undefined) {
     this.remaining = this.quantity;
   }
+  
+  // Generate purchaseId for new purchases
+  if (this.isNew && !this.purchaseId) {
+    try {
+      const currentYear = new Date().getFullYear();
+      const yearSuffix = currentYear.toString().slice(-2); // Get last 2 digits of year
+      
+      // Increment and get the next sequence number
+      const counter = await PurchaseCounter.findOneAndUpdate(
+        { year: currentYear },
+        { $inc: { sequence: 1 } },
+        { new: true, upsert: true }
+      );
+      
+      if (!counter) {
+        console.error('Failed to create or update purchase counter');
+        // Continue without purchaseId - it will be generated later if needed
+        return next();
+      }
+      
+      // Format: PR-YY-XXX (e.g., PR-25-001)
+      const sequenceStr = counter.sequence.toString().padStart(3, '0');
+      this.purchaseId = `PR-${yearSuffix}-${sequenceStr}`;
+      console.log(`Generated purchaseId: ${this.purchaseId}`);
+    } catch (error) {
+      console.error('Error generating purchaseId:', error);
+      // Continue without purchaseId - it will be generated later if needed
+      // Don't block the purchase creation
+    }
+  }
+  
   next();
 });
 

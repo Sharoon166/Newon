@@ -141,8 +141,14 @@ const defaultValues: ProductFormValues = {
   hasVariants: false,
   locations: [
     {
-      id: 'default_loc',
-      name: 'Default Location',
+      id: 'home',
+      name: 'Home',
+      address: '',
+      isActive: true,
+      order: 0
+    },{
+      id: 'office',
+      name: 'Office',
       address: '',
       isActive: true,
       order: 0

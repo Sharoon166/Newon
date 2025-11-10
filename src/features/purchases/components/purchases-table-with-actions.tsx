@@ -166,6 +166,15 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
   // Define columns
   const columns: ColumnDef<EnhancedPurchase>[] = [
     {
+      accessorKey: 'purchaseId',
+      header: 'Purchase ID',
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="font-mono text-xs whitespace-nowrap">
+          {row.original.purchaseId || 'N/A'}
+        </Badge>
+      )
+    },
+    {
       accessorKey: 'purchaseDate',
       header: ({ column }) => (
         <Button

@@ -11,6 +11,7 @@ import type { LocationInventory, ProductVariant } from '@/features/inventory/typ
 // Type for lean purchase document from MongoDB
 export type LeanPurchase = {
   _id: mongoose.Types.ObjectId;
+  purchaseId: string;
   productId: mongoose.Types.ObjectId;
   variantId: string;
   supplier: string;
@@ -67,6 +68,7 @@ export const getAllPurchases = async () => {
         purchaseDate: 1,
         remaining: 1,
         notes: 1,
+        purchaseId: 1,
         createdAt: 1,
         updatedAt: 1,
         productName: '$product.name',
@@ -154,6 +156,7 @@ export const getPurchasesByVariantId = async (productId: string, variantId: stri
     return {
       ...purchase,
       id: purchase._id.toString(),
+      purchaseId: purchase.purchaseId,
       productId: purchase.productId.toString(),
       variantId: purchase.variantId,
       _id: undefined,
@@ -174,6 +177,7 @@ export const getPurchasesByProductId = async (productId: string) => {
     return {
       ...purchase,
       id: purchase._id.toString(),
+      purchaseId: purchase.purchaseId,
       productId: purchase.productId.toString(),
       variantId: purchase.variantId,
       _id: undefined,
@@ -194,6 +198,7 @@ export const getPurchaseById = async (id: string) => {
   return {
     ...purchase,
     id: purchase._id.toString(),
+    purchaseId: purchase.purchaseId,
     productId: purchase.productId.toString(),
     variantId: purchase.variantId,
     _id: undefined,
@@ -305,6 +310,7 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   return {
     ...purchaseObj,
     id: purchaseObj._id.toString(),
+    purchaseId: purchaseObj.purchaseId,
     productId: purchaseObj.productId.toString(),
     variantId: purchaseObj.variantId,
     _id: undefined,
@@ -468,6 +474,7 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   return {
     ...updatedPurchase,
     id: updatedPurchase._id.toString(),
+    purchaseId: updatedPurchase.purchaseId,
     productId: updatedPurchase.productId.toString(),
     variantId: updatedPurchase.variantId,
     _id: undefined,

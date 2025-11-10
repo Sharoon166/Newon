@@ -266,7 +266,12 @@ export function PurchaseForm({
         onClick={e => e.stopPropagation()}
       >
         <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Purchase' : 'Add Purchase'}</DialogTitle>
+          <DialogTitle>
+            {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
+            {isEditMode && purchase?.purchaseId && (
+              <span className="ml-2 text-sm font-mono text-muted-foreground">({purchase.purchaseId})</span>
+            )}
+          </DialogTitle>
           <DialogDescription>
             {isEditMode ? 'Update the purchase details below.' : 'Add a new purchase record for this variant.'}
           </DialogDescription>

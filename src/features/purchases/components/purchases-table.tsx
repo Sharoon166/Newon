@@ -85,6 +85,7 @@ export function PurchasesTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Purchase ID</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Supplier</TableHead>
               <TableHead>Location</TableHead>
@@ -102,6 +103,11 @@ export function PurchasesTable({
           <TableBody>
             {purchases.map(purchase => (
               <TableRow key={purchase.id || purchase._id}>
+                <TableCell>
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {purchase.purchaseId || 'N/A'}
+                  </Badge>
+                </TableCell>
                 <TableCell>{formatDate(purchase.purchaseDate)}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{purchase.supplier}</Badge>

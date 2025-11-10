@@ -37,7 +37,8 @@ import {
   FileSpreadsheet,
   MoreHorizontal,
   Pencil,
-  LucideColumns3Cog
+  LucideColumns3Cog,
+  ChevronsUpDown
 } from 'lucide-react';
 import { EnhancedVariants, ProductLocation } from '../types';
 import { formatCurrency } from '@/lib/utils';
@@ -87,14 +88,14 @@ const columns: ColumnDef<EnhancedVariants>[] = [
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="truncate font-medium">{row.original.productName}</div>
+              <div className="truncate font-medium">SKU: {row.original.sku}</div>
               {row.original.disabled && (
                 <Badge variant="destructive" className="text-xs shrink-0">
                   Disabled
                 </Badge>
               )}
             </div>
-            <div className="text-xs text-muted-foreground truncate">SKU: {row.original.sku}</div>
+            <div className="text-xs text-muted-foreground truncate">{row.original.productName} </div>
           </div>
         </div>
       </>
@@ -144,7 +145,9 @@ const columns: ColumnDef<EnhancedVariants>[] = [
   {
     accessorKey: 'retailPrice',
     header: 'Retail Price',
-    cell: ({ row }) => <div className="font-medium whitespace-nowrap">{formatCurrency(row.original.retailPrice || 0)}</div>,
+    cell: ({ row }) => (
+      <div className="font-medium whitespace-nowrap">{formatCurrency(row.original.retailPrice || 0)}</div>
+    ),
     minSize: 100,
     size: 120
   },
@@ -230,14 +233,15 @@ const columns: ColumnDef<EnhancedVariants>[] = [
       return (
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              className="h-auto p-0 text-sm font-normal hover:bg-transparent hover:underline underline-offset-2"
-            >
-              {inventory.length} location{inventory.length !== 1 ? 's' : ''}
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className='h-auto'
+              >
+                {inventory.length} <ChevronsUpDown />
+              </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 p-2" align="start">
+          <PopoverContent className="w-64 p-2" align="center">
             <div className="space-y-2 divide-y-2 divide-muted">
               {inventory.map((item, index) => {
                 const location: Partial<ProductLocation> = item.location || {};

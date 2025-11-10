@@ -143,7 +143,7 @@ export function PurchasesManager({
             Total Purchased
           </CardTitle>
           <CardContent className="p-0 text-2xl font-semibold mt-2">
-            {totalPurchased.toLocaleString()}
+            {totalPurchased?.toLocaleString()}
           </CardContent>
         </Card>
         <Card className="p-4">

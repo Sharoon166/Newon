@@ -483,39 +483,39 @@ export function VariantForm({
                   id={`variant-sku-${variant.id}`}
                   value={variant.sku}
                   onChange={e => onVariantChange({ ...variant, sku: e.target.value })}
-                  placeholder={isSimpleProduct ? 'PROD-001' : 'VARIANT-001'}
+                  placeholder={isSimpleProduct ? 'PRD-001' : 'VAR-001'}
                 />
               </div>
             </div>
           </div>
-          {attributes.length > 0 &&
+          {attributes.length > 0 && (
             <>
-            <h2>Attributes</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {attributes.map(attribute => (
-              <div key={attribute.id} className="space-y-2">
-                <Label>{attribute.name}</Label>
-                <Select
-                  value={variant.attributes[attribute.name] || ''}
-                  onValueChange={value => updateAttribute(attribute.name, value)}
-                  required
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={`Select ${attribute.name}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {attribute.values.map(value => (
-                      <SelectItem key={value} value={value}>
-                        {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <h2>Attributes</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {attributes.map(attribute => (
+                  <div key={attribute.id} className="space-y-2">
+                    <Label>{attribute.name}</Label>
+                    <Select
+                      value={variant.attributes[attribute.name] || ''}
+                      onValueChange={value => updateAttribute(attribute.name, value)}
+                      required
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={`Select ${attribute.name}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {attribute.values.map(value => (
+                          <SelectItem key={value} value={value}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
             </>
-          }
+          )}
         </TabsContent>
 
         <TabsContent value="inventory" className="space-y-4">

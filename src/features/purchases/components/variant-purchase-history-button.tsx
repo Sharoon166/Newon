@@ -125,7 +125,7 @@ export function VariantPurchaseHistoryButton({
                   Total Purchased
                   {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
-                <CardContent className="p-0 text-2xl font-semibold mt-2">{totalPurchased.toLocaleString()}</CardContent>
+                <CardContent className="p-0 text-2xl font-semibold mt-2">{totalPurchased?.toLocaleString()}</CardContent>
               </Card>
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -179,7 +179,7 @@ export function VariantPurchaseHistoryButton({
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">Loading purchases...</div>
             ) : (
-              <div className='border-2 border-red-500 w-full'>
+              <div className='w-full max-w-full'>
                 <PurchasesTable
                   purchases={filteredPurchases}
                   locations={locations}
