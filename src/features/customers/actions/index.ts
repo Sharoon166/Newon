@@ -1,16 +1,34 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters } from '../types';
+import { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters, PaginatedCustomers } from '../types';
 import dbConnect from '@/lib/db';
 import CustomerModel from '../../../models/Customer';
 
-type LeanCustomer = Omit<Customer, '_id' | '__v'> & {
-  _id: string;
-  __v: number;
-};
+// Type for lean Mongoose document
+interface LeanCustomer {
+  _id: any; // Mongoose lean returns complex type, using any for flexibility
+  customerId?: string;
+  name: string;
+  email: string;
+  company?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  totalInvoiced: number;
+  totalPaid: number;
+  outstandingBalance: number;
+  lastInvoiceDate?: Date;
+  lastPaymentDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  __v?: number;
+}
 
-export async function getCustomers(filters?: CustomerFilters): Promise<Customer[]> {
+
+export async function getCustomers(filters?: CustomerFilters): Promise<PaginatedCustomers> {
   try {
     await dbConnect();
 
@@ -40,10 +58,18 @@ export async function getCustomers(filters?: CustomerFilters): Promise<Customer[
       query.createdAt = dateQuery;
     }
 
-    const customers = await CustomerModel.find(query).sort({ createdAt: -1 }).lean();
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 10;
 
-    const transformedCustomers = customers.map(customer => {
-      const customerObj = customer as LeanCustomer;
+    const result = await CustomerModel.paginate(query, {
+      page,
+      limit,
+      sort: { createdAt: -1 },
+      lean: true
+    });
+
+    const transformedCustomers = result.docs.map((customer: any) => {
+      const customerObj = customer as unknown as LeanCustomer;
       const transformed = {
         ...customerObj,
         id: customerObj._id.toString(),
@@ -53,7 +79,17 @@ export async function getCustomers(filters?: CustomerFilters): Promise<Customer[
       return transformed;
     });
 
-    return transformedCustomers;
+    return {
+      docs: transformedCustomers,
+      totalDocs: result.totalDocs,
+      limit: result.limit,
+      page: result.page || 1,
+      totalPages: result.totalPages,
+      hasNextPage: result.hasNextPage || false,
+      hasPrevPage: result.hasPrevPage || false,
+      nextPage: result.nextPage || null,
+      prevPage: result.prevPage || null
+    };
   } catch (error) {
     console.error('Error fetching customers:', error);
     throw new Error('Failed to fetch customers');
@@ -70,7 +106,7 @@ export async function getCustomer(id: string): Promise<Customer> {
       throw new Error('Customer not found');
     }
 
-    const customerObj = customer as LeanCustomer;
+    const customerObj = customer as unknown as LeanCustomer;
     const transformed = {
       ...customerObj,
       id: customerObj._id.toString(),
@@ -100,7 +136,7 @@ export async function createCustomer(data: CreateCustomerDto): Promise<Customer>
 
     revalidatePath('/(dashboard)/customers');
 
-    const savedCustomerObj = savedCustomer.toObject() as LeanCustomer;
+    const savedCustomerObj = savedCustomer.toObject() as unknown as LeanCustomer;
     return {
       ...savedCustomerObj,
       id: savedCustomerObj._id.toString(),
@@ -118,10 +154,8 @@ export async function updateCustomer(id: string, data: UpdateCustomerDto): Promi
     await dbConnect();
 
     // Filter out undefined values to avoid issues with MongoDB
-    const updateData = Object.fromEntries(
-      Object.entries(data).filter(([, value]) => value !== undefined)
-    );
-        
+    const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+
     const updatedCustomer = await CustomerModel.findByIdAndUpdate(
       id,
       { $set: updateData },

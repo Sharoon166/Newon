@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { generateId } from './Counter';
 
 // Define the purchase schema
 const purchaseSchema = new mongoose.Schema(
@@ -84,15 +85,6 @@ const purchaseSchema = new mongoose.Schema(
 
 // Index for faster queries
 purchaseSchema.index({ productId: 1, variantId: 1, purchaseDate: -1 });
-purchaseSchema.index({ supplier: 1 });
-
-// Counter schema for auto-incrementing purchase IDs
-const counterSchema = new mongoose.Schema({
-  year: { type: Number, required: true, unique: true },
-  sequence: { type: Number, default: 0 }
-});
-
-const PurchaseCounter = mongoose.models.PurchaseCounter || mongoose.model('PurchaseCounter', counterSchema);
 
 // Pre-save hook to calculate totalCost and initialize remaining
 purchaseSchema.pre('save', async function (next) {
@@ -107,30 +99,11 @@ purchaseSchema.pre('save', async function (next) {
   // Generate purchaseId for new purchases
   if (this.isNew && !this.purchaseId) {
     try {
-      const currentYear = new Date().getFullYear();
-      const yearSuffix = currentYear.toString().slice(-2); // Get last 2 digits of year
-      
-      // Increment and get the next sequence number
-      const counter = await PurchaseCounter.findOneAndUpdate(
-        { year: currentYear },
-        { $inc: { sequence: 1 } },
-        { new: true, upsert: true }
-      );
-      
-      if (!counter) {
-        console.error('Failed to create or update purchase counter');
-        // Continue without purchaseId - it will be generated later if needed
-        return next();
-      }
-      
-      // Format: PR-YY-XXX (e.g., PR-25-001)
-      const sequenceStr = counter.sequence.toString().padStart(3, '0');
-      this.purchaseId = `PR-${yearSuffix}-${sequenceStr}`;
+      this.purchaseId = await generateId('PR');
       console.log(`Generated purchaseId: ${this.purchaseId}`);
     } catch (error) {
       console.error('Error generating purchaseId:', error);
       // Continue without purchaseId - it will be generated later if needed
-      // Don't block the purchase creation
     }
   }
   

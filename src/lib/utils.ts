@@ -32,4 +32,8 @@ export function formatCurrency(num: number) {
     .replace(/\u00A0/g, ' ');
 }
 
-
+export function getToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toDateString();
+}

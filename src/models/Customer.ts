@@ -1,7 +1,10 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, Model, PaginateModel } from 'mongoose';
+import mongoosePaginate from 'mongoose-paginate-v2';
+import { generateId } from './Counter';
 
 // Define the interface for the Customer document
 interface ICustomer extends Document {
+  customerId?: string;
   name: string;
   email: string;
   company?: string;
@@ -22,6 +25,13 @@ interface ICustomer extends Document {
 
 const customerSchema = new Schema<ICustomer>(
   {
+    customerId: {
+      type: String,
+      required: false,
+      unique: true,
+      sparse: true,
+      index: true
+    },
     name: {
       type: String,
       required: [true, 'Name is required'],
@@ -89,10 +99,30 @@ const customerSchema = new Schema<ICustomer>(
 // Index for faster querying
 customerSchema.index({ name: 1 });
 customerSchema.index({ outstandingBalance: 1 });
-customerSchema.index({ lastInvoiceDate: -1 });
-customerSchema.index({ lastPaymentDate: -1 });
 
-// Create the model if it doesn't exist
-const Customer = mongoose.models.Customer || mongoose.model<ICustomer>('Customer', customerSchema);
+// Add pagination plugin
+customerSchema.plugin(mongoosePaginate);
+
+// Pre-save hook to generate customerId
+customerSchema.pre('save', async function (next) {
+  if (this.isNew && !this.customerId) {
+    try {
+      this.customerId = await generateId('CU');
+      console.log(`Generated customerId: ${this.customerId}`);
+    } catch (error) {
+      console.error('Error generating customerId:', error);
+      // Continue without customerId - it will be generated later if needed
+    }
+  }
+  next();
+});
+
+// Delete the model if it exists to ensure plugin is applied
+if (mongoose.models.Customer) {
+  delete mongoose.models.Customer;
+}
+
+// Create the model with pagination support
+const Customer = mongoose.model<ICustomer, PaginateModel<ICustomer>>('Customer', customerSchema);
 
 export default Customer;

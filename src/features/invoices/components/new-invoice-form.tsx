@@ -25,19 +25,25 @@ import {
   MapPin,
   NotebookTabs as NotebookTabsIcon,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ChevronsUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, getToday } from '@/lib/utils';
 import useBrandStore from '@/stores/useBrandStore';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { convertToWords } from '../utils';
 import { Customer } from '@/features/customers/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ItemVariantDropdown } from './item-variant-dropdown';
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ProductSelector } from './product-selector';
+import type { EnhancedVariants } from '@/features/inventory/types';
+import type { Purchase } from '@/features/purchases/types';
+import { brands } from '@/stores/useBrandStore';
+import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS } from '@/constants';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
@@ -94,15 +100,21 @@ type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 
 export function NewInvoiceForm({
   onPreview,
-  customers
+  customers,
+  variants = [],
+  purchases = []
 }: {
   onPreview: (data: InvoiceFormValues) => void;
   customers: Customer[];
+  variants?: EnhancedVariants[];
+  purchases?: Purchase[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
   const [isFromOpen, setIsFromOpen] = useState(true);
   const [isToOpen, setIsToOpen] = useState(true);
+  const currentBrandId = useBrandStore(state => state.currentBrandId);
+  const setBrand = useBrandStore(state => state.setBrand);
   const brand = useBrandStore(state => state.getCurrentBrand());
   const form = useForm<InvoiceFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,9 +142,9 @@ export function NewInvoiceForm({
         phone: '+92 300 1234567'
       },
       invoiceNumber: `INV-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      items: [{ id: Date.now().toString(), description: 'Item 1', quantity: 10, rate: 100, amount: 1000 }],
+      date: getToday(),
+      dueDate: getToday(),
+      items: [],
       taxRate: 0,
       discount: 0,
       amountInWords: 'Zero Rupees Only',
@@ -140,11 +152,11 @@ export function NewInvoiceForm({
       paid: 0,
       remainingPayment: 0,
       notes: '',
-      terms: 'All prices are exclusive of taxes.\nNo shipping charges included in above prices.',
+      terms: INVOICE_TERMS_AND_CONDITIONS.join('\n'),
       paymentDetails: {
-        bankName: 'BAHL (Bank Al-Habib Ltd.), I-9 Markaz branch, Islamabad.',
-        accountNumber: '02470095010759013',
-        iban: 'PK62BAHL0247009501075901'
+        bankName: process.env.NEXT_PUBLIC_BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
+        accountNumber: process.env.NEXT_PUBLIC_ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
+        iban: process.env.NEXT_PUBLIC_IBAN || PAYMENT_DETAILS.IBAN
       }
     }
   });
@@ -176,13 +188,21 @@ export function NewInvoiceForm({
   const amountInWords = `${convertToWords(Math.round(grandTotal))} Rupees Only`;
   form.setValue('amountInWords', amountInWords, { shouldValidate: true });
 
-  const addItem = () => {
+  const handleAddItemFromSelector = (item: {
+    variantId: string;
+    productName: string;
+    sku: string;
+    description: string;
+    quantity: number;
+    rate: number;
+    purchaseId?: string;
+  }) => {
     append({
       id: Date.now().toString(),
-      description: '',
-      quantity: 1,
-      rate: 0,
-      amount: 0
+      description: item.description,
+      quantity: item.quantity,
+      rate: item.rate,
+      amount: item.quantity * item.rate
     });
   };
 
@@ -240,413 +260,6 @@ export function NewInvoiceForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Company Details */}
-        <Collapsible open={isFromOpen} onOpenChange={setIsFromOpen} className="border rounded-lg">
-          <div className="p-6">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between p-0 hover:bg-transparent">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  From
-                </h2>
-                {isFromOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </Button>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FormField
-              control={form.control}
-              name="company.name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company Name</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <Building2 className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="Company Name" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <InputGroup>
-                    <InputGroupAddon>
-                      <Mail className="h-4 w-4" />
-                    </InputGroupAddon>
-                    <InputGroupInput type="email" placeholder="company@example.com" {...field} />
-                  </InputGroup>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <Phone className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.website"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Website</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <Globe className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="www.example.com" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.address"
-              render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel>Address</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <MapPin className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="123 Business St." {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>City</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <MapPin className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="City" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.state"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>State</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <MapPin className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="State" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="company.zip"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ZIP Code</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <MapPin className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="12345" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-              </div>
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
-        {/* Client Details */}
-        <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
-          <div className="p-6">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full justify-between p-0 hover:bg-transparent mb-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  To
-                </h2>
-                {isToOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </Button>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
-              <div className="mb-6">
-                <Select onValueChange={handleCustomerSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a customer or enter custom details" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="custom">
-                      <span className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Custom Customer (Manual Entry)
-                      </span>
-                    </SelectItem>
-                    {customers.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.company || 'No Company'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedCustomer && !isCustomCustomer && (
-                <div className="bg-gray-50 border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        {selectedCustomer.name}
-                      </h3>
-                      {selectedCustomer.company && (
-                        <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                          <Building2 className="h-4 w-4" />
-                          {selectedCustomer.company}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {selectedCustomer.email}
-                      </p>
-                      <p className="text-sm flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        {selectedCustomer.phone}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-sm flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5" />
-                      <span>
-                        {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state} {selectedCustomer.zip}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {isCustomCustomer && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="client.name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Name</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <User className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="Client Name" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company (Optional)</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Building2 className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="Company Name" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Mail className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput type="email" placeholder="client@example.com" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Phone className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.address"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="123 Client St." {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="City" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="State" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="client.zip"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="12345" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-
-              {!selectedCustomer && !isCustomCustomer && (
-                <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
-                  <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Select a customer or choose custom entry</p>
-                </div>
-              )}
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
         {/* Invoice Details */}
         <div className="border rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -748,6 +361,327 @@ export function NewInvoiceForm({
           </div>
         </div>
 
+        <div className="grid md:grid-cols-2 items-center gap-6">
+          {/* Company Details */}
+          <Collapsible open={isFromOpen} onOpenChange={setIsFromOpen} className="border rounded-lg">
+            <div className="p-2">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn('w-full justify-between p-0', {
+                    'mb-4': isFromOpen
+                  })}
+                >
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    From
+                  </h2>
+                  <ChevronsUpDown />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
+                <div>
+                  <Select
+                    value={currentBrandId}
+                    onValueChange={(value: 'newon' | 'waymor') => {
+                      setBrand(value);
+                      const selectedBrand = brands.find(b => b.id === value);
+                      if (selectedBrand) {
+                        form.setValue('company.name', selectedBrand.displayName);
+                        form.setValue('company.address', selectedBrand.address);
+                        form.setValue('company.city', selectedBrand.city);
+                        form.setValue('company.state', selectedBrand.state);
+                        form.setValue('company.zip', selectedBrand.zip);
+                        form.setValue('company.phone', selectedBrand.phone);
+                        form.setValue('company.email', selectedBrand.email);
+                        form.setValue('company.website', selectedBrand.website || '');
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full max-w-sm">
+                      <SelectValue placeholder="Select a brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map(brandOption => (
+                        <SelectItem key={brandOption.id} value={brandOption.id}>
+                          {brandOption.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="bg-gray-50 border rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        {brand.displayName}
+                      </h3>
+                      <p className="text-muted-foreground text-sm mt-1">{brand.description}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        {brand.email}
+                      </p>
+                      <p className="text-sm flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        {brand.phone}
+                      </p>
+                      {brand.website && (
+                        <p className="text-sm flex items-center gap-2">
+                          <Globe className="h-4 w-4" />
+                          {brand.website}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-sm flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-0.5" />
+                      <span>
+                        {brand.address}, {brand.city}, {brand.state} {brand.zip}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+          {/* Client Details */}
+          <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
+            <div className="p-2">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={cn('w-full justify-between p-0', {
+                    'mb-4': isToOpen
+                  })}
+                >
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    To
+                  </h2>
+                  <ChevronsUpDown />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
+                <div>
+                  <Select onValueChange={handleCustomerSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a customer or enter custom details" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="custom">
+                        <span className="flex items-center gap-2">
+                          <Plus className="h-4 w-4" />
+                          Custom Customer (Manual Entry)
+                        </span>
+                      </SelectItem>
+                      {customers.map(customer => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name} - {customer.company || 'No Company'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedCustomer && !isCustomCustomer && (
+                  <div className="bg-gray-50 border rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {selectedCustomer.name}
+                        </h3>
+                        {selectedCustomer.company && (
+                          <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                            <Building2 className="h-4 w-4" />
+                            {selectedCustomer.company}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          {selectedCustomer.email}
+                        </p>
+                        <p className="text-sm flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          {selectedCustomer.phone}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-sm flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5" />
+                        <span>
+                          {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
+                          {selectedCustomer.zip}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {isCustomCustomer && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="client.name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Client Name</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <User className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="Client Name" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.company"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company (Optional)</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <Building2 className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="Company Name" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <Mail className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput type="email" placeholder="client@example.com" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <Phone className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.address"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Address</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <MapPin className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="123 Client St." {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <MapPin className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="City" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <MapPin className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="State" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="client.zip"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ZIP Code</FormLabel>
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>
+                                <MapPin className="h-4 w-4" />
+                              </InputGroupAddon>
+                              <InputGroupInput placeholder="12345" {...field} />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+                {!selectedCustomer && !isCustomCustomer && (
+                  <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
+                    <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Select a customer or choose custom entry</p>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+        </div>
+
         {/* Invoice Items */}
         <div className="border rounded-lg p-6">
           <div className="flex justify-between items-center mb-6">
@@ -756,6 +690,13 @@ export function NewInvoiceForm({
               Items
             </h2>
           </div>
+
+          {/* Product Selector */}
+          {variants.length > 0 && (
+            <div className="mb-6">
+              <ProductSelector variants={variants} purchases={purchases} onAddItem={handleAddItemFromSelector} />
+            </div>
+          )}
 
           <div className="border rounded-lg overflow-x-auto">
             <table className="w-full min-w-[600px]">
@@ -770,88 +711,26 @@ export function NewInvoiceForm({
                 </tr>
               </thead>
               <tbody className="divide-y">
+                {fields.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center text-muted-foreground py-4">
+                      No items added yet.
+                    </td>
+                  </tr>
+                )}
                 {fields.map((item, index) => (
                   <tr key={item.id} className="group *:px-2">
                     <td className="p-3 text-sm">{index + 1}.</td>
-                    <td className="py-4">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.description`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <ItemVariantDropdown
-                                value={field.value}
-                                onChange={field.onChange}
-                                onVariantSelect={variant => {
-                                  // Update the item with variant details
-                                  form.setValue(`items.${index}.description`, variant.description);
-                                  form.setValue(`items.${index}.rate`, variant.retailPrice || 0);
-                                  // Update amount when rate changes
-                                  const quantity = form.getValues(`items.${index}.quantity`) || 1;
-                                  form.setValue(`items.${index}.amount`, quantity * (variant.retailPrice || 0));
-                                }}
-                                placeholder="Start typing to search items..."
-                                className="bg-background"
-                              />
-                            </FormControl>
-                            <FormMessage className="text-xs" />
-                          </FormItem>
-                        )}
-                      />
+                    <td className="py-4 px-3">
+                      <div className="text-sm">
+                        {form.watch(`items.${index}.description`) || 'Select from product selector above'}
+                      </div>
                     </td>
-                    <td className="py-3">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.quantity`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                className="text-right w-22"
-                                {...field}
-                                onChange={e => {
-                                  const value = parseFloat(e.target.value) || 0;
-                                  field.onChange(value);
-                                  // Update amount when quantity changes
-                                  const rate = form.getValues(`items.${index}.rate`) || 0;
-                                  form.setValue(`items.${index}.amount`, value * rate);
-                                }}
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                    <td className="py-3 px-3 text-right">
+                      <div className="text-sm">{form.watch(`items.${index}.quantity`) || 0}</div>
                     </td>
-                    <td className="py-3">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.rate`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <InputGroup className="justify-end">
-                                <InputGroupInput
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  className="text-right w-32"
-                                  {...field}
-                                  onChange={e => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    field.onChange(value);
-                                    // Update amount when rate changes
-                                    const quantity = form.getValues(`items.${index}.quantity`) || 0;
-                                    form.setValue(`items.${index}.amount`, quantity * value);
-                                  }}
-                                />
-                              </InputGroup>
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                    <td className="py-3 px-3 text-right">
+                      <div className="text-sm">{formatCurrency(form.watch(`items.${index}.rate`) || 0)}</div>
                     </td>
                     <td className="py-3 text-right text-sm">
                       <div className="h-10 flex items-center justify-end pr-2">
@@ -867,12 +746,6 @@ export function NewInvoiceForm({
                 ))}
               </tbody>
             </table>
-          </div>
-          <div className="pt-4 flex justify-center">
-            <Button type="button" variant="secondary" size="sm" className="gap-2 w-full max-w-sm" onClick={addItem}>
-              <Plus className="h-4 w-4" />
-              Add Item
-            </Button>
           </div>
 
           <div className="mt-6 flex justify-end">

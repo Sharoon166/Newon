@@ -1,5 +1,6 @@
 export interface Customer {
   id: string;
+  customerId?: string;
   name: string;
   email: string;
   company?: string;
@@ -43,4 +44,18 @@ export interface CustomerFilters {
   hasOutstandingBalance?: boolean;
   dateFrom?: Date;
   dateTo?: Date;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedCustomers {
+  docs: Customer[];
+  totalDocs: number;
+  limit: number;
+  page: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  nextPage: number | null;
+  prevPage: number | null;
 }

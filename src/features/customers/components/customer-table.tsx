@@ -40,6 +40,13 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
 
   const columns: ColumnDef<Customer>[] = [
     {
+      accessorKey: 'customerId',
+      header: 'Customer ID',
+      cell: ({ row }) => (
+        <div className="font-mono text-sm">{row.original.customerId || '-'}</div>
+      )
+    },
+    {
       accessorKey: 'name',
       header: ({ column }) => (
         <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>

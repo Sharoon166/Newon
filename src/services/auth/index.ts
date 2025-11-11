@@ -3,7 +3,7 @@ import { mongodbAdapter } from 'better-auth/adapters/mongodb';
 import { nextCookies } from 'better-auth/next-js';
 import { MongoClient } from 'mongodb';
 
-const client = new MongoClient(process.env.MONGODB_URI || '');
+const client = new MongoClient(process.env.MONGODB_URI || 'mongodb+srv://ssharoon166:sha166@cluster0.ftxohz6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
 const db = client.db();
 
 export const auth = betterAuth({
@@ -14,6 +14,32 @@ export const auth = betterAuth({
   },
   user: {
     modelName: 'staffs', // This will use the 'staffs' collection
+    additionalFields: {
+      firstName: {
+        type: 'string',
+        required: true,
+      },
+      lastName: {
+        type: 'string',
+        required: true,
+      },
+      phoneNumber: {
+        type: 'string',
+        required: false,
+      },
+      role: {
+        type: 'string',
+        required: true,
+        defaultValue: 'staff',
+        input: false, // Don't allow user to set role during signup
+      },
+      isActive: {
+        type: 'boolean',
+        required: false,
+        defaultValue: true,
+        input: false,
+      },
+    },
   },
   plugins: [nextCookies()],
   session: {

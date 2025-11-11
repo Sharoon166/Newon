@@ -9,6 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import QuotationTemplate from '@/features/invoices/components/quotation-template';
 import { getCustomers } from '@/features/customers/actions';
 import { Customer } from '@/features/customers/types';
+import { getProducts } from '@/features/inventory/actions';
+import { getAllPurchases } from '@/features/purchases/actions';
+import type { EnhancedVariants } from '@/features/inventory/types';
+import type { Purchase } from '@/features/purchases/types';
 
 type ViewMode = 'form' | 'preview';
 type DocumentType = 'invoice' | 'quotation';
@@ -18,12 +22,29 @@ export default function NewDocument() {
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
   const [documentData, setDocumentData] = useState<InvoiceData>({} as InvoiceData);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [variants, setVariants] = useState<EnhancedVariants[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const retrieveCustomers = async () => {
-      setCustomers(await getCustomers());
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [customersData, variantsData, purchasesData] = await Promise.all([
+          getCustomers({ limit: 1000 }), // Get all customers for dropdown
+          getProducts(),
+          getAllPurchases()
+        ]);
+        setCustomers(customersData.docs); // Extract docs array from paginated result
+        setVariants(variantsData);
+        setPurchases(purchasesData as unknown as Purchase[]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    retrieveCustomers();
+    fetchData();
   }, []);
 
   const handlePreview = (data: Record<string, unknown>) => {
@@ -51,7 +72,14 @@ export default function NewDocument() {
     <div className="container mx-auto py-10">
       <PageHeader title={viewMode === 'form' ? `New ${documentType}` : `Preview ${documentType}`} />
 
-      {viewMode === 'form' ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      ) : viewMode === 'form' ? (
         <Tabs defaultValue="invoice" className="w-full" onValueChange={value => setDocumentType(value as DocumentType)}>
           <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
             <TabsTrigger value="invoice">Invoice</TabsTrigger>
@@ -59,7 +87,12 @@ export default function NewDocument() {
           </TabsList>
 
           <TabsContent value="invoice">
-            <NewInvoiceForm onPreview={handlePreview} customers={customers} />
+            <NewInvoiceForm 
+              onPreview={handlePreview} 
+              customers={customers}
+              variants={variants}
+              purchases={purchases}
+            />
           </TabsContent>
 
           <TabsContent value="quotation">

@@ -5,18 +5,18 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { CustomerTable } from './customer-table';
 import { CustomerActions } from './customer-actions';
-import type { Customer } from '../types';
+import type { Customer, PaginatedCustomers } from '../types';
 import { Row } from '@tanstack/react-table';
 
 export function CustomerTableWrapper({
   initialData,
   deleteCustomerAction
 }: {
-  initialData: Customer[];
+  initialData: PaginatedCustomers;
   deleteCustomerAction: (id: string) => Promise<{ success: boolean; error?: string }>;
 }) {
   const router = useRouter();
-  const [data, setData] = useState(initialData);
+  const [data, setData] = useState(initialData.docs);
 
   const handleDelete = async (id: string) => {
     try {
