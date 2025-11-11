@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import '@/styles/print.css';
 import { Toaster } from '@/components/ui/sonner';
 import { AlertCircle } from 'lucide-react';
 

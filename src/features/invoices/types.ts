@@ -1,248 +1,178 @@
-export type InvoiceStatus = 'paid' | 'pending' | 'overdue' | 'draft' | 'cancelled' | 'sent';
-export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+// Payment interface
+export interface Payment {
+  id?: string;
+  amount: number;
+  method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  date: string | Date; // Can be string (from DB) or Date (for forms)
+  reference?: string;
+  notes?: string;
+}
 
+// Invoice item interface
+export interface InvoiceItem {
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantSKU?: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount: number;
+  totalPrice: number;
+  stockLocation?: string;
+  purchaseId?: string;
+}
+
+// Main Invoice interface
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  customer: {
-    name: string;
-    email: string;
-  };
-  date: string;
-  dueDate: string;
+  type: 'invoice' | 'quotation';
+  date: string | Date; // Can be string (from DB) or Date (for forms)
+  dueDate?: string | Date;
+  billingType: 'wholesale' | 'retail';
+  market: 'newon' | 'waymor';
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerAddress: string;
+  customerCity?: string;
+  customerState?: string;
+  customerZip?: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount: number;
+  gstType?: 'percentage' | 'fixed';
+  gstValue?: number;
+  gstAmount: number;
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  paidAmount: number;
+  balanceAmount: number;
+  payments: Payment[];
+  stockDeducted: boolean;
+  notes?: string;
+  termsAndConditions?: string;
+  validUntil?: string | Date;
+  convertedToInvoice?: boolean;
+  convertedInvoiceId?: string;
+  createdBy: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+// Create Invoice DTO
+export interface CreateInvoiceDto {
+  invoiceNumber?: string; // Optional - will be auto-generated if not provided
+  type: 'invoice' | 'quotation';
+  date: Date;
+  dueDate?: Date;
+  billingType: 'wholesale' | 'retail';
+  market: 'newon' | 'waymor';
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerAddress: string;
+  customerCity?: string;
+  customerState?: string;
+  customerZip?: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount: number;
+  gstType?: 'percentage' | 'fixed';
+  gstValue?: number;
+  gstAmount: number;
+  totalAmount: number;
+  status?: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  paidAmount?: number;
+  balanceAmount: number;
+  stockDeducted?: boolean;
+  notes?: string;
+  termsAndConditions?: string;
+  validUntil?: Date;
+  createdBy: string;
+}
+
+// Update Invoice DTO
+export interface UpdateInvoiceDto {
+  date?: Date;
+  dueDate?: Date;
+  billingType?: 'wholesale' | 'retail';
+  market?: 'newon' | 'waymor';
+  customerId?: string;
+  customerName?: string;
+  customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerCity?: string;
+  customerState?: string;
+  customerZip?: string;
+  items?: InvoiceItem[];
+  subtotal?: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount?: number;
+  gstType?: 'percentage' | 'fixed';
+  gstValue?: number;
+  gstAmount?: number;
+  totalAmount?: number;
+  status?: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  paidAmount?: number;
+  balanceAmount?: number;
+  stockDeducted?: boolean;
+  notes?: string;
+  termsAndConditions?: string;
+  validUntil?: Date;
+  convertedToInvoice?: boolean;
+  convertedInvoiceId?: string;
+}
+
+// Add Payment DTO
+export interface AddPaymentDto {
   amount: number;
-  status: InvoiceStatus;
-  items: {
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
-  }[];
+  method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  date: Date;
+  reference?: string;
+  notes?: string;
 }
 
-export interface Quotation extends Omit<Invoice, 'invoiceNumber' | 'dueDate' | 'status'> {
-  quotationNumber: string;
-  expiryDate: string;
-  status: QuotationStatus;
+// Invoice filters
+export interface InvoiceFilters {
+  type?: 'invoice' | 'quotation';
+  status?: string;
+  customerId?: string;
+  market?: 'newon' | 'waymor';
+  billingType?: 'wholesale' | 'retail';
+  dateFrom?: Date;
+  dateTo?: Date;
+  search?: string;
+  page?: number;
+  limit?: number;
 }
 
-// Sample data
-export const sampleInvoices: Invoice[] = [
-  {
-    id: 'inv-001',
-    invoiceNumber: 'INV-2023-001',
-    customer: {
-      name: 'Acme Corp',
-      email: 'billing@acmecorp.com',
-    },
-    date: '2023-10-15',
-    dueDate: '2023-11-14',
-    amount: 1250.75,
-    status: 'paid',
-    items: [
-      {
-        description: 'Web Development Services',
-        quantity: 10,
-        unitPrice: 100,
-        total: 1000,
-      },
-      {
-        description: 'UI/UX Design',
-        quantity: 5,
-        unitPrice: 50.15,
-        total: 250.75,
-      },
-    ],
-  },
-  // Add 4 more sample invoices...
-  {
-    id: 'inv-002',
-    invoiceNumber: 'INV-2023-002',
-    customer: {
-      name: 'Globex Corporation',
-      email: 'accounts@globex.com',
-    },
-    date: '2023-11-01',
-    dueDate: '2023-12-01',
-    amount: 3200.0,
-    status: 'pending',
-    items: [
-      {
-        description: 'Monthly Maintenance',
-        quantity: 1,
-        unitPrice: 3200,
-        total: 3200,
-      },
-    ],
-  },
-  {
-    id: 'inv-003',
-    invoiceNumber: 'INV-2023-003',
-    customer: {
-      name: 'Soylent Corp',
-      email: 'finance@soylent.com',
-    },
-    date: '2023-10-25',
-    dueDate: '2023-11-24',
-    amount: 845.5,
-    status: 'overdue',
-    items: [
-      {
-        description: 'Consulting Services',
-        quantity: 8.5,
-        unitPrice: 99.47,
-        total: 845.5,
-      },
-    ],
-  },
-  {
-    id: 'inv-004',
-    invoiceNumber: 'INV-2023-004',
-    customer: {
-      name: 'Initech',
-      email: 'ap@initech.com',
-    },
-    date: '2023-11-10',
-    dueDate: '2023-12-10',
-    amount: 175.25,
-    status: 'draft',
-    items: [
-      {
-        description: 'Software License',
-        quantity: 1,
-        unitPrice: 150,
-        total: 150,
-      },
-      {
-        description: 'Setup Fee',
-        quantity: 1,
-        unitPrice: 25.25,
-        total: 25.25,
-      },
-    ],
-  },
-  {
-    id: 'inv-005',
-    invoiceNumber: 'INV-2023-005',
-    customer: {
-      name: 'Hooli',
-      email: 'accounts@hooli.com',
-    },
-    date: '2023-11-05',
-    dueDate: '2023-12-05',
-    amount: 5200.0,
-    status: 'sent',
-    items: [
-      {
-        description: 'Custom Development',
-        quantity: 40,
-        unitPrice: 130,
-        total: 5200,
-      },
-    ],
-  },
-];
-
-export const sampleQuotations: Quotation[] = [
-  {
-    id: 'quo-001',
-    quotationNumber: 'QUO-2023-001',
-    customer: {
-      name: 'Stark Industries',
-      email: 'tony@stark.com',
-    },
-    date: '2023-11-01',
-    expiryDate: '2023-12-01',
-    amount: 5000,
-    status: 'draft',
-    items: [
-      {
-        description: 'Custom AI Development',
-        quantity: 50,
-        unitPrice: 100,
-        total: 5000,
-      },
-    ],
-  },
-  // Add 4 more sample quotations...
-  {
-    id: 'quo-002',
-    quotationNumber: 'QUO-2023-002',
-    customer: {
-      name: 'Wayne Enterprises',
-      email: 'bruce@wayne.com',
-    },
-    date: '2023-11-05',
-    expiryDate: '2023-12-05',
-    amount: 2500,
-    status: 'sent',
-    items: [
-      {
-        description: 'Security System Audit',
-        quantity: 1,
-        unitPrice: 2500,
-        total: 2500,
-      },
-    ],
-  },
-  {
-    id: 'quo-003',
-    quotationNumber: 'QUO-2023-003',
-    customer: {
-      name: 'Oscorp',
-      email: 'norman@oscorp.com',
-    },
-    date: '2023-10-28',
-    expiryDate: '2023-11-28',
-    amount: 1800,
-    status: 'accepted',
-    items: [
-      {
-        description: 'Chemical Analysis',
-        quantity: 3,
-        unitPrice: 600,
-        total: 1800,
-      },
-    ],
-  },
-  {
-    id: 'quo-004',
-    quotationNumber: 'QUO-2023-004',
-    customer: {
-      name: 'Parker Industries',
-      email: 'peter@parker.com',
-    },
-    date: '2023-11-10',
-    expiryDate: '2023-12-10',
-    amount: 1500,
-    status: 'rejected',
-    items: [
-      {
-        description: 'Photography Services',
-        quantity: 10,
-        unitPrice: 150,
-        total: 1500,
-      },
-    ],
-  },
-  {
-    id: 'quo-005',
-    quotationNumber: 'QUO-2023-005',
-    customer: {
-      name: 'Daily Bugle',
-      email: 'jjj@dailybugle.com',
-    },
-    date: '2023-10-15',
-    expiryDate: '2023-11-15',
-    amount: 750,
-    status: 'expired',
-    items: [
-      {
-        description: 'Web Hosting',
-        quantity: 6,
-        unitPrice: 125,
-        total: 750,
-      },
-    ],
-  },
-];
+// Paginated invoices response
+export interface PaginatedInvoices {
+  docs: Invoice[];
+  totalDocs: number;
+  limit: number;
+  page: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  nextPage: number | null;
+  prevPage: number | null;
+}

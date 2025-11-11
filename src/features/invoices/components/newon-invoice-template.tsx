@@ -5,64 +5,10 @@ import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, Download, Save } from "lucide-react";
 import Image from "next/image";
-
-type InvoiceItem = {
-  id: string;
-  description: string;
-  quantity: number;
-  rate: number;
-  amount: number;
-};
-
-type CompanyDetails = {
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  phone: string;
-  email: string;
-  website?: string;
-};
-
-type ClientDetails = {
-  name: string;
-  company?: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  email: string;
-  phone: string;
-};
-
-type PaymentDetails = {
-  bankName: string;
-  accountNumber: string;
-  iban: string;
-};
-
-export type InvoiceData = {
-  logo?: string;
-  company: CompanyDetails;
-  client: ClientDetails;
-  invoiceNumber: string;
-  date: string;
-  dueDate: string;
-  items: InvoiceItem[];
-  taxRate: number;
-  discount: number;
-  notes?: string;
-  terms?: string;
-  paymentDetails: PaymentDetails;
-  previousBalance: number;
-  paid: number;
-  remainingPayment: number;
-  amountInWords?: string;
-};
+import { InvoiceTemplateData } from './template-types';
 
 type InvoiceTemplateProps = {
-  invoiceData: InvoiceData;
+  invoiceData: InvoiceTemplateData;
   onBack?: () => void;
   onPrint?: () => void;
   onSave?: () => void;

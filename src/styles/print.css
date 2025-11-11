@@ -1,0 +1,123 @@
+/* Print Styles for Invoices and Quotations */
+
+@media print {
+  /* Hide non-printable elements */
+  .print\:hidden,
+  button,
+  nav,
+  header,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  /* Reset body styles for print */
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Ensure colors are preserved */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+
+  /* Remove shadows and rounded corners for cleaner print */
+  .shadow-sm,
+  .shadow,
+  .shadow-md,
+  .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  .rounded-lg,
+  .rounded,
+  .rounded-md {
+    border-radius: 0 !important;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    page-break-inside: avoid;
+    border-collapse: collapse;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Avoid breaking inside important sections */
+  .no-break {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure proper spacing */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  /* Make sure borders are visible */
+  .border {
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Ensure background colors are printed */
+  .bg-muted,
+  .bg-gray-50,
+  .bg-primary {
+    background-color: inherit !important;
+  }
+
+  /* Keep primary color for headers */
+  .text-primary {
+    color: #2563eb !important;
+  }
+
+  /* Ensure proper font sizes */
+  body {
+    font-size: 12pt;
+  }
+
+  h1 {
+    font-size: 24pt;
+  }
+
+  h2 {
+    font-size: 18pt;
+  }
+
+  h3 {
+    font-size: 14pt;
+  }
+
+  /* Remove container padding for full width */
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Ensure proper spacing between sections */
+  .mb-8 {
+    margin-bottom: 1.5rem !important;
+  }
+
+  .pb-8 {
+    padding-bottom: 1.5rem !important;
+  }
+}

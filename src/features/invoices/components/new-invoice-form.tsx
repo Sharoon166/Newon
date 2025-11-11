@@ -47,6 +47,9 @@ import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS } from '@/constants';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
+  billingType: z.enum(['wholesale', 'retail']).default('retail'),
+  market: z.enum(['newon', 'waymor']).default('newon'),
+  customerId: z.string().optional(),
   company: z.object({
     name: z.string().min(1, 'Company name is required'),
     address: z.string().min(1, 'Address is required'),
@@ -77,12 +80,17 @@ const invoiceFormSchema = z.object({
         description: z.string().min(1, 'Description is required'),
         quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
         rate: z.number().min(0, 'Rate must be 0 or greater'),
-        amount: z.number().min(0, 'Amount must be 0 or greater')
+        amount: z.number().min(0, 'Amount must be 0 or greater'),
+        productId: z.string().optional(),
+        variantId: z.string().optional(),
+        variantSKU: z.string().optional(),
+        purchaseId: z.string().optional()
       })
     )
     .min(1, 'At least one item is required'),
   taxRate: z.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100').default(0),
   discount: z.number().min(0, 'Discount cannot be negative').default(0),
+  discountType: z.enum(['percentage', 'fixed']).default('fixed'),
   amountInWords: z.string().optional(),
   previousBalance: z.number().min(0, 'Cannot be negative').default(0),
   paid: z.number().min(0, 'Cannot be negative').default(0),
@@ -147,6 +155,7 @@ export function NewInvoiceForm({
       items: [],
       taxRate: 0,
       discount: 0,
+      discountType: 'fixed',
       amountInWords: 'Zero Rupees Only',
       previousBalance: 0,
       paid: 0,
@@ -169,8 +178,10 @@ export function NewInvoiceForm({
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
+  const discountType = form.watch('discountType');
   const taxAmount = (subtotal * taxRate) / 100;
-  const total = subtotal + taxAmount - discount;
+  const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
+  const total = subtotal + taxAmount - discountAmount;
 
   // Get form values
   const previousBalance = form.watch('previousBalance') || 0;
@@ -793,15 +804,34 @@ export function NewInvoiceForm({
                   <span className="text-muted-foreground font-medium">Discount:</span>
                   <FormField
                     control={form.control}
+                    name="discountType"
+                    render={({ field }) => (
+                      <FormItem className="w-24">
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="fixed">PKR</SelectItem>
+                            <SelectItem value="percentage">%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="discount"
                     render={({ field }) => (
                       <FormItem className="w-20">
                         <FormControl>
                           <InputGroup>
-                            <InputGroupAddon>Rs</InputGroupAddon>
                             <InputGroupInput
                               type="number"
                               min="0"
+                              max={discountType === 'percentage' ? '100' : undefined}
                               step="0.01"
                               {...field}
                               className="h-8 text-sm"
@@ -815,7 +845,7 @@ export function NewInvoiceForm({
                     )}
                   />
                 </div>
-                <span className="font-medium">- {formatCurrency(discount)}</span>
+                <span className="font-medium">- {formatCurrency(discountAmount)}</span>
               </div>
 
               {/* Additional fields from original design */}
