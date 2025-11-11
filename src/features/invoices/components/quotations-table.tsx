@@ -36,7 +36,6 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Clock,
   Printer
 } from 'lucide-react';
 import { Invoice } from '../types';
@@ -66,7 +65,10 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
   const [isDeleting, setIsDeleting] = useState(false);
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { variant: any; label: string; icon: any }> = {
+    const statusConfig: Record<
+      string,
+      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string; icon: React.ComponentType<{ className?: string }> }
+    > = {
       draft: { variant: 'secondary', label: 'Draft', icon: FileText },
       sent: { variant: 'outline', label: 'Sent', icon: FileText },
       accepted: { variant: 'default', label: 'Accepted', icon: CheckCircle },

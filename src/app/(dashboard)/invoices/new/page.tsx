@@ -91,7 +91,7 @@ export default function NewDocument() {
       const { createInvoice } = await import('@/features/invoices/actions');
       
       // Calculate subtotal
-      const subtotal = documentData.items.reduce((sum: number, item: any) => sum + item.amount, 0);
+      const subtotal = documentData.items.reduce((sum: number, item) => sum + item.amount, 0);
       
       // Calculate discount amount
       const discountAmount = documentData.discountType === 'percentage' 
@@ -126,7 +126,7 @@ export default function NewDocument() {
         customerCity: documentData.client.city,
         customerState: documentData.client.state,
         customerZip: documentData.client.zip,
-        items: documentData.items.map((item: any) => ({
+        items: documentData.items.map((item) => ({
           productId: item.productId || 'manual-entry',
           productName: item.description,
           variantId: item.variantId,
@@ -163,11 +163,6 @@ export default function NewDocument() {
       console.error('Error saving document:', error);
       alert(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  };
-
-  const handleDownload = () => {
-    // TODO: Implement download as PDF functionality
-    console.log(`Downloading ${documentType} as PDF`);
   };
 
   return (

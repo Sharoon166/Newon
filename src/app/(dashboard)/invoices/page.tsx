@@ -72,9 +72,7 @@ export default async function InvoicesPage() {
         </TabsList>
 
         <TabsContent value="invoices">
-          <InvoicesTable invoices={invoices} onRefresh={()=>{
-            console.log('refreshing')
-          }} />
+          <InvoicesTable invoices={invoices} />
         </TabsContent>
 
         <TabsContent value="quotations">

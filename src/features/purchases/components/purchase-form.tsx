@@ -59,7 +59,7 @@ interface PurchaseFormProps {
   }>;
   purchase?: Purchase;
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
-  suppliers?: string[];
+  // suppliers?: string[];
   supplier?: string; // Direct supplier prop for single-product context
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -72,7 +72,7 @@ export function PurchaseForm({
   variants = [],
   purchase,
   locations = [],
-  suppliers = [],
+  // suppliers = [],
   supplier,
   open,
   onOpenChange,

@@ -1,3 +1,6 @@
+// Invoice status type
+export type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+
 // Payment interface
 export interface Payment {
   id?: string;

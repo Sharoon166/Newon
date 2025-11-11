@@ -14,22 +14,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Quotation, QuotationStatus } from "@/features/invoices/types";
+import { Invoice, InvoiceStatus } from "@/features/invoices/types";
 import { ArrowRight, Download, FileText, Search, ArrowUpDown, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { TablePagination } from "@/components/general/table-pagination";
 
-const statusVariant: Record<QuotationStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariant: Partial<Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'>> = {
   draft: 'outline',
   sent: 'secondary',
   accepted: 'default',
   rejected: 'destructive',
-  expired: 'default'
+  expired: 'destructive'
 };
 
-const statusText: Record<QuotationStatus, string> = {
+const statusText: Partial<Record<InvoiceStatus, string>> = {
   draft: 'Draft',
   sent: 'Sent',
   accepted: 'Accepted',
@@ -37,14 +37,14 @@ const statusText: Record<QuotationStatus, string> = {
   expired: 'Expired'
 };
 
-const columns: ColumnDef<Quotation>[] = [
+const columns: ColumnDef<Invoice>[] = [
   {
-    accessorKey: 'customer',
+    accessorKey: 'customerName',
     header: 'Customer',
     cell: ({ row }) => (
       <div>
-        <div className="font-medium">{row.original.customer.name}</div>
-        <div className="text-sm text-muted-foreground">{row.original.quotationNumber}</div>
+        <div className="font-medium">{row.original.customerName}</div>
+        <div className="text-sm text-muted-foreground">{row.original.invoiceNumber}</div>
       </div>
     ),
   },
@@ -52,8 +52,8 @@ const columns: ColumnDef<Quotation>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => (
-      <Badge variant={statusVariant[row.original.status as QuotationStatus]}>
-        {statusText[row.original.status as QuotationStatus]}
+      <Badge variant={statusVariant[row.original.status] || 'secondary'}>
+        {statusText[row.original.status] || row.original.status}
       </Badge>
     ),
   },
@@ -72,12 +72,12 @@ const columns: ColumnDef<Quotation>[] = [
     cell: ({ row }) => formatDate(new Date(row.original.date)),
   },
   {
-    accessorKey: 'expiryDate',
+    accessorKey: 'validUntil',
     header: 'Expires',
-    cell: ({ row }) => formatDate(new Date(row.original.expiryDate)),
+    cell: ({ row }) => row.original.validUntil ? formatDate(new Date(row.original.validUntil)) : '-',
   },
   {
-    accessorKey: 'amount',
+    accessorKey: 'totalAmount',
     header: ({ column }) => (
       <div className="text-right">
         <Button
@@ -92,7 +92,7 @@ const columns: ColumnDef<Quotation>[] = [
     ),
     cell: ({ row }) => (
       <div className="text-right font-medium">
-        {formatCurrency(row.original.amount)}
+        {formatCurrency(row.original.totalAmount)}
       </div>
     ),
   },
@@ -114,7 +114,7 @@ const columns: ColumnDef<Quotation>[] = [
 ];
 
 interface QuotationListProps {
-  quotations: Quotation[];
+  quotations: Invoice[];
 }
 
 export function QuotationList({ quotations }: QuotationListProps) {

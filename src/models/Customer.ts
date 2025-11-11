@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema, Model, PaginateModel } from 'mongoose';
+import mongoose, { Document, Schema, PaginateModel } from 'mongoose';
 import mongoosePaginate from 'mongoose-paginate-v2';
 import { generateId } from './Counter';
 

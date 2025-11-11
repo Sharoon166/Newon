@@ -5,9 +5,9 @@ import { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters, Pagina
 import dbConnect from '@/lib/db';
 import CustomerModel from '../../../models/Customer';
 
-// Type for lean Mongoose document
+// Type for lean Mongoose document - using Record for _id to handle Mongoose's FlattenMaps type
 interface LeanCustomer {
-  _id: any; // Mongoose lean returns complex type, using any for flexibility
+  _id: Record<string, unknown>;
   customerId?: string;
   name: string;
   email: string;
@@ -25,6 +25,16 @@ interface LeanCustomer {
   createdAt: Date;
   updatedAt: Date;
   __v?: number;
+}
+
+// Helper function to transform lean customer to Customer type
+function transformLeanCustomer(leanDoc: LeanCustomer): Customer {
+  return {
+    ...leanDoc,
+    id: leanDoc._id.toString(),
+    _id: undefined,
+    __v: undefined
+  } as Customer;
 }
 
 
@@ -68,16 +78,9 @@ export async function getCustomers(filters?: CustomerFilters): Promise<Paginated
       lean: true
     });
 
-    const transformedCustomers = result.docs.map((customer: any) => {
-      const customerObj = customer as unknown as LeanCustomer;
-      const transformed = {
-        ...customerObj,
-        id: customerObj._id.toString(),
-        _id: undefined,
-        __v: undefined
-      } as Customer;
-      return transformed;
-    });
+    const transformedCustomers = result.docs.map((customer: unknown) => 
+      transformLeanCustomer(customer as LeanCustomer)
+    );
 
     return {
       docs: transformedCustomers,
@@ -106,15 +109,7 @@ export async function getCustomer(id: string): Promise<Customer> {
       throw new Error('Customer not found');
     }
 
-    const customerObj = customer as unknown as LeanCustomer;
-    const transformed = {
-      ...customerObj,
-      id: customerObj._id.toString(),
-      _id: undefined,
-      __v: undefined
-    } as Customer;
-
-    return transformed;
+    return transformLeanCustomer(customer as LeanCustomer);
   } catch (error) {
     console.error(`Error fetching customer ${id}:`, error);
     throw new Error('Failed to fetch customer');
@@ -136,13 +131,7 @@ export async function createCustomer(data: CreateCustomerDto): Promise<Customer>
 
     revalidatePath('/(dashboard)/customers');
 
-    const savedCustomerObj = savedCustomer.toObject() as unknown as LeanCustomer;
-    return {
-      ...savedCustomerObj,
-      id: savedCustomerObj._id.toString(),
-      _id: undefined,
-      __v: undefined
-    } as Customer;
+    return transformLeanCustomer(savedCustomer.toObject() as LeanCustomer);
   } catch (error: unknown) {
     console.error('Error creating customer:', error);
     throw new Error((error as Error).message || 'Failed to create customer');

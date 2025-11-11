@@ -24,28 +24,38 @@ import { TablePagination } from "@/components/general/table-pagination";
 const statusVariant: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   paid: 'default',
   pending: 'secondary',
-  overdue: 'destructive',
+  partial: 'secondary',
+  delivered: 'default',
   draft: 'outline',
   cancelled: 'destructive',
-  sent: 'secondary'
+  sent: 'secondary',
+  accepted: 'default',
+  rejected: 'destructive',
+  expired: 'destructive',
+  converted: 'default'
 };
 
 const statusText: Record<InvoiceStatus, string> = {
   paid: 'Paid',
   pending: 'Pending',
-  overdue: 'Overdue',
+  partial: 'Partial',
+  delivered: 'Delivered',
   draft: 'Draft',
   cancelled: 'Cancelled',
-  sent: 'Sent'
+  sent: 'Sent',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  expired: 'Expired',
+  converted: 'Converted'
 };
 
 const columns: ColumnDef<Invoice>[] = [
   {
-    accessorKey: 'customer',
+    accessorKey: 'customerName',
     header: 'Customer',
     cell: ({ row }) => (
       <div>
-        <div className="font-medium">{row.original.customer.name}</div>
+        <div className="font-medium">{row.original.customerName}</div>
         <div className="text-sm text-muted-foreground">{row.original.invoiceNumber}</div>
       </div>
     ),
@@ -76,10 +86,10 @@ const columns: ColumnDef<Invoice>[] = [
   {
     accessorKey: 'dueDate',
     header: 'Due Date',
-    cell: ({ row }) => formatDate(new Date(row.original.dueDate)),
+    cell: ({ row }) => row.original.dueDate ? formatDate(new Date(row.original.dueDate)) : '-',
   },
   {
-    accessorKey: 'amount',
+    accessorKey: 'totalAmount',
     header: ({ column }) => (
       <div className="text-right">
         <Button
@@ -94,7 +104,7 @@ const columns: ColumnDef<Invoice>[] = [
     ),
     cell: ({ row }) => (
       <div className="text-right font-medium">
-        {formatCurrency(row.original.amount)}
+        {formatCurrency(row.original.totalAmount)}
       </div>
     ),
   },

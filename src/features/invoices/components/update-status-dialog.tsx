@@ -32,7 +32,8 @@ export function UpdateStatusDialog({
   type,
   onSuccess
 }: UpdateStatusDialogProps) {
-  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
+  type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>(currentStatus as InvoiceStatus);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const invoiceStatuses = [
@@ -41,23 +42,22 @@ export function UpdateStatusDialog({
     { value: 'partial', label: 'Partial' },
     { value: 'delivered', label: 'Delivered' },
     { value: 'cancelled', label: 'Cancelled' }
-  ];
+  ] as const;
 
   const quotationStatuses = [
     { value: 'draft', label: 'Draft' },
     { value: 'sent', label: 'Sent' },
     { value: 'accepted', label: 'Accepted' },
     { value: 'rejected', label: 'Rejected' },
-    { value: 'expired', label: 'Expired' },
-    { value: 'converted', label: 'Converted' }
-  ];
+    { value: 'expired', label: 'Expired' }
+  ] as const;
 
   const statuses = type === 'invoice' ? invoiceStatuses : quotationStatuses;
 
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
-      await updateInvoiceStatus(invoiceId, selectedStatus as any);
+      await updateInvoiceStatus(invoiceId, selectedStatus);
       toast.success('Status updated successfully');
       onOpenChange(false);
       onSuccess();
@@ -80,7 +80,7 @@ export function UpdateStatusDialog({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="status">Status</Label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as InvoiceStatus)}>
               <SelectTrigger id="status">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>

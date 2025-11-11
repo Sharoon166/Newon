@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import {
@@ -24,8 +23,6 @@ import {
   Globe,
   MapPin,
   NotebookTabs as NotebookTabsIcon,
-  ChevronDown,
-  ChevronUp,
   ChevronsUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';

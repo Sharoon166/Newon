@@ -7,9 +7,54 @@ import { CreateInvoiceDto } from '../types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
+interface FormItem {
+  id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  productId?: string;
+  variantId?: string;
+  variantSKU?: string;
+  purchaseId?: string;
+  unit?: string;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount?: number;
+  stockLocation?: string;
+}
+
+interface ClientInfo {
+  name: string;
+  company?: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+interface InvoiceFormData {
+  date: string;
+  dueDate?: string;
+  validUntil?: string;
+  billingType?: 'wholesale' | 'retail';
+  market?: 'newon' | 'waymor';
+  customerId?: string;
+  client: ClientInfo;
+  items: FormItem[];
+  taxRate: number;
+  discount: number;
+  discountType: 'percentage' | 'fixed';
+  paid?: number;
+  notes?: string;
+  terms?: string;
+}
+
 interface InvoiceFormWrapperProps {
   type: 'invoice' | 'quotation';
-  formData: any;
+  formData: InvoiceFormData;
   userId: string;
 }
 
@@ -38,7 +83,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         customerCity: formData.client.city,
         customerState: formData.client.state,
         customerZip: formData.client.zip,
-        items: formData.items.map((item: any) => ({
+        items: formData.items.map((item) => ({
           productId: item.productId || 'manual-entry',
           productName: item.description,
           variantId: item.variantId,
@@ -53,26 +98,26 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
           stockLocation: item.stockLocation,
           purchaseId: item.purchaseId
         })),
-        subtotal: formData.items.reduce((sum: number, item: any) => sum + item.amount, 0),
+        subtotal: formData.items.reduce((sum, item) => sum + item.amount, 0),
         discountType: formData.discountType,
         discountValue: formData.discount,
         discountAmount: formData.discountType === 'percentage' 
-          ? (formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) * formData.discount) / 100
+          ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
           : formData.discount,
         gstType: formData.taxRate > 0 ? 'percentage' : undefined,
         gstValue: formData.taxRate,
-        gstAmount: (formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) * formData.taxRate) / 100,
-        totalAmount: formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) 
-          + ((formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) * formData.taxRate) / 100)
+        gstAmount: (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100,
+        totalAmount: formData.items.reduce((sum, item) => sum + item.amount, 0) 
+          + ((formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100)
           - (formData.discountType === 'percentage' 
-            ? (formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) * formData.discount) / 100
+            ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
             : formData.discount),
         status: type === 'quotation' ? 'draft' : 'pending',
         paidAmount: formData.paid || 0,
-        balanceAmount: (formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) 
-          + ((formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) * formData.taxRate) / 100)
+        balanceAmount: (formData.items.reduce((sum, item) => sum + item.amount, 0) 
+          + ((formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100)
           - (formData.discountType === 'percentage' 
-            ? (formData.items.reduce((sum: number, item: any) => sum + item.amount, 0) * formData.discount) / 100
+            ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
             : formData.discount)) - (formData.paid || 0),
         notes: formData.notes,
         termsAndConditions: formData.terms,

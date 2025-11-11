@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -33,10 +34,11 @@ import { EditInvoiceDialog } from './edit-invoice-dialog';
 
 interface InvoicesTableProps {
   invoices: Invoice[];
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }
 
 export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
+  const router = useRouter();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -44,13 +46,21 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      router.refresh();
+    }
+  };
+
   const handleDelete = async () => {
     if (!selectedInvoice) return;
 
     try {
       setIsDeleting(true);
       await deleteInvoice(selectedInvoice.id);
-      onRefresh?.();
+      handleRefresh();
       setDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error deleting invoice:', error);
@@ -61,7 +71,7 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { variant: any; label: string; icon: any }> = {
+    const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string; icon: React.ComponentType<{ className?: string }> }> = {
       paid: { variant: 'default', label: 'Paid', icon: CheckCircle },
       pending: { variant: 'secondary', label: 'Pending', icon: Clock },
       partial: { variant: 'outline', label: 'Partial', icon: Clock },
@@ -225,7 +235,7 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
             onOpenChange={setPaymentDialogOpen}
             invoiceId={selectedInvoice.id}
             balanceAmount={selectedInvoice.balanceAmount}
-            onSuccess={onRefresh}
+            onSuccess={handleRefresh}
           />
 
           <UpdateStatusDialog
@@ -234,14 +244,14 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
             invoiceId={selectedInvoice.id}
             currentStatus={selectedInvoice.status}
             type={selectedInvoice.type}
-            onSuccess={onRefresh}
+            onSuccess={handleRefresh}
           />
 
           <EditInvoiceDialog
             open={editDialogOpen}
             onOpenChange={setEditDialogOpen}
             invoice={selectedInvoice}
-            onSuccess={onRefresh}
+            onSuccess={handleRefresh}
           />
         </>
       )}

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import InvoiceModel from '@/models/Invoice';
 import {
@@ -12,16 +13,77 @@ import {
   PaginatedInvoices
 } from '../types';
 
-// Helper type for lean documents
+// Helper types for lean documents
+interface LeanInvoiceItem {
+  productId: string;
+  productName: string;
+  variantId?: string;
+  variantSKU?: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount: number;
+  totalPrice: number;
+  stockLocation?: string;
+  purchaseId?: string;
+}
+
+interface LeanPayment {
+  amount: number;
+  method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  date: Date | string;
+  reference?: string;
+  notes?: string;
+}
+
 interface LeanInvoice {
-  _id: any;
-  [key: string]: any;
+  _id: mongoose.Types.ObjectId;
+  invoiceNumber: string;
+  type: 'invoice' | 'quotation';
+  date: Date | string;
+  dueDate?: Date | string;
+  billingType: 'wholesale' | 'retail';
+  market: 'newon' | 'waymor';
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerAddress: string;
+  customerCity?: string;
+  customerState?: string;
+  customerZip?: string;
+  items: LeanInvoiceItem[];
+  subtotal: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+  discountAmount: number;
+  gstType?: 'percentage' | 'fixed';
+  gstValue?: number;
+  gstAmount: number;
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+  paidAmount: number;
+  balanceAmount: number;
+  payments: LeanPayment[];
+  stockDeducted: boolean;
+  notes?: string;
+  termsAndConditions?: string;
+  validUntil?: Date | string;
+  convertedToInvoice?: boolean;
+  convertedInvoiceId?: string;
+  createdBy: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 // Transform lean document to Invoice type
 function transformInvoice(doc: LeanInvoice): Invoice {
   // Serialize items - remove _id and convert dates
-  const items = doc.items?.map((item: any) => ({
+  const items = doc.items?.map((item: LeanInvoiceItem) => ({
     productId: item.productId,
     productName: item.productName,
     variantId: item.variantId,
@@ -38,7 +100,7 @@ function transformInvoice(doc: LeanInvoice): Invoice {
   })) || [];
 
   // Serialize payments - remove _id and convert dates
-  const payments = doc.payments?.map((payment: any) => ({
+  const payments = doc.payments?.map((payment: LeanPayment) => ({
     amount: payment.amount,
     method: payment.method,
     date: payment.date instanceof Date ? payment.date.toISOString() : payment.date,
@@ -146,7 +208,7 @@ export async function getInvoices(filters?: InvoiceFilters): Promise<PaginatedIn
       lean: true
     });
 
-    const transformedInvoices = result.docs.map((doc: any) => transformInvoice(doc as unknown as LeanInvoice));
+    const transformedInvoices = result.docs.map((doc) => transformInvoice(doc as unknown as LeanInvoice));
 
     return {
       docs: transformedInvoices,
@@ -326,7 +388,7 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
     }
 
     // Add payment to payments array
-    invoice.payments.push(payment as any);
+    invoice.payments.push(payment);
 
     // Update paid amount
     invoice.paidAmount += payment.amount;
@@ -414,7 +476,7 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
 
     // Update quotation to mark as converted
     quotation.convertedToInvoice = true;
-    quotation.convertedInvoiceId = savedInvoice._id.toString();
+    quotation.convertedInvoiceId = (savedInvoice._id as mongoose.Types.ObjectId).toString();
     quotation.status = 'converted';
     await quotation.save();
 

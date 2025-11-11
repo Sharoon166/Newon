@@ -96,17 +96,17 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
     return Array.from(locationSet.values());
   }, [products]);
 
-  // Get unique suppliers from products and purchases
-  const allSuppliers = useMemo(() => {
-    const supplierSet = new Set<string>();
-    products.forEach(product => {
-      if (product.supplier) supplierSet.add(product.supplier);
-    });
-    purchases.forEach(purchase => {
-      if (purchase.supplier) supplierSet.add(purchase.supplier);
-    });
-    return Array.from(supplierSet).sort();
-  }, [products, purchases]);
+  // // Get unique suppliers from products and purchases
+  // const allSuppliers = useMemo(() => {
+  //   const supplierSet = new Set<string>();
+  //   products.forEach(product => {
+  //     if (product.supplier) supplierSet.add(product.supplier);
+  //   });
+  //   purchases.forEach(purchase => {
+  //     if (purchase.supplier) supplierSet.add(purchase.supplier);
+  //   });
+  //   return Array.from(supplierSet).sort();
+  // }, [products, purchases]);
 
   // Format variant display
   const getVariantDisplay = (purchase: EnhancedPurchase) => {
@@ -468,7 +468,7 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
         productId=""
         variants={products}
         locations={locations}
-        suppliers={allSuppliers}
+        // suppliers={allSuppliers}
         open={addPurchaseOpen}
         onOpenChange={setAddPurchaseOpen}
         onSuccess={handlePurchaseSuccess}
@@ -482,7 +482,7 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
           variants={products.filter(p => p.productId === purchaseToEdit.productId)}
           purchase={purchaseToEdit}
           locations={locations}
-          suppliers={allSuppliers}
+          // suppliers={allSuppliers}
           open={editPurchaseOpen}
           onOpenChange={setEditPurchaseOpen}
           onSuccess={handlePurchaseSuccess}

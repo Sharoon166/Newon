@@ -119,12 +119,12 @@ export function PurchasesManager({
     : 0;
 
   // Extract unique suppliers from purchases and product supplier
-  const uniqueSuppliers = Array.from(
-    new Set([
-      ...suppliers,
-      ...purchases.map((p) => p.supplier),
-    ])
-  ).filter(Boolean);
+  // const uniqueSuppliers = Array.from(
+  //   new Set([
+  //     ...suppliers,
+  //     ...purchases.map((p) => p.supplier),
+  //   ])
+  // ).filter(Boolean);
 
   return (
     <div 
@@ -274,7 +274,6 @@ export function PurchasesManager({
         variants={variants}
         purchase={editingPurchase}
         locations={locations}
-        suppliers={uniqueSuppliers}
         supplier={suppliers.length > 0 ? suppliers[0] : undefined}
         open={formOpen}
         onOpenChange={handleFormClose}

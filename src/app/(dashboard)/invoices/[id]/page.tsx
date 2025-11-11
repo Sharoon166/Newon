@@ -126,8 +126,8 @@ export default function InvoiceDetailPage() {
     <div className="container mx-auto py-10">
       <PageHeader
         title={`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`}
-        action={
-          <div className="flex gap-2">
+      >
+        <div className="flex gap-2">
             <Button variant="outline" onClick={() => router.push('/invoices')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
@@ -166,9 +166,8 @@ export default function InvoiceDetailPage() {
               <Printer className="h-4 w-4 mr-2" />
               Print
             </Button>
-          </div>
-        }
-      />
+        </div>
+      </PageHeader>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
