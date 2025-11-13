@@ -1,5 +1,4 @@
 import DashboardLayout from '@/components/layout/dashboard-layout';
-import { SessionProvider } from '@/features/auth/components/session-provider';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -13,10 +12,8 @@ export default function DashboardRootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SessionProvider>
-      <DashboardLayout>
-        {children}
-      </DashboardLayout>
-    </SessionProvider>
+    <DashboardLayout>
+      {children}
+    </DashboardLayout>
   );
 }

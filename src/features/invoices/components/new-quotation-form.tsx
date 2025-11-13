@@ -96,12 +96,14 @@ export function NewQuotationForm({
   onPreview,
   customers,
   variants = [],
-  purchases = []
+  purchases = [],
+  invoiceTerms: initialInvoiceTerms
 }: {
   onPreview: (data: QuotationFormValues) => void;
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
+  invoiceTerms?: string[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
@@ -149,7 +151,7 @@ export function NewQuotationForm({
       discountType: 'fixed',
       amountInWords: 'Zero Rupees Only',
       notes: '',
-      terms: INVOICE_TERMS_AND_CONDITIONS.join('\n')
+      terms: initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')
     }
   });
 

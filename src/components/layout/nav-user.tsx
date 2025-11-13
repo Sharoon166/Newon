@@ -1,40 +1,22 @@
 'use client';
 
-import { ChevronsUpDown, LogOut } from 'lucide-react';
+import { ChevronsUpDown } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar';
-import { useAuth } from '@/features/auth/hooks/use-auth';
-import type { User } from '@/types/auth';
 
 export function NavUser() {
   const { isMobile } = useSidebar();
-  const { user, logout } = useAuth();
 
-  if (!user) {
-    return null;
-  }
-
-  // User is already properly typed with custom fields
-  const extendedUser = user as User;
-
-  const displayName =
-    extendedUser.firstName && extendedUser.lastName
-      ? `${extendedUser.firstName} ${extendedUser.lastName}`
-      : user.name || 'User';
-
-  const initials =
-    extendedUser.firstName && extendedUser.lastName
-      ? `${extendedUser.firstName[0]}${extendedUser.lastName[0]}`.toUpperCase()
-      : user.name?.slice(0, 2).toUpperCase() || 'U';
+  const displayName = 'Admin User';
+  const email = 'admin@newon.com';
+  const initials = 'AU';
 
   return (
     <SidebarMenu>
@@ -50,7 +32,7 @@ export function NavUser() {
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{displayName}</span>
-                <span className="truncate text-xs">{user.email}</span>
+                <span className="truncate text-xs">{email}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -68,18 +50,10 @@ export function NavUser() {
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{displayName}</span>
-                  <span className="truncate text-xs">{user.email}</span>
-                  <span className="truncate text-xs text-muted-foreground capitalize">
-                    {extendedUser.role || 'User'}
-                  </span>
+                  <span className="truncate text-xs">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="cursor-pointer">
-              <LogOut />
-              Log out
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

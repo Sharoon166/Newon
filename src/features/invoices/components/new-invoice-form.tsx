@@ -113,7 +113,9 @@ export function NewInvoiceForm({
   onPrint,
   customers,
   variants = [],
-  purchases = []
+  purchases = [],
+  paymentDetails: initialPaymentDetails,
+  invoiceTerms: initialInvoiceTerms
 }: {
   onPreview: (data: InvoiceFormValues) => void;
   onSave?: (data: InvoiceFormValues) => void | Promise<void>;
@@ -121,6 +123,8 @@ export function NewInvoiceForm({
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
+  paymentDetails?: { BANK_NAME: string; ACCOUNT_NUMBER: string; IBAN: string };
+  invoiceTerms?: string[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
@@ -173,11 +177,11 @@ export function NewInvoiceForm({
       paid: 0,
       remainingPayment: 0,
       notes: '',
-      terms: INVOICE_TERMS_AND_CONDITIONS.join('\n'),
+      terms: initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n'),
       paymentDetails: {
-        bankName: process.env.NEXT_PUBLIC_BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
-        accountNumber: process.env.NEXT_PUBLIC_ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
-        iban: process.env.NEXT_PUBLIC_IBAN || PAYMENT_DETAILS.IBAN
+        bankName: initialPaymentDetails?.BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
+        accountNumber: initialPaymentDetails?.ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
+        iban: initialPaymentDetails?.IBAN || PAYMENT_DETAILS.IBAN
       }
     }
   });
@@ -1194,7 +1198,7 @@ export function NewInvoiceForm({
                     control={form.control}
                     name="discountType"
                     render={({ field }) => (
-                      <FormItem className="w-24">
+                      <FormItem className="">
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-8 text-sm">
