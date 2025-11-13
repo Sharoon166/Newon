@@ -1,19 +1,25 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, Package, X, Plus, Minus } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
+import { Search, Package, Plus, Minus, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
+import { toast } from 'sonner';
 
 interface ProductSelectorProps {
   variants: EnhancedVariants[];
   purchases: Purchase[];
+  currentItems?: Array<{
+    variantId?: string;
+    quantity: number;
+  }>;
   onAddItem: (item: {
     variantId: string;
     productName: string;
@@ -25,12 +31,15 @@ interface ProductSelectorProps {
   }) => void;
 }
 
-export function ProductSelector({ variants, purchases, onAddItem }: ProductSelectorProps) {
+export function ProductSelector({ variants, purchases, currentItems = [], onAddItem }: ProductSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedVariant, setSelectedVariant] = useState<EnhancedVariants | null>(null);
-  const [selectedQuantity, setSelectedQuantity] = useState(1);
+  // Remove selectedVariant state - cards are always expanded
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [priceType, setPriceType] = useState<'wholesale' | 'retail'>('retail');
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Removed click outside handler - cards are always expanded
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -53,54 +62,87 @@ export function ProductSelector({ variants, purchases, onAddItem }: ProductSelec
     });
   }, [variants, searchQuery, selectedCategory]);
 
-  // Get FIFO purchases for selected variant
-  const variantPurchases = useMemo(() => {
-    if (!selectedVariant) return [];
+  const getVariantQuantity = (variantId: string) => quantities[variantId] || 1;
 
-    return purchases
-      .filter(p => p.productId === selectedVariant.productId && p.variantId === selectedVariant.id && p.remaining > 0)
-      .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
-  }, [selectedVariant, purchases]);
-
-  const handleSelectVariant = (variant: EnhancedVariants) => {
-    setSelectedVariant(variant);
-    setSelectedQuantity(1);
+  const setVariantQuantity = (variantId: string, quantity: number) => {
+    setQuantities(prev => ({ ...prev, [variantId]: quantity }));
   };
 
-  const handleAddToInvoice = () => {
-    if (!selectedVariant) return;
+  const handleAddToInvoice = (variant: EnhancedVariants) => {
+    const variantPurchases = purchases
+      .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
+      .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
 
-    // Get the first available purchase (FIFO)
     const firstPurchase = variantPurchases[0];
+    const quantity = getVariantQuantity(variant.id);
+    const available = variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
 
-    const description = `${selectedVariant.productName} - ${selectedVariant.sku}${
-      Object.keys(selectedVariant.attributes || {}).length > 0
-        ? ` (${Object.values(selectedVariant.attributes).join(', ')})`
-        : ''
+    // Calculate quantity already in invoice for this variant
+    const quantityInInvoice = currentItems
+      .filter(item => item.variantId === variant.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
+
+    // Calculate remaining available stock after accounting for items in invoice
+    const remainingAvailable = available - quantityInInvoice;
+
+    // Validation checks
+    if (available === 0) {
+      toast.error('Out of stock', {
+        description: `${variant.productName} is currently out of stock.`
+      });
+      return;
+    }
+
+    if (remainingAvailable <= 0) {
+      toast.error('All stock already in invoice', {
+        description: `All ${available} units of ${variant.productName} are already added to the invoice.`
+      });
+      return;
+    }
+
+    if (quantity > remainingAvailable) {
+      toast.error('Insufficient stock', {
+        description: `Only ${remainingAvailable} more units available (${quantityInInvoice} already in invoice).`
+      });
+      return;
+    }
+
+    if (quantity <= 0) {
+      toast.error('Invalid quantity', {
+        description: 'Quantity must be greater than 0.'
+      });
+      return;
+    }
+
+    const description = `${variant.productName} - ${variant.sku}${
+      Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
     }`;
 
-    // Use selected price type (wholesale or retail)
     const rate =
       priceType === 'retail'
-        ? firstPurchase?.retailPrice || selectedVariant.retailPrice || 0
-        : firstPurchase?.wholesalePrice || selectedVariant.wholesalePrice || 0;
+        ? firstPurchase?.retailPrice || variant.retailPrice || 0
+        : firstPurchase?.wholesalePrice || variant.wholesalePrice || 0;
+
+    if (rate <= 0) {
+      toast.error('Invalid price', {
+        description: `No valid ${priceType} price found for ${variant.productName}.`
+      });
+      return;
+    }
 
     onAddItem({
-      variantId: selectedVariant.id,
-      productName: selectedVariant.productName,
-      sku: selectedVariant.sku,
+      variantId: variant.id,
+      productName: variant.productName,
+      sku: variant.sku,
       description,
-      quantity: selectedQuantity,
+      quantity,
       rate,
       purchaseId: firstPurchase?.id || firstPurchase?._id
     });
 
-    // Reset selection
-    setSelectedVariant(null);
-    setSelectedQuantity(1);
+    // Reset quantity for this variant
+    setVariantQuantity(variant.id, 1);
   };
-
-  const totalAvailable = variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
 
   return (
     <div className="space-y-4">
@@ -115,19 +157,7 @@ export function ProductSelector({ variants, purchases, onAddItem }: ProductSelec
             className="pl-9"
           />
         </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat} value={cat}>
-                {cat}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
         <Select value={priceType} onValueChange={(value: 'wholesale' | 'retail') => setPriceType(value)}>
           <SelectTrigger className="w-[150px]">
             <SelectValue placeholder="Price Type" />
@@ -139,193 +169,260 @@ export function ProductSelector({ variants, purchases, onAddItem }: ProductSelec
         </Select>
       </div>
 
+      <div className="flex gap-2">
+        <Badge
+          variant={selectedCategory === 'all' ? 'default' : 'outline'}
+          onClick={() => setSelectedCategory('all')}
+          role="button"
+          aria-label={`Select all`}
+          className="px-4 py-1 rounded-full text-sm cursor-pointer"
+        >
+          # All
+        </Badge>
+        {categories.map(category => (
+          <Badge
+            key={category}
+            variant={selectedCategory === category ? 'default' : 'outline'}
+            onClick={() => setSelectedCategory(category)}
+            role="button"
+            aria-label={`Select ${category}`}
+            className="px-4 py-1 rounded-full text-sm cursor-pointer"
+          >
+            # {category}
+          </Badge>
+        ))}
+      </div>
+
       {/* Product Grid with Scroll Area */}
-      <div className="border rounded-lg bg-muted/30">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 max-h-[350px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
-          {filteredVariants.map(variant => {
-            const variantPurchasesForCard = purchases
-              .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
-              .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+      <div
+        ref={gridRef}
+        className="@container grid grid-flow-dense  grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 p-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+      >
+        {filteredVariants.map(variant => {
+          const variantPurchasesForCard = purchases
+            .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
+            .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
 
-            const available = variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0);
+          const available = variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0);
+          const quantityInInvoice = currentItems
+            .filter(item => item.variantId === variant.id)
+            .reduce((sum, item) => sum + item.quantity, 0);
+          const remainingAvailable = available - quantityInInvoice;
+          const firstPurchase = variantPurchasesForCard[0];
+          const quantity = getVariantQuantity(variant.id);
 
-            return (
-              <Card
-                key={`${variant.productId}-${variant.id}`}
-                className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-                  selectedVariant?.id === variant.id ? 'ring-2 ring-primary' : ''
-                }`}
-                onClick={() => handleSelectVariant(variant)}
-              >
-                <div className="flex items-start gap-3">
+          return (
+            <Card
+              key={`${variant.productId}-${variant.id}`}
+              className="p-3 transition-all hover:shadow-md"
+            >
+              <div className="flex flex-col gap-3">
+                {/* Product Card Content */}
+                <div className="flex flex-col gap-2">
+                  {/* Product Image */}
                   {variant.image || variant.imageFile?.cloudinaryUrl ? (
-                    <img
-                      src={variant.imageFile?.cloudinaryUrl || variant.image}
-                      alt={variant.productName}
-                      className="w-16 h-16 object-cover rounded"
-                    />
+                    <div
+                      className="w-full h-32 overflow-clip rounded-md flex justify-center bg-cover bg-no-repeat"
+                      style={{
+                        backgroundImage: `url(${variant.imageFile?.cloudinaryUrl || variant.image})`
+                      }}
+                    >
+                      {/* <img
+                          src={variant.imageFile?.cloudinaryUrl || variant.image}
+                          alt={variant.productName}
+                          className="object-contain object-center rounded transition group-hover:scale-125"
+                        /> */}
+                    </div>
                   ) : (
-                    <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
-                      <Package className="h-8 w-8 text-muted-foreground" />
+                    <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
+                      <Package className="h-10 w-10 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm truncate">{variant.productName}</h4>
-                    <p className="text-xs text-muted-foreground">{variant.sku}</p>
+
+                  {/* Product Info */}
+                  <div className="space-y-1">
+                    <div className="flex items-start justify-between gap-1">
+                      <h4 className="font-medium text-xs leading-tight line-clamp-2 flex-1">{variant.productName}</h4>
+                      {firstPurchase && (
+                        <Popover>
+                          <PopoverTrigger asChild onClick={e => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 flex-shrink-0">
+                              <Info className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80" align="end">
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="font-semibold text-sm mb-1">FIFO - Next Purchase to Use</h4>
+                                <p className="text-xs text-muted-foreground">Total Available: {available} units</p>
+                              </div>
+                              <div className="space-y-2 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Purchase ID:</span>
+                                  <span className="font-mono">{firstPurchase.purchaseId}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Date:</span>
+                                  <span>{formatDate(new Date(firstPurchase.purchaseDate))}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Remaining:</span>
+                                  <span className="font-semibold">{firstPurchase.remaining} units</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Unit Price:</span>
+                                  <span>{formatCurrency(firstPurchase.unitPrice)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Retail Price:</span>
+                                  <span className="font-semibold">{formatCurrency(firstPurchase.retailPrice)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Wholesale Price:</span>
+                                  <span className="font-semibold">{formatCurrency(firstPurchase.wholesalePrice)}</span>
+                                </div>
+                                <div className="flex justify-between pt-2 border-t">
+                                  <span className="text-muted-foreground font-medium">Selected Price:</span>
+                                  <span className="font-bold text-primary">
+                                    {formatCurrency(
+                                      priceType === 'retail' ? firstPurchase.retailPrice : firstPurchase.wholesalePrice
+                                    )}
+                                    <span className="text-xs ml-1">
+                                      ({priceType === 'retail' ? 'Retail' : 'Wholesale'})
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                              {variantPurchasesForCard.length > 1 && (
+                                <p className="text-xs text-muted-foreground">
+                                  + {variantPurchasesForCard.length - 1} more purchase(s) available
+                                </p>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">{variant.sku}</p>
                     {Object.keys(variant.attributes || {}).length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground line-clamp-1">
                         {Object.values(variant.attributes).join(', ')}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant={available > 0 ? 'default' : 'destructive'} className="text-xs">
-                        Stock: {available}
-                      </Badge>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold">
-                          {formatCurrency(
-                            priceType === 'retail' ? variant.retailPrice || 0 : variant.wholesalePrice || 0
-                          )}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {priceType === 'retail' ? 'Retail' : 'Wholesale'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-          {filteredVariants.length === 0 && (
-            <div className="col-span-full text-center py-8 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No products found</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Selected Variant Details with FIFO */}
-      {selectedVariant && (
-        <Card className="p-4 bg-muted/50">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h3 className="font-semibold">{selectedVariant.productName}</h3>
-              <p className="text-sm text-muted-foreground">{selectedVariant.sku}</p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedVariant(null)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4 items-start">
-            {/* FIFO Purchase Details */}
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Total Available:</span>
-                <Badge variant={totalAvailable > 0 ? 'default' : 'destructive'}>{totalAvailable} units</Badge>
-              </div>
-              {variantPurchases.length > 0 && (
-                <div className="border rounded-lg p-3 bg-background">
-                  <p className="text-xs font-medium mb-2">FIFO - Next Purchase to Use:</p>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Purchase ID:</span>
-                      <span className="font-mono">{variantPurchases[0].purchaseId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date:</span>
-                      <span>{formatDate(new Date(variantPurchases[0].purchaseDate))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Remaining:</span>
-                      <span className="font-semibold">{variantPurchases[0].remaining} units</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Unit Price:</span>
-                      <span>{formatCurrency(variantPurchases[0].unitPrice)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Retail Price:</span>
-                      <span className="font-semibold">{formatCurrency(variantPurchases[0].retailPrice)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Wholesale Price:</span>
-                      <span className="font-semibold">{formatCurrency(variantPurchases[0].wholesalePrice)}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t mt-2">
-                      <span className="text-muted-foreground font-medium">Selected Price:</span>
-                      <span className="font-bold text-primary">
-                        {formatCurrency(
-                          priceType === 'retail' ? variantPurchases[0].retailPrice : variantPurchases[0].wholesalePrice
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex flex-col gap-0.5">
+                        <Badge variant={remainingAvailable > 0 ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
+                          {remainingAvailable} left
+                        </Badge>
+                        {quantityInInvoice > 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            ({quantityInInvoice} in invoice)
+                          </span>
                         )}
-                        <span className="text-xs ml-1">({priceType === 'retail' ? 'Retail' : 'Wholesale'})</span>
+                      </div>
+                      <span className="text-sm font-bold">
+                        {formatCurrency(
+                          priceType === 'retail'
+                            ? firstPurchase?.retailPrice || variant.retailPrice || 0
+                            : firstPurchase?.wholesalePrice || variant.wholesalePrice || 0
+                        )}
                       </span>
                     </div>
                   </div>
-                  {variantPurchases.length > 1 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      + {variantPurchases.length - 1} more purchase(s) available
+                </div>
+
+                {/* Controls - Below Card */}
+                <div className="flex flex-col gap-2 border-t pt-3">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setVariantQuantity(variant.id, Math.max(1, quantity - 1));
+                      }}
+                      disabled={quantity <= 1}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={remainingAvailable}
+                      value={quantity}
+                      onChange={e => {
+                        e.stopPropagation();
+                        const newQuantity = parseInt(e.target.value) || 1;
+                        if (newQuantity > remainingAvailable) {
+                          toast.error('Exceeds available stock', {
+                            description: `Only ${remainingAvailable} more units available${quantityInInvoice > 0 ? ` (${quantityInInvoice} already in invoice)` : ''}.`
+                          });
+                          setVariantQuantity(variant.id, Math.max(1, remainingAvailable));
+                        } else if (newQuantity < 1) {
+                          toast.error('Invalid quantity', {
+                            description: 'Quantity must be at least 1.'
+                          });
+                          setVariantQuantity(variant.id, 1);
+                        } else {
+                          setVariantQuantity(variant.id, newQuantity);
+                        }
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      className="text-center h-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={e => {
+                        e.stopPropagation();
+                        const newQuantity = quantity + 1;
+                        if (newQuantity > remainingAvailable) {
+                          toast.error('Exceeds available stock', {
+                            description: `Only ${remainingAvailable} more units available${quantityInInvoice > 0 ? ` (${quantityInInvoice} already in invoice)` : ''}.`
+                          });
+                          return;
+                        }
+                        setVariantQuantity(variant.id, newQuantity);
+                      }}
+                      disabled={quantity >= remainingAvailable}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleAddToInvoice(variant);
+                    }}
+                    disabled={remainingAvailable === 0 || quantity > remainingAvailable}
+                    className="w-full h-9"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add to Invoice
+                  </Button>
+                  {quantity > remainingAvailable && (
+                    <p className="text-xs text-destructive text-center">
+                      Stock was used up
                     </p>
                   )}
                 </div>
-              )}
-              {variantPurchases.length === 0 && (
-                <div className="border border-destructive/50 rounded-lg p-3 bg-destructive/5">
-                  <p className="text-xs text-destructive">No purchases available for this variant</p>
-                </div>
-              )}
-            </div>
-            {/* Quantity Selection */}
-            <div className="flex flex-col gap-3">
-              <div className="flex-1">
-                <label className="text-sm font-medium mb-1 block">Quantity</label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => setSelectedQuantity(prev => Math.max(1, prev - 1))}
-                    disabled={selectedQuantity <= 1}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={totalAvailable}
-                    value={selectedQuantity}
-                    onChange={e => setSelectedQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="text-center max-w-40"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => setSelectedQuantity(prev => Math.min(totalAvailable, prev + 1))}
-                    disabled={selectedQuantity >= totalAvailable}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
               </div>
-              <Button
-                onClick={handleAddToInvoice}
-                disabled={totalAvailable === 0 || selectedQuantity > totalAvailable}
-                className="flex-1"
-              >
-                <Plus />
-                Add to Invoice
-              </Button>
-            </div>
+            </Card>
+          );
+        })}
+        {filteredVariants.length === 0 && (
+          <div className="col-span-full text-center py-8 text-muted-foreground">
+            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>No products found</p>
           </div>
-
-          {selectedQuantity > totalAvailable && (
-            <p className="text-xs text-destructive mt-2">Quantity exceeds available stock ({totalAvailable} units)</p>
-          )}
-        </Card>
-      )}
+        )}
+      </div>
     </div>
   );
 }

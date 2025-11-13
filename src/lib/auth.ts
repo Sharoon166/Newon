@@ -13,7 +13,6 @@ export const auth = betterAuth({
     disableSignUp: true,
   },
   user: {
-    modelName: 'staffs', // This will use the 'staffs' collection
     additionalFields: {
       firstName: {
         type: 'string',

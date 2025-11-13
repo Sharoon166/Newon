@@ -1,7 +1,8 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -15,32 +16,35 @@ import {
   Percent,
   Trash2,
   Plus,
+  Minus,
   ShoppingCart,
-  Banknote,
-  FileCheck2,
   Mail,
   Phone,
-  Globe,
   MapPin,
   NotebookTabs as NotebookTabsIcon,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Package,
+  Eye,
+  Save,
+  Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency, getToday } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, getToday } from '@/lib/utils';
 import useBrandStore from '@/stores/useBrandStore';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { convertToWords } from '../utils';
 import { Customer } from '@/features/customers/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ProductSelector } from './product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
-import { brands } from '@/stores/useBrandStore';
 import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS } from '@/constants';
+import { toast } from 'sonner';
+import { NewonInvoiceTemplate } from './newon-invoice-template';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
@@ -67,7 +71,7 @@ const invoiceFormSchema = z.object({
     email: z.string().email('Invalid email address'),
     phone: z.string().min(1, 'Phone is required')
   }),
-  invoiceNumber: z.string().min(1, 'Invoice number is required'),
+  invoiceNumber: z.string().optional(), // Auto-generated on save
   date: z.string().min(1, 'Date is required'),
   dueDate: z.string().min(1, 'Due date is required'),
   items: z
@@ -95,9 +99,9 @@ const invoiceFormSchema = z.object({
   notes: z.string().optional(),
   terms: z.string().optional(),
   paymentDetails: z.object({
-    bankName: z.string().min(1, 'Bank name is required'),
-    accountNumber: z.string().min(1, 'Account number is required'),
-    iban: z.string().min(1, 'IBAN is required')
+    bankName: z.string(),
+    accountNumber: z.string(),
+    iban: z.string()
   })
 });
 
@@ -105,22 +109,33 @@ type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 
 export function NewInvoiceForm({
   onPreview,
+  onSave,
+  onPrint,
   customers,
   variants = [],
   purchases = []
 }: {
   onPreview: (data: InvoiceFormValues) => void;
+  onSave?: (data: InvoiceFormValues) => void | Promise<void>;
+  onPrint?: (data: InvoiceFormValues) => void;
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
-  const [isFromOpen, setIsFromOpen] = useState(true);
   const [isToOpen, setIsToOpen] = useState(true);
-  const currentBrandId = useBrandStore(state => state.currentBrandId);
-  const setBrand = useBrandStore(state => state.setBrand);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
   const brand = useBrandStore(state => state.getCurrentBrand());
+
+  // Configure react-to-print
+  const handleReactToPrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Invoice-${nextInvoiceNumber}`,
+  });
   const form = useForm<InvoiceFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(invoiceFormSchema) as any,
@@ -137,16 +152,16 @@ export function NewInvoiceForm({
         website: brand.website
       },
       client: {
-        name: 'Sharoon',
-        company: 'Dev.co',
-        address: 'New Bluearea, Islamabad.',
-        city: 'Islamabad',
-        state: 'Islamabad',
-        zip: '44000',
-        email: 'support@dev.co',
-        phone: '+92 300 1234567'
+        name: '',
+        company: '',
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+        email: '',
+        phone: ''
       },
-      invoiceNumber: `INV-${Math.floor(1000 + Math.random() * 9000)}`,
+      invoiceNumber: '', // Will be auto-generated on save
       date: getToday(),
       dueDate: getToday(),
       items: [],
@@ -167,10 +182,52 @@ export function NewInvoiceForm({
     }
   });
 
+  // Fetch next invoice number on mount
+  useEffect(() => {
+    const fetchNextInvoiceNumber = async () => {
+      try {
+        const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
+        const number = await getNextInvoiceNumber('invoice');
+        setNextInvoiceNumber(number);
+        form.setValue('invoiceNumber', number);
+      } catch (error) {
+        console.error('Error fetching next invoice number:', error);
+        setNextInvoiceNumber('Error loading');
+      }
+    };
+
+    fetchNextInvoiceNumber();
+  }, []);
+
+  // Show toast errors on mount if no customers or products
+  useEffect(() => {
+    if (customers.length === 0) {
+      toast.error('No customers found', {
+        description: 'Please add customers before creating an invoice.'
+      });
+    }
+    if (variants.length === 0) {
+      toast.error('No products found', {
+        description: 'Please add products to inventory before creating an invoice.'
+      });
+    }
+  }, [customers.length, variants.length]);
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'items'
   });
+
+  // Helper function to get available stock for an item
+  const getAvailableStock = (variantId?: string) => {
+    if (!variantId) return Infinity; // No limit if no variant ID
+    
+    const variantPurchases = purchases.filter(
+      p => p.variantId === variantId && p.remaining > 0
+    );
+    
+    return variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
+  };
 
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
@@ -205,13 +262,60 @@ export function NewInvoiceForm({
     rate: number;
     purchaseId?: string;
   }) => {
-    append({
-      id: Date.now().toString(),
-      description: item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      amount: item.quantity * item.rate
-    });
+    // Validate item data
+    if (!item.description || item.description.trim() === '') {
+      toast.error('Invalid item', {
+        description: 'Item description is required.'
+      });
+      return;
+    }
+    
+    if (item.quantity <= 0) {
+      toast.error('Invalid quantity', {
+        description: 'Quantity must be greater than 0.'
+      });
+      return;
+    }
+    
+    if (item.rate < 0) {
+      toast.error('Invalid rate', {
+        description: 'Rate cannot be negative.'
+      });
+      return;
+    }
+    
+    // Check if item already exists in the table
+    const existingItemIndex = fields.findIndex(
+      field => field.variantId === item.variantId && field.variantSKU === item.sku
+    );
+
+    if (existingItemIndex !== -1) {
+      // Item exists, update its quantity
+      const existingItem = form.watch(`items.${existingItemIndex}`);
+      const newQuantity = existingItem.quantity + item.quantity;
+      form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
+      form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
+      
+      toast.success('Item updated', {
+        description: `Quantity increased to ${newQuantity}`
+      });
+    } else {
+      // Item doesn't exist, add new entry
+      append({
+        id: Date.now().toString(),
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.quantity * item.rate,
+        variantId: item.variantId,
+        variantSKU: item.sku,
+        purchaseId: item.purchaseId
+      });
+      
+      toast.success('Item added', {
+        description: `${item.productName} added to invoice`
+      });
+    }
   };
 
   const handleCustomerSelect = (customerId: string) => {
@@ -244,14 +348,109 @@ export function NewInvoiceForm({
     }
   };
 
+  const validateInvoiceData = (data: InvoiceFormValues): boolean => {
+    // Validate before preview
+    if (customers.length === 0) {
+      toast.error('Cannot create invoice', {
+        description: 'No customers available. Please add customers first.'
+      });
+      return false;
+    }
+    if (data.items.length === 0) {
+      toast.error('Cannot create invoice', {
+        description: 'Please add at least one item to the invoice.'
+      });
+      return false;
+    }
+    
+    // Validate client details
+    if (!selectedCustomer && !isCustomCustomer) {
+      toast.error('Client details required', {
+        description: 'Please select a customer or enter custom client details.'
+      });
+      return false;
+    }
+    
+    // Validate due date is not in the past
+    const dueDate = new Date(data.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (dueDate < today) {
+      toast.error('Invalid due date', {
+        description: 'Due date cannot be in the past.'
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
   const onSubmit = (data: InvoiceFormValues) => {
-    onPreview(data);
+    if (!validateInvoiceData(data)) return;
+    setIsPreviewOpen(true);
+  };
+
+  const handleSave = () => {
+    form.handleSubmit(
+      async (data) => {
+        if (!validateInvoiceData(data)) return;
+        
+        try {
+          if (onSave) {
+            await onSave(data);
+          } else {
+            toast.error('Save function not available', {
+              description: 'Please contact support.'
+            });
+          }
+        } catch (error) {
+          console.error('Error saving invoice:', error);
+          toast.error('Failed to save invoice', {
+            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+          });
+        }
+      },
+      (errors) => {
+        console.error('Form validation errors:', errors);
+        toast.error('Cannot save invoice', {
+          description: 'Please fix all form errors before saving.'
+        });
+      }
+    )();
+  };
+
+  const handlePrint = () => {
+    form.handleSubmit(
+      (data) => {
+        if (!validateInvoiceData(data)) return;
+        
+        try {
+          // Open preview sheet first
+          setIsPreviewOpen(true);
+          // Then trigger print after a short delay to ensure sheet is rendered
+          setTimeout(() => {
+            handleReactToPrint();
+          }, 300);
+        } catch (error) {
+          console.error('Error printing invoice:', error);
+          toast.error('Failed to print invoice', {
+            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+          });
+        }
+      },
+      (errors) => {
+        console.error('Form validation errors:', errors);
+        toast.error('Cannot print invoice', {
+          description: 'Please fix all form errors before printing.'
+        });
+      }
+    )();
   };
 
   // Get today's date in YYYY-MM-DD format for the min attribute
   const today = new Date().toISOString().split('T')[0];
 
-  const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: { onChange: (value: number) => void }) => {
+  const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: { onChange: (value: number) => void }, fieldName?: string) => {
     const value = e.target.value;
     if (value === '') {
       field.onChange(0);
@@ -261,434 +460,364 @@ export function NewInvoiceForm({
     const numericString = value.replace(/[^0-9.]/g, '');
     const numericValue = parseFloat(numericString);
     if (!isNaN(numericValue)) {
+      // Validate specific field constraints
+      if (fieldName === 'taxRate' && numericValue > 100) {
+        toast.error('Invalid tax rate', {
+          description: 'Tax rate cannot exceed 100%'
+        });
+        field.onChange(100);
+        return;
+      }
+      if (fieldName === 'discount' && numericValue < 0) {
+        toast.error('Invalid discount', {
+          description: 'Discount cannot be negative'
+        });
+        field.onChange(0);
+        return;
+      }
+      if ((fieldName === 'paid' || fieldName === 'previousBalance') && numericValue < 0) {
+        toast.error('Invalid amount', {
+          description: 'Amount cannot be negative'
+        });
+        field.onChange(0);
+        return;
+      }
       field.onChange(numericValue);
     }
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Invoice Details */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Invoice Details
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FormField
-              control={form.control}
-              name="invoiceNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Invoice #</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>#</InputGroupAddon>
-                      <InputGroupInput placeholder="INV-1001" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={date => {
-                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                          field.onChange(formattedDate);
-                        }}
-                        disabled={date => date < new Date(today + 'T00:00:00')}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Due Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a due date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={date => {
-                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                          field.onChange(formattedDate);
-                        }}
-                        disabled={date => date < new Date(today + 'T00:00:00')}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      <form 
+        onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          console.log('Form errors:', errors);
+          
+          // Handle items array errors
+          if (errors.items) {
+            if (errors.items.message) {
+              toast.error('Form validation failed', {
+                description: errors.items.message
+              });
+              return;
+            }
+            // Handle individual item errors
+            if (Array.isArray(errors.items)) {
+              const firstItemError = errors.items.find(item => item);
+              if (firstItemError) {
+                const errorField = Object.keys(firstItemError)[0];
+                const errorMessage = firstItemError[errorField]?.message || 'Invalid item data';
+                toast.error('Form validation failed', {
+                  description: errorMessage
+                });
+                return;
+              }
+            }
+          }
+          
+          // Handle client errors
+          if (errors.client) {
+            const clientErrors = errors.client as Record<string, { message?: string }>;
+            const firstClientError = Object.values(clientErrors).find(err => err?.message);
+            if (firstClientError?.message) {
+              toast.error('Form validation failed', {
+                description: firstClientError.message
+              });
+              return;
+            }
+          }
+          
+          // Handle other field errors
+          const errorFields = Object.keys(errors).filter(key => key !== 'items' && key !== 'client');
+          if (errorFields.length > 0) {
+            const firstError = errors[errorFields[0] as keyof typeof errors];
+            const errorMessage = (firstError as { message?: string })?.message || 'Please check the form for errors';
+            
+            toast.error('Form validation failed', {
+              description: errorMessage
+            });
+          }
+        })} 
+        className="space-y-8">
+        <div className="flex justify-between items-center gap-2 p-4">
+          <FormField
+            control={form.control}
+            name="dueDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                  <CalendarIcon className="h-5 w-5" />
+                  Due Date
+                </FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full max-w-sm justify-start text-left font-normal',
+                        !field.value && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a due date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={field.value ? new Date(field.value) : undefined}
+                      onSelect={date => {
+                        const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                        field.onChange(formattedDate);
+                      }}
+                      disabled={date => date < new Date(today + 'T00:00:00')}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-semibold text-primary">{nextInvoiceNumber}</span>
+            </div>
+            <div className="text-muted-foreground font-medium">{formatDate(new Date())}</div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 items-center gap-6">
-          {/* Company Details */}
-          <Collapsible open={isFromOpen} onOpenChange={setIsFromOpen} className="border rounded-lg">
-            <div className="p-2">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn('w-full justify-between p-0', {
-                    'mb-4': isFromOpen
-                  })}
-                >
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    From
-                  </h2>
-                  <ChevronsUpDown />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
-                <div>
-                  <Select
-                    value={currentBrandId}
-                    onValueChange={(value: 'newon' | 'waymor') => {
-                      setBrand(value);
-                      const selectedBrand = brands.find(b => b.id === value);
-                      if (selectedBrand) {
-                        form.setValue('company.name', selectedBrand.displayName);
-                        form.setValue('company.address', selectedBrand.address);
-                        form.setValue('company.city', selectedBrand.city);
-                        form.setValue('company.state', selectedBrand.state);
-                        form.setValue('company.zip', selectedBrand.zip);
-                        form.setValue('company.phone', selectedBrand.phone);
-                        form.setValue('company.email', selectedBrand.email);
-                        form.setValue('company.website', selectedBrand.website || '');
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full max-w-sm">
-                      <SelectValue placeholder="Select a brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {brands.map(brandOption => (
-                        <SelectItem key={brandOption.id} value={brandOption.id}>
-                          {brandOption.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+        {/* Client Details */}
+        <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isToOpen
+                })}
+              >
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Client Details
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
+              <div>
+                <Select onValueChange={handleCustomerSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a customer or enter custom details" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">
+                      <span className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Custom Customer (Manual Entry)
+                      </span>
+                    </SelectItem>
+                    {customers.map(customer => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name} - {customer.company || 'No Company'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedCustomer && !isCustomCustomer && (
                 <div className="bg-gray-50 border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <Building2 className="h-4 w-4" />
-                        {brand.displayName}
+                        <User className="h-4 w-4" />
+                        {selectedCustomer.name}
                       </h3>
-                      <p className="text-muted-foreground text-sm mt-1">{brand.description}</p>
+                      {selectedCustomer.company && (
+                        <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                          <Building2 className="h-4 w-4" />
+                          {selectedCustomer.company}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm flex items-center gap-2">
                         <Mail className="h-4 w-4" />
-                        {brand.email}
+                        {selectedCustomer.email}
                       </p>
                       <p className="text-sm flex items-center gap-2">
                         <Phone className="h-4 w-4" />
-                        {brand.phone}
+                        {selectedCustomer.phone}
                       </p>
-                      {brand.website && (
-                        <p className="text-sm flex items-center gap-2">
-                          <Globe className="h-4 w-4" />
-                          {brand.website}
-                        </p>
-                      )}
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t">
                     <p className="text-sm flex items-start gap-2">
                       <MapPin className="h-4 w-4 mt-0.5" />
                       <span>
-                        {brand.address}, {brand.city}, {brand.state} {brand.zip}
+                        {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
+                        {selectedCustomer.zip}
                       </span>
                     </p>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-          {/* Client Details */}
-          <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
-            <div className="p-2">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn('w-full justify-between p-0', {
-                    'mb-4': isToOpen
-                  })}
-                >
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    To
-                  </h2>
-                  <ChevronsUpDown />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
-                <div>
-                  <Select onValueChange={handleCustomerSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a customer or enter custom details" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="custom">
-                        <span className="flex items-center gap-2">
-                          <Plus className="h-4 w-4" />
-                          Custom Customer (Manual Entry)
-                        </span>
-                      </SelectItem>
-                      {customers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name} - {customer.company || 'No Company'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              )}
+              {isCustomCustomer && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="client.name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <User className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="Client Name" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company (Optional)</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <Building2 className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="Company Name" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <Mail className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput type="email" placeholder="client@example.com" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <Phone className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.address"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="123 Client St." {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="City" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="State" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.zip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="12345" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                {selectedCustomer && !isCustomCustomer && (
-                  <div className="bg-gray-50 border rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {selectedCustomer.name}
-                        </h3>
-                        {selectedCustomer.company && (
-                          <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                            <Building2 className="h-4 w-4" />
-                            {selectedCustomer.company}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          {selectedCustomer.email}
-                        </p>
-                        <p className="text-sm flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          {selectedCustomer.phone}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5" />
-                        <span>
-                          {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
-                          {selectedCustomer.zip}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {isCustomCustomer && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="client.name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Client Name</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <User className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="Client Name" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.company"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company (Optional)</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <Building2 className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="Company Name" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <Mail className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput type="email" placeholder="client@example.com" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <Phone className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.address"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Address</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="123 Client St." {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="City" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="State" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.zip"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ZIP Code</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="12345" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-                {!selectedCustomer && !isCustomCustomer && (
-                  <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
-                    <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">Select a customer or choose custom entry</p>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-        </div>
+              )}
+              {!selectedCustomer && !isCustomCustomer && (
+                <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
+                  <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Select a customer or choose custom entry</p>
+                </div>
+              )}
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         {/* Invoice Items */}
         <div className="border rounded-lg p-6">
@@ -699,61 +828,323 @@ export function NewInvoiceForm({
             </h2>
           </div>
 
-          {/* Product Selector */}
-          {variants.length > 0 && (
-            <div className="mb-6">
-              <ProductSelector variants={variants} purchases={purchases} onAddItem={handleAddItemFromSelector} />
-            </div>
-          )}
+          <div className="gap-6 grid lg:grid-cols-2">
+            {/* Product Selector */}
+            {variants.length > 0 && (
+              <div className="bg-muted/30 p-4 rounded-lg border">
+                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Add Products to Invoice
+                </h3>
+                <ProductSelector 
+                  variants={variants} 
+                  purchases={purchases} 
+                  currentItems={form.watch('items')}
+                  onAddItem={handleAddItemFromSelector} 
+                />
+              </div>
+            )}
 
-          <div className="border rounded-lg overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead>
-                <tr className="text-left font-medium bg-primary text-white border-b">
-                  <th className="p-3">#</th>
-                  <th className="py-3 w-1/2">Item</th>
-                  <th className="py-3 pl-2 uppercase tracking-wider">Qty</th>
-                  <th className="py-3 pl-2 uppercase tracking-wider">Rate</th>
-                  <th className="py-3 pl-2 uppercase tracking-wider">Amount</th>
-                  <th className="py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {fields.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-muted-foreground py-4">
-                      No items added yet.
-                    </td>
-                  </tr>
-                )}
-                {fields.map((item, index) => (
-                  <tr key={item.id} className="group *:px-2">
-                    <td className="p-3 text-sm">{index + 1}.</td>
-                    <td className="py-4 px-3">
-                      <div className="text-sm">
-                        {form.watch(`items.${index}.description`) || 'Select from product selector above'}
+            {/* Invoice Items Table with Container Query */}
+            <div className="border rounded-lg overflow-auto shadow-sm @container max-h-[665px]">
+              <div className="bg-primary text-white px-4 py-3">
+                <h3 className="text-sm font-semibold">Invoice Items</h3>
+              </div>
+
+              {fields.length === 0 && (
+                <div className="text-center text-muted-foreground py-20">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm max-w-sm mx-auto">
+                    No items added yet. Use the product selector above to add items.
+                  </p>
+                </div>
+              )}
+
+              {/* Table view for larger containers */}
+              <div className="hidden @[600px]:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-xs font-medium bg-muted/50 border-b">
+                      <th className="p-3 w-12">#</th>
+                      <th className="py-3 px-2">Item Description</th>
+                      <th className="py-3 px-2 text-center">Qty</th>
+                      <th className="py-3 px-2 text-right">Rate</th>
+                      <th className="py-3 px-2 text-right">Amount</th>
+                      <th className="py-3 px-2 w-16"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {fields.map((item, index) => {
+                      const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
+                      const currentRate = form.watch(`items.${index}.rate`) || 0;
+                      const variantId = form.watch(`items.${index}.variantId`);
+                      const availableStock = getAvailableStock(variantId);
+                      
+                      return (
+                        <tr key={item.id} className="group hover:bg-muted/30 transition-colors">
+                          <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
+                          <td className="py-3 px-2">
+                            <div className="text-sm font-medium">
+                              {form.watch(`items.${index}.description`) || 'Select from product selector above'}
+                            </div>
+                            {variantId && availableStock < Infinity && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Available: {availableStock} units
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  const newQuantity = Math.max(1, currentQuantity - 1);
+                                  form.setValue(`items.${index}.quantity`, newQuantity);
+                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                                }}
+                                disabled={currentQuantity < 1}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.quantity`}
+                                render={({ field }) => (
+                                  <FormItem className="w-16">
+                                    <FormControl>
+                                      <InputGroup>
+                                        <InputGroupInput
+                                          type="number"
+                                          min="0.01"
+                                          max={availableStock < Infinity ? availableStock : undefined}
+                                          step="1"
+                                          {...field}
+                                          className="h-7 text-sm text-center"
+                                          onChange={e => {
+                                            const value = e.target.value;
+                                            if (value === '') {
+                                              field.onChange(0.01);
+                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              return;
+                                            }
+                                            const numericValue = parseFloat(value);
+                                            if (isNaN(numericValue) || numericValue < 0.01) {
+                                              toast.error('Invalid quantity', {
+                                                description: 'Quantity must be at least 0.01'
+                                              });
+                                              field.onChange(0.01);
+                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              return;
+                                            }
+                                            if (numericValue > availableStock) {
+                                              toast.error('Insufficient stock', {
+                                                description: `Only ${availableStock} units available`
+                                              });
+                                              field.onChange(availableStock);
+                                              form.setValue(`items.${index}.amount`, availableStock * currentRate);
+                                              return;
+                                            }
+                                            field.onChange(numericValue);
+                                            form.setValue(`items.${index}.amount`, numericValue * currentRate);
+                                          }}
+                                          value={field.value || ''}
+                                        />
+                                      </InputGroup>
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  const newQuantity = currentQuantity + 1;
+                                  if (newQuantity > availableStock) {
+                                    toast.error('Insufficient stock', {
+                                      description: `Only ${availableStock} units available`
+                                    });
+                                    return;
+                                  }
+                                  form.setValue(`items.${index}.quantity`, newQuantity);
+                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                                }}
+                                disabled={currentQuantity >= availableStock}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            <div className="text-sm">{formatCurrency(currentRate)}</div>
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                            </div>
+                          </td>
+                          <td className="py-3 px-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => remove(index)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Card view for smaller containers */}
+              <div className="@[600px]:hidden divide-y">
+                {fields.map((item, index) => {
+                  const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
+                  const currentRate = form.watch(`items.${index}.rate`) || 0;
+                  const variantId = form.watch(`items.${index}.variantId`);
+                  const availableStock = getAvailableStock(variantId);
+                  
+                  return (
+                    <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-start gap-2 flex-1">
+                          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                            #{index + 1}
+                          </span>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium leading-tight">
+                              {form.watch(`items.${index}.description`) || 'Select from product selector above'}
+                            </div>
+                            {variantId && availableStock < Infinity && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Available: {availableStock} units
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                          className="h-8 w-8 -mt-1"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="text-sm">{form.watch(`items.${index}.quantity`) || 0}</div>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="text-sm">{formatCurrency(form.watch(`items.${index}.rate`) || 0)}</div>
-                    </td>
-                    <td className="py-3 text-right text-sm">
-                      <div className="h-10 flex items-center justify-end pr-2">
-                        {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-12">Qty:</span>
+                          <div className="flex items-center gap-1 flex-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const newQuantity = Math.max(0.01, currentQuantity - 1);
+                                form.setValue(`items.${index}.quantity`, newQuantity);
+                                form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                              }}
+                              disabled={currentQuantity <= 0.01}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.quantity`}
+                              render={({ field }) => (
+                                <FormItem className="flex-1">
+                                  <FormControl>
+                                    <InputGroup>
+                                      <InputGroupInput
+                                        type="number"
+                                        min="1"
+                                        max={availableStock < Infinity ? availableStock : undefined}
+                                        step="1"
+                                        {...field}
+                                        className="h-8 text-sm text-center"
+                                        onChange={e => {
+                                          const value = e.target.value;
+                                          if (value === '') {
+                                            field.onChange(0.01);
+                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            return;
+                                          }
+                                          const numericValue = parseFloat(value);
+                                          if (isNaN(numericValue) || numericValue < 0.01) {
+                                            toast.error('Invalid quantity', {
+                                              description: 'Quantity must be at least 0.01'
+                                            });
+                                            field.onChange(0.01);
+                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            return;
+                                          }
+                                          if (numericValue > availableStock) {
+                                            toast.error('Insufficient stock', {
+                                              description: `Only ${availableStock} units available`
+                                            });
+                                            field.onChange(availableStock);
+                                            form.setValue(`items.${index}.amount`, availableStock * currentRate);
+                                            return;
+                                          }
+                                          field.onChange(numericValue);
+                                          form.setValue(`items.${index}.amount`, numericValue * currentRate);
+                                        }}
+                                        value={field.value || ''}
+                                      />
+                                    </InputGroup>
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const newQuantity = currentQuantity + 1;
+                                if (newQuantity > availableStock) {
+                                  toast.error('Insufficient stock', {
+                                    description: `Only ${availableStock} units available`
+                                  });
+                                  return;
+                                }
+                                form.setValue(`items.${index}.quantity`, newQuantity);
+                                form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                              }}
+                              disabled={currentQuantity >= availableStock}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">Rate</div>
+                            <div>{formatCurrency(currentRate)}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground mb-1">Amount</div>
+                            <div className="font-semibold">{formatCurrency(form.watch(`items.${index}.amount`) || 0)}</div>
+                          </div>
+                        </div>
                       </div>
-                    </td>
-                    <td className="py-3">
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end">
@@ -780,7 +1171,7 @@ export function NewInvoiceForm({
                               step="0.01"
                               {...field}
                               className="h-8 text-sm text-right"
-                              onChange={e => handleNumericInput(e, field)}
+                              onChange={e => handleNumericInput(e, field, 'taxRate')}
                               value={field.value || ''}
                             />
                             <InputGroupAddon>
@@ -832,7 +1223,7 @@ export function NewInvoiceForm({
                               step="0.01"
                               {...field}
                               className="h-8 text-sm"
-                              onChange={e => handleNumericInput(e, field)}
+                              onChange={e => handleNumericInput(e, field, 'discount')}
                               value={field.value || ''}
                             />
                           </InputGroup>
@@ -869,7 +1260,7 @@ export function NewInvoiceForm({
                                 step="0.01"
                                 {...field}
                                 className="h-8 text-sm"
-                                onChange={e => handleNumericInput(e, field)}
+                                onChange={e => handleNumericInput(e, field, 'paid')}
                                 value={field.value || ''}
                               />
                             </InputGroup>
@@ -905,7 +1296,7 @@ export function NewInvoiceForm({
                                 step="0.01"
                                 {...field}
                                 className="h-8 text-sm"
-                                onChange={e => handleNumericInput(e, field)}
+                                onChange={e => handleNumericInput(e, field, 'previousBalance')}
                                 value={field.value || ''}
                               />
                             </InputGroup>
@@ -932,116 +1323,80 @@ export function NewInvoiceForm({
           </div>
         </div>
 
-        {/* Notes & Terms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="notes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center gap-2 font-semibold">
-                  <NotebookTabsIcon className="h-4 w-4" />
+        {/* Notes - Collapsible and Collapsed by Default */}
+        <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen} className="border rounded-lg">
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isNotesOpen
+                })}
+              >
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <NotebookTabsIcon className="h-5 w-5" />
                   Notes
-                </FormLabel>
-                <FormControl>
-                  <Textarea className="min-h-[100px]" placeholder="Additional notes or terms" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="terms"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center gap-2 font-semibold">
-                  <FileCheck2 className="h-4 w-4" />
-                  Terms & Conditions
-                </FormLabel>
-                <FormControl>
-                  <Textarea className="min-h-[100px]" placeholder="Payment terms and conditions" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Payment Details */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Banknote className="h-5 w-5" />
-            Payment Details
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="paymentDetails.bankName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Bank Name</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <Building2 className="h-4 w-4" />
-                      </InputGroupAddon>
-                      <InputGroupInput placeholder="Bank Name" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="paymentDetails.accountNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Account Number</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>#</InputGroupAddon>
-                      <InputGroupInput placeholder="1234 5678 9012 3456" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="paymentDetails.iban"
-              render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel>IBAN</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>IBAN</InputGroupAddon>
-                      <InputGroupInput placeholder="PK36 SCBL 0000 0011 2345 6702" {...field} />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea className="min-h-[100px]" placeholder="Add any additional notes here..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CollapsibleContent>
           </div>
-        </div>
+        </Collapsible>
 
         {/* Form Actions */}
-        <div className="flex flex-col sm:flex-row justify-end space-y-4 sm:space-y-0 sm:space-x-4 mt-8">
+        <div className="flex flex-col sm:flex-row justify-end gap-3 mt-8">
           <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => form.reset()}>
             Reset Form
           </Button>
-          <Button type="submit" className="w-full sm:w-auto">
-            Preview Invoice
+          <Button type="submit" variant="outline" className="w-full sm:w-auto">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </Button>
+          <Button type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
+            <Save className="h-4 w-4 mr-2" />
+            Save Invoice
+          </Button>
+          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
         </div>
       </form>
+
+      {/* Preview Sheet */}
+      <Sheet open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex gap-2 items-center text-primary"><Printer /> Invoice Preview</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <NewonInvoiceTemplate
+              ref={printRef}
+              invoiceData={{
+                ...form.getValues(),
+                invoiceNumber: form.getValues('invoiceNumber') || nextInvoiceNumber
+              }}
+              onBack={() => setIsPreviewOpen(false)}
+              onPrint={handleReactToPrint}
+              onSave={handleSave}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </Form>
   );
 }

@@ -19,6 +19,9 @@ export default function SettingsPage() {
             <User className="h-4 w-4" />
             <span>Account</span>
           </TabsTrigger>
+          <TabsTrigger value="preferences" className="flex items-center gap-2">
+            <span>Preferences</span>
+          </TabsTrigger>
         </TabsList>
         
         
@@ -37,6 +40,26 @@ export default function SettingsPage() {
                   Update your account details and preferences
                 </p>
                 {/* Add account settings form here */}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="preferences" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Preferences</CardTitle>
+              <CardDescription>
+                Manage your app preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Preferences</h3>
+                <p className="text-sm text-muted-foreground">
+                  Update your app preferences
+                </p>
+                {/* Add preferences form here */}
               </div>
             </CardContent>
           </Card>

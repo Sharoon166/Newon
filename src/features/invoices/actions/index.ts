@@ -518,6 +518,31 @@ export async function updateInvoiceStatus(
   }
 }
 
+// Get next invoice number (preview what will be assigned)
+export async function getNextInvoiceNumber(type: 'invoice' | 'quotation' = 'invoice'): Promise<string> {
+  try {
+    await dbConnect();
+    
+    const prefix = type === 'quotation' ? 'QT' : 'INV';
+    const currentYear = new Date().getFullYear();
+    const yearSuffix = currentYear.toString().slice(-2);
+    const key = `${prefix.toLowerCase()}-${currentYear}`;
+    
+    // Import Counter model
+    const Counter = (await import('@/models/Counter')).default;
+    
+    // Get current sequence without incrementing
+    const counter = await Counter.findOne({ key });
+    const nextSequence = counter ? counter.sequence + 1 : 1;
+    const sequenceStr = nextSequence.toString().padStart(3, '0');
+    
+    return `${prefix}-${yearSuffix}-${sequenceStr}`;
+  } catch (error) {
+    console.error('Error getting next invoice number:', error);
+    throw new Error('Failed to get next invoice number');
+  }
+}
+
 // Get invoice statistics
 export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; dateFrom?: Date; dateTo?: Date }) {
   try {

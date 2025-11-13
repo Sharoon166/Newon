@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -107,6 +107,7 @@ export function NewQuotationForm({
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
   const [isFromOpen, setIsFromOpen] = useState(true);
   const [isToOpen, setIsToOpen] = useState(true);
+  const [nextQuotationNumber, setNextQuotationNumber] = useState<string>('Loading...');
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const setBrand = useBrandStore(state => state.setBrand);
   const brand = useBrandStore(state => state.getCurrentBrand());
@@ -156,6 +157,23 @@ export function NewQuotationForm({
     control: form.control,
     name: 'items'
   });
+
+  // Fetch next quotation number on mount
+  useEffect(() => {
+    const fetchNextQuotationNumber = async () => {
+      try {
+        const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
+        const number = await getNextInvoiceNumber('quotation');
+        setNextQuotationNumber(number);
+        form.setValue('quotationNumber', number);
+      } catch (error) {
+        console.error('Error fetching next quotation number:', error);
+        setNextQuotationNumber('Error loading');
+      }
+    };
+    
+    fetchNextQuotationNumber();
+  }, [form]);
 
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
@@ -261,7 +279,7 @@ export function NewQuotationForm({
                   <FormControl>
                     <InputGroup>
                       <InputGroupAddon>#</InputGroupAddon>
-                      <InputGroupInput placeholder="QT-1001" {...field} />
+                      <InputGroupInput placeholder="QT-1001" {...field} readOnly className="bg-muted" />
                     </InputGroup>
                   </FormControl>
                   <FormMessage />
