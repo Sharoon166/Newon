@@ -33,7 +33,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
   return (
     <div ref={ref} className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-0 print:min-h-screen print:flex print:flex-col">
       {/* Header */}
-      <div className="flex flex-col md:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-3 pb-8 print:pb-3 border-b">
+      <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-3 pb-8 print:pb-3 border-b">
         <div className="mb-6 md:mb-0 print:mb-0">
           {invoiceData.logo ? (
             <Image src={invoiceData.logo} alt="Company Logo" fill className="h-16 mb-4" />
@@ -70,7 +70,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
 
       {/* Bill To */}
       <div className="mb-8 print:mb-2 pb-8 print:pb-4 border-b print:border-none">
-        <div className="grid print:grid-cols-2 grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid print:grid-cols-2 grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="text-muted-foreground text-sm print:text-xs">
             <h2 className="text-lg font-bold mb-4 text-primary">To:</h2>
             <p className="font-medium">

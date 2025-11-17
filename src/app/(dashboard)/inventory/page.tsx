@@ -3,11 +3,13 @@ import { ArrowRight } from 'lucide-react';
 import { ProductsTable } from '@/features/inventory/components/products-table';
 import Link from 'next/link';
 import { getProducts } from '@/features/inventory/actions';
+import { getSession } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
   const products = await getProducts();
+  const session = await getSession();
 
   return (
     <div className="space-y-6">
@@ -24,7 +26,7 @@ export default async function InventoryPage() {
       </div>
 
       <div className="sm:px-6">
-        <ProductsTable data={products} />
+        <ProductsTable data={products} userRole={session?.user?.role} />
       </div>
     </div>
   );

@@ -82,8 +82,8 @@ const quotationFormSchema = z.object({
       })
     )
     .min(1, 'At least one item is required'),
-  taxRate: z.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100').default(0),
-  discount: z.number().min(0, 'Discount cannot be negative').default(0),
+  taxRate: z.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100'),
+  discount: z.number().min(0, 'Discount cannot be negative'),
   discountType: z.enum(['percentage', 'fixed']).default('fixed'),
   amountInWords: z.string().optional(),
   notes: z.string().optional(),
@@ -248,7 +248,10 @@ export function NewQuotationForm({
 
   const today = new Date().toISOString().split('T')[0];
 
-  const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: { onChange: (value: number) => void }) => {
+  const handleNumericInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: { onChange: (value: number) => void; value: number }
+  ) => {
     const value = e.target.value;
     if (value === '') {
       field.onChange(0);
@@ -258,6 +261,8 @@ export function NewQuotationForm({
     const numericValue = parseFloat(numericString);
     if (!isNaN(numericValue)) {
       field.onChange(numericValue);
+    } else {
+      field.onChange(0);
     }
   };
 
@@ -733,11 +738,12 @@ export function NewQuotationForm({
 
         {/* Quotation Items */}
         <div className="border rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
+          <div className="space-y-1 mb-6">
+            <div className="flex gap-2 items-center">
               <ShoppingCart className="h-5 w-5" />
-              Items
-            </h2>
+              <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
+            </div>
+            <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products to Quotation</h3>
           </div>
 
           {/* Product Selector */}
@@ -826,6 +832,7 @@ export function NewQuotationForm({
                           max="100"
                           placeholder="0"
                           {...field}
+                          value={field.value === 0 ? '' : field.value}
                           onChange={e => handleNumericInput(e, field)}
                         />
                       </InputGroup>
@@ -873,6 +880,7 @@ export function NewQuotationForm({
                             max={discountType === 'percentage' ? '100' : undefined}
                             placeholder="0"
                             {...field}
+                            value={field.value === 0 ? '' : field.value}
                             onChange={e => handleNumericInput(e, field)}
                           />
                         </InputGroup>

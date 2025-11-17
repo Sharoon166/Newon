@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -52,6 +53,7 @@ interface StaffFormProps {
 }
 
 export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isEditMode = !!initialData;
 
@@ -84,7 +86,12 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
         toast.success('Staff member created successfully');
       }
       
-      onSuccess?.();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/staff');
+        router.refresh();
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error(error instanceof Error ? error.message : 'An error occurred while saving the staff member');
@@ -190,11 +197,14 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
         />
         
         <div className="flex justify-end space-x-4">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-              Cancel
-            </Button>
-          )}
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => onCancel ? onCancel() : router.push('/staff')} 
+            disabled={loading}
+          >
+            Cancel
+          </Button>
           <Button type="submit" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEditMode ? 'Update Staff' : 'Add Staff'}

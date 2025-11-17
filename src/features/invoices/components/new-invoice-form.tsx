@@ -138,7 +138,7 @@ export function NewInvoiceForm({
   // Configure react-to-print
   const handleReactToPrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Invoice-${nextInvoiceNumber}`,
+    documentTitle: `Invoice-${nextInvoiceNumber}`
   });
   const form = useForm<InvoiceFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,11 +225,9 @@ export function NewInvoiceForm({
   // Helper function to get available stock for an item
   const getAvailableStock = (variantId?: string) => {
     if (!variantId) return Infinity; // No limit if no variant ID
-    
-    const variantPurchases = purchases.filter(
-      p => p.variantId === variantId && p.remaining > 0
-    );
-    
+
+    const variantPurchases = purchases.filter(p => p.variantId === variantId && p.remaining > 0);
+
     return variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
   };
 
@@ -273,21 +271,21 @@ export function NewInvoiceForm({
       });
       return;
     }
-    
+
     if (item.quantity <= 0) {
       toast.error('Invalid quantity', {
         description: 'Quantity must be greater than 0.'
       });
       return;
     }
-    
+
     if (item.rate < 0) {
       toast.error('Invalid rate', {
         description: 'Rate cannot be negative.'
       });
       return;
     }
-    
+
     // Check if item already exists in the table
     const existingItemIndex = fields.findIndex(
       field => field.variantId === item.variantId && field.variantSKU === item.sku
@@ -299,7 +297,7 @@ export function NewInvoiceForm({
       const newQuantity = existingItem.quantity + item.quantity;
       form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
       form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
-      
+
       toast.success('Item updated', {
         description: `Quantity increased to ${newQuantity}`
       });
@@ -315,7 +313,7 @@ export function NewInvoiceForm({
         variantSKU: item.sku,
         purchaseId: item.purchaseId
       });
-      
+
       toast.success('Item added', {
         description: `${item.productName} added to invoice`
       });
@@ -366,7 +364,7 @@ export function NewInvoiceForm({
       });
       return false;
     }
-    
+
     // Validate client details
     if (!selectedCustomer && !isCustomCustomer) {
       toast.error('Client details required', {
@@ -374,7 +372,7 @@ export function NewInvoiceForm({
       });
       return false;
     }
-    
+
     // Validate due date is not in the past
     const dueDate = new Date(data.dueDate);
     const today = new Date();
@@ -385,7 +383,7 @@ export function NewInvoiceForm({
       });
       return false;
     }
-    
+
     return true;
   };
 
@@ -396,9 +394,9 @@ export function NewInvoiceForm({
 
   const handleSave = () => {
     form.handleSubmit(
-      async (data) => {
+      async data => {
         if (!validateInvoiceData(data)) return;
-        
+
         try {
           if (onSave) {
             await onSave(data);
@@ -414,7 +412,7 @@ export function NewInvoiceForm({
           });
         }
       },
-      (errors) => {
+      errors => {
         console.error('Form validation errors:', errors);
         toast.error('Cannot save invoice', {
           description: 'Please fix all form errors before saving.'
@@ -425,9 +423,9 @@ export function NewInvoiceForm({
 
   const handlePrint = () => {
     form.handleSubmit(
-      (data) => {
+      data => {
         if (!validateInvoiceData(data)) return;
-        
+
         try {
           // Open preview sheet first
           setIsPreviewOpen(true);
@@ -442,7 +440,7 @@ export function NewInvoiceForm({
           });
         }
       },
-      (errors) => {
+      errors => {
         console.error('Form validation errors:', errors);
         toast.error('Cannot print invoice', {
           description: 'Please fix all form errors before printing.'
@@ -454,7 +452,11 @@ export function NewInvoiceForm({
   // Get today's date in YYYY-MM-DD format for the min attribute
   const today = new Date().toISOString().split('T')[0];
 
-  const handleNumericInput = (e: React.ChangeEvent<HTMLInputElement>, field: { onChange: (value: number) => void }, fieldName?: string) => {
+  const handleNumericInput = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: { onChange: (value: number) => void },
+    fieldName?: string
+  ) => {
     const value = e.target.value;
     if (value === '') {
       field.onChange(0);
@@ -492,10 +494,10 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
-      <form 
-        onSubmit={form.handleSubmit(onSubmit, (errors) => {
+      <form
+        onSubmit={form.handleSubmit(onSubmit, errors => {
           console.log('Form errors:', errors);
-          
+
           // Handle items array errors
           if (errors.items) {
             if (errors.items.message) {
@@ -517,7 +519,7 @@ export function NewInvoiceForm({
               }
             }
           }
-          
+
           // Handle client errors
           if (errors.client) {
             const clientErrors = errors.client as Record<string, { message?: string }>;
@@ -529,19 +531,20 @@ export function NewInvoiceForm({
               return;
             }
           }
-          
+
           // Handle other field errors
           const errorFields = Object.keys(errors).filter(key => key !== 'items' && key !== 'client');
           if (errorFields.length > 0) {
             const firstError = errors[errorFields[0] as keyof typeof errors];
             const errorMessage = (firstError as { message?: string })?.message || 'Please check the form for errors';
-            
+
             toast.error('Form validation failed', {
               description: errorMessage
             });
           }
-        })} 
-        className="space-y-8">
+        })}
+        className="space-y-8"
+      >
         <div className="flex justify-between items-center gap-2 p-4">
           <FormField
             control={form.control}
@@ -825,26 +828,23 @@ export function NewInvoiceForm({
 
         {/* Invoice Items */}
         <div className="border rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
+          <div className="space-y-1 mb-6">
+            <div className="flex gap-2 items-center">
               <ShoppingCart className="h-5 w-5" />
-              Items
-            </h2>
+              <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
+            </div>
+            <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products to Invoice</h3>
           </div>
 
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
             {variants.length > 0 && (
-              <div className="bg-muted/30 p-4 rounded-lg border">
-                <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Add Products to Invoice
-                </h3>
-                <ProductSelector 
-                  variants={variants} 
-                  purchases={purchases} 
+              <div className="bg-muted/30 p-4 rounded-lg">
+                <ProductSelector
+                  variants={variants}
+                  purchases={purchases}
                   currentItems={form.watch('items')}
-                  onAddItem={handleAddItemFromSelector} 
+                  onAddItem={handleAddItemFromSelector}
                 />
               </div>
             )}
@@ -883,7 +883,7 @@ export function NewInvoiceForm({
                       const currentRate = form.watch(`items.${index}.rate`) || 0;
                       const variantId = form.watch(`items.${index}.variantId`);
                       const availableStock = getAvailableStock(variantId);
-                      
+
                       return (
                         <tr key={item.id} className="group hover:bg-muted/30 transition-colors">
                           <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
@@ -1016,7 +1016,7 @@ export function NewInvoiceForm({
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
                   const availableStock = getAvailableStock(variantId);
-                  
+
                   return (
                     <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex items-start justify-between gap-2 mb-3">
@@ -1140,7 +1140,9 @@ export function NewInvoiceForm({
                           </div>
                           <div className="text-right">
                             <div className="text-xs text-muted-foreground mb-1">Amount</div>
-                            <div className="font-semibold">{formatCurrency(form.watch(`items.${index}.amount`) || 0)}</div>
+                            <div className="font-semibold">
+                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1385,7 +1387,9 @@ export function NewInvoiceForm({
       <Sheet open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="flex gap-2 items-center text-primary"><Printer /> Invoice Preview</SheetTitle>
+            <SheetTitle className="flex gap-2 items-center text-primary">
+              <Printer /> Invoice Preview
+            </SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             <NewonInvoiceTemplate

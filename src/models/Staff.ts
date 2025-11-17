@@ -1,17 +1,20 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { generateId } from './Counter';
+import bcrypt from 'bcryptjs';
 
 // Define the interface for the Staff document
-interface IStaff extends Document {
+export interface IStaff extends Document {
   staffId?: string;
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
   phoneNumber?: string;
-  role: string;
+  role: 'admin' | 'staff';
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const staffSchema = new Schema<IStaff>(
@@ -41,6 +44,11 @@ const staffSchema = new Schema<IStaff>(
       lowercase: true,
       match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
     },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      select: false // Don't return password by default
+    },
     phoneNumber: {
       type: String,
       trim: true
@@ -48,7 +56,7 @@ const staffSchema = new Schema<IStaff>(
     role: {
       type: String,
       required: [true, 'Role is required'],
-      enum: ['admin', 'manager', 'staff'],
+      enum: ['admin', 'staff'],
       default: 'staff'
     },
     isActive: {
@@ -57,26 +65,42 @@ const staffSchema = new Schema<IStaff>(
     }
   },
   {
-    timestamps: true // Adds createdAt and updatedAt fields
+    timestamps: true
   }
 );
 
 // Index for faster querying
 staffSchema.index({ isActive: 1 });
 
-// Pre-save hook to generate staffId
+// Hash password before saving
 staffSchema.pre('save', async function (next) {
+  // Generate staffId for new staff
   if (this.isNew && !this.staffId) {
     try {
       this.staffId = await generateId('ST');
       console.log(`Generated staffId: ${this.staffId}`);
     } catch (error) {
       console.error('Error generating staffId:', error);
-      // Continue without staffId - it will be generated later if needed
     }
   }
+
+  // Hash password if modified
+  if (this.isModified('password')) {
+    // Validate password length
+    if (this.password.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+  
   next();
 });
+
+// Method to compare passwords
+staffSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 // Create the model if it doesn't exist
 const Staff = mongoose.models.Staff || mongoose.model<IStaff>('Staff', staffSchema);

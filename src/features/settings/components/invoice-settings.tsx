@@ -4,9 +4,15 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from '@/components/ui/input-group';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupTextarea
+} from '@/components/ui/input-group';
 import { toast } from 'sonner';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Hash, Landmark, Loader2, Plus, Receipt, Save, ScrollText, X } from 'lucide-react';
 import { updatePaymentDetails, updateInvoiceTerms } from '../actions';
 import { PaymentDetails } from '../types';
 
@@ -69,29 +75,42 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
       {/* Payment Details Section */}
       <div className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium">Payment Details</h3>
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <Receipt className="size-5" />
+            Payment Details
+          </h3>
           <p className="text-sm text-muted-foreground">Bank account information displayed on invoices</p>
         </div>
 
         <div className="space-y-4 grid grid-cols-2 gap-4">
           <div className="space-y-2 col-span-2">
             <Label htmlFor="bankName">Bank Name</Label>
-            <Input
-              id="bankName"
-              value={paymentDetails.BANK_NAME}
-              onChange={e => setPaymentDetails({ ...paymentDetails, BANK_NAME: e.target.value })}
-              placeholder="Enter bank name and branch"
-            />
+            <InputGroup>
+              <InputGroupAddon align="inline-start">
+                <Landmark />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="bankName"
+                value={paymentDetails.BANK_NAME}
+                onChange={e => setPaymentDetails({ ...paymentDetails, BANK_NAME: e.target.value })}
+                placeholder="Enter bank name and branch"
+              />
+            </InputGroup>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="accountNumber">Account Number</Label>
-            <Input
-              id="accountNumber"
-              value={paymentDetails.ACCOUNT_NUMBER}
-              onChange={e => setPaymentDetails({ ...paymentDetails, ACCOUNT_NUMBER: e.target.value })}
-              placeholder="Enter account number"
-            />
+            <InputGroup>
+              <InputGroupAddon align="inline-start">
+                <Hash />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="accountNumber"
+                value={paymentDetails.ACCOUNT_NUMBER}
+                onChange={e => setPaymentDetails({ ...paymentDetails, ACCOUNT_NUMBER: e.target.value })}
+                placeholder="Enter account number"
+              />
+            </InputGroup>
           </div>
 
           <div className="space-y-2">
@@ -106,7 +125,7 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
         </div>
         <div className="flex justify-center">
           <Button onClick={handleSavePaymentDetails} disabled={isSaving} className="w-full max-w-sm">
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
             Save Payment Details
           </Button>
         </div>
@@ -115,7 +134,11 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
       {/* Invoice Terms Section */}
       <div className="space-y-4 pt-6 border-t">
         <div>
-          <h3 className="text-lg font-medium">Invoice Terms & Conditions</h3>
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            {' '}
+            <ScrollText className="size-5" />
+            Invoice Terms & Conditions
+          </h3>
           <p className="text-sm text-muted-foreground">Terms and conditions displayed on invoices</p>
         </div>
 
@@ -150,9 +173,9 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
             </InputGroupAddon>
           </InputGroup>
         </div>
-        <div className='flex justify-center'>
-          <Button onClick={handleSaveTerms} disabled={isSaving} className='w-full max-w-sm'>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <div className="flex justify-center">
+          <Button onClick={handleSaveTerms} disabled={isSaving} className="w-full max-w-sm">
+            {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
             Save Terms & Conditions
           </Button>
         </div>

@@ -304,13 +304,17 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 
 interface ProductsTableProps {
   data?: EnhancedVariants[];
+  userRole?: "admin" | "staff";
 }
 
-export function ProductsTable({ data = [] }: ProductsTableProps) {
+export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    categories: userRole !== 'staff',
+    supplier: userRole !== "staff"
+  });
   const [rowSelection, setRowSelection] = useState({});
   const [pagination, setPagination] = useState({
     pageIndex: 0,

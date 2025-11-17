@@ -4,14 +4,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReceiptText, Settings, User } from 'lucide-react';
 import { InvoiceSettings } from './invoice-settings';
+import { AccountSettings } from './account-settings';
 import { PaymentDetails } from '../types';
 
 interface SettingsTabsProps {
   paymentDetails: PaymentDetails;
   invoiceTerms: string[];
+  currentUser: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }
 
-export function SettingsTabs({ paymentDetails, invoiceTerms }: SettingsTabsProps) {
+export function SettingsTabs({ paymentDetails, invoiceTerms, currentUser }: SettingsTabsProps) {
   return (
     <Tabs defaultValue="account" className="mt-8">
       <TabsList>
@@ -33,16 +39,10 @@ export function SettingsTabs({ paymentDetails, invoiceTerms }: SettingsTabsProps
         <Card>
           <CardHeader>
             <CardTitle>Account</CardTitle>
-            <CardDescription>Manage your account settings</CardDescription>
+            <CardDescription>Manage your account settings and password</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Account Information</h3>
-              <p className="text-sm text-muted-foreground">
-                Update your account details and preferences
-              </p>
-              {/* Add account settings form here */}
-            </div>
+          <CardContent className='w-full max-w-xl mx-auto'>
+            <AccountSettings currentUser={currentUser} />
           </CardContent>
         </Card>
       </TabsContent>

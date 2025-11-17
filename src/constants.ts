@@ -1,3 +1,14 @@
+export const COMPANY_DETAILS = {
+  name: 'Newon',
+  address: 'I-9 Markaz',
+  city: 'Islamabad',
+  state: 'Federal',
+  zip: '44000',
+  phone: '+92 300 1234567',
+  email: 'info@newon.com',
+  website: 'www.newon.com'
+};
+
 export const PAYMENT_DETAILS = {
   BANK_NAME: 'BAHL (Bank Al-Habib Ltd.), I-9 Markaz branch, Islamabad.',
   ACCOUNT_NUMBER: '02470095010759013',

@@ -11,7 +11,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, backLink, children }: PageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div className="flex flex-col flex-wrap md:flex-row md:items-center justify-between gap-4 mb-6">
       <div className="space-y-3">
         {backLink && backLink !== '/' && (
           <Button variant="ghost" asChild>

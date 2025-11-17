@@ -81,7 +81,7 @@ export function UpdateStatusDialog({
           <div className="grid gap-2">
             <Label htmlFor="status">Status</Label>
             <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as InvoiceStatus)}>
-              <SelectTrigger id="status">
+              <SelectTrigger id="status" className='w-full'>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>

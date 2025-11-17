@@ -208,7 +208,7 @@ export function EditInvoiceDialog({ open, onOpenChange, invoice, onSuccess }: Ed
                     <FormLabel>Billing Type</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className='w-full'>
                           <SelectValue placeholder="Select type" />
                         </SelectTrigger>
                       </FormControl>
@@ -230,7 +230,7 @@ export function EditInvoiceDialog({ open, onOpenChange, invoice, onSuccess }: Ed
                     <FormLabel>Market</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className='w-full'>
                           <SelectValue placeholder="Select market" />
                         </SelectTrigger>
                       </FormControl>

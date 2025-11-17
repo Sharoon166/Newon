@@ -4,6 +4,7 @@ import './globals.css';
 import '@/styles/print.css';
 import { Toaster } from '@/components/ui/sonner';
 import { AlertCircle } from 'lucide-react';
+import { SessionProvider } from '@/components/auth/session-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+        <SessionProvider>
           {children}
           <Toaster 
             position="bottom-right" 
@@ -38,6 +40,7 @@ export default function RootLayout({
               error: <AlertCircle className="h-4 w-4 text-destructive" />,
             }} 
           />
+        </SessionProvider>
       </body>
     </html>
   );

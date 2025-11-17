@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
-import { Search, Package, Plus, Minus, Info } from 'lucide-react';
+import { Search, Package, Plus, Minus, Info, Hash, Tag, Tags } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -159,12 +159,12 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
         </div>
 
         <Select value={priceType} onValueChange={(value: 'wholesale' | 'retail') => setPriceType(value)}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-[150px] truncate">
             <SelectValue placeholder="Price Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="retail">Retail Price</SelectItem>
-            <SelectItem value="wholesale">Wholesale Price</SelectItem>
+            <SelectItem value="retail"><Tag /> Retail Price</SelectItem>
+            <SelectItem value="wholesale"><Tags /> Wholesale Price</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -177,7 +177,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
           aria-label={`Select all`}
           className="px-4 py-1 rounded-full text-sm cursor-pointer"
         >
-          # All
+          <Hash /> All
         </Badge>
         {categories.map(category => (
           <Badge
@@ -188,7 +188,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
             aria-label={`Select ${category}`}
             className="px-4 py-1 rounded-full text-sm cursor-pointer"
           >
-            # {category}
+            <Hash /> {category}
           </Badge>
         ))}
       </div>

@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getInvoice, convertQuotationToInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/invoices/actions';
+import { useReactToPrint } from 'react-to-print';
+import {
+  getInvoice,
+  convertQuotationToInvoice,
+  deductInvoiceStock,
+  restoreInvoiceStock
+} from '@/features/invoices/actions';
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
@@ -11,18 +17,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
 import { AddPaymentDialog } from '@/features/invoices/components/add-payment-dialog';
 import { UpdateStatusDialog } from '@/features/invoices/components/update-status-dialog';
 import { EditInvoiceDialog } from '@/features/invoices/components/edit-invoice-dialog';
+import { NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
+import QuotationTemplate from '@/features/invoices/components/quotation-template';
+import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
+import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -32,6 +36,8 @@ export default function InvoiceDetailPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (params.id) {
@@ -65,8 +71,34 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleReactToPrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle:
+      invoice?.type === 'invoice' ? `Invoice-${invoice.invoiceNumber}` : `Quotation-${invoice?.invoiceNumber}`,
+    pageStyle: `
+      @page {
+        size: A4;
+        margin: 18mm;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .print\\:hidden {
+          display: none !important;
+        }
+      }
+    `
+  });
+
   const handlePrint = () => {
-    window.print();
+    // Open preview sheet first
+    setIsPrintPreviewOpen(true);
+    // Then trigger print after a short delay to ensure sheet is rendered
+    setTimeout(() => {
+      handleReactToPrint();
+    }, 300);
   };
 
   const handleDeductStock = async () => {
@@ -122,50 +154,141 @@ export default function InvoiceDetailPage() {
     );
   }
 
+  // Transform invoice data to template format
+  const templateData =
+    invoice.type === 'invoice'
+      ? ({
+          logo: undefined,
+          company: COMPANY_DETAILS,
+          client: {
+            name: invoice.customerName,
+            company: invoice.customerCompany,
+            address: invoice.customerAddress,
+            city: invoice.customerCity || '',
+            state: invoice.customerState || '',
+            zip: invoice.customerZip || '',
+            email: invoice.customerEmail,
+            phone: invoice.customerPhone
+          },
+          invoiceNumber: invoice.invoiceNumber,
+          date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+          dueDate: invoice.dueDate
+            ? typeof invoice.dueDate === 'string'
+              ? invoice.dueDate
+              : invoice.dueDate.toISOString()
+            : '',
+          items: invoice.items.map(item => ({
+            id: item.productId,
+            description: item.productName,
+            quantity: item.quantity,
+            rate: item.unitPrice,
+            amount: item.totalPrice,
+            productId: item.productId,
+            variantId: item.variantId,
+            variantSKU: item.variantSKU,
+            purchaseId: item.purchaseId
+          })),
+          taxRate: invoice.gstValue || 0,
+          discount: invoice.discountAmount,
+          discountType: invoice.discountType || 'fixed',
+          notes: invoice.notes,
+          terms: invoice.termsAndConditions,
+          paymentDetails: {
+            bankName: PAYMENT_DETAILS.BANK_NAME,
+            accountNumber: PAYMENT_DETAILS.ACCOUNT_NUMBER,
+            iban: PAYMENT_DETAILS.IBAN
+          },
+          previousBalance: 0,
+          paid: invoice.paidAmount,
+          remainingPayment: invoice.balanceAmount,
+          amountInWords: 'Amount in words',
+          billingType: invoice.billingType,
+          market: invoice.market,
+          customerId: invoice.customerId
+        } as InvoiceTemplateData)
+      : ({
+          logo: undefined,
+          company: COMPANY_DETAILS,
+          client: {
+            name: invoice.customerName,
+            company: invoice.customerCompany,
+            address: invoice.customerAddress,
+            city: invoice.customerCity || '',
+            state: invoice.customerState || '',
+            zip: invoice.customerZip || '',
+            email: invoice.customerEmail,
+            phone: invoice.customerPhone
+          },
+          quotationNumber: invoice.invoiceNumber,
+          date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+          validUntil: invoice.validUntil
+            ? typeof invoice.validUntil === 'string'
+              ? invoice.validUntil
+              : invoice.validUntil.toISOString()
+            : '',
+          items: invoice.items.map(item => ({
+            id: item.productId,
+            description: item.productName,
+            quantity: item.quantity,
+            rate: item.unitPrice,
+            amount: item.totalPrice,
+            productId: item.productId,
+            variantId: item.variantId,
+            variantSKU: item.variantSKU,
+            purchaseId: item.purchaseId
+          })),
+          taxRate: invoice.gstValue || 0,
+          discount: invoice.discountAmount,
+          discountType: invoice.discountType || 'fixed',
+          notes: invoice.notes,
+          terms: invoice.termsAndConditions,
+          amountInWords: 'Amount in words',
+          billingType: invoice.billingType,
+          market: invoice.market,
+          customerId: invoice.customerId
+        } as QuotationTemplateData);
+
   return (
     <div className="container mx-auto py-10">
       <PageHeader
         title={`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`}
+        backLink="/invoices"
       >
         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push('/invoices')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+          <Button variant="outline" onClick={() => setStatusDialogOpen(true)}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Update Status
+          </Button>
+          {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
+            <Button onClick={() => setPaymentDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Payment
             </Button>
-            <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
+          )}
+          {invoice.type === 'invoice' && !invoice.stockDeducted && (
+            <Button variant="outline" onClick={handleDeductStock}>
+              Deduct Stock
             </Button>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(true)}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Update Status
+          )}
+          {invoice.type === 'invoice' && invoice.stockDeducted && invoice.status === 'cancelled' && (
+            <Button variant="outline" onClick={handleRestoreStock}>
+              Restore Stock
             </Button>
-            {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
-              <Button onClick={() => setPaymentDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Payment
-              </Button>
-            )}
-            {invoice.type === 'invoice' && !invoice.stockDeducted && (
-              <Button variant="outline" onClick={handleDeductStock}>
-                Deduct Stock
-              </Button>
-            )}
-            {invoice.type === 'invoice' && invoice.stockDeducted && invoice.status === 'cancelled' && (
-              <Button variant="outline" onClick={handleRestoreStock}>
-                Restore Stock
-              </Button>
-            )}
-            {invoice.type === 'quotation' && !invoice.convertedToInvoice && invoice.status === 'accepted' && (
-              <Button onClick={handleConvertToInvoice}>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Convert to Invoice
-              </Button>
-            )}
-            <Button variant="outline" onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print
+          )}
+          {invoice.type === 'quotation' && !invoice.convertedToInvoice && invoice.status === 'accepted' && (
+            <Button onClick={handleConvertToInvoice}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Convert to Invoice
             </Button>
+          )}
+          <Button onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
         </div>
       </PageHeader>
 
@@ -178,7 +301,7 @@ export default function InvoiceDetailPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-2xl">{invoice.invoiceNumber}</CardTitle>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2 mt-2 capitalize">
                     <Badge>{invoice.status}</Badge>
                     <Badge variant="outline">{invoice.market}</Badge>
                     <Badge variant="outline">{invoice.billingType}</Badge>
@@ -387,6 +510,33 @@ export default function InvoiceDetailPage() {
           />
         </>
       )}
+
+      {/* Print Preview Sheet */}
+      <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader>
+            <h2 className="text-lg font-semibold text-primary inline-flex items-center gap-2">
+              {' '}
+              <Printer /> Print Preview
+            </h2>
+          </SheetHeader>
+          <div className="mt-6" ref={printRef}>
+            {invoice.type === 'invoice' ? (
+              <NewonInvoiceTemplate
+                invoiceData={templateData as InvoiceTemplateData}
+                onBack={() => setIsPrintPreviewOpen(false)}
+                onPrint={handleReactToPrint}
+              />
+            ) : (
+              <QuotationTemplate
+                quotationData={templateData as QuotationTemplateData}
+                onBack={() => setIsPrintPreviewOpen(false)}
+                onPrint={handleReactToPrint}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

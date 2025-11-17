@@ -31,11 +31,6 @@ export default function EditStaffPage() {
     }
   }, [params.id]);
 
-  const handleSuccess = () => {
-    router.push('/staff');
-    router.refresh();
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto grow grid place-content-center space-y-8">
@@ -63,11 +58,8 @@ export default function EditStaffPage() {
         backLink="/staff"
       />
       
-      <div className="mt-8 max-w-xl mx-auto">
-        <StaffForm 
-          initialData={staff} 
-          onSuccess={handleSuccess} 
-        />
+      <div className="mt-8 max-w-2xl mx-auto bg-white rounded-lg border p-6">
+        <StaffForm initialData={staff} />
       </div>
     </div>
   );
