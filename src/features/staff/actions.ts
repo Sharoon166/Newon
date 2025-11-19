@@ -37,9 +37,9 @@ export async function createStaffMember(data: CreateStaffDto) {
       createdAt: staff.createdAt,
       updatedAt: staff.updatedAt
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Create staff error:', error);
-    throw new Error(error.message || 'Failed to create staff member');
+    throw new Error('Failed to create staff member');
   }
 }
 
@@ -82,9 +82,9 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto) {
       createdAt: staff.createdAt,
       updatedAt: staff.updatedAt
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update staff error:', error);
-    throw new Error(error.message || 'Failed to update staff member');
+    throw new Error('Failed to update staff member');
   }
 }
 
@@ -109,8 +109,8 @@ export async function getStaffMember(id: string): Promise<StaffMember> {
       createdAt: staff.createdAt,
       updatedAt: staff.updatedAt
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get staff member error:', error);
-    throw new Error(error.message || 'Failed to fetch staff member');
+    throw new Error('Failed to fetch staff member');
   }
 }

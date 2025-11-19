@@ -60,6 +60,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
         toast.error(result.error || 'Failed to register staff');
       }
     } catch (error) {
+      console.log(error)
       toast.error('An error occurred');
     } finally {
       setIsLoading(false);

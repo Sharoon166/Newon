@@ -15,19 +15,18 @@ interface Staff {
   lastName: string;
   email: string;
   phoneNumber?: string;
-  role: 'admin' | 'staff';
+  role: string;
   isActive: boolean;
-  createdAt: string;
+  createdAt: string | Date;
 }
 
 interface StaffTableProps {
   staff: Staff[];
   isLoading: boolean;
   onStatusChange: (staffId: string, isActive: boolean) => void;
-  onRefresh?: () => void;
 }
 
-export function StaffTable({ staff, isLoading, onStatusChange, onRefresh }: StaffTableProps) {
+export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps) {
   const router = useRouter();
   if (isLoading) {
     return <div className="text-center py-8">Loading staff...</div>;

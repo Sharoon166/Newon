@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { SalesTrendData } from '../types';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency} from '@/lib/utils';
 import { BarChart3 } from 'lucide-react';
 
 interface SalesChartProps {
@@ -88,7 +88,7 @@ export function SalesChart({ data, data30Days }: SalesChartProps) {
                   <ChartTooltipContent
                     formatter={(value, name) => {
                       if (name === 'revenue') {
-                        return [<div className='w-1 h-3 bg-primary rounded'/>,formatCurrency(value as number)];
+                        return [<div key={value.toLocaleString()} className='w-1 h-3 bg-primary rounded'/>,formatCurrency(value as number)];
                       }
                       return [value, name];
                     }}

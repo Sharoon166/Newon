@@ -623,7 +623,6 @@ export function QuotationConversionForm({
                       const variantId = form.watch(`items.${index}.variantId`);
                       const availableStock = getAvailableStock(variantId);
                       const isOutOfStock = isItemOutOfStock(variantId, currentQuantity);
-                      const hasInsufficientStock = variantId && availableStock > 0 && availableStock < currentQuantity;
 
                       return (
                         <tr

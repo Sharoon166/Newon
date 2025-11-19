@@ -39,10 +39,10 @@ export async function POST() {
         note: 'Please change the password after first login!'
       }
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating admin:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create admin' },
+      { error: 'Failed to create admin' },
       { status: 500 }
     );
   }

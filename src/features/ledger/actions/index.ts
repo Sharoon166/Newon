@@ -371,25 +371,25 @@ export async function getCustomerLedgerEntries(
  * 7. Update customer's current balance
  * 8. Return created entry
  */
-export async function createLedgerEntry(
-  data: CreateLedgerEntryDto
-): Promise<LedgerEntry> {
-  // TODO: Implement database insertion
-  // const db = await dbConnect();
-  // const previousBalance = await getCustomerBalance(data.customerId);
-  // const newBalance = previousBalance + data.debit - data.credit;
-  // const entry = new LedgerModel({
-  //   ...data,
-  //   balance: newBalance,
-  //   createdAt: new Date(),
-  //   updatedAt: new Date()
-  // });
-  // await entry.save();
-  // await updateCustomerBalance(data.customerId, newBalance);
-  // return entry;
+// export async function createLedgerEntry(
+//   data: CreateLedgerEntryDto
+// ): Promise<LedgerEntry> {
+//   // TODO: Implement database insertion
+//   // const db = await dbConnect();
+//   // const previousBalance = await getCustomerBalance(data.customerId);
+//   // const newBalance = previousBalance + data.debit - data.credit;
+//   // const entry = new LedgerModel({
+//   //   ...data,
+//   //   balance: newBalance,
+//   //   createdAt: new Date(),
+//   //   updatedAt: new Date()
+//   // });
+//   // await entry.save();
+//   // await updateCustomerBalance(data.customerId, newBalance);
+//   // return entry;
 
-  throw new Error('Not implemented - createLedgerEntry');
-}
+//   throw new Error('Not implemented - createLedgerEntry');
+// }
 
 /**
  * Update an existing ledger entry
@@ -404,23 +404,23 @@ export async function createLedgerEntry(
  * 7. Update customer's current balance
  * 8. Return updated entry
  */
-export async function updateLedgerEntry(
-  id: string,
-  data: UpdateLedgerEntryDto
-): Promise<LedgerEntry> {
-  // TODO: Implement database update
-  // const db = await dbConnect();
-  // const entry = await LedgerModel.findById(id);
-  // if (!entry) throw new Error('Entry not found');
-  // const oldBalance = entry.debit - entry.credit;
-  // const newBalance = (data.debit || entry.debit) - (data.credit || entry.credit);
-  // const balanceDiff = newBalance - oldBalance;
-  // await entry.updateOne({ ...data, updatedAt: new Date() });
-  // await recalculateSubsequentBalances(entry.customerId, entry.date, balanceDiff);
-  // return entry;
+// export async function updateLedgerEntry(
+//   id: string,
+//   data: UpdateLedgerEntryDto
+// ): Promise<LedgerEntry> {
+//   // TODO: Implement database update
+//   // const db = await dbConnect();
+//   // const entry = await LedgerModel.findById(id);
+//   // if (!entry) throw new Error('Entry not found');
+//   // const oldBalance = entry.debit - entry.credit;
+//   // const newBalance = (data.debit || entry.debit) - (data.credit || entry.credit);
+//   // const balanceDiff = newBalance - oldBalance;
+//   // await entry.updateOne({ ...data, updatedAt: new Date() });
+//   // await recalculateSubsequentBalances(entry.customerId, entry.date, balanceDiff);
+//   // return entry;
 
-  throw new Error('Not implemented - updateLedgerEntry');
-}
+//   throw new Error('Not implemented - updateLedgerEntry');
+// }
 
 /**
  * Delete a ledger entry
@@ -434,18 +434,18 @@ export async function updateLedgerEntry(
  * 6. Update customer's current balance
  * 7. Return success status
  */
-export async function deleteLedgerEntry(id: string): Promise<boolean> {
-  // TODO: Implement database deletion
-  // const db = await dbConnect();
-  // const entry = await LedgerModel.findById(id);
-  // if (!entry) throw new Error('Entry not found');
-  // const balanceImpact = entry.debit - entry.credit;
-  // await entry.deleteOne();
-  // await recalculateSubsequentBalances(entry.customerId, entry.date, -balanceImpact);
-  // return true;
+// export async function deleteLedgerEntry(id: string): Promise<boolean> {
+//   // TODO: Implement database deletion
+//   // const db = await dbConnect();
+//   // const entry = await LedgerModel.findById(id);
+//   // if (!entry) throw new Error('Entry not found');
+//   // const balanceImpact = entry.debit - entry.credit;
+//   // await entry.deleteOne();
+//   // await recalculateSubsequentBalances(entry.customerId, entry.date, -balanceImpact);
+//   // return true;
 
-  throw new Error('Not implemented - deleteLedgerEntry');
-}
+//   throw new Error('Not implemented - deleteLedgerEntry');
+// }
 
 /**
  * Create ledger entry from invoice
@@ -460,27 +460,27 @@ export async function deleteLedgerEntry(id: string): Promise<boolean> {
  * 3. Save to database
  * 4. Update customer balance
  */
-export async function createLedgerEntryFromInvoice(
-  invoiceId: string,
-  invoiceData: any
-): Promise<LedgerEntry> {
-  // TODO: Implement
-  // const entry = await createLedgerEntry({
-  //   customerId: invoiceData.customerId,
-  //   customerName: invoiceData.customerName,
-  //   transactionType: 'invoice',
-  //   transactionId: invoiceId,
-  //   transactionNumber: invoiceData.invoiceNumber,
-  //   date: invoiceData.date,
-  //   description: `Invoice ${invoiceData.invoiceNumber}`,
-  //   debit: invoiceData.totalAmount,
-  //   credit: 0,
-  //   createdBy: invoiceData.createdBy
-  // });
-  // return entry;
+// export async function createLedgerEntryFromInvoice(
+//   invoiceId: string,
+//   invoiceData: unknown
+// ): Promise<LedgerEntry> {
+//   // TODO: Implement
+//   // const entry = await createLedgerEntry({
+//   //   customerId: invoiceData.customerId,
+//   //   customerName: invoiceData.customerName,
+//   //   transactionType: 'invoice',
+//   //   transactionId: invoiceId,
+//   //   transactionNumber: invoiceData.invoiceNumber,
+//   //   date: invoiceData.date,
+//   //   description: `Invoice ${invoiceData.invoiceNumber}`,
+//   //   debit: invoiceData.totalAmount,
+//   //   credit: 0,
+//   //   createdBy: invoiceData.createdBy
+//   // });
+//   // return entry;
 
-  throw new Error('Not implemented - createLedgerEntryFromInvoice');
-}
+//   throw new Error('Not implemented - createLedgerEntryFromInvoice');
+// }
 
 /**
  * Create ledger entry from payment
@@ -495,26 +495,26 @@ export async function createLedgerEntryFromInvoice(
  * 3. Save to database
  * 4. Update customer balance
  */
-export async function createLedgerEntryFromPayment(
-  paymentId: string,
-  paymentData: any
-): Promise<LedgerEntry> {
-  // TODO: Implement
-  // const entry = await createLedgerEntry({
-  //   customerId: paymentData.customerId,
-  //   customerName: paymentData.customerName,
-  //   transactionType: 'payment',
-  //   transactionId: paymentId,
-  //   transactionNumber: `PAY-${paymentId}`,
-  //   date: paymentData.date,
-  //   description: `Payment received`,
-  //   debit: 0,
-  //   credit: paymentData.amount,
-  //   paymentMethod: paymentData.method,
-  //   reference: paymentData.reference,
-  //   createdBy: paymentData.createdBy
-  // });
-  // return entry;
+// export async function createLedgerEntryFromPayment(
+//   paymentId: string,
+//   paymentData: unknown
+// ): Promise<LedgerEntry> {
+//   // TODO: Implement
+//   // const entry = await createLedgerEntry({
+//   //   customerId: paymentData.customerId,
+//   //   customerName: paymentData.customerName,
+//   //   transactionType: 'payment',
+//   //   transactionId: paymentId,
+//   //   transactionNumber: `PAY-${paymentId}`,
+//   //   date: paymentData.date,
+//   //   description: `Payment received`,
+//   //   debit: 0,
+//   //   credit: paymentData.amount,
+//   //   paymentMethod: paymentData.method,
+//   //   reference: paymentData.reference,
+//   //   createdBy: paymentData.createdBy
+//   // });
+//   // return entry;
 
-  throw new Error('Not implemented - createLedgerEntryFromPayment');
-}
+//   throw new Error('Not implemented - createLedgerEntryFromPayment');
+// }

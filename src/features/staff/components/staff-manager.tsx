@@ -70,7 +70,6 @@ export function StaffManager() {
         staff={staff}
         isLoading={isLoading}
         onStatusChange={handleStatusChange}
-        onRefresh={loadStaff}
       />
     </div>
   );

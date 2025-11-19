@@ -43,9 +43,9 @@ export async function registerStaff(data: {
         name: `${staff.firstName} ${staff.lastName}`
       }
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Registration error:', error);
-    return { success: false, error: error.message || 'Failed to register staff' };
+    return { success: false, error: 'Failed to register staff' };
   }
 }
 
@@ -66,9 +66,9 @@ export async function updateStaffStatus(staffId: string, isActive: boolean) {
     revalidatePath('/staff');
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Update status error:', error);
-    return { success: false, error: error.message || 'Failed to update staff status' };
+    return { success: false, error: 'Failed to update staff status' };
   }
 }
 
@@ -92,8 +92,8 @@ export async function getAllStaff() {
         createdAt: s.createdAt.toISOString()
       }))
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Get staff error:', error);
-    return { success: false, error: error.message || 'Failed to fetch staff' };
+    return { success: false, error: 'Failed to fetch staff' };
   }
 }

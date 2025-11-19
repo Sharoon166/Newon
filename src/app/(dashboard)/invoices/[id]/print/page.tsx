@@ -6,10 +6,10 @@ import { useReactToPrint } from 'react-to-print';
 import { getInvoice } from '@/features/invoices/actions';
 import { Invoice } from '@/features/invoices/types';
 import { NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
-import QuotationTemplate from '@/features/invoices/components/quotation-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 
 export default function PrintInvoicePage() {
   const params = useParams();

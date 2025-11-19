@@ -7,9 +7,6 @@ import {
   Package,
   TrendingUp,
   DollarSign,
-  AlertCircle,
-  Users,
-  Receipt,
   ShoppingCart,
   Wallet
 } from 'lucide-react';

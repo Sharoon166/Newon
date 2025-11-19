@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { StaffForm } from '@/features/staff/components/staff-form';
 import { StaffMember } from '@/features/staff/types';
@@ -10,7 +10,6 @@ import { PageHeader } from '@/components/general/page-header';
 
 export default function EditStaffPage() {
   const params = useParams();
-  const router = useRouter();
   const [staff, setStaff] = useState<StaffMember | null>(null);
   const [loading, setLoading] = useState(true);
 

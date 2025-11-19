@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useReactToPrint } from 'react-to-print';
 import {
   getInvoice,
-  convertQuotationToInvoice,
   deductInvoiceStock,
   restoreInvoiceStock
 } from '@/features/invoices/actions';
@@ -56,19 +55,6 @@ export default function InvoiceDetailPage() {
       alert('Failed to load invoice');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleConvertToInvoice = async () => {
-    if (!invoice || invoice.type !== 'quotation') return;
-
-    try {
-      const newInvoice = await convertQuotationToInvoice(invoice.id, 'system-user');
-      toast.success(`Quotation converted to invoice: ${newInvoice.invoiceNumber}`);
-      router.push(`/invoices/${newInvoice.id}`);
-    } catch (error) {
-      console.error('Error converting quotation:', error);
-      toast.error('Failed to convert quotation');
     }
   };
 

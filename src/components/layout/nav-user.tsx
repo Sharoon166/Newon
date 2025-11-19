@@ -1,7 +1,7 @@
 'use client';
 
 import { signOut, useSession } from 'next-auth/react';
-import { ChevronsUpDown, LogOut, User, Shield } from 'lucide-react';
+import { ChevronsUpDown, LogOut} from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {

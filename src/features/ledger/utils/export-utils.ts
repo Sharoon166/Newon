@@ -6,7 +6,7 @@
 
 import { toast } from 'sonner';
 import { CustomerLedger, LedgerEntry } from '../types';
-import { formatCurrency, formatDate } from '@/lib/utils';
+// import { formatCurrency, formatDate } from '@/lib/utils';
 
 /**
  * Export ledger data to CSV
@@ -177,32 +177,32 @@ export function printLedgerEntries(data: LedgerEntry[]): void {
 /**
  * Prepare ledger data for export
  */
-export function prepareLedgerExportData(data: CustomerLedger[]): any[] {
-  return data.map(item => ({
-    'Customer Name': item.customerName,
-    'Company': item.customerCompany || '-',
-    'Email': item.customerEmail,
-    'Phone': item.customerPhone,
-    'Total Invoiced': formatCurrency(item.totalDebit),
-    'Total Paid': formatCurrency(item.totalCredit),
-    'Outstanding Balance': formatCurrency(item.currentBalance),
-    'Last Transaction': formatDate(new Date(item.lastTransactionDate))
-  }));
-}
+// export function prepareLedgerExportData(data: CustomerLedger[]): any[] {
+//   return data.map(item => ({
+//     'Customer Name': item.customerName,
+//     'Company': item.customerCompany || '-',
+//     'Email': item.customerEmail,
+//     'Phone': item.customerPhone,
+//     'Total Invoiced': formatCurrency(item.totalDebit),
+//     'Total Paid': formatCurrency(item.totalCredit),
+//     'Outstanding Balance': formatCurrency(item.currentBalance),
+//     'Last Transaction': formatDate(new Date(item.lastTransactionDate))
+//   }));
+// }
 
 /**
  * Prepare ledger entries for export
  */
-export function prepareLedgerEntriesExportData(data: LedgerEntry[]): any[] {
-  return data.map(item => ({
-    'Date': formatDate(new Date(item.date)),
-    'Transaction #': item.transactionNumber,
-    'Type': item.transactionType,
-    'Description': item.description,
-    'Debit': formatCurrency(item.debit),
-    'Credit': formatCurrency(item.credit),
-    'Balance': formatCurrency(item.balance),
-    'Payment Method': item.paymentMethod || '-',
-    'Reference': item.reference || '-'
-  }));
-}
+// export function prepareLedgerEntriesExportData(data: LedgerEntry[]): any[] {
+//   return data.map(item => ({
+//     'Date': formatDate(new Date(item.date)),
+//     'Transaction #': item.transactionNumber,
+//     'Type': item.transactionType,
+//     'Description': item.description,
+//     'Debit': formatCurrency(item.debit),
+//     'Credit': formatCurrency(item.credit),
+//     'Balance': formatCurrency(item.balance),
+//     'Payment Method': item.paymentMethod || '-',
+//     'Reference': item.reference || '-'
+//   }));
+// }

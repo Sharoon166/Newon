@@ -35,6 +35,7 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
       await updatePaymentDetails(paymentDetails);
       toast.success('Payment details updated successfully');
     } catch (error) {
+      console.error('Error updating payment details:', error);
       toast.error('Failed to update payment details');
     } finally {
       setIsSaving(false);
@@ -47,6 +48,7 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
       await updateInvoiceTerms(terms);
       toast.success('Invoice terms updated successfully');
     } catch (error) {
+      console.error('Error updating invoice terms:', error);
       toast.error('Failed to update invoice terms');
     } finally {
       setIsSaving(false);
