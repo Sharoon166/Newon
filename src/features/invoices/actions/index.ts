@@ -246,20 +246,20 @@ export async function getInvoice(id: string): Promise<Invoice> {
 }
 
 // Get invoice by invoice number
-export async function getInvoiceByNumber(invoiceNumber: string): Promise<Invoice> {
+export async function getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | null> {
   try {
     await dbConnect();
 
     const invoice = await InvoiceModel.findOne({ invoiceNumber }).lean();
 
     if (!invoice) {
-      throw new Error('Invoice not found');
+      return null;
     }
 
     return transformInvoice(invoice as unknown as LeanInvoice);
   } catch (error) {
     console.error(`Error fetching invoice ${invoiceNumber}:`, error);
-    throw new Error('Failed to fetch invoice');
+    return null;
   }
 }
 

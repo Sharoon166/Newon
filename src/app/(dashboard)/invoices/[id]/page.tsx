@@ -12,7 +12,7 @@ import {
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer, Plus, CheckCircle, Edit, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -23,10 +23,11 @@ import { AddPaymentDialog } from '@/features/invoices/components/add-payment-dia
 import { UpdateStatusDialog } from '@/features/invoices/components/update-status-dialog';
 import { EditInvoiceDialog } from '@/features/invoices/components/edit-invoice-dialog';
 import { NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
-import QuotationTemplate from '@/features/invoices/components/quotation-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
 import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
+import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
+import Link from 'next/link';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -280,9 +281,11 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
           {invoice.type === 'quotation' && !invoice.convertedToInvoice && invoice.status === 'accepted' && (
-            <Button onClick={handleConvertToInvoice}>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Convert to Invoice
+            <Button asChild>
+              <Link href={`/invoices/new/${invoice.invoiceNumber}`}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Convert to Invoice
+              </Link>
             </Button>
           )}
           <Button onClick={handlePrint}>
@@ -329,6 +332,11 @@ export default function InvoiceDetailPage() {
                   )}
                 </div>
               </div>
+              {invoice.convertedToInvoice && invoice.convertedInvoiceId && <div>
+                <Link href={`/invoices/${invoice.convertedInvoiceId}`} className='inline-flex items-center gap-2 text-primary underline underline-offset-2'>
+                  View Invoice <ArrowUpRight />
+                </Link>
+              </div>}
             </CardHeader>
           </Card>
 

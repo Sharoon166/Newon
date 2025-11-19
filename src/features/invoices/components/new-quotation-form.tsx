@@ -1,7 +1,8 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -15,13 +16,17 @@ import {
   Percent,
   Trash2,
   Plus,
+  Minus,
   ShoppingCart,
   Mail,
   Phone,
-  Globe,
   MapPin,
   NotebookTabs as NotebookTabsIcon,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Package,
+  Eye,
+  Save,
+  Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
@@ -33,11 +38,13 @@ import { convertToWords } from '../utils';
 import { Customer } from '@/features/customers/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ProductSelector } from './product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
-import { brands } from '@/stores/useBrandStore';
 import { INVOICE_TERMS_AND_CONDITIONS } from '@/constants';
+import { toast } from 'sonner';
+import { QuotationTemplate } from './quotation-template';
 
 const quotationFormSchema = z.object({
   logo: z.string().optional(),
@@ -94,12 +101,16 @@ type QuotationFormValues = z.infer<typeof quotationFormSchema>;
 
 export function NewQuotationForm({
   onPreview,
+  onSave,
+  onPrint,
   customers,
   variants = [],
   purchases = [],
   invoiceTerms: initialInvoiceTerms
 }: {
   onPreview: (data: QuotationFormValues) => void;
+  onSave?: (data: QuotationFormValues) => void | Promise<void>;
+  onPrint?: (data: QuotationFormValues) => void;
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
@@ -107,12 +118,19 @@ export function NewQuotationForm({
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
-  const [isFromOpen, setIsFromOpen] = useState(true);
   const [isToOpen, setIsToOpen] = useState(true);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextQuotationNumber, setNextQuotationNumber] = useState<string>('Loading...');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
-  const setBrand = useBrandStore(state => state.setBrand);
   const brand = useBrandStore(state => state.getCurrentBrand());
+
+  // Configure react-to-print
+  const handleReactToPrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Quotation-${nextQuotationNumber}`
+  });
   
   const form = useForm<QuotationFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,6 +195,20 @@ export function NewQuotationForm({
     fetchNextQuotationNumber();
   }, [form]);
 
+  // Show toast errors on mount if no customers or products
+  useEffect(() => {
+    if (customers.length === 0) {
+      toast.error('No customers found', {
+        description: 'Please add customers before creating a quotation.'
+      });
+    }
+    if (variants.length === 0) {
+      toast.error('No products found', {
+        description: 'Please add products to inventory before creating a quotation.'
+      });
+    }
+  }, [customers.length, variants.length]);
+
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
@@ -198,17 +230,61 @@ export function NewQuotationForm({
     rate: number;
     purchaseId?: string;
   }) => {
-    append({
-      id: Date.now().toString(),
-      description: item.description,
-      quantity: item.quantity,
-      rate: item.rate,
-      amount: item.quantity * item.rate,
-      productId: item.variantId,
-      variantId: item.variantId,
-      variantSKU: item.sku,
-      purchaseId: item.purchaseId
-    });
+    // Validate item data
+    if (!item.description || item.description.trim() === '') {
+      toast.error('Invalid item', {
+        description: 'Item description is required.'
+      });
+      return;
+    }
+
+    if (item.quantity <= 0) {
+      toast.error('Invalid quantity', {
+        description: 'Quantity must be greater than 0.'
+      });
+      return;
+    }
+
+    if (item.rate < 0) {
+      toast.error('Invalid rate', {
+        description: 'Rate cannot be negative.'
+      });
+      return;
+    }
+
+    // Check if item from the SAME purchase already exists in the table
+    const existingItemIndex = fields.findIndex(
+      field => field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
+    );
+
+    if (existingItemIndex !== -1) {
+      // Item from same purchase exists, update its quantity
+      const existingItem = form.watch(`items.${existingItemIndex}`);
+      const newQuantity = existingItem.quantity + item.quantity;
+      form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
+      form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
+
+      toast.success('Item updated', {
+        description: `Quantity increased to ${newQuantity}`
+      });
+    } else {
+      // Item doesn't exist or is from a different purchase, add new entry
+      append({
+        id: Date.now().toString(),
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.quantity * item.rate,
+        productId: item.variantId,
+        variantId: item.variantId,
+        variantSKU: item.sku,
+        purchaseId: item.purchaseId
+      });
+
+      toast.success('Item added', {
+        description: `${item.productName} added to quotation`
+      });
+    }
   };
 
   const handleCustomerSelect = (customerId: string) => {
@@ -239,11 +315,108 @@ export function NewQuotationForm({
         form.setValue('client.state', customer.state || '');
         form.setValue('client.zip', customer.zip || '');
       }
+      setIsToOpen(false);
     }
+
+  };
+
+  const validateQuotationData = (data: QuotationFormValues): boolean => {
+    // Validate before preview
+    if (customers.length === 0) {
+      toast.error('Cannot create quotation', {
+        description: 'No customers available. Please add customers first.'
+      });
+      return false;
+    }
+    if (data.items.length === 0) {
+      toast.error('Cannot create quotation', {
+        description: 'Please add at least one item to the quotation.'
+      });
+      return false;
+    }
+
+    // Validate client details
+    if (!selectedCustomer && !isCustomCustomer) {
+      toast.error('Client details required', {
+        description: 'Please select a customer or enter custom client details.'
+      });
+      return false;
+    }
+
+    // Validate valid until date is not in the past
+    const validUntil = new Date(data.validUntil);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (validUntil < today) {
+      toast.error('Invalid valid until date', {
+        description: 'Valid until date cannot be in the past.'
+      });
+      return false;
+    }
+
+    return true;
   };
 
   const onSubmit = (data: QuotationFormValues) => {
-    onPreview(data);
+    if (!validateQuotationData(data)) return;
+    setIsPreviewOpen(true);
+  };
+
+  const handleSave = () => {
+    form.handleSubmit(
+      async data => {
+        if (!validateQuotationData(data)) return;
+
+        try {
+          if (onSave) {
+            await onSave(data);
+          } else {
+            toast.error('Save function not available', {
+              description: 'Please contact support.'
+            });
+          }
+        } catch (error) {
+          console.error('Error saving quotation:', error);
+          toast.error('Failed to save quotation', {
+            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+          });
+        }
+      },
+      errors => {
+        console.error('Form validation errors:', errors);
+        toast.error('Cannot save quotation', {
+          description: 'Please fix all form errors before saving.'
+        });
+      }
+    )();
+  };
+
+  const handlePrint = () => {
+    form.handleSubmit(
+      data => {
+        if (!validateQuotationData(data)) return;
+
+        try {
+          // Open preview sheet first
+          setIsPreviewOpen(true);
+          // Then trigger print after a short delay to ensure sheet is rendered
+          setTimeout(() => {
+            handleReactToPrint();
+          }, 300);
+        } catch (error) {
+          console.error('Error printing quotation:', error);
+          toast.error('Failed to print quotation', {
+            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+          });
+        }
+      },
+      errors => {
+        console.error('Form validation errors:', errors);
+        toast.error('Cannot print quotation', {
+          description: 'Please fix all form errors before printing.'
+        });
+      }
+    )();
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -268,242 +441,108 @@ export function NewQuotationForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Quotation Details */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Quotation Details
-          </h2>
+      <form
+        onSubmit={form.handleSubmit(onSubmit, errors => {
+          console.log('Form errors:', errors);
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-            <FormField
-              control={form.control}
-              name="quotationNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quotation #</FormLabel>
-                  <FormControl>
-                    <InputGroup>
-                      <InputGroupAddon>#</InputGroupAddon>
-                      <InputGroupInput placeholder="QT-1001" {...field} readOnly className="bg-muted" />
-                    </InputGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          // Handle items array errors
+          if (errors.items) {
+            if (errors.items.message) {
+              toast.error('Form validation failed', {
+                description: errors.items.message
+              });
+              return;
+            }
+            // Handle individual item errors
+            if (Array.isArray(errors.items)) {
+              const firstItemError = errors.items.find(item => item);
+              if (firstItemError) {
+                const errorField = Object.keys(firstItemError)[0];
+                const errorMessage = firstItemError[errorField]?.message || 'Invalid item data';
+                toast.error('Form validation failed', {
+                  description: errorMessage
+                });
+                return;
+              }
+            }
+          }
 
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={date => {
-                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                          field.onChange(formattedDate);
-                        }}
-                        disabled={date => date < new Date(today + 'T00:00:00')}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          // Handle client errors
+          if (errors.client) {
+            const clientErrors = errors.client as Record<string, { message?: string }>;
+            const firstClientError = Object.values(clientErrors).find(err => err?.message);
+            if (firstClientError?.message) {
+              toast.error('Form validation failed', {
+                description: firstClientError.message
+              });
+              return;
+            }
+          }
 
-            <FormField
-              control={form.control}
-              name="validUntil"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Valid Until</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a valid until date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={date => {
-                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                          field.onChange(formattedDate);
-                        }}
-                        disabled={date => date < new Date(today + 'T00:00:00')}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          // Handle other field errors
+          const errorFields = Object.keys(errors).filter(key => key !== 'items' && key !== 'client');
+          if (errorFields.length > 0) {
+            const firstError = errors[errorFields[0] as keyof typeof errors];
+            const errorMessage = (firstError as { message?: string })?.message || 'Please check the form for errors';
 
-            <FormField
-              control={form.control}
-              name="billingType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Billing Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="retail">Retail</SelectItem>
-                      <SelectItem value="wholesale">Wholesale</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="market"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Market</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select market" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="newon">Newon</SelectItem>
-                      <SelectItem value="waymor">Waymor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            toast.error('Form validation failed', {
+              description: errorMessage
+            });
+          }
+        })}
+        className="space-y-8"
+      >
+        {/* Quotation Header */}
+        <div className="flex justify-between items-center gap-2 p-4">
+          <FormField
+            control={form.control}
+            name="validUntil"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                  <CalendarIcon className="h-5 w-5" />
+                  Valid Until
+                </FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full max-w-sm justify-start text-left font-normal',
+                        !field.value && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a valid until date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={field.value ? new Date(field.value) : undefined}
+                      onSelect={date => {
+                        const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                        field.onChange(formattedDate);
+                      }}
+                      disabled={date => date < new Date(today + 'T00:00:00')}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-semibold text-primary">{nextQuotationNumber}</span>
+            </div>
+            <div className="text-muted-foreground font-medium">{format(new Date(), 'MMM dd, yyyy')}</div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 items-center gap-6">
-          {/* Company Details */}
-          <Collapsible open={isFromOpen} onOpenChange={setIsFromOpen} className="border rounded-lg">
-            <div className="p-2">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn('w-full justify-between p-0', {
-                    'mb-4': isFromOpen
-                  })}
-                >
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    From
-                  </h2>
-                  <ChevronsUpDown />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
-                <div>
-                  <Select
-                    value={currentBrandId}
-                    onValueChange={(value: 'newon' | 'waymor') => {
-                      setBrand(value);
-                      const selectedBrand = brands.find(b => b.id === value);
-                      if (selectedBrand) {
-                        form.setValue('company.name', selectedBrand.displayName);
-                        form.setValue('company.address', selectedBrand.address);
-                        form.setValue('company.city', selectedBrand.city);
-                        form.setValue('company.state', selectedBrand.state);
-                        form.setValue('company.zip', selectedBrand.zip);
-                        form.setValue('company.phone', selectedBrand.phone);
-                        form.setValue('company.email', selectedBrand.email);
-                        form.setValue('company.website', selectedBrand.website || '');
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full max-w-sm">
-                      <SelectValue placeholder="Select a brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {brands.map(brandOption => (
-                        <SelectItem key={brandOption.id} value={brandOption.id}>
-                          {brandOption.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="bg-gray-50 border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <Building2 className="h-4 w-4" />
-                        {brand.displayName}
-                      </h3>
-                      <p className="text-muted-foreground text-sm mt-1">{brand.description}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {brand.email}
-                      </p>
-                      <p className="text-sm flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        {brand.phone}
-                      </p>
-                      {brand.website && (
-                        <p className="text-sm flex items-center gap-2">
-                          <Globe className="h-4 w-4" />
-                          {brand.website}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-sm flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5" />
-                      <span>
-                        {brand.address}, {brand.city}, {brand.state} {brand.zip}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-
-          {/* Client Details */}
-          <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
+        {/* Client Details */}
+        <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
             <div className="p-2">
               <CollapsibleTrigger asChild>
                 <Button
@@ -514,7 +553,7 @@ export function NewQuotationForm({
                 >
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <User className="h-5 w-5" />
-                    To
+                    To {form.watch("client.name") && `- ${form.watch("client.name")}`}
                   </h2>
                   <ChevronsUpDown />
                 </Button>
@@ -734,251 +773,600 @@ export function NewQuotationForm({
               </CollapsibleContent>
             </div>
           </Collapsible>
-        </div>
 
         {/* Quotation Items */}
         <div className="border rounded-lg p-6">
           <div className="space-y-1 mb-6">
-            <div className="flex gap-2 items-center">
-              <ShoppingCart className="h-5 w-5" />
-              <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
+            <div className="flex gap-2 items-center justify-between">
+              <div>
+                <div className="flex gap-2 items-center">
+                  <ShoppingCart className="h-5 w-5" />
+                  <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
+                </div>
+                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products or Custom Items</h3>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  append({
+                    id: Date.now().toString(),
+                    description: '',
+                    quantity: 1,
+                    rate: 0,
+                    amount: 0
+                  });
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Custom Item
+              </Button>
             </div>
-            <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products to Quotation</h3>
           </div>
 
-          {/* Product Selector */}
-          {variants.length > 0 && (
-            <div className="mb-6">
-              <ProductSelector variants={variants} purchases={purchases} onAddItem={handleAddItemFromSelector} />
+          <div className="gap-6 grid lg:grid-cols-2">
+            {/* Product Selector */}
+            {variants.length > 0 && (
+              <div className="bg-muted/30 p-4 rounded-lg">
+                <ProductSelector
+                  variants={variants}
+                  purchases={purchases}
+                  currentItems={form.watch('items')}
+                  onAddItem={handleAddItemFromSelector}
+                />
+              </div>
+            )}
+
+            {/* Quotation Items Table with Container Query */}
+            <div className="border rounded-lg overflow-auto shadow-sm @container max-h-[665px]">
+              <div className="bg-primary text-white px-4 py-3">
+                <h3 className="text-sm font-semibold">Quotation Items</h3>
+              </div>
+
+              {fields.length === 0 && (
+                <div className="text-center text-muted-foreground py-20">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm max-w-sm mx-auto">
+                    No items added yet. Use the product selector above to add items.
+                  </p>
+                </div>
+              )}
+
+              {/* Table view for larger containers */}
+              <div className="hidden @[600px]:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-xs font-medium bg-muted/50 border-b">
+                      <th className="p-3 w-12">#</th>
+                      <th className="py-3 px-2">Item Description</th>
+                      <th className="py-3 px-2 text-center">Qty</th>
+                      <th className="py-3 px-2 text-right">Rate</th>
+                      <th className="py-3 px-2 text-right">Amount</th>
+                      <th className="py-3 px-2 w-16"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {fields.map((item, index) => {
+                      const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
+                      const currentRate = form.watch(`items.${index}.rate`) || 0;
+
+                      return (
+                        <tr key={item.id} className="group hover:bg-muted/30 transition-colors">
+                          <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
+                          <td className="py-3 px-2">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.description`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <InputGroup>
+                                      <InputGroupInput
+                                        placeholder="Item description (e.g., Labor, Fuel, etc.)"
+                                        {...field}
+                                        className="text-sm"
+                                      />
+                                    </InputGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  const newQuantity = Math.max(0.01, currentQuantity - 1);
+                                  form.setValue(`items.${index}.quantity`, newQuantity);
+                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                                }}
+                                disabled={currentQuantity <= 0.01}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.quantity`}
+                                render={({ field }) => (
+                                  <FormItem className="w-16">
+                                    <FormControl>
+                                      <InputGroup>
+                                        <InputGroupInput
+                                          type="number"
+                                          min="0.01"
+                                          step="0.01"
+                                          {...field}
+                                          className="h-7 text-sm text-center"
+                                          onChange={e => {
+                                            const value = e.target.value;
+                                            if (value === '') {
+                                              field.onChange(0.01);
+                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              return;
+                                            }
+                                            const numericValue = parseFloat(value);
+                                            if (isNaN(numericValue) || numericValue < 0.01) {
+                                              field.onChange(0.01);
+                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              return;
+                                            }
+                                            field.onChange(numericValue);
+                                            form.setValue(`items.${index}.amount`, numericValue * currentRate);
+                                          }}
+                                          value={field.value || ''}
+                                        />
+                                      </InputGroup>
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  const newQuantity = currentQuantity + 1;
+                                  form.setValue(`items.${index}.quantity`, newQuantity);
+                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                                }}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.rate`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <InputGroup>
+                                      <InputGroupInput
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        {...field}
+                                        className="h-7 text-sm text-right"
+                                        onChange={e => {
+                                          const value = e.target.value;
+                                          if (value === '') {
+                                            field.onChange(0);
+                                            form.setValue(`items.${index}.amount`, 0);
+                                            return;
+                                          }
+                                          const numericValue = parseFloat(value);
+                                          if (isNaN(numericValue) || numericValue < 0) {
+                                            toast.error('Invalid rate', {
+                                              description: 'Rate must be 0 or greater'
+                                            });
+                                            field.onChange(0);
+                                            form.setValue(`items.${index}.amount`, 0);
+                                            return;
+                                          }
+                                          field.onChange(numericValue);
+                                          form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                        }}
+                                        value={field.value || ''}
+                                      />
+                                    </InputGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </td>
+                          <td className="py-3 px-2 text-right">
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                            </div>
+                          </td>
+                          <td className="py-3 px-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => remove(index)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Card view for smaller containers */}
+              <div className="@[600px]:hidden divide-y">
+                {fields.map((item, index) => {
+                  const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
+                  const currentRate = form.watch(`items.${index}.rate`) || 0;
+
+                  return (
+                    <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-start gap-2 flex-1">
+                          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
+                            #{index + 1}
+                          </span>
+                          <div className="flex-1">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.description`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <InputGroup>
+                                      <InputGroupInput
+                                        placeholder="Item description (e.g., Labor, Fuel, etc.)"
+                                        {...field}
+                                        className="text-sm"
+                                      />
+                                    </InputGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                          className="h-8 w-8 -mt-1"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-12">Qty:</span>
+                          <div className="flex items-center gap-1 flex-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const newQuantity = Math.max(0.01, currentQuantity - 1);
+                                form.setValue(`items.${index}.quantity`, newQuantity);
+                                form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                              }}
+                              disabled={currentQuantity <= 0.01}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.quantity`}
+                              render={({ field }) => (
+                                <FormItem className="flex-1">
+                                  <FormControl>
+                                    <InputGroup>
+                                      <InputGroupInput
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        {...field}
+                                        className="h-8 text-sm text-center"
+                                        onChange={e => {
+                                          const value = e.target.value;
+                                          if (value === '') {
+                                            field.onChange(0.01);
+                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            return;
+                                          }
+                                          const numericValue = parseFloat(value);
+                                          if (isNaN(numericValue) || numericValue < 0.01) {
+                                            field.onChange(0.01);
+                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            return;
+                                          }
+                                          field.onChange(numericValue);
+                                          form.setValue(`items.${index}.amount`, numericValue * currentRate);
+                                        }}
+                                        value={field.value || ''}
+                                      />
+                                    </InputGroup>
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                const newQuantity = currentQuantity + 1;
+                                form.setValue(`items.${index}.quantity`, newQuantity);
+                                form.setValue(`items.${index}.amount`, newQuantity * currentRate);
+                              }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground mb-1">Rate</div>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.rate`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <InputGroup>
+                                      <InputGroupInput
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        {...field}
+                                        className="h-8 text-sm"
+                                        onChange={e => {
+                                          const value = e.target.value;
+                                          if (value === '') {
+                                            field.onChange(0);
+                                            form.setValue(`items.${index}.amount`, 0);
+                                            return;
+                                          }
+                                          const numericValue = parseFloat(value);
+                                          if (isNaN(numericValue) || numericValue < 0) {
+                                            toast.error('Invalid rate', {
+                                              description: 'Rate must be 0 or greater'
+                                            });
+                                            field.onChange(0);
+                                            form.setValue(`items.${index}.amount`, 0);
+                                            return;
+                                          }
+                                          field.onChange(numericValue);
+                                          form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                        }}
+                                        value={field.value || ''}
+                                      />
+                                    </InputGroup>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground mb-1">Amount</div>
+                            <div className="font-semibold">
+                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          )}
-
-          <div className="border rounded-lg overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead>
-                <tr className="text-left font-medium bg-primary text-white border-b">
-                  <th className="p-3">#</th>
-                  <th className="py-3 w-1/2">Item</th>
-                  <th className="py-3 pl-2 uppercase tracking-wider">Qty</th>
-                  <th className="py-3 pl-2 uppercase tracking-wider">Rate</th>
-                  <th className="py-3 pl-2 uppercase tracking-wider">Amount</th>
-                  <th className="py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {fields.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center text-muted-foreground py-4">
-                      No items added yet.
-                    </td>
-                  </tr>
-                )}
-                {fields.map((item, index) => (
-                  <tr key={item.id} className="group *:px-2">
-                    <td className="p-3 text-sm">{index + 1}.</td>
-                    <td className="py-4 px-3">
-                      <p className="text-sm whitespace-pre-wrap">{item.description || 'No description'}</p>
-                    </td>
-                    <td className="py-4 px-3">
-                      <p className="text-sm">{item.quantity}</p>
-                    </td>
-                    <td className="py-4 px-3">
-                      <p className="text-sm">{formatCurrency(item.rate)}</p>
-                    </td>
-                    <td className="py-4 px-3 font-medium">{formatCurrency(item.amount)}</td>
-                    <td className="py-4">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => remove(index)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-
         </div>
 
-        {/* Calculations */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Calculations
-          </h2>
+          <div className="mt-6 flex justify-end">
+            <div className="w-full max-w-xl space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground font-medium">Subtotal:</span>
+                <span className="font-medium">{formatCurrency(subtotal)}</span>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
+              <div className="flex justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground font-medium">Tax ({taxRate}%):</span>
+                  <FormField
+                    control={form.control}
+                    name="taxRate"
+                    render={({ field }) => (
+                      <FormItem className="w-24">
+                        <FormControl>
+                          <InputGroup className="justify-end">
+                            <InputGroupInput
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              {...field}
+                              className="h-8 text-sm text-right"
+                              onChange={e => handleNumericInput(e, field)}
+                              value={field.value === 0 ? '' : field.value}
+                            />
+                            <InputGroupAddon>
+                              <Percent className="h-4 w-4 text-muted-foreground" />
+                            </InputGroupAddon>
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <span className="font-medium">{formatCurrency(taxAmount)}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground font-medium">Discount:</span>
+                  <FormField
+                    control={form.control}
+                    name="discountType"
+                    render={({ field }) => (
+                      <FormItem className="">
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="fixed">Rs</SelectItem>
+                            <SelectItem value="percentage">%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="discount"
+                    render={({ field }) => (
+                      <FormItem className="w-20">
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupInput
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              {...field}
+                              className="h-8 text-sm"
+                              onChange={e => handleNumericInput(e, field)}
+                              value={field.value === 0 ? '' : field.value}
+                            />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <span className="font-medium">- {formatCurrency(discountAmount)}</span>
+              </div>
+
+              <div className="border-t pt-2 mt-2 space-y-2">
+                <div className="flex justify-between font-semibold">
+                  <span>Total:</span>
+                  <span>{formatCurrency(total)}</span>
+                </div>
+
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Amount in words:</span> {amountInWords}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        {/* Notes - Collapsible and Collapsed by Default */}
+        <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen} className="border rounded-lg">
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isNotesOpen
+                })}
+              >
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <NotebookTabsIcon className="h-5 w-5" />
+                  Notes
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
               <FormField
                 control={form.control}
-                name="taxRate"
+                name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tax Rate (%)</FormLabel>
                     <FormControl>
-                      <InputGroup>
-                        <InputGroupAddon>
-                          <Percent className="h-4 w-4" />
-                        </InputGroupAddon>
-                        <InputGroupInput
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          placeholder="0"
-                          {...field}
-                          value={field.value === 0 ? '' : field.value}
-                          onChange={e => handleNumericInput(e, field)}
-                        />
-                      </InputGroup>
+                      <Textarea className="min-h-[100px]" placeholder="Add any additional notes here..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <div className="space-y-2">
-                <FormField
-                  control={form.control}
-                  name="discountType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Discount Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select discount type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="fixed">Fixed Amount (PKR)</SelectItem>
-                          <SelectItem value="percentage">Percentage (%)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="discount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Discount {discountType === 'percentage' ? '(%)' : '(PKR)'}</FormLabel>
-                      <FormControl>
-                        <InputGroup>
-                          <InputGroupAddon>{discountType === 'percentage' ? '%' : 'PKR'}</InputGroupAddon>
-                          <InputGroupInput
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max={discountType === 'percentage' ? '100' : undefined}
-                            placeholder="0"
-                            {...field}
-                            value={field.value === 0 ? '' : field.value}
-                            onChange={e => handleNumericInput(e, field)}
-                          />
-                        </InputGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border rounded-lg p-4 space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-medium">{formatCurrency(subtotal)}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax ({taxRate}%):</span>
-                <span className="font-medium">{formatCurrency(taxAmount)}</span>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Discount {discountType === 'percentage' ? `(${discount}%)` : ''}:
-                </span>
-                <span className="font-medium text-red-600">-{formatCurrency(discountAmount)}</span>
-              </div>
-
-              <div className="border-t pt-3 flex justify-between text-lg font-bold">
-                <span>Total:</span>
-                <span className="text-primary">{formatCurrency(total)}</span>
-              </div>
-
-              <div className="border-t pt-3">
-                <p className="text-sm text-muted-foreground">Amount in Words:</p>
-                <p className="font-medium mt-1">{amountInWords}</p>
-              </div>
-            </div>
+            </CollapsibleContent>
           </div>
-        </div>
+        </Collapsible>
 
-        {/* Notes and Terms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="border rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <NotebookTabsIcon className="h-5 w-5" />
-              Notes
-            </h2>
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add any additional notes here..."
-                      className="min-h-[120px] resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="border rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Terms & Conditions
-            </h2>
-            <FormField
-              control={form.control}
-              name="terms"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add terms and conditions..."
-                      className="min-h-[120px] resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
-
-        {/* Submit Button */}
-        <div className="flex justify-end gap-4">
-          <Button type="submit" size="lg">
-            Preview Quotation
+        {/* Form Actions */}
+        <div className="flex flex-col sm:flex-row justify-end gap-3 mt-8">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              form.reset();
+              setSelectedCustomer(null);
+              setIsCustomCustomer(false);
+            }}
+          >
+            Reset Form
+          </Button>
+          <Button type="submit" variant="outline" className="w-full sm:w-auto">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </Button>
+          <Button type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
+            <Save className="h-4 w-4 mr-2" />
+            Save Quotation
+          </Button>
+          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
         </div>
       </form>
+
+      {/* Preview Sheet */}
+      <Sheet open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex gap-2 items-center text-primary">
+              <Printer /> Quotation Preview
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <QuotationTemplate
+              ref={printRef}
+              quotationData={{
+                ...form.getValues(),
+                quotationNumber: form.getValues('quotationNumber') || nextQuotationNumber
+              }}
+              onBack={() => setIsPreviewOpen(false)}
+              onPrint={handleReactToPrint}
+              onSave={handleSave}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </Form>
   );
 }

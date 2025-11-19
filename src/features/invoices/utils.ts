@@ -1,5 +1,12 @@
 	// Convert number to words function
 	export const convertToWords = (num: number): string => {
+		// Safety checks for invalid inputs
+		if (isNaN(num) || !isFinite(num) || num < 0) return 'Zero';
+		
+		// Round to integer and ensure it's within safe range
+		num = Math.floor(Math.abs(num));
+		if (num > 999999999999) return 'Number Too Large'; // Limit to avoid stack overflow
+		
 		const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
 			'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
 		const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];

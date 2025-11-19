@@ -25,10 +25,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect root to inventory
-  if (pathname === '/') {
-    const dashboardUrl = new URL('/inventory', request.url);
-    return NextResponse.redirect(dashboardUrl);
-  }
+  // if (pathname === '/') {
+  //   const dashboardUrl = new URL('/inventory', request.url);
+  //   return NextResponse.redirect(dashboardUrl);
+  // }
 
   return NextResponse.next();
 }

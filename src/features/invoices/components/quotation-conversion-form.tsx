@@ -1,77 +1,41 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect, useRef } from 'react';
-import { useReactToPrint } from 'react-to-print';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import {
-  Building2,
-  User,
-  FileText,
-  Calendar as CalendarIcon,
-  Percent,
   Trash2,
   Plus,
   Minus,
   ShoppingCart,
-  Mail,
-  Phone,
-  MapPin,
+  Percent,
   NotebookTabs as NotebookTabsIcon,
   ChevronsUpDown,
   Package,
-  Eye,
   Save,
-  Printer
+  Calendar as CalendarIcon,
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, formatCurrency, formatDate, getToday } from '@/lib/utils';
-import useBrandStore from '@/stores/useBrandStore';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { convertToWords } from '../utils';
-import { Customer } from '@/features/customers/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ProductSelector } from './product-selector';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
-import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS } from '@/constants';
 import { toast } from 'sonner';
-import { NewonInvoiceTemplate } from './newon-invoice-template';
+import { useState, useEffect } from 'react';
+import { ProductSelector } from './product-selector';
 
 const invoiceFormSchema = z.object({
-  logo: z.string().optional(),
-  billingType: z.enum(['wholesale', 'retail']).default('retail'),
-  market: z.enum(['newon', 'waymor']).default('newon'),
-  customerId: z.string().optional(),
-  company: z.object({
-    name: z.string().min(1, 'Company name is required'),
-    address: z.string().min(1, 'Address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
-    zip: z.string().min(1, 'ZIP code is required'),
-    phone: z.string().min(1, 'Phone is required'),
-    email: z.string().email('Invalid email address'),
-    website: z.string().optional()
-  }),
-  client: z.object({
-    name: z.string().min(1, 'Client name is required'),
-    company: z.string().optional(),
-    address: z.string().min(1, 'Address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
-    zip: z.string().min(1, 'ZIP code is required'),
-    email: z.string().email('Invalid email address'),
-    phone: z.string().min(1, 'Phone is required')
-  }),
-  invoiceNumber: z.string().optional(), // Auto-generated on save
+  invoiceNumber: z.string().optional(),
   date: z.string().min(1, 'Date is required'),
   dueDate: z.string().min(1, 'Due date is required'),
   items: z
@@ -96,98 +60,79 @@ const invoiceFormSchema = z.object({
   previousBalance: z.number().min(0, 'Cannot be negative').default(0),
   paid: z.number().min(0, 'Cannot be negative').default(0),
   remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
-  notes: z.string().optional(),
-  terms: z.string().optional(),
-  paymentDetails: z.object({
-    bankName: z.string(),
-    accountNumber: z.string(),
-    iban: z.string()
-  })
+  notes: z.string().optional()
 });
 
 type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 
-export function NewInvoiceForm({
-  onPreview,
-  onSave,
-  onPrint,
-  customers,
-  variants = [],
-  purchases = [],
-  paymentDetails: initialPaymentDetails,
-  invoiceTerms: initialInvoiceTerms
-}: {
-  onPreview: (data: InvoiceFormValues) => void;
-  onSave?: (data: InvoiceFormValues) => void | Promise<void>;
-  onPrint?: (data: InvoiceFormValues) => void;
-  customers: Customer[];
+interface QuotationConversionFormProps {
+  quotation: {
+    quotationNumber: string;
+    date: string;
+    validUntil: string;
+    customerName: string;
+    customerCompany?: string;
+    customerEmail: string;
+    customerPhone: string;
+    customerAddress: string;
+    customerCity: string;
+    customerState: string;
+    customerZip: string;
+    customerId?: string;
+    items: Array<{
+      id: string;
+      productName: string;
+      description?: string;
+      quantity: number;
+      unitPrice: number;
+      unit: string;
+      variantId?: string;
+      variantSKU?: string;
+      productId?: string;
+      purchaseId?: string;
+      totalPrice: number;
+    }>;
+    subtotal: number;
+    discountType: 'fixed' | 'percentage';
+    discountValue: number;
+    discountAmount: number;
+    gstValue?: number;
+    gstAmount?: number;
+    taxRate?: number;
+    taxAmount?: number;
+    totalAmount: number;
+    amountInWords?: string;
+    notes?: string;
+    termsAndConditions?: string;
+    terms?: string;
+    billingType?: 'wholesale' | 'retail';
+    market?: 'newon' | 'waymor';
+  };
+  quotationId: string;
+  customerData: {
+    customerName: string;
+    customerCompany?: string;
+    customerEmail: string;
+    customerPhone: string;
+    customerAddress: string;
+    customerCity: string | null;
+    customerState: string | null;
+    customerZip: string | null;
+    customerId?: string;
+  };
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
-  paymentDetails?: { BANK_NAME: string; ACCOUNT_NUMBER: string; IBAN: string };
-  invoiceTerms?: string[];
-}) {
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isCustomCustomer, setIsCustomCustomer] = useState(false);
-  const [isToOpen, setIsToOpen] = useState(true);
+}
+
+export function QuotationConversionForm({
+  quotation,
+  quotationId,
+  customerData,
+  variants = [],
+  purchases = []
+}: QuotationConversionFormProps) {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
-  const currentBrandId = useBrandStore(state => state.currentBrandId);
-  const brand = useBrandStore(state => state.getCurrentBrand());
-
-  // Configure react-to-print
-  const handleReactToPrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `Invoice-${nextInvoiceNumber}`
-  });
-  const form = useForm<InvoiceFormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(invoiceFormSchema) as any,
-    defaultValues: {
-      logo: '',
-      billingType: 'retail',
-      market: currentBrandId === 'waymor' ? 'waymor' : 'newon',
-      company: {
-        name: brand.displayName,
-        address: brand.address,
-        city: brand.city,
-        state: brand.state,
-        zip: brand.zip,
-        phone: brand.phone,
-        email: brand.email,
-        website: brand.website
-      },
-      client: {
-        name: '',
-        company: '',
-        address: '',
-        city: '',
-        state: '',
-        zip: '',
-        email: '',
-        phone: ''
-      },
-      invoiceNumber: '', // Will be auto-generated on save
-      date: getToday(),
-      dueDate: getToday(),
-      items: [],
-      taxRate: 0,
-      discount: 0,
-      discountType: 'fixed',
-      amountInWords: 'Zero Rupees Only',
-      previousBalance: 0,
-      paid: 0,
-      remainingPayment: 0,
-      notes: '',
-      terms: initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n'),
-      paymentDetails: {
-        bankName: initialPaymentDetails?.BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
-        accountNumber: initialPaymentDetails?.ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
-        iban: initialPaymentDetails?.IBAN || PAYMENT_DETAILS.IBAN
-      }
-    }
-  });
 
   // Fetch next invoice number on mount
   useEffect(() => {
@@ -196,7 +141,6 @@ export function NewInvoiceForm({
         const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
         const number = await getNextInvoiceNumber('invoice');
         setNextInvoiceNumber(number);
-        form.setValue('invoiceNumber', number);
       } catch (error) {
         console.error('Error fetching next invoice number:', error);
         setNextInvoiceNumber('Error loading');
@@ -206,24 +150,66 @@ export function NewInvoiceForm({
     fetchNextInvoiceNumber();
   }, []);
 
-  // Show toast errors on mount if no customers or products
+  const form = useForm<InvoiceFormValues>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(invoiceFormSchema) as any,
+    defaultValues: {
+      invoiceNumber: '',
+      date: getToday(),
+      dueDate: getToday(),
+      items: quotation.items.map(item => ({
+        id: item.id,
+        description: item.description || item.productName,
+        quantity: item.quantity,
+        rate: item.unitPrice,
+        amount: item.totalPrice,
+        productId: item.productId,
+        variantId: item.variantId,
+        variantSKU: item.variantSKU,
+        purchaseId: item.purchaseId
+      })),
+      taxRate: quotation.taxRate || quotation.gstValue || 0,
+      discount: quotation.discountValue || 0,
+      discountType: quotation.discountType || 'fixed',
+      amountInWords: quotation.amountInWords || 'Zero Rupees Only',
+      previousBalance: 0,
+      paid: 0,
+      remainingPayment: 0,
+      notes: quotation.notes
+    }
+  });
+
+  // Update invoice number when fetched
   useEffect(() => {
-    if (customers.length === 0) {
-      toast.error('No customers found', {
-        description: 'Please add customers before creating an invoice.'
-      });
+    if (nextInvoiceNumber && nextInvoiceNumber !== 'Loading...' && nextInvoiceNumber !== 'Error loading') {
+      form.setValue('invoiceNumber', nextInvoiceNumber);
     }
-    if (variants.length === 0) {
-      toast.error('No products found', {
-        description: 'Please add products to inventory before creating an invoice.'
-      });
-    }
-  }, [customers.length, variants.length]);
+  }, [nextInvoiceNumber, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'items'
   });
+
+  const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
+  const taxRate = form.watch('taxRate');
+  const discount = form.watch('discount');
+  const discountType = form.watch('discountType');
+  const taxAmount = (subtotal * taxRate) / 100;
+  const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
+  const total = subtotal + taxAmount - discountAmount;
+
+  const previousBalance = form.watch('previousBalance') || 0;
+  const paid = form.watch('paid') || 0;
+  const remainingPayment = Math.max(0, total - paid);
+  const grandTotal = remainingPayment + previousBalance;
+
+  form.setValue('remainingPayment', remainingPayment, { shouldValidate: true });
+
+  // Safely convert to words with validation
+  const safeGrandTotal = isNaN(grandTotal) || !isFinite(grandTotal) ? 0 : Math.max(0, Math.round(grandTotal));
+  const amountInWords = `${convertToWords(safeGrandTotal)} Rupees Only`;
+  form.setValue('amountInWords', amountInWords, { shouldValidate: true });
 
   // Helper function to get available stock for an item
   const getAvailableStock = (variantId?: string) => {
@@ -234,29 +220,27 @@ export function NewInvoiceForm({
     return variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
   };
 
-  const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
-  const taxRate = form.watch('taxRate');
-  const discount = form.watch('discount');
-  const discountType = form.watch('discountType');
-  const taxAmount = (subtotal * taxRate) / 100;
-  const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-  const total = subtotal + taxAmount - discountAmount;
+  // Helper function to check if an item is out of stock
+  const isItemOutOfStock = (variantId?: string, requestedQuantity?: number) => {
+    if (!variantId) return false; // Custom items don't have stock tracking
+    const available = getAvailableStock(variantId);
+    return available === 0 || (requestedQuantity && available < requestedQuantity);
+  };
 
-  // Get form values
-  const previousBalance = form.watch('previousBalance') || 0;
-  const paid = form.watch('paid') || 0;
+  // Check for out of stock items on mount and show warning
+  useEffect(() => {
+    const outOfStockItems = quotation.items.filter(
+      item => item.variantId && isItemOutOfStock(item.variantId, item.quantity)
+    );
 
-  // Calculate remaining balance (total amount - paid)
-  const remainingPayment = Math.max(0, total - paid);
-  // Calculate grand total (remaining balance + previous balance)
-  const grandTotal = remainingPayment + previousBalance;
-
-  // Update form values
-  form.setValue('remainingPayment', remainingPayment, { shouldValidate: true });
-
-  // Update amount in words based on grand total
-  const amountInWords = `${convertToWords(Math.round(grandTotal))} Rupees Only`;
-  form.setValue('amountInWords', amountInWords, { shouldValidate: true });
+    if (outOfStockItems.length > 0) {
+      const itemNames = outOfStockItems.map(item => item.productName).join(', ');
+      toast.warning('Some items are out of stock', {
+        description: `The following items from the quotation are no longer available or have insufficient stock: ${itemNames}`,
+        duration: 8000
+      });
+    }
+  }, []);
 
   const handleAddItemFromSelector = (item: {
     variantId: string;
@@ -289,17 +273,29 @@ export function NewInvoiceForm({
       return;
     }
 
-    // Check if item from the SAME purchase already exists in the table
-    const existingItemIndex = fields.findIndex(
-      field => field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
-    );
+    const existingItemIndex = form.watch('items').findIndex(
+      (formItem) =>
+        formItem.variantId === item.variantId && 
+        formItem.variantSKU === item.sku
+      );
+
+    console.log(existingItemIndex)
 
     if (existingItemIndex !== -1) {
       // Item from same purchase exists, update its quantity
-      const existingItem = form.watch(`items.${existingItemIndex}`);
+      const currentItems = form.getValues('items');
+      const existingItem = currentItems[existingItemIndex];
       const newQuantity = existingItem.quantity + item.quantity;
-      form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
-      form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
+      
+      // Update the entire items array to trigger re-render
+      const updatedItems = [...currentItems];
+      updatedItems[existingItemIndex] = {
+        ...existingItem,
+        quantity: newQuantity,
+        amount: newQuantity * existingItem.rate
+      };
+      
+      form.setValue('items', updatedItems, { shouldValidate: true });
 
       toast.success('Item updated', {
         description: `Quantity increased to ${newQuantity}`
@@ -323,140 +319,6 @@ export function NewInvoiceForm({
     }
   };
 
-  const handleCustomerSelect = (customerId: string) => {
-    if (customerId === 'custom') {
-      setIsCustomCustomer(true);
-      setSelectedCustomer(null);
-      // Clear client fields for manual entry
-      form.setValue('client.name', '');
-      form.setValue('client.company', '');
-      form.setValue('client.email', '');
-      form.setValue('client.phone', '');
-      form.setValue('client.address', '');
-      form.setValue('client.city', '');
-      form.setValue('client.state', '');
-      form.setValue('client.zip', '');
-    } else {
-      const customer = customers.find(customer => customer.id === customerId);
-      if (customer) {
-        setIsCustomCustomer(false);
-        setSelectedCustomer(customer);
-        form.setValue('client.name', customer.name);
-        form.setValue('client.company', customer.company || '');
-        form.setValue('client.email', customer.email);
-        form.setValue('client.phone', customer.phone || '');
-        form.setValue('client.address', customer.address || '');
-        form.setValue('client.city', customer.city || '');
-        form.setValue('client.state', customer.state || '');
-        form.setValue('client.zip', customer.zip || '');
-
-        setIsToOpen(false);
-      }
-    }
-  };
-
-  const validateInvoiceData = (data: InvoiceFormValues): boolean => {
-    // Validate before preview
-    if (customers.length === 0) {
-      toast.error('Cannot create invoice', {
-        description: 'No customers available. Please add customers first.'
-      });
-      return false;
-    }
-    if (data.items.length === 0) {
-      toast.error('Cannot create invoice', {
-        description: 'Please add at least one item to the invoice.'
-      });
-      return false;
-    }
-
-    // Validate client details
-    if (!selectedCustomer && !isCustomCustomer) {
-      toast.error('Client details required', {
-        description: 'Please select a customer or enter custom client details.'
-      });
-      return false;
-    }
-
-    // Validate due date is not in the past
-    const dueDate = new Date(data.dueDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (dueDate < today) {
-      toast.error('Invalid due date', {
-        description: 'Due date cannot be in the past.'
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  const onSubmit = (data: InvoiceFormValues) => {
-    if (!validateInvoiceData(data)) return;
-    setIsPreviewOpen(true);
-  };
-
-  const handleSave = () => {
-    form.handleSubmit(
-      async data => {
-        if (!validateInvoiceData(data)) return;
-
-        try {
-          if (onSave) {
-            await onSave(data);
-          } else {
-            toast.error('Save function not available', {
-              description: 'Please contact support.'
-            });
-          }
-        } catch (error) {
-          console.error('Error saving invoice:', error);
-          toast.error('Failed to save invoice', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-          });
-        }
-      },
-      errors => {
-        console.error('Form validation errors:', errors);
-        toast.error('Cannot save invoice', {
-          description: 'Please fix all form errors before saving.'
-        });
-      }
-    )();
-  };
-
-  const handlePrint = () => {
-    form.handleSubmit(
-      data => {
-        if (!validateInvoiceData(data)) return;
-
-        try {
-          // Open preview sheet first
-          setIsPreviewOpen(true);
-          // Then trigger print after a short delay to ensure sheet is rendered
-          setTimeout(() => {
-            handleReactToPrint();
-          }, 300);
-        } catch (error) {
-          console.error('Error printing invoice:', error);
-          toast.error('Failed to print invoice', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-          });
-        }
-      },
-      errors => {
-        console.error('Form validation errors:', errors);
-        toast.error('Cannot print invoice', {
-          description: 'Please fix all form errors before printing.'
-        });
-      }
-    )();
-  };
-
-  // Get today's date in YYYY-MM-DD format for the min attribute
-  const today = new Date().toISOString().split('T')[0];
-
   const handleNumericInput = (
     e: React.ChangeEvent<HTMLInputElement>,
     field: { onChange: (value: number) => void; value: number },
@@ -467,11 +329,9 @@ export function NewInvoiceForm({
       field.onChange(0);
       return;
     }
-    // Remove non-numeric characters except decimal point
     const numericString = value.replace(/[^0-9.]/g, '');
     const numericValue = parseFloat(numericString);
     if (!isNaN(numericValue)) {
-      // Validate specific field constraints
       if (fieldName === 'taxRate' && numericValue > 100) {
         toast.error('Invalid tax rate', {
           description: 'Tax rate cannot exceed 100%'
@@ -499,59 +359,143 @@ export function NewInvoiceForm({
     }
   };
 
+  const validateInvoiceData = (data: InvoiceFormValues): boolean => {
+    if (data.items.length === 0) {
+      toast.error('Cannot create invoice', {
+        description: 'Please add at least one item to the invoice.'
+      });
+      return false;
+    }
+
+    // Check for out of stock items
+    const outOfStockItems = data.items.filter(item => isItemOutOfStock(item.variantId, item.quantity));
+
+    if (outOfStockItems.length > 0) {
+      const itemDescriptions = outOfStockItems.map(item => item.description).join(', ');
+      toast.error('Cannot create invoice with out of stock items', {
+        description: `The following items are out of stock or have insufficient quantity: ${itemDescriptions}. Please remove them or adjust quantities.`,
+        duration: 8000
+      });
+      return false;
+    }
+
+    // Validate due date is not in the past
+    const dueDate = new Date(data.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (dueDate < today) {
+      toast.error('Invalid due date', {
+        description: 'Due date cannot be in the past.'
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSave = () => {
+    form.handleSubmit(
+      async data => {
+        if (!validateInvoiceData(data)) return;
+
+        try {
+          const { createInvoice } = await import('@/features/invoices/actions');
+          const { getSession } = await import('next-auth/react');
+
+          const session = await getSession();
+          const createdBy = session?.user?.email || 'unknown';
+
+          // Create the invoice with modified data
+          const newInvoice = await createInvoice({
+            invoiceNumber: data.invoiceNumber,
+            type: 'invoice' as const,
+            date: new Date(data.date),
+            dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+            billingType: quotation.billingType || 'retail',
+            market: quotation.market || 'newon',
+            customerId: customerData.customerId ?? '',
+            customerName: customerData.customerName,
+            customerCompany: customerData.customerCompany || undefined,
+            customerEmail: customerData.customerEmail,
+            customerPhone: customerData.customerPhone,
+            customerAddress: customerData.customerAddress,
+            customerCity: customerData.customerCity ?? '',
+            customerState: customerData.customerState ?? '',
+            customerZip: customerData.customerZip ?? '',
+            items: data.items.map(item => ({
+              productId: item.productId || '',
+              productName: item.description,
+              variantId: item.variantId,
+              variantSKU: item.variantSKU,
+              quantity: item.quantity,
+              unit: 'pcs',
+              unitPrice: item.rate,
+              discountType: 'fixed',
+              discountValue: 0,
+              discountAmount: 0,
+              totalPrice: item.amount,
+              purchaseId: item.purchaseId
+            })),
+            subtotal: data.items.reduce((sum, item) => sum + item.amount, 0),
+            discountType: data.discountType,
+            discountValue: data.discount,
+            discountAmount:
+              data.discountType === 'percentage'
+                ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
+                : data.discount,
+            gstType: 'percentage',
+            gstValue: data.taxRate,
+            gstAmount: (data.items.reduce((sum, item) => sum + item.amount, 0) * data.taxRate) / 100,
+            totalAmount:
+              data.items.reduce((sum, item) => sum + item.amount, 0) +
+              (data.items.reduce((sum, item) => sum + item.amount, 0) * data.taxRate) / 100 -
+              (data.discountType === 'percentage'
+                ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
+                : data.discount),
+            status: 'pending',
+            paidAmount: data.paid,
+            balanceAmount: data.remainingPayment + data.previousBalance,
+            notes: data.notes,
+            termsAndConditions: quotation.termsAndConditions,
+            createdBy
+          });
+
+          // Mark the original quotation as converted
+          const { updateInvoice } = await import('@/features/invoices/actions');
+          await updateInvoice(quotationId, {
+            status: 'converted',
+            convertedToInvoice: true,
+            convertedInvoiceId: newInvoice.id
+          });
+
+          toast.success('Invoice created successfully', {
+            description: 'Redirecting to invoices page...'
+          });
+
+          // Redirect to invoices page
+          window.location.href = '/invoices';
+        } catch (error) {
+          console.error('Error saving invoice:', error);
+          toast.error('Failed to save invoice', {
+            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+          });
+        }
+      },
+      errors => {
+        console.error('Form validation errors:', errors);
+        toast.error(`Cannot save invoice`, {
+          description: 'Please fix all form errors before saving.'
+        });
+      }
+    )();
+  };
+
+  // Get today's date in YYYY-MM-DD format for the min attribute
+  const today = new Date().toISOString().split('T')[0];
+
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit, errors => {
-          console.log('Form errors:', errors);
-
-          // Handle items array errors
-          if (errors.items) {
-            if (errors.items.message) {
-              toast.error('Form validation failed', {
-                description: errors.items.message
-              });
-              return;
-            }
-            // Handle individual item errors
-            if (Array.isArray(errors.items)) {
-              const firstItemError = errors.items.find(item => item);
-              if (firstItemError) {
-                const errorField = Object.keys(firstItemError)[0];
-                const errorMessage = firstItemError[errorField]?.message || 'Invalid item data';
-                toast.error('Form validation failed', {
-                  description: errorMessage
-                });
-                return;
-              }
-            }
-          }
-
-          // Handle client errors
-          if (errors.client) {
-            const clientErrors = errors.client as Record<string, { message?: string }>;
-            const firstClientError = Object.values(clientErrors).find(err => err?.message);
-            if (firstClientError?.message) {
-              toast.error('Form validation failed', {
-                description: firstClientError.message
-              });
-              return;
-            }
-          }
-
-          // Handle other field errors
-          const errorFields = Object.keys(errors).filter(key => key !== 'items' && key !== 'client');
-          if (errorFields.length > 0) {
-            const firstError = errors[errorFields[0] as keyof typeof errors];
-            const errorMessage = (firstError as { message?: string })?.message || 'Please check the form for errors';
-
-            toast.error('Form validation failed', {
-              description: errorMessage
-            });
-          }
-        })}
-        className="space-y-8"
-      >
+      <form className="space-y-8">
         <div className="flex justify-between items-center gap-2 p-4">
           <FormField
             control={form.control}
@@ -600,239 +544,6 @@ export function NewInvoiceForm({
           </div>
         </div>
 
-        {/* Client Details */}
-        <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
-          <div className="p-2">
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn('w-full justify-between p-0', {
-                  'mb-4': isToOpen
-                })}
-              >
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  To {form.watch("client.name") && `- ${form.watch("client.name")}`}
-                </h2>
-                <ChevronsUpDown />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
-              <div>
-                <Select onValueChange={handleCustomerSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a customer or enter custom details" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="custom">
-                      <span className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Custom Customer (Manual Entry)
-                      </span>
-                    </SelectItem>
-                    {customers.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.company || 'No Company'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedCustomer && !isCustomCustomer && (
-                <div className="bg-gray-50 border rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        {selectedCustomer.name}
-                      </h3>
-                      {selectedCustomer.company && (
-                        <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                          <Building2 className="h-4 w-4" />
-                          {selectedCustomer.company}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {selectedCustomer.email}
-                      </p>
-                      <p className="text-sm flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        {selectedCustomer.phone}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-sm flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5" />
-                      <span>
-                        {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
-                        {selectedCustomer.zip}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              )}
-              {isCustomCustomer && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="client.name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Name</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <User className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="Client Name" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company (Optional)</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Building2 className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="Company Name" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Mail className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput type="email" placeholder="client@example.com" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Phone className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.address"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="123 Client St." {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="City" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="State" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.zip"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="12345" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-              {!selectedCustomer && !isCustomCustomer && (
-                <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
-                  <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Select a customer or choose custom entry</p>
-                </div>
-              )}
-            </CollapsibleContent>
-          </div>
-        </Collapsible>
-
         {/* Invoice Items */}
         <div className="border rounded-lg p-6">
           <div className="space-y-1 mb-6">
@@ -842,7 +553,9 @@ export function NewInvoiceForm({
                   <ShoppingCart className="h-5 w-5" />
                   <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
                 </div>
-                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products or Custom Items</h3>
+                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">
+                  Add Products or Custom Items
+                </h3>
               </div>
               <Button
                 type="button"
@@ -886,9 +599,7 @@ export function NewInvoiceForm({
               {fields.length === 0 && (
                 <div className="text-center text-muted-foreground py-20">
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm max-w-sm mx-auto">
-                    No items added yet. Use the product selector above to add items.
-                  </p>
+                  <p className="text-sm max-w-sm mx-auto">No items added yet.</p>
                 </div>
               )}
 
@@ -911,9 +622,17 @@ export function NewInvoiceForm({
                       const currentRate = form.watch(`items.${index}.rate`) || 0;
                       const variantId = form.watch(`items.${index}.variantId`);
                       const availableStock = getAvailableStock(variantId);
+                      const isOutOfStock = isItemOutOfStock(variantId, currentQuantity);
+                      const hasInsufficientStock = variantId && availableStock > 0 && availableStock < currentQuantity;
 
                       return (
-                        <tr key={item.id} className="group hover:bg-muted/30 transition-colors">
+                        <tr
+                          key={item.id}
+                          className={cn(
+                            'group hover:bg-muted/30 transition-colors',
+                            isOutOfStock && 'opacity-60 bg-destructive/5'
+                          )}
+                        >
                           <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
                           <td className="py-3 px-2">
                             <FormField
@@ -934,9 +653,19 @@ export function NewInvoiceForm({
                                 </FormItem>
                               )}
                             />
-                            {variantId && availableStock < Infinity && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Available: {availableStock} units
+                            {variantId && (
+                              <div className="flex items-center gap-2 mt-1">
+                                {isOutOfStock && (
+                                  <div className="flex items-center gap-1 text-xs text-destructive">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <span className="font-medium">
+                                      {availableStock === 0 ? 'Out of stock' : `Only ${availableStock} available`}
+                                    </span>
+                                  </div>
+                                )}
+                                {!isOutOfStock && availableStock < Infinity && (
+                                  <div className="text-xs text-muted-foreground">Available: {availableStock} units</div>
+                                )}
                               </div>
                             )}
                           </td>
@@ -966,7 +695,6 @@ export function NewInvoiceForm({
                                         <InputGroupInput
                                           type="number"
                                           min="0.01"
-                                          max={availableStock < Infinity ? availableStock : undefined}
                                           step="1"
                                           {...field}
                                           className="h-7 text-sm text-center"
@@ -1098,9 +826,16 @@ export function NewInvoiceForm({
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
                   const availableStock = getAvailableStock(variantId);
+                  const isOutOfStock = isItemOutOfStock(variantId, currentQuantity);
 
                   return (
-                    <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
+                    <div
+                      key={item.id}
+                      className={cn(
+                        'p-4 hover:bg-muted/30 transition-colors',
+                        isOutOfStock && 'opacity-60 bg-destructive/5'
+                      )}
+                    >
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-start gap-2 flex-1">
                           <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
@@ -1125,9 +860,16 @@ export function NewInvoiceForm({
                                 </FormItem>
                               )}
                             />
-                            {variantId && availableStock < Infinity && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Available: {availableStock} units
+                            {variantId && (
+                              <div className="flex items-center gap-2 mt-1">
+                                {isOutOfStock && (
+                                  <div className="flex items-center gap-1 text-xs text-destructive">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    <span className="font-medium">
+                                      {availableStock === 0 ? 'Out of stock' : `Only ${availableStock} available`}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1152,11 +894,11 @@ export function NewInvoiceForm({
                               size="icon"
                               className="h-8 w-8"
                               onClick={() => {
-                                const newQuantity = Math.max(0.01, currentQuantity - 1);
+                                const newQuantity = Math.max(1, currentQuantity - 1);
                                 form.setValue(`items.${index}.quantity`, newQuantity);
                                 form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                               }}
-                              disabled={currentQuantity <= 0.01}
+                              disabled={currentQuantity <= 1}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -1177,8 +919,8 @@ export function NewInvoiceForm({
                                         onChange={e => {
                                           const value = e.target.value;
                                           if (value === '') {
-                                            field.onChange(0.01);
-                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            field.onChange(1);
+                                            form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
                                           const numericValue = parseFloat(value);
@@ -1289,6 +1031,7 @@ export function NewInvoiceForm({
             </div>
           </div>
 
+          {/* Financial Summary */}
           <div className="mt-6 flex justify-end">
             <div className="w-full max-w-xl space-y-2">
               <div className="flex justify-between">
@@ -1378,7 +1121,6 @@ export function NewInvoiceForm({
                 <span className="font-medium">- {formatCurrency(discountAmount)}</span>
               </div>
 
-              {/* Additional fields from original design */}
               <div className="border-t pt-2 mt-2 space-y-2">
                 <div className="flex justify-between font-semibold">
                   <span>Total:</span>
@@ -1465,7 +1207,7 @@ export function NewInvoiceForm({
           </div>
         </div>
 
-        {/* Notes - Collapsible and Collapsed by Default */}
+        {/* Notes - Collapsible */}
         <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen} className="border rounded-lg">
           <div className="p-2">
             <CollapsibleTrigger asChild>
@@ -1507,49 +1249,16 @@ export function NewInvoiceForm({
             className="w-full sm:w-auto"
             onClick={() => {
               form.reset();
-              setSelectedCustomer(null);
-              setIsCustomCustomer(false);
             }}
           >
             Reset Form
           </Button>
-          <Button type="submit" variant="outline" className="w-full sm:w-auto">
-            <Eye className="h-4 w-4 mr-2" />
-            Preview
-          </Button>
           <Button type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
-            Save Invoice
-          </Button>
-          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print
+            Create Invoice
           </Button>
         </div>
       </form>
-
-      {/* Preview Sheet */}
-      <Sheet open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex gap-2 items-center text-primary">
-              <Printer /> Invoice Preview
-            </SheetTitle>
-          </SheetHeader>
-          <div className="mt-6">
-            <NewonInvoiceTemplate
-              ref={printRef}
-              invoiceData={{
-                ...form.getValues(),
-                invoiceNumber: form.getValues('invoiceNumber') || nextInvoiceNumber
-              }}
-              onBack={() => setIsPreviewOpen(false)}
-              onPrint={handleReactToPrint}
-              onSave={handleSave}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
     </Form>
   );
 }

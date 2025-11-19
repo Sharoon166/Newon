@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash2, FileText, CheckCircle, XCircle, Clock, Edit, Plus, RefreshCw } from 'lucide-react';
+import { Eye, Trash2, FileText, CheckCircle, XCircle, Clock, Edit, Plus, RefreshCw, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import Link from 'next/link';
 import { deleteInvoice } from '../actions';
 import { Badge } from '@/components/ui/badge';
@@ -26,11 +26,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { MoreHorizontal } from 'lucide-react';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AddPaymentDialog } from './add-payment-dialog';
 import { UpdateStatusDialog } from './update-status-dialog';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  ColumnDef,
+  flexRender,
+  SortingState,
+  ColumnFiltersState
+} from '@tanstack/react-table';
 
 interface InvoicesTableProps {
   invoices: Invoice[];
@@ -45,6 +64,9 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
 
   const handleRefresh = () => {
     if (onRefresh) {
@@ -96,6 +118,217 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
     );
   };
 
+  const columns = useMemo<ColumnDef<Invoice>[]>(
+    () => [
+      {
+        accessorKey: 'invoiceNumber',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Number
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => <div className="font-medium">{row.getValue('invoiceNumber')}</div>
+      },
+      {
+        accessorKey: 'customerName',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Customer
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">{row.getValue('customerName')}</div>
+            {row.original.customerCompany && (
+              <div className="text-sm text-muted-foreground">{row.original.customerCompany}</div>
+            )}
+          </div>
+        )
+      },
+      {
+        accessorKey: 'date',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Date
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => format(new Date(row.getValue('date')), 'MMM dd, yyyy'),
+        sortingFn: 'datetime'
+      },
+      {
+        accessorKey: 'dueDate',
+        header: 'Due Date',
+        cell: ({ row }) => {
+          const dueDate = row.getValue('dueDate') as string | null;
+          return dueDate ? format(new Date(dueDate), 'MMM dd, yyyy') : '-';
+        }
+      },
+      {
+        accessorKey: 'totalAmount',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Amount
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => <div className="font-medium">{formatCurrency(row.getValue('totalAmount'))}</div>,
+        sortingFn: 'basic'
+      },
+      {
+        accessorKey: 'paidAmount',
+        header: 'Paid',
+        cell: ({ row }) => <div className="text-green-600">{formatCurrency(row.getValue('paidAmount'))}</div>
+      },
+      {
+        accessorKey: 'balanceAmount',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Balance
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const balance = row.getValue('balanceAmount') as number;
+          return (
+            <div className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
+              {formatCurrency(balance)}
+            </div>
+          );
+        }
+      },
+      {
+        accessorKey: 'status',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          >
+            Status
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => getStatusBadge(row.getValue('status')),
+        filterFn: (row, id, value) => {
+          return value.includes(row.getValue(id));
+        }
+      },
+      {
+        accessorKey: 'market',
+        header: 'Market',
+        cell: ({ row }) => <Badge variant="outline">{row.getValue('market')}</Badge>,
+        filterFn: (row, id, value) => {
+          return value.includes(row.getValue(id));
+        }
+      },
+      {
+        id: 'actions',
+        cell: ({ row }) => {
+          const invoice = row.original;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href={`/invoices/${invoice.id}`}>
+                  <DropdownMenuItem>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedInvoice(invoice);
+                    setEditDialogOpen(true);
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedInvoice(invoice);
+                    setStatusDialogOpen(true);
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Update Status
+                </DropdownMenuItem>
+                {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSelectedInvoice(invoice);
+                      setPaymentDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Payment
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => {
+                    setSelectedInvoice(invoice);
+                    setDeleteDialogOpen(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+      }
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: invoices,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter
+    },
+    initialState: {
+      pagination: {
+        pageSize: 10
+      }
+    }
+  });
+
   if (invoices.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
@@ -109,112 +342,168 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
     );
   }
 
+  const uniqueStatuses = Array.from(new Set(invoices.map(inv => inv.status)));
+  const uniqueMarkets = Array.from(new Set(invoices.map(inv => inv.market)));
+
   return (
     <>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Number</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Paid</TableHead>
-              <TableHead>Balance</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Market</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {invoices.map(invoice => (
-              <TableRow key={invoice.id}>
-                <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{invoice.customerName}</div>
-                    {invoice.customerCompany && (
-                      <div className="text-sm text-muted-foreground">{invoice.customerCompany}</div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>{format(new Date(invoice.date), 'MMM dd, yyyy')}</TableCell>
-                <TableCell>
-                  {invoice.dueDate ? format(new Date(invoice.dueDate), 'MMM dd, yyyy') : '-'}
-                </TableCell>
-                <TableCell className="font-medium">{formatCurrency(invoice.totalAmount)}</TableCell>
-                <TableCell className="text-green-600">{formatCurrency(invoice.paidAmount)}</TableCell>
-                <TableCell className={invoice.balanceAmount > 0 ? 'text-red-600' : 'text-green-600'}>
-                  {formatCurrency(invoice.balanceAmount)}
-                </TableCell>
-                <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{invoice.market}</Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <Link href={`/invoices/${invoice.id}`}>
-                        <DropdownMenuItem>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                      </Link>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setStatusDialogOpen(true);
-                        }}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Update Status
-                      </DropdownMenuItem>
-                      {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSelectedInvoice(invoice);
-                            setPaymentDialogOpen(true);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Payment
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="space-y-4">
+        {/* Filters */}
+        <div className="flex items-center gap-4">
+          <Input
+            placeholder="Search all columns..."
+            value={globalFilter ?? ''}
+            onChange={e => setGlobalFilter(e.target.value)}
+            className="max-w-sm"
+          />
+          <Select
+            value={(table.getColumn('status')?.getFilterValue() as string[])?.join(',') || 'all'}
+            onValueChange={value => {
+              table.getColumn('status')?.setFilterValue(value === 'all' ? undefined : [value]);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {uniqueStatuses.map(status => (
+                <SelectItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={(table.getColumn('market')?.getFilterValue() as string[])?.join(',') || 'all'}
+            onValueChange={value => {
+              table.getColumn('market')?.setFilterValue(value === 'all' ? undefined : [value]);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by market" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Markets</SelectItem>
+              {uniqueMarkets.map(market => (
+                <SelectItem key={market} value={market}>
+                  {market}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Table */}
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No results found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length
+            )}{' '}
+            of {table.getFilteredRowModel().rows.length} results
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Rows per page:</span>
+              <Select
+                value={`${table.getState().pagination.pageSize}`}
+                onValueChange={value => {
+                  table.setPageSize(Number(value));
+                }}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={table.getState().pagination.pageSize} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 20, 30, 40, 50].map(pageSize => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                      {pageSize}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-1 px-2">
+                <span className="text-sm">
+                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <ConfirmationDialog

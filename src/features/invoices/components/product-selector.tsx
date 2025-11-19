@@ -19,6 +19,7 @@ interface ProductSelectorProps {
   currentItems?: Array<{
     variantId?: string;
     quantity: number;
+    purchaseId?: string;
   }>;
   onAddItem: (item: {
     variantId: string;
@@ -75,14 +76,15 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
 
     const firstPurchase = variantPurchases[0];
     const quantity = getVariantQuantity(variant.id);
-    const available = variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
+    // FIFO: Only use stock from the first purchase
+    const available = firstPurchase?.remaining || 0;
 
-    // Calculate quantity already in invoice for this variant
+    // Calculate quantity already in invoice for this variant from the SAME purchase
     const quantityInInvoice = currentItems
-      .filter(item => item.variantId === variant.id)
+      .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
       .reduce((sum, item) => sum + item.quantity, 0);
 
-    // Calculate remaining available stock after accounting for items in invoice
+    // Calculate remaining available stock after accounting for items in invoice from SAME purchase
     const remainingAvailable = available - quantityInInvoice;
 
     // Validation checks
@@ -137,7 +139,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
       description,
       quantity,
       rate,
-      purchaseId: firstPurchase?.id || firstPurchase?._id
+      purchaseId: firstPurchase?.purchaseId
     });
 
     // Reset quantity for this variant
@@ -203,12 +205,14 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
             .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
             .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
 
-          const available = variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0);
+          const firstPurchase = variantPurchasesForCard[0];
+          // FIFO: Only show stock from the first purchase
+          const available = firstPurchase?.remaining || 0;
+          // Only count items from the SAME purchase when calculating remaining stock
           const quantityInInvoice = currentItems
-            .filter(item => item.variantId === variant.id)
+            .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
             .reduce((sum, item) => sum + item.quantity, 0);
           const remainingAvailable = available - quantityInInvoice;
-          const firstPurchase = variantPurchasesForCard[0];
           const quantity = getVariantQuantity(variant.id);
 
           return (
@@ -246,7 +250,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                       {firstPurchase && (
                         <Popover>
                           <PopoverTrigger asChild onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 flex-shrink-0">
+                            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
                               <Info className="h-3 w-3" />
                             </Button>
                           </PopoverTrigger>
@@ -254,7 +258,12 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                             <div className="space-y-3">
                               <div>
                                 <h4 className="font-semibold text-sm mb-1">FIFO - Next Purchase to Use</h4>
-                                <p className="text-xs text-muted-foreground">Total Available: {available} units</p>
+                                <p className="text-xs text-muted-foreground">
+                                  This Purchase: {firstPurchase.remaining} units
+                                  {variantPurchasesForCard.length > 1 && (
+                                    <> | Total Across All: {variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0)} units</>
+                                  )}
+                                </p>
                               </div>
                               <div className="space-y-2 text-xs">
                                 <div className="flex justify-between">
@@ -343,15 +352,15 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                         e.stopPropagation();
                         setVariantQuantity(variant.id, Math.max(1, quantity - 1));
                       }}
-                      disabled={quantity <= 1}
+                      disabled={quantity <= 1 || remainingAvailable === 0}
                     >
                       <Minus className="h-3 w-3" />
                     </Button>
                     <Input
                       type="number"
-                      min={1}
-                      max={remainingAvailable}
-                      value={quantity}
+                      min={remainingAvailable > 0 ? 1 : 0}
+                      max={remainingAvailable > 0 ? remainingAvailable : 0}
+                      value={remainingAvailable === 0 ? 0 : quantity}
                       onChange={e => {
                         e.stopPropagation();
                         const newQuantity = parseInt(e.target.value) || 1;
@@ -371,6 +380,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                       }}
                       onClick={e => e.stopPropagation()}
                       className="text-center h-8"
+                      disabled={remainingAvailable === 0}
                     />
                     <Button
                       type="button"
@@ -388,7 +398,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                         }
                         setVariantQuantity(variant.id, newQuantity);
                       }}
-                      disabled={quantity >= remainingAvailable}
+                      disabled={quantity >= remainingAvailable || remainingAvailable === 0}
                     >
                       <Plus className="h-3 w-3" />
                     </Button>

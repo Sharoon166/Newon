@@ -3,13 +3,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
 interface PageHeaderProps {
+  icon?: React.ReactNode
   title: string;
   description?: string;
   backLink?: string;
   children?: React.ReactNode;
 }
 
-export function PageHeader({ title, description, backLink, children }: PageHeaderProps) {
+export function PageHeader({ icon,  title, description, backLink, children }: PageHeaderProps) {
   return (
     <div className="flex flex-col flex-wrap md:flex-row md:items-center justify-between gap-4 mb-6">
       <div className="space-y-3">
@@ -22,7 +23,7 @@ export function PageHeader({ title, description, backLink, children }: PageHeade
           </Button>
         )}
         <div className="space-y-1">
-          <h1 className="text-2xl md:text-4xl text-primary font-bold tracking-tight">{title}</h1>
+          <h1 className="text-2xl md:text-4xl text-primary font-bold tracking-tight inline-flex items-center gap-2"> {icon ?? icon} {title}</h1>
           {description && <p className="text-muted-foreground">{description}</p>}
         </div>
       </div>

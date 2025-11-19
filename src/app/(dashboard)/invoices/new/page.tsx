@@ -7,7 +7,7 @@ import { getPaymentDetails, getInvoiceTerms } from '@/features/settings/actions'
 
 
 export default async function NewDocument() {
-  const [customersData, variantsData, purchasesData, paymentDetails, invoiceTerms] = await Promise.all([
+  const [customersData, variants, purchases, paymentDetails, invoiceTerms] = await Promise.all([
     getCustomers({ limit: 1000 }),
     getProducts(),
     getAllPurchases(),
@@ -16,12 +16,10 @@ export default async function NewDocument() {
   ]);
 
   const customers = customersData.docs;
-  const variants = variantsData;
-  const purchases = purchasesData;
 
   return (
     <div className="container mx-auto py-10">
-      <PageHeader title="New Document" />
+      <PageHeader title="New Invoice or Quotation" />
       
       <NewInvoiceFormWrapper
         customers={customers}

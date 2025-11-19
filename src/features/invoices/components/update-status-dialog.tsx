@@ -24,6 +24,8 @@ interface UpdateStatusDialogProps {
   onSuccess: () => void;
 }
 
+type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+
 export function UpdateStatusDialog({
   open,
   onOpenChange,
@@ -32,7 +34,6 @@ export function UpdateStatusDialog({
   type,
   onSuccess
 }: UpdateStatusDialogProps) {
-  type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>(currentStatus as InvoiceStatus);
   const [isSubmitting, setIsSubmitting] = useState(false);
 

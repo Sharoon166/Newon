@@ -9,6 +9,7 @@ import type { Customer } from '@/features/customers/types';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { PaymentDetails } from '@/features/settings/types';
+import { toast } from 'sonner';
 
 type DocumentType = 'invoice' | 'quotation';
 
@@ -129,11 +130,11 @@ export function NewInvoiceFormWrapper({
       };
 
       const result = await createInvoice(createData);
-      alert(`${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`);
+      toast.info(`${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`);
       window.location.href = '/invoices';
     } catch (error) {
       console.error('Error saving document:', error);
-      alert(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -159,6 +160,7 @@ export function NewInvoiceFormWrapper({
       <TabsContent value="quotation">
         <NewQuotationForm 
           onPreview={() => {}} 
+          onSave={handleSaveInvoice}
           customers={customers}
           variants={variants}
           purchases={purchases}
