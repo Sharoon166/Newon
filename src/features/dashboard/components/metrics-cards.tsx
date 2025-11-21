@@ -6,9 +6,9 @@ import { formatCurrency } from '@/lib/utils';
 import {
   Package,
   TrendingUp,
-  DollarSign,
   ShoppingCart,
-  Wallet
+  Wallet,
+  Coins
 } from 'lucide-react';
 
 interface MetricsCardsProps {
@@ -42,7 +42,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       title: 'Total Revenue',
       value: formatCurrency(metrics.totalRevenue),
       subtitle: 'All time revenue',
-      icon: DollarSign,
+      icon: Coins,
       color: 'text-emerald-600'
     },
     {
@@ -55,14 +55,14 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-              <Icon className={`h-4 w-4 ${card.color}`} />
+              <Icon className={`h-6 w-6 ${card.color}`} />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{card.value}</div>

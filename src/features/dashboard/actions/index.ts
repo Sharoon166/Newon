@@ -48,6 +48,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       {
         $match: {
           type: 'invoice',
+          status: { $ne: 'cancelled' },
           date: { $gte: todayStart, $lte: todayEnd }
         }
       },
@@ -64,6 +65,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       {
         $match: {
           type: 'invoice',
+          status: { $ne: 'cancelled' },
           date: { $gte: monthStart }
         }
       },
@@ -79,7 +81,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     const totalRevenueData = await InvoiceModel.aggregate([
       {
         $match: {
-          type: 'invoice'
+          type: 'invoice',
+          status: { $ne: 'cancelled' }
         }
       },
       {
@@ -152,6 +155,7 @@ export async function getSalesTrend(days: number = 7): Promise<SalesTrendData[]>
       {
         $match: {
           type: 'invoice',
+          status: { $ne: 'cancelled' },
           date: { $gte: startDate, $lte: todayEnd }
         }
       },

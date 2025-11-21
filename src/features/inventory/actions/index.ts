@@ -192,11 +192,17 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
     } as Purchase);
   });
 
-  // Add pricing information to each variant
+  // Add pricing information and calculate actual stock from purchases
   const enhancedData = data.map((variant: Record<string, unknown> & { productId: string; id: string }) => {
     const key = `${variant.productId}-${variant.id}`;
     const variantPurchases = purchaseMap.get(key) || [];
     const pricing = calculateVariantPricing(variantPurchases);
+
+    // Calculate actual available stock from purchases (sum of remaining quantities)
+    const actualAvailableStock = variantPurchases.reduce((sum, purchase) => sum + (purchase.remaining || 0), 0);
+    
+    // Keep the original backorder value from the variant (this is managed separately)
+    const actualBackorderStock = (variant.stockOnBackorder as number) || 0;
 
     return {
       ...variant,
@@ -204,7 +210,10 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
       retailPrice: pricing.retailPrice,
       wholesalePrice: pricing.wholesalePrice,
       shippingCost: pricing.shippingCost,
-      unitPrice: pricing.unitPrice
+      unitPrice: pricing.unitPrice,
+      // Override with actual stock from purchases
+      availableStock: actualAvailableStock,
+      stockOnBackorder: actualBackorderStock
     } as unknown as EnhancedVariants;
   });
 

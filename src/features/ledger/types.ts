@@ -93,6 +93,8 @@ export interface CustomerLedger {
  * - totalInvoiced: Total amount invoiced
  * - customersWithBalance: Number of customers with outstanding balance
  * - overdueAmount: Total overdue amount
+ * - monthlyInvoiced: Total amount invoiced this month
+ * - monthlyReceived: Total amount received this month
  */
 export interface LedgerSummary {
   totalCustomers: number;
@@ -101,6 +103,8 @@ export interface LedgerSummary {
   totalInvoiced: number;
   customersWithBalance: number;
   overdueAmount: number;
+  monthlyInvoiced: number;
+  monthlyReceived: number;
 }
 
 /**

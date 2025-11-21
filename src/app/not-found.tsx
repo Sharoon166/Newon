@@ -4,9 +4,9 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex max-sm:flex-col justify-center  items-center gap-4">
+    <div className="pt-10 flex max-sm:flex-col justify-center items-center gap-4">
       <div>
-        <Image src="/404.png" alt="Not Found" width={300} height={300} className="grayscale" />
+        <Image src="/404.png" alt="Not Found" width={300} height={300} unoptimized />
       </div>
       <div className="space-y-8">
         <h1 className="lg:text-9xl text-primary">404</h1>

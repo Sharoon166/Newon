@@ -535,6 +535,106 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
   }
 }
 
+// Update payment in invoice
+export async function updatePayment(
+  invoiceId: string,
+  paymentIndex: number,
+  updatedPayment: AddPaymentDto
+): Promise<Invoice> {
+  try {
+    await dbConnect();
+
+    const invoice = await InvoiceModel.findById(invoiceId);
+
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+
+    if (paymentIndex < 0 || paymentIndex >= invoice.payments.length) {
+      throw new Error('Payment not found');
+    }
+
+    const oldPayment = invoice.payments[paymentIndex];
+
+    // Update the payment
+    invoice.payments[paymentIndex] = updatedPayment as never;
+
+    // Recalculate paid amount
+    invoice.paidAmount = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+
+    // Update balance amount
+    invoice.balanceAmount = invoice.totalAmount - invoice.paidAmount;
+
+    // Update status based on payment
+    if (invoice.balanceAmount <= 0) {
+      invoice.status = 'paid';
+    } else if (invoice.paidAmount > 0) {
+      invoice.status = 'partial';
+    } else {
+      invoice.status = 'pending';
+    }
+
+    await invoice.save();
+
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${invoiceId}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/ledger', 'layout');
+
+    return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
+  } catch (error) {
+    console.error(`Error updating payment in invoice ${invoiceId}:`, error);
+    throw new Error('Failed to update payment');
+  }
+}
+
+// Delete payment from invoice
+export async function deletePayment(invoiceId: string, paymentIndex: number): Promise<Invoice> {
+  try {
+    await dbConnect();
+
+    const invoice = await InvoiceModel.findById(invoiceId);
+
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+
+    if (paymentIndex < 0 || paymentIndex >= invoice.payments.length) {
+      throw new Error('Payment not found');
+    }
+
+    // Remove the payment
+    invoice.payments.splice(paymentIndex, 1);
+
+    // Recalculate paid amount
+    invoice.paidAmount = invoice.payments.reduce((sum, p) => sum + p.amount, 0);
+
+    // Update balance amount
+    invoice.balanceAmount = invoice.totalAmount - invoice.paidAmount;
+
+    // Update status based on payment
+    if (invoice.balanceAmount <= 0 && invoice.paidAmount > 0) {
+      invoice.status = 'paid';
+    } else if (invoice.paidAmount > 0) {
+      invoice.status = 'partial';
+    } else {
+      invoice.status = 'pending';
+    }
+
+    await invoice.save();
+
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${invoiceId}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/ledger', 'layout');
+
+    return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
+  } catch (error) {
+    console.error(`Error deleting payment from invoice ${invoiceId}:`, error);
+    throw new Error('Failed to delete payment');
+  }
+}
+
 // Convert quotation to invoice
 export async function convertQuotationToInvoice(quotationId: string, createdBy: string): Promise<Invoice> {
   try {
@@ -701,6 +801,12 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
   try {
     await dbConnect();
 
+    const { startOfDay, endOfDay, startOfMonth } = await import('date-fns');
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const monthStart = startOfMonth(now);
+
     const query: Record<string, unknown> = { type: 'invoice' };
 
     if (filters?.market) {
@@ -718,12 +824,26 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       query.date = dateQuery;
     }
 
-    const [totalInvoices, paidInvoices, pendingInvoices, totalRevenue, totalOutstanding] = await Promise.all([
-      InvoiceModel.countDocuments(query),
+    const [
+      totalInvoices,
+      paidInvoices,
+      pendingInvoices,
+      totalRevenue,
+      totalOutstanding,
+      dailySales,
+      monthlySales,
+      cancelledInvoices,
+      cancelledRevenue
+    ] = await Promise.all([
+      InvoiceModel.countDocuments({ ...query, status: { $ne: 'cancelled' } }),
       InvoiceModel.countDocuments({ ...query, status: 'paid' }),
       InvoiceModel.countDocuments({ ...query, status: { $in: ['pending', 'partial'] } }),
-      InvoiceModel.aggregate([{ $match: query }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
-      InvoiceModel.aggregate([{ $match: query }, { $group: { _id: null, total: { $sum: '$balanceAmount' } } }])
+      InvoiceModel.aggregate([{ $match: { ...query, status: { $ne: 'cancelled' } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
+      InvoiceModel.aggregate([{ $match: { ...query, status: { $ne: 'cancelled' } } }, { $group: { _id: null, total: { $sum: '$balanceAmount' } } }]),
+      InvoiceModel.aggregate([{ $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: todayStart, $lte: todayEnd } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
+      InvoiceModel.aggregate([{ $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: monthStart } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
+      InvoiceModel.countDocuments({ ...query, status: 'cancelled' }),
+      InvoiceModel.aggregate([{ $match: { ...query, status: 'cancelled' } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }])
     ]);
 
     return {
@@ -731,7 +851,11 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       paidInvoices,
       pendingInvoices,
       totalRevenue: totalRevenue[0]?.total || 0,
-      totalOutstanding: totalOutstanding[0]?.total || 0
+      totalOutstanding: totalOutstanding[0]?.total || 0,
+      dailySales: dailySales[0]?.total || 0,
+      monthlySales: monthlySales[0]?.total || 0,
+      cancelledInvoices,
+      cancelledRevenue: cancelledRevenue[0]?.total || 0
     };
   } catch (error) {
     console.error('Error fetching invoice stats:', error);

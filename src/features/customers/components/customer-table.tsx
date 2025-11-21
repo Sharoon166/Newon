@@ -92,7 +92,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
         return row.original.id === 'otc' ? null : (
           <div className="flex justify-end">
             {onEdit && (
-              <Button variant="ghost" size="icon" onClick={() => onEdit(customer.id)} className="h-8 w-8">
+              <Button variant="ghost" size="icon" onClick={() => onEdit(customer.customerId ?? "otc")} className="h-8 w-8">
                 <Pencil className="h-4 w-4" />
                 <span className="sr-only">Edit</span>
               </Button>

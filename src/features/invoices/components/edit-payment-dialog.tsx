@@ -13,61 +13,68 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { addPayment } from '../actions';
+import { updatePayment } from '../actions';
 import { toast } from 'sonner';
+import { Payment } from '../types';
+import { format } from 'date-fns';
 
 const paymentSchema = z.object({
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   method: z.enum(['cash', 'bank_transfer', 'online', 'cheque', 'upi']),
-  date: z.date(),
+  date: z.string().min(1, 'Date is required'),
   reference: z.string().optional(),
   notes: z.string().optional()
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
 
-interface AddPaymentDialogProps {
+interface EditPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   invoiceId: string;
-  balanceAmount: number;
+  paymentIndex: number;
+  payment: Payment;
   onSuccess: () => void;
 }
 
-export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount, onSuccess }: AddPaymentDialogProps) {
+export function EditPaymentDialog({
+  open,
+  onOpenChange,
+  invoiceId,
+  paymentIndex,
+  payment,
+  onSuccess
+}: EditPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      amount: balanceAmount,
-      method: 'cash',
-      date: new Date(),
-      reference: '',
-      notes: ''
+      amount: payment.amount,
+      method: payment.method,
+      date: typeof payment.date === 'string' ? payment.date.split('T')[0] : format(new Date(payment.date), 'yyyy-MM-dd'),
+      reference: payment.reference || '',
+      notes: payment.notes || ''
     }
   });
 
   const onSubmit = async (data: PaymentFormValues) => {
     try {
       setIsSubmitting(true);
-      await addPayment(invoiceId, data);
-      toast.success('Payment added successfully');
-      form.reset();
-      onOpenChange(false);
+      await updatePayment(invoiceId, paymentIndex, {
+        ...data,
+        date: new Date(data.date)
+      });
+      toast.success('Payment updated successfully');
       onSuccess();
+      onOpenChange(false);
     } catch (error) {
-      console.error('Error adding payment:', error);
-      toast.error('Failed to add payment');
+      console.error('Error updating payment:', error);
+      toast.error((error as Error).message || 'Failed to update payment');
     } finally {
       setIsSubmitting(false);
     }
@@ -77,8 +84,8 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Payment</DialogTitle>
-          <DialogDescription>Record a payment for this invoice. Balance: PKR {balanceAmount.toFixed(2)}</DialogDescription>
+          <DialogTitle>Edit Payment</DialogTitle>
+          <DialogDescription>Update the payment details below.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -88,7 +95,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount (PKR)</FormLabel>
+                  <FormLabel>Amount *</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -113,17 +120,17 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
               name="method"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Payment Method</FormLabel>
+                  <FormLabel>Payment Method *</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className='w-full'>
+                      <SelectTrigger>
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="cash">Cash</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="online">Online Payment</SelectItem>
+                      <SelectItem value="online">Online</SelectItem>
                       <SelectItem value="cheque">Cheque</SelectItem>
                       <SelectItem value="upi">UPI</SelectItem>
                     </SelectContent>
@@ -137,24 +144,11 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Payment Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
-                        >
-                          {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                <FormItem>
+                  <FormLabel>Payment Date *</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -165,7 +159,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
               name="reference"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reference Number (Optional)</FormLabel>
+                  <FormLabel>Reference Number</FormLabel>
                   <FormControl>
                     <Input placeholder="Transaction ID, Cheque number, etc." {...field} />
                   </FormControl>
@@ -179,9 +173,9 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
+                  <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Additional notes about this payment..." {...field} />
+                    <Textarea placeholder="Additional notes..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -193,7 +187,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Adding...' : 'Add Payment'}
+                {isSubmitting ? 'Updating...' : 'Update Payment'}
               </Button>
             </DialogFooter>
           </form>

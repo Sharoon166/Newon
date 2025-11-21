@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { getCustomers, deleteCustomer } from '@/features/customers/actions';
+import { getCustomers, deleteCustomer, getCustomer } from '@/features/customers/actions';
 import { PageHeader } from '@/components/general/page-header';
 import { CustomerTableWrapper } from '@/features/customers/components/customer-table-wrapper';
 
 export default async function CustomersPage({
-  searchParams,
+  searchParams
 }: {
   searchParams: Promise<{ page?: string; limit?: string }>;
 }) {
@@ -29,6 +29,8 @@ export default async function CustomersPage({
     }
   };
 
+  const customer = await getCustomer('CU-25-005');
+
   return (
     <>
       <PageHeader title="Customer Management" description="Manage your customers and track their invoices and payments">
@@ -41,10 +43,7 @@ export default async function CustomersPage({
       </PageHeader>
 
       <div className="mt-6">
-        <CustomerTableWrapper
-          initialData={customers}
-          deleteCustomerAction={deleteCustomerAction}
-        />
+        <CustomerTableWrapper initialData={customers} deleteCustomerAction={deleteCustomerAction} />
       </div>
     </>
   );

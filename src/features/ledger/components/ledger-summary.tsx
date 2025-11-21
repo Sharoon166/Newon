@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LedgerSummary } from '../types';
 import { formatCurrency } from '@/lib/utils';
-import { Users, TrendingUp, AlertCircle, DollarSign, Receipt } from 'lucide-react';
+import { Users, TrendingUp, AlertCircle, Coins, Receipt, Calendar, Wallet } from 'lucide-react';
 
 interface LedgerSummaryProps {
   summary: LedgerSummary;
@@ -15,7 +15,7 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-          <Users className="h-4 w-4 text-muted-foreground" />
+          <Users className="h-6 w-6 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{summary.totalCustomers}</div>
@@ -27,8 +27,30 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Monthly Invoiced</CardTitle>
+          <Calendar className="h-6 w-6 text-purple-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{formatCurrency(summary.monthlyInvoiced)}</div>
+          <p className="text-xs text-muted-foreground">This month&apos;s invoices</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Monthly Received</CardTitle>
+          <Wallet className="h-6 w-6 text-green-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.monthlyReceived)}</div>
+          <p className="text-xs text-muted-foreground">This month&apos;s payments</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Invoiced</CardTitle>
-          <Receipt className="h-4 w-4 text-muted-foreground" />
+          <Receipt className="h-6 w-6 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(summary.totalInvoiced)}</div>
@@ -39,7 +61,7 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Received</CardTitle>
-          <TrendingUp className="h-4 w-4 text-green-600" />
+          <TrendingUp className="h-6 w-6 text-green-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalReceived)}</div>
@@ -50,12 +72,12 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
-          <DollarSign className="h-4 w-4 text-amber-600" />
+          <Coins className="h-6 w-6 text-amber-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-amber-600">{formatCurrency(summary.totalOutstanding)}</div>
           <p className="text-xs text-muted-foreground">
-            {((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1)}% of total invoiced
+            {summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}% of total invoiced
           </p>
         </CardContent>
       </Card>
@@ -63,7 +85,7 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Overdue Amount</CardTitle>
-          <AlertCircle className="h-4 w-4 text-destructive" />
+          <AlertCircle className="h-6 w-6 text-destructive" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-destructive">{formatCurrency(summary.overdueAmount)}</div>

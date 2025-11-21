@@ -33,9 +33,46 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
   };
 
   return (
-    <div ref={ref} className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-0 print:min-h-screen print:flex print:flex-col">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-3 pb-8 print:pb-3 border-b">
+    <>
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4;
+            margin: 15mm;
+          }
+          
+          /* Prevent page breaks inside these elements */
+          .print-no-break {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          
+          /* Allow page breaks before these elements if needed */
+          .print-break-before {
+            break-before: auto;
+            page-break-before: auto;
+          }
+          
+          /* Keep table rows together */
+          table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          
+          /* Ensure header stays at top of each page */
+          thead {
+            display: table-header-group;
+          }
+          
+          /* Ensure footer stays at bottom */
+          tfoot {
+            display: table-footer-group;
+          }
+        }
+      `}</style>
+      <div ref={ref} className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 min-h-screen flex flex-col">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
         <div className="mb-6 md:mb-0 print:mb-0">
           {quotationData.logo ? (
             <Image
@@ -74,7 +111,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
       </div>
 
       {/* Bill To */}
-      <div className="mb-8 print:mb-2 pb-8 print:pb-4 border-b print:border-none">
+      <div className="mb-8 print:mb-2 pb-8 print:pb-2 border-b print:border-none print-no-break">
         <div className="grid print:grid-cols-2 grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="text-muted-foreground text-sm print:text-xs">
             <h2 className="text-lg font-bold mb-4 text-primary">To:</h2>
@@ -93,7 +130,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
       </div>
 
       {/* Items Table */}
-      <div className="mb-8">
+      <div className="mb-4 print:mb-2 print-break-before">
         <table className="w-full border-collapse rounded-xl">
           <thead>
             <tr className="bg-muted/50 text-left text-sm font-medium">
@@ -117,7 +154,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
       </div>
 
       {/* Totals */}
-      <div className="flex justify-end print:max-w-xs print:ml-auto mb-8">
+      <div className="flex justify-end print:max-w-xs print:ml-auto mb-4 print:mb-2 print-no-break">
         <div className="w-full md:w-1/2">
           <div className="flex justify-between py-2">
             <span className="text-muted-foreground">Subtotal:</span>
@@ -152,11 +189,11 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </div>
       </div>
 
-      {/* Spacer to push content to bottom when printing */}
-      <div className="print:flex-1" />
+      {/* Spacer to push footer to bottom */}
+      <div className="grow" />
 
       {/* Notes & Terms */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4 print:mb-2 print-no-break">
         {quotationData.notes && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
@@ -172,9 +209,9 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
       </div>
 
       {/* Footer */}
-      <div className="pt-8 print:pt-2 border-t">
+      <div className="pt-4 print:pt-2 border-t print-no-break print:mt-auto">
         <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="text-center md:text-left mb-4 print:mb-1 md:mb-0">
+          <div className="text-center md:text-left mb-4 print:mb-0 md:mb-0">
             <p className="text-sm print:text-xs text-muted-foreground">Thank you for your interest!</p>
           </div>
           
@@ -211,7 +248,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 });
 

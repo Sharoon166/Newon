@@ -32,7 +32,7 @@ import {
   Eye,
   Edit,
   RefreshCw,
-  Trash2,
+  Ban,
   FileText,
   CheckCircle,
   XCircle,
@@ -44,7 +44,7 @@ import { useMemo, useState } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
 import { format } from 'date-fns';
-import { deleteInvoice } from '../actions';
+import { updateInvoiceStatus } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { UpdateStatusDialog } from './update-status-dialog';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
@@ -59,11 +59,11 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Invoice | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<
@@ -75,7 +75,8 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
       accepted: { variant: 'default', label: 'Accepted', icon: CheckCircle },
       rejected: { variant: 'destructive', label: 'Rejected', icon: XCircle },
       expired: { variant: 'destructive', label: 'Expired', icon: XCircle },
-      converted: { variant: 'default', label: 'Converted', icon: CheckCircle }
+      converted: { variant: 'default', label: 'Converted', icon: CheckCircle },
+      cancelled: { variant: 'destructive', label: 'Cancelled', icon: XCircle }
     };
 
     const config = statusConfig[status] || statusConfig.draft;
@@ -89,20 +90,20 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
     );
   };
 
-  const handleDelete = async () => {
+  const handleCancel = async () => {
     if (!selectedQuotation) return;
 
     try {
-      setIsDeleting(true);
-      await deleteInvoice(selectedQuotation.id);
-      toast.success('Quotation deleted successfully');
+      setIsCancelling(true);
+      await updateInvoiceStatus(selectedQuotation.id, 'cancelled');
+      toast.success('Quotation cancelled successfully');
       onRefresh?.();
-      setDeleteDialogOpen(false);
+      setCancelDialogOpen(false);
     } catch (error) {
-      console.error('Error deleting quotation:', error);
-      toast.error((error as Error).message || 'Failed to delete quotation');
+      console.error('Error cancelling quotation:', error);
+      toast.error((error as Error).message || 'Failed to cancel quotation');
     } finally {
-      setIsDeleting(false);
+      setIsCancelling(false);
     }
   };
 
@@ -303,15 +304,16 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
-                  disabled={quotation.paidAmount > 0}
+                  disabled={quotation.status === 'cancelled' || quotation.status === 'converted'}
                   onClick={() => {
                     setSelectedQuotation(quotation);
-                    setDeleteDialogOpen(true);
+                    setCancelDialogOpen(true);
                   }}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                  {quotation.paidAmount > 0 && <span className="ml-2 text-xs">(Has payments)</span>}
+                  <Ban className="h-4 w-4 mr-2" />
+                  Cancel
+                  {quotation.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
+                  {quotation.status === 'converted' && <span className="ml-2 text-xs">(Converted to invoice)</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -450,14 +452,14 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
 
       {/* Dialogs */}
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDelete}
-        title="Delete Quotation"
-        description={`Are you sure you want to delete quotation ${selectedQuotation?.invoiceNumber}? This action cannot be undone.`}
-        confirmText="Delete"
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancel}
+        title="Cancel Quotation"
+        description={`Are you sure you want to cancel quotation ${selectedQuotation?.invoiceNumber}? This will mark it as cancelled.`}
+        confirmText="Cancel Quotation"
         variant="destructive"
-        isProcessing={isDeleting}
+        isProcessing={isCancelling}
       />
 
       {selectedQuotation && (

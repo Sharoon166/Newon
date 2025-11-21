@@ -63,6 +63,7 @@ export interface Invoice {
   stockDeducted: boolean;
   notes?: string;
   termsAndConditions?: string;
+  amountInWords?: string;
   validUntil?: string | Date;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;
@@ -104,6 +105,7 @@ export interface CreateInvoiceDto {
   stockDeducted?: boolean;
   notes?: string;
   termsAndConditions?: string;
+  amountInWords?: string;
   validUntil?: Date;
   createdBy: string;
 }
@@ -139,6 +141,7 @@ export interface UpdateInvoiceDto {
   stockDeducted?: boolean;
   notes?: string;
   termsAndConditions?: string;
+  amountInWords?: string;
   validUntil?: Date;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;

@@ -3,12 +3,12 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Invoice } from '../types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash2, FileText, CheckCircle, XCircle, Clock, Edit, Plus, RefreshCw, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Eye, Ban, FileText, CheckCircle, XCircle, Clock, Edit, Plus, RefreshCw, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CalendarIcon, X } from 'lucide-react';
 import Link from 'next/link';
-import { deleteInvoice } from '../actions';
+import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
@@ -36,6 +36,9 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { MoreHorizontal } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { DateRange } from 'react-day-picker';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AddPaymentDialog } from './add-payment-dialog';
 import { UpdateStatusDialog } from './update-status-dialog';
@@ -55,19 +58,54 @@ import {
 interface InvoicesTableProps {
   invoices: Invoice[];
   onRefresh?: () => void;
+  initialDateFrom?: string;
+  initialDateTo?: string;
 }
 
-export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
+export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDateTo }: InvoicesTableProps) {
   const router = useRouter();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  
+  // Initialize date range from URL params
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (initialDateFrom || initialDateTo) {
+      return {
+        from: initialDateFrom ? new Date(initialDateFrom) : undefined,
+        to: initialDateTo ? new Date(initialDateTo) : undefined
+      };
+    }
+    return undefined;
+  });
+
+  // Update URL when date range changes
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    
+    const params = new URLSearchParams(window.location.search);
+    
+    if (range?.from) {
+      params.set('dateFrom', format(range.from, 'yyyy-MM-dd'));
+    } else {
+      params.delete('dateFrom');
+    }
+    
+    if (range?.to) {
+      params.set('dateTo', format(range.to, 'yyyy-MM-dd'));
+    } else {
+      params.delete('dateTo');
+    }
+    
+    // Navigate with new params (this will trigger server-side refetch)
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   const handleRefresh = () => {
     if (onRefresh) {
@@ -77,20 +115,38 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleCancel = async () => {
     if (!selectedInvoice) return;
 
     try {
-      setIsDeleting(true);
-      await deleteInvoice(selectedInvoice.id);
-      toast.success('Invoice deleted successfully');
+      setIsCancelling(true);
+      
+      // Restore stock if it was deducted (BEFORE updating status)
+      if (selectedInvoice.type === 'invoice' && selectedInvoice.stockDeducted) {
+        try {
+          await restoreInvoiceStock(selectedInvoice.id);
+          toast.success('Stock restored to inventory');
+        } catch (stockError) {
+          console.error('Error restoring stock:', stockError);
+          const errorMessage = stockError instanceof Error ? stockError.message : 'Unknown error';
+          toast.error('Failed to restore stock', {
+            description: errorMessage
+          });
+          // Don't proceed with cancellation if stock restoration fails
+          return;
+        }
+      }
+      
+      // Update status to cancelled
+      await updateInvoiceStatus(selectedInvoice.id, 'cancelled');
+      toast.success(`${selectedInvoice.type === 'invoice' ? 'Invoice' : 'Quotation'} cancelled successfully`);
       handleRefresh();
-      setDeleteDialogOpen(false);
+      setCancelDialogOpen(false);
     } catch (error) {
-      console.error('Error deleting invoice:', error);
-      toast.error((error as Error).message || 'Failed to delete invoice');
+      console.error('Error cancelling invoice:', error);
+      toast.error((error as Error).message || 'Failed to cancel invoice');
     } finally {
-      setIsDeleting(false);
+      setIsCancelling(false);
     }
   };
 
@@ -260,47 +316,52 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
                     View Details
                   </DropdownMenuItem>
                 </Link>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedInvoice(invoice);
-                    setEditDialogOpen(true);
-                  }}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedInvoice(invoice);
-                    setStatusDialogOpen(true);
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Update Status
-                </DropdownMenuItem>
-                {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSelectedInvoice(invoice);
-                      setPaymentDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Payment
-                  </DropdownMenuItem>
+                {invoice.status !== 'cancelled' && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedInvoice(invoice);
+                        setEditDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedInvoice(invoice);
+                        setStatusDialogOpen(true);
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Update Status
+                    </DropdownMenuItem>
+                    {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedInvoice(invoice);
+                          setPaymentDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Payment
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
-                  disabled={invoice.paidAmount > 0}
+                  disabled={invoice.status === 'cancelled' || invoice.status === 'paid'}
                   onClick={() => {
                     setSelectedInvoice(invoice);
-                    setDeleteDialogOpen(true);
+                    setCancelDialogOpen(true);
                   }}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                  {invoice.paidAmount > 0 && <span className="ml-2 text-xs">(Has payments)</span>}
+                  <Ban className="h-4 w-4 mr-2" />
+                  Cancel
+                  {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
+                  {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -333,7 +394,13 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
     }
   });
 
-  if (invoices.length === 0) {
+  const uniqueStatuses = Array.from(new Set(invoices.map(inv => inv.status)));
+  const uniqueMarkets = Array.from(new Set(invoices.map(inv => inv.market)));
+
+  // Check if we have no invoices at all (not just filtered out)
+  const hasNoInvoicesAtAll = invoices.length === 0 && !dateRange;
+
+  if (hasNoInvoicesAtAll) {
     return (
       <div className="border rounded-lg p-12 text-center">
         <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -346,14 +413,11 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
     );
   }
 
-  const uniqueStatuses = Array.from(new Set(invoices.map(inv => inv.status)));
-  const uniqueMarkets = Array.from(new Set(invoices.map(inv => inv.market)));
-
   return (
     <>
       <div className="space-y-4">
-        {/* Filters */}
-        <div className="flex items-center gap-4">
+        {/* Filters Row 1 */}
+        <div className="flex flex-wrap items-center gap-4">
           <Input
             placeholder="Search all columns..."
             value={globalFilter ?? ''}
@@ -396,6 +460,55 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Filters Row 2 - Date Range */}
+        <div className="flex items-center gap-4">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  'justify-start text-left font-normal',
+                  !dateRange && 'text-muted-foreground'
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'LLL dd, y')
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={handleDateRangeChange}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+          {dateRange && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleDateRangeChange(undefined)}
+              className="h-8 px-2"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear dates
+            </Button>
+          )}
         </div>
 
         {/* Table */}
@@ -511,14 +624,18 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
       </div>
 
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDelete}
-        title="Delete Invoice"
-        description={`Are you sure you want to delete invoice ${selectedInvoice?.invoiceNumber}? This action cannot be undone.`}
-        confirmText="Delete"
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancel}
+        title={`Cancel ${selectedInvoice?.type === 'invoice' ? 'Invoice' : 'Quotation'}`}
+        description={`Are you sure you want to cancel ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} ${selectedInvoice?.invoiceNumber}? ${
+          selectedInvoice?.stockDeducted
+            ? 'Stock will be restored to inventory.'
+            : 'This will mark it as cancelled.'
+        }`}
+        confirmText="Cancel Invoice"
         variant="destructive"
-        isProcessing={isDeleting}
+        isProcessing={isCancelling}
       />
 
       {selectedInvoice && (

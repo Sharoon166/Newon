@@ -13,16 +13,18 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Sheet, SheetContent, SheetHeader } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AddPaymentDialog } from '@/features/invoices/components/add-payment-dialog';
 import { UpdateStatusDialog } from '@/features/invoices/components/update-status-dialog';
 import { EditInvoiceDialog } from '@/features/invoices/components/edit-invoice-dialog';
+import { PaymentsList } from '@/features/invoices/components/payments-list';
 import { NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
 import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import Link from 'next/link';
+import { convertToWords } from '@/features/invoices/utils';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -184,7 +186,7 @@ export default function InvoiceDetailPage() {
           previousBalance: 0,
           paid: invoice.paidAmount,
           remainingPayment: invoice.balanceAmount,
-          amountInWords: 'Amount in words',
+          amountInWords: `${convertToWords(Math.round(invoice.balanceAmount + (invoice.balanceAmount > 0 ? 0 : 0)))} Rupees Only`,
           billingType: invoice.billingType,
           market: invoice.market,
           customerId: invoice.customerId
@@ -225,7 +227,7 @@ export default function InvoiceDetailPage() {
           discountType: invoice.discountType || 'fixed',
           notes: invoice.notes,
           terms: invoice.termsAndConditions,
-          amountInWords: 'Amount in words',
+          amountInWords: `${convertToWords(Math.round(invoice.totalAmount))} Rupees Only`,
           billingType: invoice.billingType,
           market: invoice.market,
           customerId: invoice.customerId
@@ -238,27 +240,27 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setEditDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button variant="outline" onClick={() => setStatusDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Update Status
           </Button>
-          {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
+          {invoice.type === 'invoice' && invoice.balanceAmount > 0 && invoice.status !== 'cancelled' && (
             <Button onClick={() => setPaymentDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Payment
             </Button>
           )}
           {invoice.type === 'invoice' && !invoice.stockDeducted && (
-            <Button variant="outline" onClick={handleDeductStock}>
+            <Button variant="outline" onClick={handleDeductStock} hidden>
               Deduct Stock
             </Button>
           )}
           {invoice.type === 'invoice' && invoice.stockDeducted && invoice.status === 'cancelled' && (
-            <Button variant="outline" onClick={handleRestoreStock}>
+            <Button variant="outline" onClick={handleRestoreStock} hidden>
               Restore Stock
             </Button>
           )}
@@ -280,6 +282,23 @@ export default function InvoiceDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Cancelled Banner */}
+          {invoice.status === 'cancelled' && (
+            <Card className="border-destructive bg-destructive/10">
+              <CardContent className="flex items-center gap-2 py-4">
+                <Info className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="font-semibold text-destructive">
+                    This {invoice.type === 'invoice' ? 'invoice' : 'quotation'} has been cancelled
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Editing, status updates, and payments are disabled for cancelled {invoice.type === 'invoice' ? 'invoices' : 'quotations'}.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Invoice Header */}
           <Card>
             <CardHeader>
@@ -462,24 +481,18 @@ export default function InvoiceDetailPage() {
           </Card>
 
           {/* Payments */}
-          {invoice.type === 'invoice' && invoice.payments.length > 0 && (
+          {invoice.type === 'invoice' && (
             <Card>
               <CardHeader>
                 <CardTitle>Payment History</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {invoice.payments.map((payment, index) => (
-                    <div key={index} className="flex justify-between items-start border-b pb-2 last:border-0">
-                      <div>
-                        <p className="font-medium">{formatCurrency(payment.amount)}</p>
-                        <p className="text-sm text-muted-foreground">{payment.method}</p>
-                        {payment.reference && <p className="text-xs text-muted-foreground">Ref: {payment.reference}</p>}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{format(new Date(payment.date), 'MMM dd, yyyy')}</p>
-                    </div>
-                  ))}
-                </div>
+                <PaymentsList
+                  invoiceId={invoice.id}
+                  payments={invoice.payments}
+                  onUpdate={fetchInvoice}
+                  isCancelled={invoice.status === 'cancelled'}
+                />
               </CardContent>
             </Card>
           )}
@@ -519,10 +532,9 @@ export default function InvoiceDetailPage() {
       <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
         <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
           <SheetHeader>
-            <h2 className="text-lg font-semibold text-primary inline-flex items-center gap-2">
-              {' '}
+            <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
               <Printer /> Print Preview
-            </h2>
+            </SheetTitle>
           </SheetHeader>
           <div className="mt-6" ref={printRef}>
             {invoice.type === 'invoice' ? (

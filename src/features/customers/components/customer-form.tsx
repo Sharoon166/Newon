@@ -83,7 +83,7 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
         if (transformedData.state) updateData.state = transformedData.state;
         if (transformedData.zip) updateData.zip = transformedData.zip;
 
-        await updateCustomer(initialData.id, updateData);
+        await updateCustomer(initialData.customerId || "otc", updateData);
         toast.success('Customer updated successfully');
       } else {
         // For creation, ensure required fields are present

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OutOfStockAlert, OverdueInvoiceAlert, PendingPaymentAlert } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, Clock, Package, Loader2, ArrowUpRight } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Clock, Package, Loader2, ArrowUpRight, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -90,15 +90,15 @@ export function AlertsSection({
           <TabsList>
             <TabsTrigger value="out-of-stock">
               <AlertTriangle className="text-red-500" />
-              Out of Stock ({outOfStockAlerts.length})
+              Out of Stock {outOfStockAlerts.length > 0 && <div className="size-2 bg-orange-500 rounded-full" />}
             </TabsTrigger>
             <TabsTrigger value="overdue">
               <AlertCircle className="text-orange-500" />
-              Overdue ({overdueInvoices.length})
+              Overdue {overdueInvoices.length > 0 && <div className="size-2 bg-orange-500 rounded-full" />}
             </TabsTrigger>
             <TabsTrigger value="pending">
               <Clock className="text-destructive" />
-              Pending ({pendingPayments.length})
+              Pending {pendingPayments.length > 0 && <div className="size-2 bg-orange-500 rounded-full" />}
             </TabsTrigger>
           </TabsList>
 
@@ -143,11 +143,11 @@ export function AlertsSection({
                     ))}
                   </div>
                 </ScrollArea>
-                <div className="space-y-2 pt-2">
+                <div className="flex justify-center flex-col items-center gap-2">
                   {hasMoreStock && (
                     <Button
                       variant="outline"
-                      className="w-full max-w-sm"
+                      className="w-full max-w-sm mx-auto"
                       onClick={loadMoreStock}
                       disabled={loadingStock}
                     >
@@ -159,16 +159,15 @@ export function AlertsSection({
                       ) : (
                         'Load More'
                       )}
+                      <ChevronDown />
                     </Button>
                   )}
-                  <div className="flex justify-center w-full">
-                    <Button className="w-full max-w-sm" asChild>
-                      <Link href="/inventory">
-                        View All Inventory
-                        <ArrowUpRight />
-                      </Link>
-                    </Button>
-                  </div>
+                  <Button className="w-full max-w-sm" asChild>
+                    <Link href="/inventory">
+                      View All Inventory
+                      <ArrowUpRight />
+                    </Link>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -212,7 +211,7 @@ export function AlertsSection({
                     ))}
                   </div>
                 </ScrollArea>
-                <div className="space-y-2 pt-2">
+                <div className="flex justify-center flex-col items-center gap-2">
                   {hasMoreOverdue && (
                     <Button
                       variant="outline"
@@ -228,16 +227,15 @@ export function AlertsSection({
                       ) : (
                         'Load More'
                       )}
+                      <ChevronDown />
                     </Button>
                   )}
-                  <div className="flex justify-center w-full">
-                    <Button className="w-full max-w-sm" asChild>
-                      <Link href="/invoices">
-                        View All Invoices
-                        <ArrowUpRight />
-                      </Link>
-                    </Button>
-                  </div>
+                  <Button className="w-full max-w-sm" asChild>
+                    <Link href="/invoices">
+                      View All Invoices
+                      <ArrowUpRight />
+                    </Link>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -281,7 +279,7 @@ export function AlertsSection({
                     ))}
                   </div>
                 </ScrollArea>
-                <div className="space-y-2 pt-2">
+                <div className="flex justify-center flex-col items-center gap-2">
                   {hasMorePending && (
                     <Button
                       variant="outline"
@@ -297,16 +295,15 @@ export function AlertsSection({
                       ) : (
                         'Load More'
                       )}
+                      <ChevronDown />
                     </Button>
                   )}
-                  <div className="flex justify-center w-full">
-                    <Button className="w-full max-w-sm" asChild>
-                      <Link href="/ledger">
-                        View Ledger
-                        <ArrowUpRight />
-                      </Link>
-                    </Button>
-                  </div>
+                  <Button className="w-full max-w-sm" asChild>
+                    <Link href="/ledger">
+                      View Ledger
+                      <ArrowUpRight />
+                    </Link>
+                  </Button>
                 </div>
               </div>
             ) : (

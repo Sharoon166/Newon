@@ -26,12 +26,11 @@ interface LeanCustomer {
 function transformLeanCustomer(leanDoc: LeanCustomer): Customer {
   return {
     ...leanDoc,
-    id: leanDoc._id.toString(),
+    id: String(leanDoc._id),
     _id: undefined,
     __v: undefined
   } as Customer;
 }
-
 
 export async function getCustomers(filters?: CustomerFilters): Promise<PaginatedCustomers> {
   try {
@@ -69,7 +68,7 @@ export async function getCustomers(filters?: CustomerFilters): Promise<Paginated
       lean: true
     });
 
-    const transformedCustomers = result.docs.map((customer: unknown) => 
+    const transformedCustomers = result.docs.map((customer: unknown) =>
       transformLeanCustomer(customer as LeanCustomer)
     );
 
@@ -94,13 +93,13 @@ export async function getCustomer(id: string): Promise<Customer> {
   try {
     await dbConnect();
 
-    const customer = await CustomerModel.findById(id).lean();
+    const customer = await CustomerModel.findOne({ customerId: id }).lean();
 
     if (!customer) {
       throw new Error('Customer not found');
     }
 
-    return transformLeanCustomer(customer as LeanCustomer);
+    return transformLeanCustomer(customer as unknown as LeanCustomer);
   } catch (error) {
     console.error(`Error fetching customer ${id}:`, error);
     throw new Error('Failed to fetch customer');
@@ -141,8 +140,8 @@ export async function updateCustomer(id: string, data: UpdateCustomerDto): Promi
     // Filter out undefined values to avoid issues with MongoDB
     const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 
-    const updatedCustomer = await CustomerModel.findByIdAndUpdate(
-      id,
+    const updatedCustomer = await CustomerModel.findOneAndUpdate(
+      { customerId: id },
       { $set: updateData },
       { new: true, runValidators: true }
     ).lean();
@@ -157,13 +156,7 @@ export async function updateCustomer(id: string, data: UpdateCustomerDto): Promi
     revalidatePath(`/invoices`);
     revalidatePath(`/invoices/new`);
 
-    const updatedCustomerObj = updatedCustomer as LeanCustomer;
-    return {
-      ...updatedCustomerObj,
-      id: updatedCustomerObj._id.toString(),
-      _id: undefined,
-      __v: undefined
-    } as Customer;
+    return transformLeanCustomer(updatedCustomer as unknown as LeanCustomer);
   } catch (error) {
     console.error(`Error updating customer ${id}:`, error);
     throw new Error('Failed to update customer');
@@ -179,7 +172,7 @@ export async function deleteCustomer(id: string): Promise<void> {
       throw new Error('Cannot delete OTC customer. This is a system customer for walk-in sales.');
     }
 
-    const result = await CustomerModel.deleteOne({ _id: id });
+    const result = await CustomerModel.deleteOne({ customerId: id });
 
     if (result.deletedCount === 0) {
       throw new Error('Customer not found');
@@ -191,5 +184,3 @@ export async function deleteCustomer(id: string): Promise<void> {
     throw new Error('Failed to delete customer');
   }
 }
-
-

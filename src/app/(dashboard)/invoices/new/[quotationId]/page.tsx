@@ -8,6 +8,7 @@ import { getAllPurchases } from '@/features/purchases/actions';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { convertToWords } from '@/features/invoices/utils';
 
 interface QuotationConversionPageProps {
   params: {
@@ -129,7 +130,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
             taxRate: quotation.gstValue || 0,
             taxAmount: quotation.gstAmount || 0,
             totalAmount: quotation.totalAmount,
-            amountInWords: '',
+            amountInWords: `${convertToWords(Math.round(quotation.totalAmount))} Rupees Only`,
             notes: quotation.notes,
             termsAndConditions: quotation.termsAndConditions,
             terms: quotation.termsAndConditions,

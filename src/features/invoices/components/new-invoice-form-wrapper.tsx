@@ -47,6 +47,7 @@ interface FormData {
   notes?: string;
   terms?: string;
   paid?: number;
+  amountInWords?: string;
 }
 
 interface NewInvoiceFormWrapperProps {
@@ -136,6 +137,7 @@ export function NewInvoiceFormWrapper({
         balanceAmount: totalAmount - (isInvoice ? documentData.paid || 0 : 0),
         notes: documentData.notes,
         termsAndConditions: documentData.terms,
+        amountInWords: documentData.amountInWords,
         createdBy: 'system-user'
       };
 

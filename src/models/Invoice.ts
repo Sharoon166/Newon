@@ -62,6 +62,7 @@ interface IInvoice extends Document {
   stockDeducted: boolean;
   notes?: string;
   termsAndConditions?: string;
+  amountInWords?: string;
   validUntil?: Date;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;
@@ -299,6 +300,9 @@ const invoiceSchema = new Schema<IInvoice>(
       type: String
     },
     termsAndConditions: {
+      type: String
+    },
+    amountInWords: {
       type: String
     },
     validUntil: {

@@ -38,7 +38,9 @@ export function CustomerTableWrapper({
     router.push(`/customers/${id}/edit`);
   };
 
-  const actions = (row: Row<Customer>) => <CustomerActions id={row.original.id} onDelete={handleDelete} />;
+  const actions = (row: Row<Customer>) => (
+    <CustomerActions id={row.original.id} onDelete={() => handleDelete(row.original.customerId || 'otc')} />
+  );
 
   return <CustomerTable data={data} onEdit={handleEdit} actions={actions} />;
 }

@@ -212,6 +212,19 @@ export function NewQuotationForm({
     }
   }, [customers.length, variants.length]);
 
+  // Update company details when brand changes
+  useEffect(() => {
+    form.setValue('company.name', brand.displayName);
+    form.setValue('company.address', brand.address);
+    form.setValue('company.city', brand.city);
+    form.setValue('company.state', brand.state);
+    form.setValue('company.zip', brand.zip);
+    form.setValue('company.phone', brand.phone);
+    form.setValue('company.email', brand.email);
+    form.setValue('company.website', brand.website);
+    form.setValue('market', currentBrandId === 'waymor' ? 'waymor' : 'newon');
+  }, [brand, currentBrandId, form]);
+
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
@@ -268,9 +281,6 @@ export function NewQuotationForm({
       form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
       form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
 
-      toast.success('Item updated', {
-        description: `Quantity increased to ${newQuantity}`
-      });
     } else {
       // Item doesn't exist or is from a different purchase, add new entry
       append({
@@ -285,9 +295,6 @@ export function NewQuotationForm({
         purchaseId: item.purchaseId
       });
 
-      toast.success('Item added', {
-        description: `${item.productName} added to quotation`
-      });
     }
   };
 
@@ -346,6 +353,68 @@ export function NewQuotationForm({
     return true;
   };
 
+  // Handle form validation errors with specific messages
+  const handleFormErrors = (errors: typeof form.formState.errors) => {
+    console.error('Form validation errors:', errors);
+
+    // Handle items array errors
+    if (errors.items) {
+      if (errors.items.message) {
+        toast.error('Form validation failed', {
+          description: errors.items.message
+        });
+        return;
+      }
+      // Handle individual item errors
+      if (Array.isArray(errors.items)) {
+        const firstItemError = errors.items.find(item => item);
+        if (firstItemError) {
+          const errorField = Object.keys(firstItemError)[0];
+          const errorMessage = firstItemError[errorField]?.message || 'Invalid item data';
+          toast.error('Form validation failed', {
+            description: errorMessage
+          });
+          return;
+        }
+      }
+    }
+
+    // Handle client errors
+    if (errors.client) {
+      const clientErrors = errors.client as Record<string, { message?: string }>;
+      const firstClientError = Object.values(clientErrors).find(err => err?.message);
+      if (firstClientError?.message) {
+        toast.error('Form validation failed', {
+          description: firstClientError.message
+        });
+        return;
+      }
+    }
+
+    // Handle company errors
+    if (errors.company) {
+      const companyErrors = errors.company as Record<string, { message?: string }>;
+      const firstCompanyError = Object.values(companyErrors).find(err => err?.message);
+      if (firstCompanyError?.message) {
+        toast.error('Form validation failed', {
+          description: firstCompanyError.message
+        });
+        return;
+      }
+    }
+
+    // Handle other field errors
+    const errorFields = Object.keys(errors).filter(key => key !== 'items' && key !== 'client' && key !== 'company');
+    if (errorFields.length > 0) {
+      const firstError = errors[errorFields[0] as keyof typeof errors];
+      const errorMessage = (firstError as { message?: string })?.message || 'Please check the form for errors';
+
+      toast.error('Form validation failed', {
+        description: errorMessage
+      });
+    }
+  };
+
   const onSubmit = (data: QuotationFormValues) => {
     if (!validateQuotationData(data)) return;
     setIsPreviewOpen(true);
@@ -371,12 +440,7 @@ export function NewQuotationForm({
           });
         }
       },
-      errors => {
-        console.error('Form validation errors:', errors);
-        toast.error('Cannot save quotation', {
-          description: 'Please fix all form errors before saving.'
-        });
-      }
+      handleFormErrors
     )();
   };
 
@@ -399,12 +463,7 @@ export function NewQuotationForm({
           });
         }
       },
-      errors => {
-        console.error('Form validation errors:', errors);
-        toast.error('Cannot print quotation', {
-          description: 'Please fix all form errors before printing.'
-        });
-      }
+      handleFormErrors
     )();
   };
 
@@ -431,52 +490,7 @@ export function NewQuotationForm({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(onSubmit, errors => {
-          // Handle items array errors
-          if (errors.items) {
-            if (errors.items.message) {
-              toast.error('Form validation failed', {
-                description: errors.items.message
-              });
-              return;
-            }
-            // Handle individual item errors
-            if (Array.isArray(errors.items)) {
-              const firstItemError = errors.items.find(item => item);
-              if (firstItemError) {
-                const errorField = Object.keys(firstItemError)[0];
-                const errorMessage = firstItemError[errorField]?.message || 'Invalid item data';
-                toast.error('Form validation failed', {
-                  description: errorMessage
-                });
-                return;
-              }
-            }
-          }
-
-          // Handle client errors
-          if (errors.client) {
-            const clientErrors = errors.client as Record<string, { message?: string }>;
-            const firstClientError = Object.values(clientErrors).find(err => err?.message);
-            if (firstClientError?.message) {
-              toast.error('Form validation failed', {
-                description: firstClientError.message
-              });
-              return;
-            }
-          }
-
-          // Handle other field errors
-          const errorFields = Object.keys(errors).filter(key => key !== 'items' && key !== 'client');
-          if (errorFields.length > 0) {
-            const firstError = errors[errorFields[0] as keyof typeof errors];
-            const errorMessage = (firstError as { message?: string })?.message || 'Please check the form for errors';
-
-            toast.error('Form validation failed', {
-              description: errorMessage
-            });
-          }
-        })}
+        onSubmit={form.handleSubmit(onSubmit, handleFormErrors)}
         className="space-y-8"
       >
         {/* Quotation Header */}

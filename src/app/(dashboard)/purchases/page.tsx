@@ -14,8 +14,6 @@ export default async function PurchasesPage() {
   // Calculate statistics
   const totalPurchased = purchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
   const totalCost = purchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
-  const avgUnitPrice =
-    purchases.length > 0 ? purchases.reduce((sum, p) => sum + (p.unitPrice || 0), 0) / purchases.length : 0;
   const uniqueSuppliers = new Set(purchases.map(p => p.supplier)).size;
 
   return (
@@ -26,7 +24,7 @@ export default async function PurchasesPage() {
       />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
         <Card className="p-4">
           <CardTitle className="text-sm font-medium text-muted-foreground">Total Purchases</CardTitle>
           <CardContent className="p-0 text-2xl font-semibold mt-2">{purchases.length.toLocaleString()}</CardContent>
@@ -40,11 +38,6 @@ export default async function PurchasesPage() {
         <Card className="p-4">
           <CardTitle className="text-sm font-medium text-muted-foreground">Total Cost</CardTitle>
           <CardContent className="p-0 text-2xl font-semibold mt-2">{formatCurrency(totalCost)}</CardContent>
-        </Card>
-
-        <Card className="p-4">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Avg Unit Price</CardTitle>
-          <CardContent className="p-0 text-2xl font-semibold mt-2">{formatCurrency(avgUnitPrice)}</CardContent>
         </Card>
 
         <Card className="p-4">

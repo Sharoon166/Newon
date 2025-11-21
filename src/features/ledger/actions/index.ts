@@ -133,12 +133,26 @@ export async function getCustomerLedgers(
   try {
     await dbConnect();
 
-    const matchStage: Record<string, unknown> = {};
+    // Get cancelled invoice IDs to exclude from ledger calculations
+    const InvoiceModel = (await import('@/models/Invoice')).default;
+    const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
+    const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
+
+    const matchStage: Record<string, unknown> = {
+      $or: [
+        { transactionType: { $ne: 'invoice' } },
+        { transactionId: { $nin: cancelledInvoiceIds } }
+      ]
+    };
 
     if (filters?.search) {
-      matchStage.$or = [
-        { customerName: { $regex: filters.search, $options: 'i' } },
-        { customerCompany: { $regex: filters.search, $options: 'i' } }
+      matchStage.$and = [
+        {
+          $or: [
+            { customerName: { $regex: filters.search, $options: 'i' } },
+            { customerCompany: { $regex: filters.search, $options: 'i' } }
+          ]
+        }
       ];
     }
 
@@ -154,7 +168,7 @@ export async function getCustomerLedgers(
     }
 
     const pipeline: Record<string, unknown>[] = [
-      ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+      { $match: matchStage },
       {
         $group: {
           _id: '$customerId',
@@ -242,7 +256,27 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
   try {
     await dbConnect();
 
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    // Get cancelled invoice IDs to exclude from ledger calculations
+    const InvoiceModel = (await import('@/models/Invoice')).default;
+    const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
+    const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const summary = await LedgerEntryModel.aggregate([
+      {
+        $match: {
+          $or: [
+            { transactionType: { $ne: 'invoice' } },
+            { transactionId: { $nin: cancelledInvoiceIds } }
+          ]
+        }
+      },
       {
         $group: {
           _id: null,
@@ -261,8 +295,36 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       }
     ]);
 
+    // Get monthly data
+    const monthlySummary = await LedgerEntryModel.aggregate([
+      {
+        $match: {
+          date: { $gte: monthStart },
+          $or: [
+            { transactionType: { $ne: 'invoice' } },
+            { transactionId: { $nin: cancelledInvoiceIds } }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          monthlyDebit: { $sum: '$debit' },
+          monthlyCredit: { $sum: '$credit' }
+        }
+      }
+    ]);
+
     // Count customers with balance
     const customersWithBalance = await LedgerEntryModel.aggregate([
+      {
+        $match: {
+          $or: [
+            { transactionType: { $ne: 'invoice' } },
+            { transactionId: { $nin: cancelledInvoiceIds } }
+          ]
+        }
+      },
       {
         $group: {
           _id: '$customerId',
@@ -278,10 +340,6 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
     ]);
 
     // Calculate overdue amount from invoices
-    const InvoiceModel = (await import('@/models/Invoice')).default;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     const overdueInvoices = await InvoiceModel.aggregate([
       {
         $match: {
@@ -306,13 +364,20 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       totalCustomers: 0
     };
 
+    const monthlyResult = monthlySummary[0] || {
+      monthlyDebit: 0,
+      monthlyCredit: 0
+    };
+
     return {
       totalCustomers: result.totalCustomers,
       totalOutstanding: result.totalOutstanding,
       totalReceived: result.totalReceived,
       totalInvoiced: result.totalInvoiced,
       customersWithBalance: customersWithBalance[0]?.count || 0,
-      overdueAmount: overdueInvoices[0]?.totalOverdue || 0
+      overdueAmount: overdueInvoices[0]?.totalOverdue || 0,
+      monthlyInvoiced: monthlyResult.monthlyDebit,
+      monthlyReceived: monthlyResult.monthlyCredit
     };
   } catch (error) {
     console.error('Error fetching ledger summary:', error);

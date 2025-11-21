@@ -42,7 +42,7 @@ export function UpdateStatusDialog({
     { value: 'paid', label: 'Paid' },
     { value: 'partial', label: 'Partial' },
     { value: 'delivered', label: 'Delivered' },
-    { value: 'cancelled', label: 'Cancelled' }
+    // { value: 'cancelled', label: 'Cancelled' }
   ] as const;
 
   const quotationStatuses = [
