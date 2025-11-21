@@ -279,8 +279,6 @@ export function QuotationConversionForm({
         formItem.variantSKU === item.sku
       );
 
-    console.log(existingItemIndex)
-
     if (existingItemIndex !== -1) {
       // Item from same purchase exists, update its quantity
       const currentItems = form.getValues('items');

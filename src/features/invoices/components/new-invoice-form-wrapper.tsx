@@ -65,30 +65,34 @@ export function NewInvoiceFormWrapper({
   invoiceTerms
 }: NewInvoiceFormWrapperProps) {
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSaveInvoice = async (formData: FormData) => {
     const documentData: FormData = {
       ...formData,
       invoiceNumber: formData.invoiceNumber || 'DRAFT'
     };
-    
+
     try {
+      setIsLoading(true);
       const subtotal = documentData.items.reduce((sum: number, item) => sum + item.amount, 0);
-      
-      const discountAmount = documentData.discountType === 'percentage' 
-        ? (subtotal * documentData.discount) / 100
-        : documentData.discount;
-      
+
+      const discountAmount =
+        documentData.discountType === 'percentage' ? (subtotal * documentData.discount) / 100 : documentData.discount;
+
       const taxAmount = (subtotal * documentData.taxRate) / 100;
       const totalAmount = subtotal + taxAmount - discountAmount;
       const isInvoice = documentType === 'invoice';
-      
+
       // Generate a unique customer ID if not provided
-      const customerId = documentData.customerId || 
-        `manual-${documentData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 
-        documentData.client.phone?.replace(/[^0-9]/g, '') || 
-        documentData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-      
+      const customerId =
+        documentData.customerId ||
+        `manual-${
+          documentData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') ||
+          documentData.client.phone?.replace(/[^0-9]/g, '') ||
+          documentData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+        }`;
+
       const createData = {
         type: documentType,
         date: new Date(documentData.date),
@@ -105,7 +109,7 @@ export function NewInvoiceFormWrapper({
         customerCity: documentData.client.city || '',
         customerState: documentData.client.state || '',
         customerZip: documentData.client.zip || '',
-        items: documentData.items.map((item) => ({
+        items: documentData.items.map(item => ({
           productId: item.productId || 'manual-entry',
           productName: item.description,
           variantId: item.variantId,
@@ -123,24 +127,28 @@ export function NewInvoiceFormWrapper({
         discountType: documentData.discountType as 'fixed' | 'percentage' | undefined,
         discountValue: documentData.discount,
         discountAmount,
-        gstType: documentData.taxRate > 0 ? 'percentage' as const : undefined,
+        gstType: documentData.taxRate > 0 ? ('percentage' as const) : undefined,
         gstValue: documentData.taxRate,
         gstAmount: taxAmount,
         totalAmount,
-        status: documentType === 'quotation' ? 'draft' as const : 'pending' as const,
-        paidAmount: isInvoice ? (documentData.paid || 0) : 0,
-        balanceAmount: totalAmount - (isInvoice ? (documentData.paid || 0) : 0),
+        status: documentType === 'quotation' ? ('draft' as const) : ('pending' as const),
+        paidAmount: isInvoice ? documentData.paid || 0 : 0,
+        balanceAmount: totalAmount - (isInvoice ? documentData.paid || 0 : 0),
         notes: documentData.notes,
         termsAndConditions: documentData.terms,
         createdBy: 'system-user'
       };
 
       const result = await createInvoice(createData);
-      toast.info(`${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`);
+      toast.info(
+        `${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`
+      );
       window.location.href = '/invoices';
     } catch (error) {
       console.error('Error saving document:', error);
       toast.error(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -152,8 +160,9 @@ export function NewInvoiceFormWrapper({
       </TabsList>
 
       <TabsContent value="invoice">
-        <NewInvoiceForm 
-          onPreview={() => {}} 
+        <NewInvoiceForm
+          isLoading={isLoading}
+          onPreview={() => {}}
           onSave={handleSaveInvoice}
           customers={customers}
           variants={variants}
@@ -164,8 +173,9 @@ export function NewInvoiceFormWrapper({
       </TabsContent>
 
       <TabsContent value="quotation">
-        <NewQuotationForm 
-          onPreview={() => {}} 
+        <NewQuotationForm
+          isLoading={isLoading}
+          onPreview={() => {}}
           onSave={handleSaveInvoice}
           customers={customers}
           variants={variants}

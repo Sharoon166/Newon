@@ -61,7 +61,7 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
       variants: processedVariants
     };
 
-    console.log('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
+    console.info('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
 
     await ProductModel.create(productWithDefaults);
     revalidatePath('/inventory', 'page');
@@ -225,7 +225,7 @@ export const deleteProduct = async (id: string) => {
       if (variant.imageFile?.publicId) {
         try {
           await deleteCloudinaryImage(variant.imageFile.publicId);
-          console.log(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
+          console.info(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
         } catch (error) {
           console.error(`Failed to delete image for variant ${variant.sku}:`, error);
           // Continue with deletion even if image deletion fails
@@ -344,7 +344,7 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
       try {
         const { deleteCloudinaryImage } = await import('@/app/actions/cloudinary');
         await deleteCloudinaryImage(variantToDelete.imageFile.publicId);
-        console.log(`Deleted image for variant ${variantToDelete.sku}: ${variantToDelete.imageFile.publicId}`);
+        console.info(`Deleted image for variant ${variantToDelete.sku}: ${variantToDelete.imageFile.publicId}`);
       } catch (error) {
         console.error(`Failed to delete image for variant ${variantToDelete.sku}:`, error);
         // Continue with deletion even if image deletion fails
@@ -388,7 +388,7 @@ export const deleteProductByName = async (name: string) => {
       if (variant.imageFile?.publicId) {
         try {
           await deleteCloudinaryImage(variant.imageFile.publicId);
-          console.log(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
+          console.info(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
         } catch (error) {
           console.error(`Failed to delete image for variant ${variant.sku}:`, error);
           // Continue with deletion even if image deletion fails
@@ -467,8 +467,6 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
       attributes: processedAttributes,
       variants: processedVariants
     };
-
-    console.log('Updating product with attributes:', JSON.stringify(processedAttributes, null, 2));
 
     // First find the product to ensure it exists
     const product = await ProductModel.findByIdAndUpdate(id, updateData, { new: true });

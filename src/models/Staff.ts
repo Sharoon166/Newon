@@ -78,7 +78,7 @@ staffSchema.pre('save', async function (next) {
   if (this.isNew && !this.staffId) {
     try {
       this.staffId = await generateId('ST');
-      console.log(`Generated staffId: ${this.staffId}`);
+      // console.log(`Generated staffId: ${this.staffId}`);
     } catch (error) {
       console.error('Error generating staffId:', error);
     }

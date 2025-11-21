@@ -13,13 +13,11 @@ import { cloudinary } from "@/services/cloudinary/config";
 
 export async function deleteCloudinaryImage(publicId: string) {
   try {
-    console.log(publicId);
     if (!publicId) {
       throw new Error('No public ID provided');
     }
 
     const result = await cloudinary.uploader.destroy(publicId);
-    console.log(result);
     
     if (result.result === 'not found') {
       throw new Error('Image not found in Cloudinary');

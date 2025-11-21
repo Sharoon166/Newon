@@ -26,7 +26,8 @@ import {
   Package,
   Eye,
   Save,
-  Printer
+  Printer,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
@@ -100,6 +101,7 @@ const quotationFormSchema = z.object({
 type QuotationFormValues = z.infer<typeof quotationFormSchema>;
 
 export function NewQuotationForm({
+  isLoading,
   onPreview,
   onSave,
   onPrint,
@@ -108,6 +110,7 @@ export function NewQuotationForm({
   purchases = [],
   invoiceTerms: initialInvoiceTerms
 }: {
+  isLoading: boolean;
   onPreview: (data: QuotationFormValues) => void;
   onSave?: (data: QuotationFormValues) => void | Promise<void>;
   onPrint?: (data: QuotationFormValues) => void;
@@ -131,7 +134,7 @@ export function NewQuotationForm({
     contentRef: printRef,
     documentTitle: `Quotation-${nextQuotationNumber}`
   });
-  
+
   const form = useForm<QuotationFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(quotationFormSchema) as any,
@@ -191,7 +194,7 @@ export function NewQuotationForm({
         setNextQuotationNumber('Error loading');
       }
     };
-    
+
     fetchNextQuotationNumber();
   }, [form]);
 
@@ -254,7 +257,8 @@ export function NewQuotationForm({
 
     // Check if item from the SAME purchase already exists in the table
     const existingItemIndex = fields.findIndex(
-      field => field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
+      field =>
+        field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
     );
 
     if (existingItemIndex !== -1) {
@@ -428,8 +432,6 @@ export function NewQuotationForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit, errors => {
-          console.log('Form errors:', errors);
-
           // Handle items array errors
           if (errors.items) {
             if (errors.items.message) {
@@ -528,230 +530,230 @@ export function NewQuotationForm({
 
         {/* Client Details */}
         <Collapsible open={isToOpen} onOpenChange={setIsToOpen} className="border rounded-lg">
-            <div className="p-2">
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn('w-full justify-between p-0', {
-                    'mb-4': isToOpen
-                  })}
-                >
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    To {form.watch("client.name") && `- ${form.watch("client.name")}`}
-                  </h2>
-                  <ChevronsUpDown />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
-                <div>
-                  <Select onValueChange={handleCustomerSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers?.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name} - {customer.company || 'No Company'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {selectedCustomer && !isCustomCustomer && (
-                  <div className="bg-gray-50 border rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="font-semibold text-lg flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {selectedCustomer.name}
-                        </h3>
-                        {selectedCustomer.company && (
-                          <p className="text-muted-foreground flex items-center gap-2 mt-1">
-                            <Building2 className="h-4 w-4" />
-                            {selectedCustomer.company}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          {selectedCustomer.email}
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isToOpen
+                })}
+              >
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  To {form.watch('client.name') && `- ${form.watch('client.name')}`}
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
+              <div>
+                <Select onValueChange={handleCustomerSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers?.map(customer => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name} - {customer.company || 'No Company'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedCustomer && !isCustomCustomer && (
+                <div className="bg-gray-50 border rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        {selectedCustomer.name}
+                      </h3>
+                      {selectedCustomer.company && (
+                        <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                          <Building2 className="h-4 w-4" />
+                          {selectedCustomer.company}
                         </p>
-                        <p className="text-sm flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          {selectedCustomer.phone}
-                        </p>
-                      </div>
+                      )}
                     </div>
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5" />
-                        <span>
-                          {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
-                          {selectedCustomer.zip}
-                        </span>
+                    <div className="space-y-1">
+                      <p className="text-sm flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        {selectedCustomer.email}
+                      </p>
+                      <p className="text-sm flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        {selectedCustomer.phone}
                       </p>
                     </div>
                   </div>
-                )}
-                {isCustomCustomer && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="client.name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Client Name</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <User className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="Client Name" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.company"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company (Optional)</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <Building2 className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="Company Name" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <Mail className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput type="email" placeholder="client@example.com" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <Phone className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.address"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Address</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="123 Client St." {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="City" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="State" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="client.zip"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ZIP Code</FormLabel>
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>
-                                <MapPin className="h-4 w-4" />
-                              </InputGroupAddon>
-                              <InputGroupInput placeholder="12345" {...field} />
-                            </InputGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-sm flex items-start gap-2">
+                      <MapPin className="h-4 w-4 mt-0.5" />
+                      <span>
+                        {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
+                        {selectedCustomer.zip}
+                      </span>
+                    </p>
                   </div>
-                )}
-                {!selectedCustomer && !isCustomCustomer && (
-                  <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
-                    <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">Select a customer or choose custom entry</p>
-                  </div>
-                )}
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
+                </div>
+              )}
+              {isCustomCustomer && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="client.name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <User className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="Client Name" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company (Optional)</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <Building2 className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="Company Name" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <Mail className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput type="email" placeholder="client@example.com" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <Phone className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.address"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="123 Client St." {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="City" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="State" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="client.zip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>
+                              <MapPin className="h-4 w-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput placeholder="12345" {...field} />
+                          </InputGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              {!selectedCustomer && !isCustomCustomer && (
+                <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
+                  <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">Select a customer or choose custom entry</p>
+                </div>
+              )}
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         {/* Quotation Items */}
         <div className="border rounded-lg p-6">
@@ -762,7 +764,9 @@ export function NewQuotationForm({
                   <ShoppingCart className="h-5 w-5" />
                   <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
                 </div>
-                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products or Custom Items</h3>
+                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">
+                  Add Products or Custom Items
+                </h3>
               </div>
               <Button
                 type="button"
@@ -1158,108 +1162,108 @@ export function NewQuotationForm({
           </div>
         </div>
 
-          <div className="mt-6 flex justify-end">
-            <div className="w-full max-w-xl space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground font-medium">Subtotal:</span>
-                <span className="font-medium">{formatCurrency(subtotal)}</span>
-              </div>
+        <div className="mt-6 flex justify-end">
+          <div className="w-full max-w-xl space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground font-medium">Subtotal:</span>
+              <span className="font-medium">{formatCurrency(subtotal)}</span>
+            </div>
 
-              <div className="flex justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-medium">Tax ({taxRate}%):</span>
-                  <FormField
-                    control={form.control}
-                    name="taxRate"
-                    render={({ field }) => (
-                      <FormItem className="w-24">
+            <div className="flex justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground font-medium">Tax ({taxRate}%):</span>
+                <FormField
+                  control={form.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem className="w-24">
+                      <FormControl>
+                        <InputGroup className="justify-end">
+                          <InputGroupInput
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            {...field}
+                            className="h-8 text-sm text-right"
+                            onChange={e => handleNumericInput(e, field)}
+                            value={field.value === 0 ? '' : field.value}
+                          />
+                          <InputGroupAddon>
+                            <Percent className="h-4 w-4 text-muted-foreground" />
+                          </InputGroupAddon>
+                        </InputGroup>
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <span className="font-medium">{formatCurrency(taxAmount)}</span>
+            </div>
+
+            <div className="flex justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground font-medium">Discount:</span>
+                <FormField
+                  control={form.control}
+                  name="discountType"
+                  render={({ field }) => (
+                    <FormItem className="">
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <InputGroup className="justify-end">
-                            <InputGroupInput
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              {...field}
-                              className="h-8 text-sm text-right"
-                              onChange={e => handleNumericInput(e, field)}
-                              value={field.value === 0 ? '' : field.value}
-                            />
-                            <InputGroupAddon>
-                              <Percent className="h-4 w-4 text-muted-foreground" />
-                            </InputGroupAddon>
-                          </InputGroup>
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <span className="font-medium">{formatCurrency(taxAmount)}</span>
+                        <SelectContent>
+                          <SelectItem value="fixed">Rs</SelectItem>
+                          <SelectItem value="percentage">%</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="discount"
+                  render={({ field }) => (
+                    <FormItem className="w-20">
+                      <FormControl>
+                        <InputGroup>
+                          <InputGroupInput
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            {...field}
+                            className="h-8 text-sm"
+                            onChange={e => handleNumericInput(e, field)}
+                            value={field.value === 0 ? '' : field.value}
+                          />
+                        </InputGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <span className="font-medium">- {formatCurrency(discountAmount)}</span>
+            </div>
+
+            <div className="border-t pt-2 mt-2 space-y-2">
+              <div className="flex justify-between font-semibold">
+                <span>Total:</span>
+                <span>{formatCurrency(total)}</span>
               </div>
 
-              <div className="flex justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground font-medium">Discount:</span>
-                  <FormField
-                    control={form.control}
-                    name="discountType"
-                    render={({ field }) => (
-                      <FormItem className="">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-8 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="fixed">Rs</SelectItem>
-                            <SelectItem value="percentage">%</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="discount"
-                    render={({ field }) => (
-                      <FormItem className="w-20">
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupInput
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...field}
-                              className="h-8 text-sm"
-                              onChange={e => handleNumericInput(e, field)}
-                              value={field.value === 0 ? '' : field.value}
-                            />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <span className="font-medium">- {formatCurrency(discountAmount)}</span>
-              </div>
-
-              <div className="border-t pt-2 mt-2 space-y-2">
-                <div className="flex justify-between font-semibold">
-                  <span>Total:</span>
-                  <span>{formatCurrency(total)}</span>
-                </div>
-
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Amount in words:</span> {amountInWords}
-                  </p>
-                </div>
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium">Amount in words:</span> {amountInWords}
+                </p>
               </div>
             </div>
           </div>
+        </div>
 
         {/* Notes - Collapsible and Collapsed by Default */}
         <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen} className="border rounded-lg">
@@ -1309,13 +1313,16 @@ export function NewQuotationForm({
           >
             Reset Form
           </Button>
-          <Button type="submit" variant="outline" className="w-full sm:w-auto">
-            <Eye className="h-4 w-4 mr-2" />
-            Preview
-          </Button>
-          <Button type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Quotation
+          <Button
+            aria-disabled={isLoading}
+            disabled={isLoading}
+            type="submit"
+            variant="default"
+            className="w-full sm:w-auto"
+            onClick={handleSave}
+          >
+            {isLoading ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            {isLoading ? 'Saving' : 'Save Quotation'}
           </Button>
           <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />

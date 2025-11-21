@@ -37,7 +37,7 @@ const data = {
   projects: [
     {
       name: 'Dashboard',
-      url: '/',
+      url: '/dashboard',
       icon: LayoutDashboard
     },
     {

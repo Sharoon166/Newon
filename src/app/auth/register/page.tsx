@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
       router.push('/auth/signin?registered=true');
     } catch (error) {
-      console.log(error)
+      console.error(error)
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);

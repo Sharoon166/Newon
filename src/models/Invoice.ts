@@ -337,7 +337,7 @@ invoiceSchema.pre('save', async function (next) {
       const prefix = this.type === 'quotation' ? 'QT' : 'INV';
       const currentYear = new Date().getFullYear();
       this.invoiceNumber = await generateId(prefix, currentYear);
-      console.log(`Generated invoice number: ${this.invoiceNumber}`);
+      // console.log(`Generated invoice number: ${this.invoiceNumber}`);
     } catch (error) {
       console.error('Error generating invoice number:', error);
       return next(error as Error);

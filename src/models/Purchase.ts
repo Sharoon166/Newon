@@ -100,7 +100,7 @@ purchaseSchema.pre('save', async function (next) {
   if (this.isNew && !this.purchaseId) {
     try {
       this.purchaseId = await generateId('PR');
-      console.log(`Generated purchaseId: ${this.purchaseId}`);
+      // console.log(`Generated purchaseId: ${this.purchaseId}`);
     } catch (error) {
       console.error('Error generating purchaseId:', error);
       // Continue without purchaseId - it will be generated later if needed

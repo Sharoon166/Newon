@@ -250,7 +250,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
             availableStock: data.quantity,
             backorderStock: 0
           });
-          console.log(`Created new inventory entry for location ${data.locationId} with ${data.quantity} units`);
         }
       } else {
         // If no location specified, add to the first available location or create a default one
@@ -268,7 +267,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
             availableStock: data.quantity,
             backorderStock: 0
           });
-          console.log(`Created default inventory entry with ${data.quantity} units`);
         }
       }
 
@@ -287,13 +285,9 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
       variant.availableStock = totalAvailable;
       variant.stockOnBackorder = totalBackorder;
 
-      console.log(`Updated variant totals - Available: ${totalAvailable}, Backorder: ${totalBackorder}`);
-
       // Mark variants as modified and save
       product.markModified('variants');
       await product.save();
-
-      console.log(`Successfully updated inventory for product ${data.productId}, variant ${data.variantId}`);
     } else {
       console.error(`Variant ${data.variantId} not found in product ${data.productId}`);
     }
@@ -345,10 +339,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     } else {
       calculatedRemaining = oldRemaining;
     }
-
-    console.log(
-      `Auto-calculated remaining: ${oldRemaining} → ${calculatedRemaining} (quantity: ${oldQuantity} → ${newQuantity})`
-    );
   }
 
   // Validate that remaining doesn't exceed quantity (using calculated remaining)
@@ -397,9 +387,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
             inventory[locationInventoryIndex].availableStock = 0;
           }
 
-          console.log(
-            `Updated inventory for location ${targetLocationId}: ${oldStock} + ${quantityDiff} = ${inventory[locationInventoryIndex].availableStock}`
-          );
         } else if (quantityDiff > 0) {
           // Add new inventory entry if quantity is increased and location doesn't exist
           inventory.push({
@@ -407,7 +394,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
             availableStock: quantityDiff,
             backorderStock: 0
           });
-          console.log(`Created new inventory entry for location ${targetLocationId} with ${quantityDiff} units`);
         }
 
         // Update variant inventory
@@ -425,13 +411,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
         );
         variant.availableStock = totalAvailable;
         variant.stockOnBackorder = totalBackorder;
-
-        console.log(
-          `Updated variant available stock: ${oldVariantAvailable} → ${totalAvailable} (change: ${totalAvailable - oldVariantAvailable})`
-        );
-        console.log(
-          `Updated variant totals after quantity change - Available: ${totalAvailable}, Backorder: ${totalBackorder}`
-        );
 
         // Mark variants as modified
         product.markModified('variants');

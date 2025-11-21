@@ -26,7 +26,8 @@ import {
   Package,
   Eye,
   Save,
-  Printer
+  Printer,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
@@ -108,6 +109,7 @@ const invoiceFormSchema = z.object({
 type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 
 export function NewInvoiceForm({
+  isLoading,
   onPreview,
   onSave,
   onPrint,
@@ -117,6 +119,7 @@ export function NewInvoiceForm({
   paymentDetails: initialPaymentDetails,
   invoiceTerms: initialInvoiceTerms
 }: {
+  isLoading: boolean;
   onPreview: (data: InvoiceFormValues) => void;
   onSave?: (data: InvoiceFormValues) => void | Promise<void>;
   onPrint?: (data: InvoiceFormValues) => void;
@@ -127,7 +130,6 @@ export function NewInvoiceForm({
   invoiceTerms?: string[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isCustomCustomer, setIsCustomCustomer] = useState(false);
   const [isOtcCustomer, setIsOtcCustomer] = useState(false);
   const [isToOpen, setIsToOpen] = useState(true);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -292,7 +294,8 @@ export function NewInvoiceForm({
 
     // Check if item from the SAME purchase already exists in the table
     const existingItemIndex = fields.findIndex(
-      field => field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
+      field =>
+        field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
     );
 
     if (existingItemIndex !== -1) {
@@ -328,7 +331,6 @@ export function NewInvoiceForm({
     // Handle OTC customer specially
     if (customerId === 'otc') {
       setIsOtcCustomer(true);
-      setIsCustomCustomer(false);
       setSelectedCustomer(OTC_CUSTOMER as Customer);
       form.setValue('customerId', OTC_CUSTOMER.id);
       form.setValue('client.name', OTC_CUSTOMER.name);
@@ -346,7 +348,6 @@ export function NewInvoiceForm({
     const customer = customers.find(customer => customer.id === customerId);
     if (customer) {
       setIsOtcCustomer(false);
-      setIsCustomCustomer(false);
       setSelectedCustomer(customer);
       form.setValue('customerId', customer.id);
       form.setValue('client.name', customer.name);
@@ -619,7 +620,7 @@ export function NewInvoiceForm({
               >
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <User className="h-5 w-5" />
-                  To {form.watch("client.name") && `- ${form.watch("client.name")}`}
+                  To {form.watch('client.name') && `- ${form.watch('client.name')}`}
                 </h2>
                 <ChevronsUpDown />
               </Button>
@@ -627,7 +628,7 @@ export function NewInvoiceForm({
             <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
               <div className="space-y-3">
                 <Select onValueChange={handleCustomerSelect} disabled={isOtcCustomer}>
-                  <SelectTrigger className='w-full max-w-sm'>
+                  <SelectTrigger className="w-full max-w-sm">
                     <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -638,13 +639,13 @@ export function NewInvoiceForm({
                     ))}
                   </SelectContent>
                 </Select>
-                
+
                 <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <input
                     type="checkbox"
                     id="useOtc"
                     className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                    onChange={(e) => {
+                    onChange={e => {
                       if (e.target.checked) {
                         handleCustomerSelect('otc');
                       } else {
@@ -716,7 +717,9 @@ export function NewInvoiceForm({
                   <ShoppingCart className="h-5 w-5" />
                   <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
                 </div>
-                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">Add Products or Custom Items</h3>
+                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">
+                  Add Products or Custom Items
+                </h3>
               </div>
               <Button
                 type="button"
@@ -1382,7 +1385,6 @@ export function NewInvoiceForm({
             onClick={() => {
               form.reset();
               setSelectedCustomer(null);
-              setIsCustomCustomer(false);
             }}
           >
             Reset Form
@@ -1391,9 +1393,16 @@ export function NewInvoiceForm({
             <Eye className="h-4 w-4 mr-2" />
             Preview
           </Button>
-          <Button type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Invoice
+          <Button
+            aria-disabled={isLoading}
+            disabled={isLoading}
+            type="button"
+            variant="default"
+            className="w-full sm:w-auto"
+            onClick={handleSave}
+          >
+            {isLoading ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            {isLoading ? 'Saving' : 'Save Invoice'}
           </Button>
           <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />

@@ -346,8 +346,6 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
   };
 
   const onInvalid = (errors: typeof form.formState.errors) => {
-    console.log('Form validation errors:', errors);
-
     // Check for specific common errors first
     if (errors.name) {
       toast.error(errors.name.message || 'Product name is required');

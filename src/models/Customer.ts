@@ -112,7 +112,7 @@ customerSchema.pre('save', async function (next) {
   if (this.isNew && !this.customerId) {
     try {
       this.customerId = await generateId('CU');
-      console.log(`Generated customerId: ${this.customerId}`);
+      // console.log(`Generated customerId: ${this.customerId}`);
     } catch (error) {
       console.error('Error generating customerId:', error);
       // Continue without customerId - it will be generated later if needed

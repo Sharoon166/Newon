@@ -8,7 +8,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar
+  // useSidebar
 } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -22,8 +22,8 @@ export function NavLinks({
     icon: LucideIcon;
   }[];
 }) {
-  const { isMobile } = useSidebar();
-  console.log(isMobile); 
+  // const { isMobile } = useSidebar();
+  // console.log(isMobile); 
   const pathname = usePathname();
 
   return (
