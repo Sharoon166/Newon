@@ -9,12 +9,6 @@ export interface Customer {
   city?: string;
   state?: string;
   zip?: string;
-  // Financial tracking fields (optional for backward compatibility)
-  totalInvoiced?: number;
-  totalPaid?: number;
-  outstandingBalance?: number;
-  lastInvoiceDate?: Date;
-  lastPaymentDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,18 +24,10 @@ export interface CreateCustomerDto {
   zip?: string;
 }
 
-export interface UpdateCustomerDto extends Partial<CreateCustomerDto> {
-  // Financial fields can be updated by invoice/payment systems
-  totalInvoiced?: number;
-  totalPaid?: number;
-  outstandingBalance?: number;
-  lastInvoiceDate?: Date;
-  lastPaymentDate?: Date;
-}
+export type UpdateCustomerDto = Partial<CreateCustomerDto>;
 
 export interface CustomerFilters {
   search?: string;
-  hasOutstandingBalance?: boolean;
   dateFrom?: Date;
   dateTo?: Date;
   page?: number;

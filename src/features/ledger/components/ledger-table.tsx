@@ -40,7 +40,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useMemo, useState } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
-import { exportLedgerToCsv, exportLedgerToPdf, printLedger } from '../utils/export-utils';
+import { exportLedgerToCsv, exportLedgerToPdf, printLedgerEntries } from '../utils/export-utils';
 
 // Define columns
 const columns: ColumnDef<CustomerLedger>[] = [
@@ -213,11 +213,13 @@ const columns: ColumnDef<CustomerLedger>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[160px]">
-            <DropdownMenuItem>
-              <Eye className="mr-2 h-4 w-4" />
-              <span>View Details</span>
+            <DropdownMenuItem asChild>
+              <a href={`/ledger/${row.original.customerId}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                <span>View Details</span>
+              </a>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => printLedger([row.original])}>
+            <DropdownMenuItem onClick={() => printLedgerEntries(row.original.customerId)}>
               <Printer className="mr-2 h-4 w-4" />
               <span>Print Ledger</span>
             </DropdownMenuItem>
@@ -255,11 +257,6 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
   // Handle PDF export
   const handleExportPdf = () => {
     exportLedgerToPdf(filteredData);
-  };
-
-  // Handle print
-  const handlePrint = () => {
-    printLedger(filteredData);
   };
 
   // Filter data based on search and filters
@@ -365,10 +362,6 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
           </DropdownMenu>
 
           <div className="contents md:flex justify-end w-full gap-2">
-            <Button variant="outline" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button>

@@ -38,6 +38,8 @@ export interface LedgerEntry {
   customerId: string;
   customerName: string;
   customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   transactionType: TransactionType;
   transactionId?: string;
   transactionNumber: string;
@@ -48,7 +50,6 @@ export interface LedgerEntry {
   balance: number; // Running balance
   paymentMethod?: PaymentMethod;
   reference?: string;
-  notes?: string;
   createdBy: string;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -118,7 +119,6 @@ export interface CreateLedgerEntryDto {
   credit: number;
   paymentMethod?: PaymentMethod;
   reference?: string;
-  notes?: string;
   createdBy: string;
 }
 
@@ -131,7 +131,6 @@ export interface UpdateLedgerEntryDto {
   credit?: number;
   paymentMethod?: PaymentMethod;
   reference?: string;
-  notes?: string;
 }
 
 /**

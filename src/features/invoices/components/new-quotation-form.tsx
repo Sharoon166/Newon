@@ -288,36 +288,21 @@ export function NewQuotationForm({
   };
 
   const handleCustomerSelect = (customerId: string) => {
-    if (customerId === 'custom') {
-      setIsCustomCustomer(true);
-      setSelectedCustomer(null);
-      form.setValue('customerId', '');
-      form.setValue('client.name', '');
-      form.setValue('client.company', '');
-      form.setValue('client.email', '');
-      form.setValue('client.phone', '');
-      form.setValue('client.address', '');
-      form.setValue('client.city', '');
-      form.setValue('client.state', '');
-      form.setValue('client.zip', '');
-    } else {
-      const customer = customers.find(customer => customer.id === customerId);
-      if (customer) {
-        setIsCustomCustomer(false);
-        setSelectedCustomer(customer);
-        form.setValue('customerId', customer.id);
-        form.setValue('client.name', customer.name);
-        form.setValue('client.company', customer.company || '');
-        form.setValue('client.email', customer.email);
-        form.setValue('client.phone', customer.phone || '');
-        form.setValue('client.address', customer.address || '');
-        form.setValue('client.city', customer.city || '');
-        form.setValue('client.state', customer.state || '');
-        form.setValue('client.zip', customer.zip || '');
-      }
+    const customer = customers.find(customer => customer.id === customerId);
+    if (customer) {
+      setIsCustomCustomer(false);
+      setSelectedCustomer(customer);
+      form.setValue('customerId', customer.id);
+      form.setValue('client.name', customer.name);
+      form.setValue('client.company', customer.company || '');
+      form.setValue('client.email', customer.email);
+      form.setValue('client.phone', customer.phone || '');
+      form.setValue('client.address', customer.address || '');
+      form.setValue('client.city', customer.city || '');
+      form.setValue('client.state', customer.state || '');
+      form.setValue('client.zip', customer.zip || '');
       setIsToOpen(false);
     }
-
   };
 
   const validateQuotationData = (data: QuotationFormValues): boolean => {
@@ -562,15 +547,9 @@ export function NewQuotationForm({
                 <div>
                   <Select onValueChange={handleCustomerSelect}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a customer or enter custom details" />
+                      <SelectValue placeholder="Select a customer" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="custom">
-                        <span className="flex items-center gap-2">
-                          <Plus className="h-4 w-4" />
-                          Custom Customer (Manual Entry)
-                        </span>
-                      </SelectItem>
                       {customers?.map(customer => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.name} - {customer.company || 'No Company'}

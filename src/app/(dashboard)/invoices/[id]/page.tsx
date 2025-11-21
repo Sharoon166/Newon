@@ -3,15 +3,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useReactToPrint } from 'react-to-print';
-import {
-  getInvoice,
-  deductInvoiceStock,
-  restoreInvoiceStock
-} from '@/features/invoices/actions';
+import { getInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/invoices/actions';
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -318,38 +314,52 @@ export default function InvoiceDetailPage() {
                   )}
                 </div>
               </div>
-              {invoice.convertedToInvoice && invoice.convertedInvoiceId && <div>
-                <Link href={`/invoices/${invoice.convertedInvoiceId}`} className='inline-flex items-center gap-2 text-primary underline underline-offset-2'>
-                  View Invoice <ArrowUpRight />
-                </Link>
-              </div>}
+              {invoice.convertedToInvoice && invoice.convertedInvoiceId && (
+                <div>
+                  <Link
+                    href={`/invoices/${invoice.convertedInvoiceId}`}
+                    className="inline-flex items-center gap-2 text-primary underline underline-offset-2"
+                  >
+                    View Invoice <ArrowUpRight />
+                  </Link>
+                </div>
+              )}
             </CardHeader>
           </Card>
 
           {/* Customer Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div>
-                  <p className="font-semibold">{invoice.customerName}</p>
-                  {invoice.customerCompany && <p className="text-muted-foreground">{invoice.customerCompany}</p>}
+          {invoice.customerId === 'otc' ? (
+            <Card className='text-blue-500 bg-blue-50 border-blue-500'>
+              <CardContent className='flex gap-2'>
+                <Info />
+                This is an Over the Counter(OTC) Customer
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Customer Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div>
+                    <p className="font-semibold">{invoice.customerName}</p>
+                    {invoice.customerCompany && <p className="text-muted-foreground">{invoice.customerCompany}</p>}
+                  </div>
+                  <div className="text-sm">
+                    <p>{invoice.customerEmail}</p>
+                    <p>{invoice.customerPhone}</p>
+                    <p className="mt-2">
+                      {invoice.customerAddress}
+                      {invoice.customerCity && `, ${invoice.customerCity}`}
+                      {invoice.customerState && `, ${invoice.customerState}`}
+                      {invoice.customerZip && ` ${invoice.customerZip}`}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-sm">
-                  <p>{invoice.customerEmail}</p>
-                  <p>{invoice.customerPhone}</p>
-                  <p className="mt-2">
-                    {invoice.customerAddress}
-                    {invoice.customerCity && `, ${invoice.customerCity}`}
-                    {invoice.customerState && `, ${invoice.customerState}`}
-                    {invoice.customerZip && ` ${invoice.customerZip}`}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Items */}
           <Card>

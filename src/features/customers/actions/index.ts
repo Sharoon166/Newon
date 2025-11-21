@@ -17,11 +17,6 @@ interface LeanCustomer {
   city?: string;
   state?: string;
   zip?: string;
-  totalInvoiced: number;
-  totalPaid: number;
-  outstandingBalance: number;
-  lastInvoiceDate?: Date;
-  lastPaymentDate?: Date;
   createdAt: Date;
   updatedAt: Date;
   __v?: number;
@@ -51,10 +46,6 @@ export async function getCustomers(filters?: CustomerFilters): Promise<Paginated
         { phone: { $regex: filters.search, $options: 'i' } },
         { company: { $regex: filters.search, $options: 'i' } }
       ];
-    }
-
-    if (filters?.hasOutstandingBalance !== undefined) {
-      query.outstandingBalance = filters.hasOutstandingBalance ? { $gt: 0 } : { $lte: 0 };
     }
 
     if (filters?.dateFrom || filters?.dateTo) {
@@ -142,6 +133,11 @@ export async function updateCustomer(id: string, data: UpdateCustomerDto): Promi
   try {
     await dbConnect();
 
+    // Protect OTC customer from updates
+    if (id === 'otc') {
+      throw new Error('Cannot update OTC customer. This is a system customer for walk-in sales.');
+    }
+
     // Filter out undefined values to avoid issues with MongoDB
     const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 
@@ -178,6 +174,11 @@ export async function deleteCustomer(id: string): Promise<void> {
   try {
     await dbConnect();
 
+    // Protect OTC customer from deletion
+    if (id === 'otc') {
+      throw new Error('Cannot delete OTC customer. This is a system customer for walk-in sales.');
+    }
+
     const result = await CustomerModel.deleteOne({ _id: id });
 
     if (result.deletedCount === 0) {
@@ -191,30 +192,4 @@ export async function deleteCustomer(id: string): Promise<void> {
   }
 }
 
-// Financial update functions for future invoice/payment integration
-export async function updateCustomerFinancials(
-  id: string,
-  financialData: {
-    totalInvoiced?: number;
-    totalPaid?: number;
-    outstandingBalance?: number;
-    lastInvoiceDate?: Date;
-    lastPaymentDate?: Date;
-  }
-): Promise<void> {
-  try {
-    await dbConnect();
 
-    const result = await CustomerModel.findByIdAndUpdate(id, { $set: financialData }, { new: true });
-
-    if (!result) {
-      throw new Error('Customer not found');
-    }
-
-    revalidatePath('/(dashboard)/customers');
-    revalidatePath(`/(dashboard)/customers/${id}`);
-  } catch (error) {
-    console.error(`Error updating customer financials ${id}:`, error);
-    throw new Error('Failed to update customer financials');
-  }
-}

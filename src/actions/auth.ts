@@ -76,7 +76,7 @@ export async function getAllStaff() {
   try {
     await dbConnect();
 
-    const staff = await Staff.find({}).sort({ createdAt: -1 });
+    const staff = await Staff.find({}).sort({ role: 1 });
 
     return {
       success: true,

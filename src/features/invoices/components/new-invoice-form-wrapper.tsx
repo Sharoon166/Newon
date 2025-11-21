@@ -83,6 +83,12 @@ export function NewInvoiceFormWrapper({
       const totalAmount = subtotal + taxAmount - discountAmount;
       const isInvoice = documentType === 'invoice';
       
+      // Generate a unique customer ID if not provided
+      const customerId = documentData.customerId || 
+        `manual-${documentData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 
+        documentData.client.phone?.replace(/[^0-9]/g, '') || 
+        documentData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      
       const createData = {
         type: documentType,
         date: new Date(documentData.date),
@@ -90,7 +96,7 @@ export function NewInvoiceFormWrapper({
         validUntil: !isInvoice && documentData.validUntil ? new Date(documentData.validUntil) : undefined,
         billingType: (documentData.billingType || 'retail') as 'retail' | 'wholesale',
         market: (documentData.market || 'newon') as 'newon' | 'waymor',
-        customerId: documentData.customerId || 'manual-entry',
+        customerId,
         customerName: documentData.client.name,
         customerCompany: documentData.client.company || '',
         customerEmail: documentData.client.email || '',

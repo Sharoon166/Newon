@@ -64,7 +64,18 @@ interface LeanInvoice {
   gstValue?: number;
   gstAmount: number;
   totalAmount: number;
-  status: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  status:
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired'
+    | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount: number;
   balanceAmount: number;
@@ -83,30 +94,32 @@ interface LeanInvoice {
 // Transform lean document to Invoice type
 function transformInvoice(doc: LeanInvoice): Invoice {
   // Serialize items - remove _id and convert dates
-  const items = doc.items?.map((item: LeanInvoiceItem) => ({
-    productId: item.productId,
-    productName: item.productName,
-    variantId: item.variantId,
-    variantSKU: item.variantSKU,
-    quantity: item.quantity,
-    unit: item.unit,
-    unitPrice: item.unitPrice,
-    discountType: item.discountType,
-    discountValue: item.discountValue,
-    discountAmount: item.discountAmount,
-    totalPrice: item.totalPrice,
-    stockLocation: item.stockLocation,
-    purchaseId: item.purchaseId
-  })) || [];
+  const items =
+    doc.items?.map((item: LeanInvoiceItem) => ({
+      productId: item.productId,
+      productName: item.productName,
+      variantId: item.variantId,
+      variantSKU: item.variantSKU,
+      quantity: item.quantity,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+      discountType: item.discountType,
+      discountValue: item.discountValue,
+      discountAmount: item.discountAmount,
+      totalPrice: item.totalPrice,
+      stockLocation: item.stockLocation,
+      purchaseId: item.purchaseId
+    })) || [];
 
   // Serialize payments - remove _id and convert dates
-  const payments = doc.payments?.map((payment: LeanPayment) => ({
-    amount: payment.amount,
-    method: payment.method,
-    date: payment.date instanceof Date ? payment.date.toISOString() : payment.date,
-    reference: payment.reference,
-    notes: payment.notes
-  })) || [];
+  const payments =
+    doc.payments?.map((payment: LeanPayment) => ({
+      amount: payment.amount,
+      method: payment.method,
+      date: payment.date instanceof Date ? payment.date.toISOString() : payment.date,
+      reference: payment.reference,
+      notes: payment.notes
+    })) || [];
 
   return {
     id: doc._id.toString(),
@@ -142,7 +155,11 @@ function transformInvoice(doc: LeanInvoice): Invoice {
     stockDeducted: doc.stockDeducted,
     notes: doc.notes,
     termsAndConditions: doc.termsAndConditions,
-    validUntil: doc.validUntil ? (doc.validUntil instanceof Date ? doc.validUntil.toISOString() : doc.validUntil) : undefined,
+    validUntil: doc.validUntil
+      ? doc.validUntil instanceof Date
+        ? doc.validUntil.toISOString()
+        : doc.validUntil
+      : undefined,
     convertedToInvoice: doc.convertedToInvoice,
     convertedInvoiceId: doc.convertedInvoiceId,
     createdBy: doc.createdBy,
@@ -208,7 +225,7 @@ export async function getInvoices(filters?: InvoiceFilters): Promise<PaginatedIn
       lean: true
     });
 
-    const transformedInvoices = result.docs.map((doc) => transformInvoice(doc as unknown as LeanInvoice));
+    const transformedInvoices = result.docs.map(doc => transformInvoice(doc as unknown as LeanInvoice));
 
     return {
       docs: transformedInvoices,
@@ -268,8 +285,38 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
   try {
     await dbConnect();
 
-    const newInvoice = new InvoiceModel(data);
+    // Convert date strings to UTC Date objects to avoid timezone issues
+    const { dateStringToUTC } = await import('@/lib/utils');
+    const invoiceData = {
+      ...data,
+      date: typeof data.date === 'string' ? dateStringToUTC(data.date) : data.date,
+      dueDate: data.dueDate && typeof data.dueDate === 'string' ? dateStringToUTC(data.dueDate) : data.dueDate,
+      validUntil:
+        data.validUntil && typeof data.validUntil === 'string' ? dateStringToUTC(data.validUntil) : data.validUntil
+    };
+
+    const newInvoice = new InvoiceModel(invoiceData);
     const savedInvoice = await newInvoice.save();
+
+    // Create ledger entry for invoice (only for actual invoices, not quotations)
+    if (data.type === 'invoice') {
+      try {
+        const { createLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+        await createLedgerEntryFromInvoice({
+          id: (savedInvoice._id as mongoose.Types.ObjectId).toString(),
+          invoiceNumber: savedInvoice.invoiceNumber,
+          customerId: savedInvoice.customerId,
+          customerName: savedInvoice.customerName,
+          customerCompany: savedInvoice.customerCompany,
+          date: savedInvoice.date,
+          totalAmount: savedInvoice.totalAmount,
+          createdBy: savedInvoice.createdBy
+        });
+      } catch (ledgerError) {
+        console.error('Error creating ledger entry:', ledgerError);
+        // Continue - invoice is created but ledger entry failed
+      }
+    }
 
     // Deduct stock from purchases if this is an invoice (not quotation) and stockDeducted is true
     if (data.type === 'invoice' && data.items.length > 0) {
@@ -300,6 +347,7 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
+    revalidatePath('/ledger', 'layout');
 
     return transformInvoice(savedInvoice.toObject() as unknown as LeanInvoice);
   } catch (error: unknown) {
@@ -313,17 +361,50 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
   try {
     await dbConnect();
 
-    const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+    // Convert date strings to UTC Date objects to avoid timezone issues
+    const { dateStringToUTC } = await import('@/lib/utils');
+    const processedData = { ...data };
+    if (processedData.date && typeof processedData.date === 'string') {
+      processedData.date = dateStringToUTC(processedData.date);
+    }
+    if (processedData.dueDate && typeof processedData.dueDate === 'string') {
+      processedData.dueDate = dateStringToUTC(processedData.dueDate);
+    }
+    if (processedData.validUntil && typeof processedData.validUntil === 'string') {
+      processedData.validUntil = dateStringToUTC(processedData.validUntil);
+    }
 
-    const updatedInvoice = await InvoiceModel.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true }).lean();
+    const updateData = Object.fromEntries(Object.entries(processedData).filter(([, value]) => value !== undefined));
+
+    const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
 
     if (!updatedInvoice) {
       throw new Error('Invoice not found');
     }
 
+    // Update ledger entry if this is an invoice and total amount changed
+    if (updatedInvoice.type === 'invoice' && data.totalAmount !== undefined) {
+      try {
+        const { updateLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+        await updateLedgerEntryFromInvoice({
+          id: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+          invoiceNumber: updatedInvoice.invoiceNumber,
+          totalAmount: updatedInvoice.totalAmount
+        });
+      } catch (ledgerError) {
+        console.error('Error updating ledger entry:', ledgerError);
+        // Continue - invoice is updated but ledger entry update failed
+      }
+    }
+
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
     revalidatePath('/dashboard');
+    revalidatePath('/ledger', 'layout');
 
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
   } catch (error) {
@@ -342,6 +423,22 @@ export async function deleteInvoice(id: string): Promise<void> {
 
     if (!invoice) {
       throw new Error('Invoice not found');
+    }
+
+    // Prevent deletion if invoice has any payments
+    if (invoice.paidAmount > 0) {
+      throw new Error('Cannot delete invoice with partial or complete payment. Please cancel the invoice instead.');
+    }
+
+    // Delete ledger entry if this is an invoice
+    if (invoice.type === 'invoice') {
+      try {
+        const { deleteLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+        await deleteLedgerEntryFromInvoice(id);
+      } catch (ledgerError) {
+        console.error('Error deleting ledger entry:', ledgerError);
+        // Continue with deletion even if ledger entry deletion fails
+      }
     }
 
     // Restore stock if it was deducted
@@ -370,6 +467,8 @@ export async function deleteInvoice(id: string): Promise<void> {
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
+    revalidatePath('/ledger', 'layout');
+
   } catch (error) {
     console.error(`Error deleting invoice ${id}:`, error);
     throw new Error('Failed to delete invoice');
@@ -405,9 +504,29 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
 
     await invoice.save();
 
+    // Create ledger entry for payment
+    try {
+      const { createLedgerEntryFromPayment } = await import('@/features/ledger/actions');
+      await createLedgerEntryFromPayment({
+        id: (invoice._id as mongoose.Types.ObjectId).toString(),
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        customerCompany: invoice.customerCompany,
+        date: payment.date,
+        amount: payment.amount,
+        method: payment.method,
+        reference: payment.reference,
+        createdBy: invoice.createdBy
+      });
+    } catch (ledgerError) {
+      console.error('Error creating ledger entry for payment:', ledgerError);
+      // Continue - payment is recorded but ledger entry failed
+    }
+
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
+    revalidatePath('/ledger', 'layout');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -474,6 +593,24 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
       }
     }
 
+    // Create ledger entry for the new invoice
+    try {
+      const { createLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+      await createLedgerEntryFromInvoice({
+        id: (savedInvoice._id as mongoose.Types.ObjectId).toString(),
+        invoiceNumber: savedInvoice.invoiceNumber,
+        customerId: savedInvoice.customerId,
+        customerName: savedInvoice.customerName,
+        customerCompany: savedInvoice.customerCompany,
+        date: savedInvoice.date,
+        totalAmount: savedInvoice.totalAmount,
+        createdBy
+      });
+    } catch (ledgerError) {
+      console.error('Error creating ledger entry:', ledgerError);
+      // Continue - invoice is created but ledger entry failed
+    }
+
     // Update quotation to mark as converted
     quotation.convertedToInvoice = true;
     quotation.convertedInvoiceId = (savedInvoice._id as mongoose.Types.ObjectId).toString();
@@ -485,6 +622,7 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
+    revalidatePath('/ledger', 'layout');
 
     return transformInvoice(savedInvoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -496,12 +634,26 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
 // Update invoice status
 export async function updateInvoiceStatus(
   id: string,
-  status: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  status:
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired'
 ): Promise<Invoice> {
   try {
     await dbConnect();
 
-    const updatedInvoice = await InvoiceModel.findByIdAndUpdate(id, { $set: { status } }, { new: true, runValidators: true }).lean();
+    const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      { new: true, runValidators: true }
+    ).lean();
 
     if (!updatedInvoice) {
       throw new Error('Invoice not found');
@@ -510,6 +662,7 @@ export async function updateInvoiceStatus(
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
     revalidatePath('/dashboard');
+    revalidatePath('/ledger', 'layout');
 
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
   } catch (error) {
@@ -522,20 +675,20 @@ export async function updateInvoiceStatus(
 export async function getNextInvoiceNumber(type: 'invoice' | 'quotation' = 'invoice'): Promise<string> {
   try {
     await dbConnect();
-    
+
     const prefix = type === 'quotation' ? 'QT' : 'INV';
     const currentYear = new Date().getFullYear();
     const yearSuffix = currentYear.toString().slice(-2);
     const key = `${prefix.toLowerCase()}-${currentYear}`;
-    
+
     // Import Counter model
     const Counter = (await import('@/models/Counter')).default;
-    
+
     // Get current sequence without incrementing
     const counter = await Counter.findOne({ key });
     const nextSequence = counter ? counter.sequence + 1 : 1;
     const sequenceStr = nextSequence.toString().padStart(3, '0');
-    
+
     return `${prefix}-${yearSuffix}-${sequenceStr}`;
   } catch (error) {
     console.error('Error getting next invoice number:', error);
@@ -625,6 +778,7 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/purchases');
+    revalidatePath('/ledger', 'layout');
     revalidatePath('/inventory');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
@@ -674,6 +828,7 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/purchases');
     revalidatePath('/inventory');
+    revalidatePath('/ledger', 'layout');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -681,3 +836,4 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
     throw new Error((error as Error).message || 'Failed to restore stock');
   }
 }
+

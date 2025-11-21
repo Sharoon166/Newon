@@ -118,7 +118,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
           <Card>
             <CardHeader>
               <div className="flex items-start gap-6">
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   <ImageZoom>
                     <Avatar className="h-24 w-24 rounded-lg sm:h-32 sm:w-32">
                       <AvatarImage

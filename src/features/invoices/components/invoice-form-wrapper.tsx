@@ -67,6 +67,12 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
       setIsSubmitting(true);
 
       // Transform form data to match database schema
+      // Generate a unique customer ID if not provided
+      const customerId = formData.customerId || 
+        `manual-${formData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 
+        formData.client.phone?.replace(/[^0-9]/g, '') || 
+        formData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      
       const invoiceData: CreateInvoiceDto = {
         type,
         date: new Date(formData.date),
@@ -74,7 +80,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         validUntil: formData.validUntil ? new Date(formData.validUntil) : undefined,
         billingType: formData.billingType || 'retail',
         market: formData.market || 'newon',
-        customerId: formData.customerId || 'temp-customer-id',
+        customerId,
         customerName: formData.client.name,
         customerCompany: formData.client.company,
         customerEmail: formData.client.email,

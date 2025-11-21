@@ -48,6 +48,7 @@ import { deleteInvoice } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { UpdateStatusDialog } from './update-status-dialog';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
+import { toast } from 'sonner';
 
 interface QuotationsTableProps {
   quotations: Invoice[];
@@ -94,11 +95,12 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
     try {
       setIsDeleting(true);
       await deleteInvoice(selectedQuotation.id);
+      toast.success('Quotation deleted successfully');
       onRefresh?.();
       setDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error deleting quotation:', error);
-      alert('Failed to delete quotation');
+      toast.error((error as Error).message || 'Failed to delete quotation');
     } finally {
       setIsDeleting(false);
     }
@@ -301,6 +303,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
+                  disabled={quotation.paidAmount > 0}
                   onClick={() => {
                     setSelectedQuotation(quotation);
                     setDeleteDialogOpen(true);
@@ -308,6 +311,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
+                  {quotation.paidAmount > 0 && <span className="ml-2 text-xs">(Has payments)</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

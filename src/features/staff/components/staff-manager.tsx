@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { getAllStaff, updateStaffStatus } from '@/actions/auth';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { StaffTable } from './staff-table';
 import { toast } from 'sonner';
 import { AdminGate } from '@/components/auth/permission-gate';
+import { PageHeader } from '@/components/general/page-header';
+import Link from 'next/link';
 
 interface Staff {
   id: string;
@@ -22,7 +23,6 @@ interface Staff {
 }
 
 export function StaffManager() {
-  const router = useRouter();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,24 +53,18 @@ export function StaffManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Staff Management</h1>
-          <p className="text-gray-500 mt-1">Manage staff members and their permissions</p>
-        </div>
+      <PageHeader title="Staff Management" description="Manage staff members and their permissions">
         <AdminGate>
-          <Button onClick={() => router.push('/staff/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Staff
+          <Button asChild>
+            <Link href="/staff/add">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Staff
+            </Link>
           </Button>
         </AdminGate>
-      </div>
+      </PageHeader>
 
-      <StaffTable
-        staff={staff}
-        isLoading={isLoading}
-        onStatusChange={handleStatusChange}
-      />
+      <StaffTable staff={staff} isLoading={isLoading} onStatusChange={handleStatusChange} />
     </div>
   );
 }

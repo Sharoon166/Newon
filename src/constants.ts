@@ -19,3 +19,16 @@ export const INVOICE_TERMS_AND_CONDITIONS = [
   'All prices are exclusive of taxes.',
   'No shipping charges included in above prices.',
 ]
+
+export const OTC_CUSTOMER = {
+  id: 'otc',
+  customerId: 'OTC-001',
+  name: 'Over the Counter customer',
+  email: 'otc@cash.sale',
+  company: 'OTC',
+  phone: '0000000000',
+  address: 'N/A',
+  city: 'N/A',
+  state: 'N/A',
+  zip: '00000'
+};

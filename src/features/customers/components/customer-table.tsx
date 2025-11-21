@@ -18,8 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { ArrowUpDown, Pencil, Search } from 'lucide-react';
 import { Customer } from '../types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
 
@@ -42,9 +41,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
     {
       accessorKey: 'customerId',
       header: 'Customer ID',
-      cell: ({ row }) => (
-        <div className="font-mono text-sm">{row.original.customerId || '-'}</div>
-      )
+      cell: ({ row }) => <div className="font-mono text-sm">{row.original.customerId || '-'}</div>
     },
     {
       accessorKey: 'name',
@@ -57,9 +54,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
       cell: ({ row }) => (
         <div>
           <div className="font-medium">{row.original.name}</div>
-          {row.original.company && (
-            <div className="text-sm text-muted-foreground">{row.original.company}</div>
-          )}
+          {row.original.company && <div className="text-sm text-muted-foreground">{row.original.company}</div>}
         </div>
       )
     },
@@ -82,28 +77,6 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
       }
     },
     {
-      accessorKey: 'outstandingBalance',
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-          Outstanding Balance
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const balance = row.original.outstandingBalance ?? 0;
-        return (
-          <div className={cn('font-medium', balance > 0 ? 'text-red-600' : 'text-green-600')}>
-            {formatCurrency(balance)}
-          </div>
-        );
-      }
-    },
-    {
-      accessorKey: 'totalInvoiced',
-      header: 'Total Invoiced',
-      cell: ({ row }) => `${(row.original.totalInvoiced ?? 0).toFixed(2)}`
-    },
-    {
       accessorKey: 'createdAt',
       header: 'Date Added',
       cell: ({ row }) => {
@@ -116,7 +89,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
       enableHiding: false,
       cell: ({ row }) => {
         const customer = row.original;
-        return (
+        return row.original.id === 'otc' ? null : (
           <div className="flex justify-end">
             {onEdit && (
               <Button variant="ghost" size="icon" onClick={() => onEdit(customer.id)} className="h-8 w-8">
@@ -159,35 +132,16 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center justify-between w-full space-x-4">
-          <InputGroup className="max-w-sm">
-            <InputGroupInput
-              placeholder="Search customers..."
-              value={globalFilter ?? ''}
-              onChange={event => setGlobalFilter(event.target.value)}
-            />
-            <InputGroupAddon>
-              <Search className="h-4 w-4" />
-            </InputGroupAddon>
-          </InputGroup>
-          <Select
-            onValueChange={value => {
-              // This will be used for filtering by outstanding balance in the future
-              // For now, we'll keep it simple
-              setGlobalFilter(value === 'all' ? '' : value);
-            }}
-            defaultValue="all"
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter customers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Customers</SelectItem>
-              <SelectItem value="outstanding">Has Outstanding Balance</SelectItem>
-              <SelectItem value="paid">Fully Paid</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <InputGroup className="max-w-sm">
+          <InputGroupInput
+            placeholder="Search customers..."
+            value={globalFilter ?? ''}
+            onChange={event => setGlobalFilter(event.target.value)}
+          />
+          <InputGroupAddon>
+            <Search className="h-4 w-4" />
+          </InputGroupAddon>
+        </InputGroup>
       </div>
 
       <div className="rounded-md border">

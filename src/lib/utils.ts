@@ -34,6 +34,17 @@ export function formatCurrency(num: number) {
 
 export function getToday() {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today.toDateString();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Convert a date string (YYYY-MM-DD) to UTC midnight Date object
+ * This ensures dates are stored consistently in the database without timezone issues
+ */
+export function dateStringToUTC(dateString: string): Date {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
 }

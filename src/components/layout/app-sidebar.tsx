@@ -14,7 +14,7 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { NavUser } from './nav-user';
-import { NavProjects } from './nav-projects';
+import { NavLinks } from './nav-projects';
 import { NavSecondary } from './nav-secondary';
 import useBrandStore, { brands } from '@/stores/useBrandStore';
 import { ChevronsUpDown } from 'lucide-react';
@@ -86,7 +86,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <div>
+                      <div className='bg-white p-2 -m-2 rounded-lg'>
                         <div className="flex items-center gap-3 cursor-pointer group">
                           <div
                             className={cn(
@@ -123,7 +123,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           currentBrand.id === 'newon' ? 'bg-accent' : 'hover:bg-accent'
                         )}
                       >
-                        <div className="bg-sidebar-primary text-sidebar-primary-foreground flex flex-shrink-0 aspect-square size-8 items-center justify-center rounded-md">
+                        <div className="bg-sidebar-primary text-sidebar-primary-foreground flex shrink-0 aspect-square size-8 items-center justify-center rounded-md">
                           <span className="text-sm font-medium">N</span>
                         </div>
                         <div className="grid flex-1 min-w-0">
@@ -149,7 +149,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           currentBrand.id === 'waymor' ? 'bg-accent' : 'hover:bg-accent'
                         )}
                       >
-                        <div className="bg-blue-600 text-white flex flex-shrink-0 aspect-square size-8 items-center justify-center rounded-md">
+                        <div className="bg-blue-600 text-white flex shrink-0 aspect-square size-8 items-center justify-center rounded-md">
                           <span className="text-sm font-medium">W</span>
                         </div>
                         <div className="grid flex-1 min-w-0">
@@ -177,7 +177,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavProjects projects={data.projects} />
+        <NavLinks links={data.projects} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

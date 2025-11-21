@@ -29,11 +29,12 @@ export interface SalesTrendData {
 /**
  * Low Stock Alert
  */
-export interface LowStockAlert {
+export interface OutOfStockAlert {
   id: string;
   productName: string;
   sku: string;
   currentStock: number;
+  image: string;
   minStock: number;
 }
 
@@ -68,7 +69,7 @@ export interface DashboardData {
   metrics: DashboardMetrics;
   salesTrend: SalesTrendData[];
   salesTrend30Days: SalesTrendData[];
-  lowStockAlerts: LowStockAlert[];
+  outOfStockAlerts: OutOfStockAlert[];
   overdueInvoices: OverdueInvoiceAlert[];
   pendingPayments: PendingPaymentAlert[];
 }

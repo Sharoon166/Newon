@@ -111,7 +111,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
                   <FormLabel>Payment Method</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className='w-full'>
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                     </FormControl>

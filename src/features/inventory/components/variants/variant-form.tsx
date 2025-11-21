@@ -551,7 +551,7 @@ export function VariantForm({
                         const excess = combinedTotal - purchasesAvailableStock;
                         return (
                           <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
-                            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                            <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
                             <p className="text-sm text-red-800">
                               <strong>Error:</strong> Combined inventory (available + backorder) of{' '}
                               <strong>{combinedTotal}</strong> units exceeds available purchases of{' '}
@@ -568,7 +568,7 @@ export function VariantForm({
                         if (untracked > 0) {
                           return (
                             <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                               <p className="text-sm text-amber-800">
                                 <strong>{untracked}</strong> {untracked === 1 ? 'product is' : 'products are'}{' '}
                                 untracked. Backorder will be calculated from inventory.

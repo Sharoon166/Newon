@@ -10,6 +10,7 @@ import { Eye, Trash2, FileText, CheckCircle, XCircle, Clock, Edit, Plus, Refresh
 import Link from 'next/link';
 import { deleteInvoice } from '../actions';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -82,11 +83,12 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
     try {
       setIsDeleting(true);
       await deleteInvoice(selectedInvoice.id);
+      toast.success('Invoice deleted successfully');
       handleRefresh();
       setDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error deleting invoice:', error);
-      alert('Failed to delete invoice');
+      toast.error((error as Error).message || 'Failed to delete invoice');
     } finally {
       setIsDeleting(false);
     }
@@ -290,6 +292,7 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
+                  disabled={invoice.paidAmount > 0}
                   onClick={() => {
                     setSelectedInvoice(invoice);
                     setDeleteDialogOpen(true);
@@ -297,6 +300,7 @@ export function InvoicesTable({ invoices, onRefresh }: InvoicesTableProps) {
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete
+                  {invoice.paidAmount > 0 && <span className="ml-2 text-xs">(Has payments)</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

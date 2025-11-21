@@ -25,6 +25,10 @@ interface ICustomer extends Document {
 
 const customerSchema = new Schema<ICustomer>(
   {
+    _id: {
+      type: Schema.Types.Mixed,
+      default: () => new mongoose.Types.ObjectId()
+    },
     customerId: {
       type: String,
       required: false,

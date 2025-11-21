@@ -13,10 +13,10 @@ import {
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
-export function NavProjects({
-  projects
+export function NavLinks({
+  links
 }: {
-  projects: {
+  links: {
     name: string;
     url: string;
     icon: LucideIcon;
@@ -30,7 +30,7 @@ export function NavProjects({
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Workspace</SidebarGroupLabel>
       <SidebarMenu>
-        {projects.map(item => (
+        {links.map(item => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild>
               <Link

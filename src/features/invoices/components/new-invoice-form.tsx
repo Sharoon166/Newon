@@ -42,7 +42,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ProductSelector } from './product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
-import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS } from '@/constants';
+import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/constants';
 import { toast } from 'sonner';
 import { NewonInvoiceTemplate } from './newon-invoice-template';
 
@@ -128,6 +128,7 @@ export function NewInvoiceForm({
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
+  const [isOtcCustomer, setIsOtcCustomer] = useState(false);
   const [isToOpen, setIsToOpen] = useState(true);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
@@ -324,34 +325,40 @@ export function NewInvoiceForm({
   };
 
   const handleCustomerSelect = (customerId: string) => {
-    if (customerId === 'custom') {
-      setIsCustomCustomer(true);
-      setSelectedCustomer(null);
-      // Clear client fields for manual entry
-      form.setValue('client.name', '');
-      form.setValue('client.company', '');
-      form.setValue('client.email', '');
-      form.setValue('client.phone', '');
-      form.setValue('client.address', '');
-      form.setValue('client.city', '');
-      form.setValue('client.state', '');
-      form.setValue('client.zip', '');
-    } else {
-      const customer = customers.find(customer => customer.id === customerId);
-      if (customer) {
-        setIsCustomCustomer(false);
-        setSelectedCustomer(customer);
-        form.setValue('client.name', customer.name);
-        form.setValue('client.company', customer.company || '');
-        form.setValue('client.email', customer.email);
-        form.setValue('client.phone', customer.phone || '');
-        form.setValue('client.address', customer.address || '');
-        form.setValue('client.city', customer.city || '');
-        form.setValue('client.state', customer.state || '');
-        form.setValue('client.zip', customer.zip || '');
+    // Handle OTC customer specially
+    if (customerId === 'otc') {
+      setIsOtcCustomer(true);
+      setIsCustomCustomer(false);
+      setSelectedCustomer(OTC_CUSTOMER as Customer);
+      form.setValue('customerId', OTC_CUSTOMER.id);
+      form.setValue('client.name', OTC_CUSTOMER.name);
+      form.setValue('client.company', OTC_CUSTOMER.company);
+      form.setValue('client.email', OTC_CUSTOMER.email);
+      form.setValue('client.phone', OTC_CUSTOMER.phone);
+      form.setValue('client.address', OTC_CUSTOMER.address);
+      form.setValue('client.city', OTC_CUSTOMER.city);
+      form.setValue('client.state', OTC_CUSTOMER.state);
+      form.setValue('client.zip', OTC_CUSTOMER.zip);
+      setIsToOpen(false);
+      return;
+    }
 
-        setIsToOpen(false);
-      }
+    const customer = customers.find(customer => customer.id === customerId);
+    if (customer) {
+      setIsOtcCustomer(false);
+      setIsCustomCustomer(false);
+      setSelectedCustomer(customer);
+      form.setValue('customerId', customer.id);
+      form.setValue('client.name', customer.name);
+      form.setValue('client.company', customer.company || '');
+      form.setValue('client.email', customer.email);
+      form.setValue('client.phone', customer.phone || '');
+      form.setValue('client.address', customer.address || '');
+      form.setValue('client.city', customer.city || '');
+      form.setValue('client.state', customer.state || '');
+      form.setValue('client.zip', customer.zip || '');
+
+      setIsToOpen(false);
     }
   };
 
@@ -371,9 +378,9 @@ export function NewInvoiceForm({
     }
 
     // Validate client details
-    if (!selectedCustomer && !isCustomCustomer) {
-      toast.error('Client details required', {
-        description: 'Please select a customer or enter custom client details.'
+    if (!selectedCustomer) {
+      toast.error('Customer required', {
+        description: 'Please select a customer from the list.'
       });
       return false;
     }
@@ -618,18 +625,12 @@ export function NewInvoiceForm({
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
-              <div>
-                <Select onValueChange={handleCustomerSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a customer or enter custom details" />
+              <div className="space-y-3">
+                <Select onValueChange={handleCustomerSelect} disabled={isOtcCustomer}>
+                  <SelectTrigger className='w-full max-w-sm'>
+                    <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="custom">
-                      <span className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Custom Customer (Manual Entry)
-                      </span>
-                    </SelectItem>
                     {customers.map(customer => (
                       <SelectItem key={customer.id} value={customer.id}>
                         {customer.name} - {customer.company || 'No Company'}
@@ -637,8 +638,29 @@ export function NewInvoiceForm({
                     ))}
                   </SelectContent>
                 </Select>
+                
+                <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="useOtc"
+                    className="h-4 w-4 rounded border-gray-300 cursor-pointer"
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        handleCustomerSelect('otc');
+                      } else {
+                        setIsOtcCustomer(false);
+                        setSelectedCustomer(null);
+                        form.setValue('customerId', '');
+                      }
+                    }}
+                    checked={isOtcCustomer}
+                  />
+                  <label htmlFor="useOtc" className="text-sm font-medium cursor-pointer flex-1">
+                    Walk-in / Cash Customer (OTC)
+                  </label>
+                </div>
               </div>
-              {selectedCustomer && !isCustomCustomer && (
+              {selectedCustomer && (
                 <div className="bg-gray-50 border rounded-lg p-4">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -675,158 +697,10 @@ export function NewInvoiceForm({
                   </div>
                 </div>
               )}
-              {isCustomCustomer && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="client.name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Client Name</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <User className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="Client Name" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company (Optional)</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Building2 className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="Company Name" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Mail className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput type="email" placeholder="client@example.com" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <Phone className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="+1 (555) 123-4567" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.address"
-                    render={({ field }) => (
-                      <FormItem className="md:col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="123 Client St." {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="City" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.state"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="State" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="client.zip"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>
-                              <MapPin className="h-4 w-4" />
-                            </InputGroupAddon>
-                            <InputGroupInput placeholder="12345" {...field} />
-                          </InputGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
-              {!selectedCustomer && !isCustomCustomer && (
+              {!selectedCustomer && (
                 <div className="bg-gray-50 border-2 border-dashed rounded-lg p-8 text-center">
                   <User className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Select a customer or choose custom entry</p>
+                  <p className="text-muted-foreground">Select a customer to continue</p>
                 </div>
               )}
             </CollapsibleContent>

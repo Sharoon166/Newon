@@ -1,520 +1,552 @@
 'use server';
 
-/**
- * Ledger Actions
- * 
- * This file contains server actions for managing the ledger system.
- * These are placeholder implementations with commented steps for actual implementation.
- */
-
+import { revalidatePath } from 'next/cache';
 import {
   LedgerEntry,
   CustomerLedger,
   LedgerSummary,
   CreateLedgerEntryDto,
-  UpdateLedgerEntryDto,
   LedgerFilters,
   PaginatedLedgerEntries,
   PaginatedCustomerLedgers
 } from '../types';
+import dbConnect from '@/lib/db';
+import LedgerEntryModel from '@/models/LedgerEntry';
+import CustomerModel from '@/models/Customer';
 
-/**
- * Get all ledger entries with optional filters
- * 
- * Implementation steps:
- * 1. Connect to database
- * 2. Build query based on filters (customerId, transactionType, date range, etc.)
- * 3. Apply pagination
- * 4. Sort by date (newest first)
- * 5. Execute query and return paginated results
- * 6. Handle errors appropriately
- */
+// Type for lean Mongoose document
+interface LeanLedgerEntry {
+  _id: Record<string, unknown>;
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  transactionType: 'invoice' | 'payment' | 'adjustment' | 'credit_note' | 'debit_note';
+  transactionId?: string;
+  transactionNumber: string;
+  date: Date;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
+  reference?: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+  __v?: number;
+}
+
+// Helper function to transform lean ledger entry
+function transformLeanEntry(leanDoc: LeanLedgerEntry): LedgerEntry {
+  return {
+    ...leanDoc,
+    id: leanDoc._id.toString(),
+    _id: undefined,
+    __v: undefined
+  } as LedgerEntry;
+}
+
 export async function getLedgerEntries(
   filters?: LedgerFilters
 ): Promise<PaginatedLedgerEntries> {
-  // TODO: Implement database query
-  // const db = await dbConnect();
-  // const query = buildLedgerQuery(filters);
-  // const entries = await LedgerModel.find(query)
-  //   .sort({ date: -1 })
-  //   .limit(filters?.limit || 10)
-  //   .skip((filters?.page || 0) * (filters?.limit || 10));
-  // return paginateResults(entries);
+  try {
+    await dbConnect();
 
-  // Dummy data for now
-  const dummyEntries: LedgerEntry[] = [
-    {
-      id: '1',
-      customerId: 'cust-001',
-      customerName: 'John Doe',
-      customerCompany: 'Doe Enterprises',
-      transactionType: 'invoice',
-      transactionId: 'inv-001',
-      transactionNumber: 'INV-001',
-      date: new Date('2024-01-15'),
-      description: 'Invoice for products',
-      debit: 5000,
-      credit: 0,
-      balance: 5000,
-      createdBy: 'admin',
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-01-15')
-    },
-    {
-      id: '2',
-      customerId: 'cust-001',
-      customerName: 'John Doe',
-      customerCompany: 'Doe Enterprises',
-      transactionType: 'payment',
-      transactionId: 'pay-001',
-      transactionNumber: 'PAY-001',
-      date: new Date('2024-01-20'),
-      description: 'Payment received',
-      debit: 0,
-      credit: 3000,
-      balance: 2000,
-      paymentMethod: 'bank_transfer',
-      reference: 'TXN123456',
-      createdBy: 'admin',
-      createdAt: new Date('2024-01-20'),
-      updatedAt: new Date('2024-01-20')
-    },
-    {
-      id: '3',
-      customerId: 'cust-002',
-      customerName: 'Jane Smith',
-      customerCompany: 'Smith Corp',
-      transactionType: 'invoice',
-      transactionId: 'inv-002',
-      transactionNumber: 'INV-002',
-      date: new Date('2024-01-18'),
-      description: 'Invoice for services',
-      debit: 7500,
-      credit: 0,
-      balance: 7500,
-      createdBy: 'admin',
-      createdAt: new Date('2024-01-18'),
-      updatedAt: new Date('2024-01-18')
-    },
-    {
-      id: '4',
-      customerId: 'cust-002',
-      customerName: 'Jane Smith',
-      customerCompany: 'Smith Corp',
-      transactionType: 'payment',
-      transactionId: 'pay-002',
-      transactionNumber: 'PAY-002',
-      date: new Date('2024-01-25'),
-      description: 'Partial payment',
-      debit: 0,
-      credit: 5000,
-      balance: 2500,
-      paymentMethod: 'cash',
-      createdBy: 'admin',
-      createdAt: new Date('2024-01-25'),
-      updatedAt: new Date('2024-01-25')
-    },
-    {
-      id: '5',
-      customerId: 'cust-003',
-      customerName: 'Bob Johnson',
-      transactionType: 'invoice',
-      transactionId: 'inv-003',
-      transactionNumber: 'INV-003',
-      date: new Date('2024-02-01'),
-      description: 'Invoice for products and labor',
-      debit: 12000,
-      credit: 0,
-      balance: 12000,
-      createdBy: 'admin',
-      createdAt: new Date('2024-02-01'),
-      updatedAt: new Date('2024-02-01')
-    },
-    {
-      id: '6',
-      customerId: 'cust-003',
-      customerName: 'Bob Johnson',
-      transactionType: 'adjustment',
-      transactionNumber: 'ADJ-001',
-      date: new Date('2024-02-05'),
-      description: 'Discount adjustment',
-      debit: 0,
-      credit: 1000,
-      balance: 11000,
-      notes: 'Loyalty discount applied',
-      createdBy: 'admin',
-      createdAt: new Date('2024-02-05'),
-      updatedAt: new Date('2024-02-05')
-    },
-    {
-      id: '7',
-      customerId: 'cust-004',
-      customerName: 'Alice Williams',
-      customerCompany: 'Williams LLC',
-      transactionType: 'invoice',
-      transactionId: 'inv-004',
-      transactionNumber: 'INV-004',
-      date: new Date('2024-02-10'),
-      description: 'Monthly service invoice',
-      debit: 8500,
-      credit: 0,
-      balance: 8500,
-      createdBy: 'admin',
-      createdAt: new Date('2024-02-10'),
-      updatedAt: new Date('2024-02-10')
-    },
-    {
-      id: '8',
-      customerId: 'cust-004',
-      customerName: 'Alice Williams',
-      customerCompany: 'Williams LLC',
-      transactionType: 'payment',
-      transactionId: 'pay-003',
-      transactionNumber: 'PAY-003',
-      date: new Date('2024-02-15'),
-      description: 'Full payment received',
-      debit: 0,
-      credit: 8500,
-      balance: 0,
-      paymentMethod: 'online',
-      reference: 'ONLINE-789',
-      createdBy: 'admin',
-      createdAt: new Date('2024-02-15'),
-      updatedAt: new Date('2024-02-15')
+    const query: Record<string, unknown> = {};
+
+    if (filters?.customerId) {
+      query.customerId = filters.customerId;
     }
-  ];
 
-  return {
-    docs: dummyEntries,
-    totalDocs: dummyEntries.length,
-    limit: filters?.limit || 10,
-    page: filters?.page || 1,
-    totalPages: Math.ceil(dummyEntries.length / (filters?.limit || 10)),
-    hasNextPage: false,
-    hasPrevPage: false,
-    nextPage: null,
-    prevPage: null
-  };
+    if (filters?.transactionType) {
+      query.transactionType = filters.transactionType;
+    }
+
+    if (filters?.search) {
+      query.$or = [
+        { customerName: { $regex: filters.search, $options: 'i' } },
+        { transactionNumber: { $regex: filters.search, $options: 'i' } },
+        { description: { $regex: filters.search, $options: 'i' } },
+        { reference: { $regex: filters.search, $options: 'i' } }
+      ];
+    }
+
+    if (filters?.dateFrom || filters?.dateTo) {
+      const dateQuery: Record<string, Date> = {};
+      if (filters.dateFrom) {
+        dateQuery.$gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        dateQuery.$lte = filters.dateTo;
+      }
+      query.date = dateQuery;
+    }
+
+    if (filters?.minAmount !== undefined || filters?.maxAmount !== undefined) {
+      const amountQuery: Record<string, number> = {};
+      if (filters.minAmount !== undefined) {
+        amountQuery.$gte = filters.minAmount;
+      }
+      if (filters.maxAmount !== undefined) {
+        amountQuery.$lte = filters.maxAmount;
+      }
+      query.$or = [
+        { debit: amountQuery },
+        { credit: amountQuery }
+      ];
+    }
+
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 10;
+
+    const result = await LedgerEntryModel.paginate(query, {
+      page,
+      limit,
+      sort: { date: -1, createdAt: -1 },
+      lean: true
+    });
+
+    const transformedEntries = result.docs.map((entry: unknown) => 
+      transformLeanEntry(entry as LeanLedgerEntry)
+    );
+
+    return {
+      docs: transformedEntries,
+      totalDocs: result.totalDocs,
+      limit: result.limit,
+      page: result.page || 1,
+      totalPages: result.totalPages,
+      hasNextPage: result.hasNextPage || false,
+      hasPrevPage: result.hasPrevPage || false,
+      nextPage: result.nextPage || null,
+      prevPage: result.prevPage || null
+    };
+  } catch (error) {
+    console.error('Error fetching ledger entries:', error);
+    throw new Error('Failed to fetch ledger entries');
+  }
 }
 
-/**
- * Get customer ledgers (aggregated by customer)
- * 
- * Implementation steps:
- * 1. Connect to database
- * 2. Aggregate ledger entries by customer
- * 3. Calculate totals (totalDebit, totalCredit, currentBalance)
- * 4. Apply filters (hasBalance, search, etc.)
- * 5. Sort by balance or last transaction date
- * 6. Apply pagination
- * 7. Return paginated customer ledgers
- */
 export async function getCustomerLedgers(
   filters?: LedgerFilters
 ): Promise<PaginatedCustomerLedgers> {
-  // TODO: Implement database aggregation
-  // const db = await dbConnect();
-  // const pipeline = [
-  //   { $group: {
-  //     _id: '$customerId',
-  //     customerName: { $first: '$customerName' },
-  //     totalDebit: { $sum: '$debit' },
-  //     totalCredit: { $sum: '$credit' },
-  //     lastTransactionDate: { $max: '$date' }
-  //   }},
-  //   { $addFields: { currentBalance: { $subtract: ['$totalDebit', '$totalCredit'] } }},
-  //   { $match: buildCustomerLedgerFilters(filters) },
-  //   { $sort: { currentBalance: -1 } }
-  // ];
-  // const ledgers = await LedgerModel.aggregate(pipeline);
-  // return paginateResults(ledgers);
+  try {
+    await dbConnect();
 
-  // Dummy data for now
-  const dummyLedgers: CustomerLedger[] = [
-    {
-      customerId: 'cust-001',
-      customerName: 'John Doe',
-      customerCompany: 'Doe Enterprises',
-      customerEmail: 'john@doe.com',
-      customerPhone: '+1234567890',
-      totalDebit: 5000,
-      totalCredit: 3000,
-      currentBalance: 2000,
-      lastTransactionDate: new Date('2024-01-20'),
-      entries: []
-    },
-    {
-      customerId: 'cust-002',
-      customerName: 'Jane Smith',
-      customerCompany: 'Smith Corp',
-      customerEmail: 'jane@smith.com',
-      customerPhone: '+1234567891',
-      totalDebit: 7500,
-      totalCredit: 5000,
-      currentBalance: 2500,
-      lastTransactionDate: new Date('2024-01-25'),
-      entries: []
-    },
-    {
-      customerId: 'cust-003',
-      customerName: 'Bob Johnson',
-      customerEmail: 'bob@johnson.com',
-      customerPhone: '+1234567892',
-      totalDebit: 12000,
-      totalCredit: 1000,
-      currentBalance: 11000,
-      lastTransactionDate: new Date('2024-02-05'),
-      entries: []
-    },
-    {
-      customerId: 'cust-004',
-      customerName: 'Alice Williams',
-      customerCompany: 'Williams LLC',
-      customerEmail: 'alice@williams.com',
-      customerPhone: '+1234567893',
-      totalDebit: 8500,
-      totalCredit: 8500,
-      currentBalance: 0,
-      lastTransactionDate: new Date('2024-02-15'),
-      entries: []
+    const matchStage: Record<string, unknown> = {};
+
+    if (filters?.search) {
+      matchStage.$or = [
+        { customerName: { $regex: filters.search, $options: 'i' } },
+        { customerCompany: { $regex: filters.search, $options: 'i' } }
+      ];
     }
-  ];
 
-  return {
-    docs: dummyLedgers,
-    totalDocs: dummyLedgers.length,
-    limit: filters?.limit || 10,
-    page: filters?.page || 1,
-    totalPages: Math.ceil(dummyLedgers.length / (filters?.limit || 10)),
-    hasNextPage: false,
-    hasPrevPage: false,
-    nextPage: null,
-    prevPage: null
-  };
+    if (filters?.dateFrom || filters?.dateTo) {
+      const dateQuery: Record<string, Date> = {};
+      if (filters.dateFrom) {
+        dateQuery.$gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        dateQuery.$lte = filters.dateTo;
+      }
+      matchStage.date = dateQuery;
+    }
+
+    const pipeline: Record<string, unknown>[] = [
+      ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+      {
+        $group: {
+          _id: '$customerId',
+          customerName: { $first: '$customerName' },
+          customerCompany: { $first: '$customerCompany' },
+          totalDebit: { $sum: '$debit' },
+          totalCredit: { $sum: '$credit' },
+          lastTransactionDate: { $max: '$date' }
+        }
+      },
+      {
+        $addFields: {
+          currentBalance: { $subtract: ['$totalDebit', '$totalCredit'] }
+        }
+      }
+    ];
+
+    if (filters?.hasBalance !== undefined) {
+      pipeline.push({
+        $match: {
+          currentBalance: filters.hasBalance ? { $gt: 0 } : { $lte: 0 }
+        }
+      });
+    }
+
+    pipeline.push({ $sort: { currentBalance: -1 } });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aggregateResult = await LedgerEntryModel.aggregate(pipeline as any);
+
+    // Get customer details - filter out invalid ObjectIds
+    const customerIds = aggregateResult
+      .map(r => r._id)
+      .filter(id => {
+        // Check if it's a valid MongoDB ObjectId (24 hex characters)
+        return /^[0-9a-fA-F]{24}$/.test(id);
+      });
+    
+    const customers = customerIds.length > 0 
+      ? await CustomerModel.find({ _id: { $in: customerIds } }).lean()
+      : [];
+    const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
+
+    const ledgers: CustomerLedger[] = aggregateResult.map(result => {
+      const customer = customerMap.get(result._id);
+      return {
+        customerId: result._id,
+        customerName: result.customerName,
+        customerCompany: result.customerCompany,
+        customerEmail: customer?.email || '',
+        customerPhone: customer?.phone || '',
+        totalDebit: result.totalDebit,
+        totalCredit: result.totalCredit,
+        currentBalance: result.currentBalance,
+        lastTransactionDate: result.lastTransactionDate,
+        entries: []
+      };
+    });
+
+    // Apply pagination
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 10;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedLedgers = ledgers.slice(startIndex, endIndex);
+
+    return {
+      docs: paginatedLedgers,
+      totalDocs: ledgers.length,
+      limit,
+      page,
+      totalPages: Math.ceil(ledgers.length / limit),
+      hasNextPage: endIndex < ledgers.length,
+      hasPrevPage: page > 1,
+      nextPage: endIndex < ledgers.length ? page + 1 : null,
+      prevPage: page > 1 ? page - 1 : null
+    };
+  } catch (error) {
+    console.error('Error fetching customer ledgers:', error);
+    throw new Error('Failed to fetch customer ledgers');
+  }
 }
 
-/**
- * Get ledger summary statistics
- * 
- * Implementation steps:
- * 1. Connect to database
- * 2. Aggregate all ledger entries
- * 3. Calculate total outstanding, total received, total invoiced
- * 4. Count customers with balance
- * 5. Calculate overdue amounts (requires invoice due dates)
- * 6. Return summary object
- */
 export async function getLedgerSummary(): Promise<LedgerSummary> {
-  // TODO: Implement database aggregation
-  // const db = await dbConnect();
-  // const summary = await LedgerModel.aggregate([
-  //   { $group: {
-  //     _id: null,
-  //     totalDebit: { $sum: '$debit' },
-  //     totalCredit: { $sum: '$credit' },
-  //     uniqueCustomers: { $addToSet: '$customerId' }
-  //   }},
-  //   { $project: {
-  //     totalInvoiced: '$totalDebit',
-  //     totalReceived: '$totalCredit',
-  //     totalOutstanding: { $subtract: ['$totalDebit', '$totalCredit'] },
-  //     totalCustomers: { $size: '$uniqueCustomers' }
-  //   }}
-  // ]);
-  // return summary[0];
+  try {
+    await dbConnect();
 
-  // Dummy data for now
-  return {
-    totalCustomers: 4,
-    totalOutstanding: 15500,
-    totalReceived: 17500,
-    totalInvoiced: 33000,
-    customersWithBalance: 3,
-    overdueAmount: 5000
-  };
+    const summary = await LedgerEntryModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalDebit: { $sum: '$debit' },
+          totalCredit: { $sum: '$credit' },
+          uniqueCustomers: { $addToSet: '$customerId' }
+        }
+      },
+      {
+        $project: {
+          totalInvoiced: '$totalDebit',
+          totalReceived: '$totalCredit',
+          totalOutstanding: { $subtract: ['$totalDebit', '$totalCredit'] },
+          totalCustomers: { $size: '$uniqueCustomers' }
+        }
+      }
+    ]);
+
+    // Count customers with balance
+    const customersWithBalance = await LedgerEntryModel.aggregate([
+      {
+        $group: {
+          _id: '$customerId',
+          balance: { $sum: { $subtract: ['$debit', '$credit'] } }
+        }
+      },
+      {
+        $match: { balance: { $gt: 0 } }
+      },
+      {
+        $count: 'count'
+      }
+    ]);
+
+    // Calculate overdue amount from invoices
+    const InvoiceModel = (await import('@/models/Invoice')).default;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueInvoices = await InvoiceModel.aggregate([
+      {
+        $match: {
+          type: 'invoice',
+          status: { $in: ['pending', 'partial'] },
+          dueDate: { $lt: today },
+          balanceAmount: { $gt: 0 }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalOverdue: { $sum: '$balanceAmount' }
+        }
+      }
+    ]);
+
+    const result = summary[0] || {
+      totalInvoiced: 0,
+      totalReceived: 0,
+      totalOutstanding: 0,
+      totalCustomers: 0
+    };
+
+    return {
+      totalCustomers: result.totalCustomers,
+      totalOutstanding: result.totalOutstanding,
+      totalReceived: result.totalReceived,
+      totalInvoiced: result.totalInvoiced,
+      customersWithBalance: customersWithBalance[0]?.count || 0,
+      overdueAmount: overdueInvoices[0]?.totalOverdue || 0
+    };
+  } catch (error) {
+    console.error('Error fetching ledger summary:', error);
+    throw new Error('Failed to fetch ledger summary');
+  }
 }
 
-/**
- * Get ledger entries for a specific customer
- * 
- * Implementation steps:
- * 1. Connect to database
- * 2. Query ledger entries for the customer
- * 3. Sort by date (newest first)
- * 4. Calculate running balance
- * 5. Return entries with balance
- */
 export async function getCustomerLedgerEntries(
   customerId: string
 ): Promise<LedgerEntry[]> {
-  // TODO: Implement database query
-  // const db = await dbConnect();
-  // const entries = await LedgerModel.find({ customerId })
-  //   .sort({ date: -1 });
-  // return calculateRunningBalance(entries);
+  try {
+    await dbConnect();
 
-  // Dummy data for now
-  const allEntries = (await getLedgerEntries()).docs;
-  return allEntries.filter(entry => entry.customerId === customerId);
+    const entries = await LedgerEntryModel.find({ customerId })
+      .sort({ date: -1, createdAt: -1 })
+      .lean();
+
+    return entries.map((entry: unknown) => 
+      transformLeanEntry(entry as LeanLedgerEntry)
+    );
+  } catch (error) {
+    console.error(`Error fetching ledger entries for customer ${customerId}:`, error);
+    throw new Error('Failed to fetch customer ledger entries');
+  }
 }
 
-/**
- * Create a new ledger entry
- * 
- * Implementation steps:
- * 1. Validate input data
- * 2. Connect to database
- * 3. Get previous balance for the customer
- * 4. Calculate new balance (previousBalance + debit - credit)
- * 5. Create new ledger entry with calculated balance
- * 6. Save to database
- * 7. Update customer's current balance
- * 8. Return created entry
- */
-// export async function createLedgerEntry(
-//   data: CreateLedgerEntryDto
-// ): Promise<LedgerEntry> {
-//   // TODO: Implement database insertion
-//   // const db = await dbConnect();
-//   // const previousBalance = await getCustomerBalance(data.customerId);
-//   // const newBalance = previousBalance + data.debit - data.credit;
-//   // const entry = new LedgerModel({
-//   //   ...data,
-//   //   balance: newBalance,
-//   //   createdAt: new Date(),
-//   //   updatedAt: new Date()
-//   // });
-//   // await entry.save();
-//   // await updateCustomerBalance(data.customerId, newBalance);
-//   // return entry;
+// Helper function to get customer balance
+async function getCustomerBalance(customerId: string): Promise<number> {
+  const result = await LedgerEntryModel.aggregate([
+    { $match: { customerId } },
+    { $group: {
+      _id: null,
+      totalDebit: { $sum: '$debit' },
+      totalCredit: { $sum: '$credit' }
+    }},
+    { $project: {
+      balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+    }}
+  ]);
+  return result[0]?.balance || 0;
+}
 
-//   throw new Error('Not implemented - createLedgerEntry');
-// }
+export async function createLedgerEntry(
+  data: CreateLedgerEntryDto
+): Promise<LedgerEntry> {
+  try {
+    await dbConnect();
 
-/**
- * Update an existing ledger entry
- * 
- * Implementation steps:
- * 1. Validate input data
- * 2. Connect to database
- * 3. Find the entry to update
- * 4. Calculate balance difference
- * 5. Update the entry
- * 6. Recalculate balances for all subsequent entries
- * 7. Update customer's current balance
- * 8. Return updated entry
- */
-// export async function updateLedgerEntry(
-//   id: string,
-//   data: UpdateLedgerEntryDto
-// ): Promise<LedgerEntry> {
-//   // TODO: Implement database update
-//   // const db = await dbConnect();
-//   // const entry = await LedgerModel.findById(id);
-//   // if (!entry) throw new Error('Entry not found');
-//   // const oldBalance = entry.debit - entry.credit;
-//   // const newBalance = (data.debit || entry.debit) - (data.credit || entry.credit);
-//   // const balanceDiff = newBalance - oldBalance;
-//   // await entry.updateOne({ ...data, updatedAt: new Date() });
-//   // await recalculateSubsequentBalances(entry.customerId, entry.date, balanceDiff);
-//   // return entry;
+    // Get previous balance for the customer
+    const previousBalance = await getCustomerBalance(data.customerId);
+    
+    // Calculate new balance
+    const newBalance = previousBalance + data.debit - data.credit;
 
-//   throw new Error('Not implemented - updateLedgerEntry');
-// }
+    const entry = new LedgerEntryModel({
+      ...data,
+      balance: newBalance
+    });
 
-/**
- * Delete a ledger entry
- * 
- * Implementation steps:
- * 1. Connect to database
- * 2. Find the entry to delete
- * 3. Calculate balance impact
- * 4. Delete the entry
- * 5. Recalculate balances for all subsequent entries
- * 6. Update customer's current balance
- * 7. Return success status
- */
-// export async function deleteLedgerEntry(id: string): Promise<boolean> {
-//   // TODO: Implement database deletion
-//   // const db = await dbConnect();
-//   // const entry = await LedgerModel.findById(id);
-//   // if (!entry) throw new Error('Entry not found');
-//   // const balanceImpact = entry.debit - entry.credit;
-//   // await entry.deleteOne();
-//   // await recalculateSubsequentBalances(entry.customerId, entry.date, -balanceImpact);
-//   // return true;
+    await entry.save();
 
-//   throw new Error('Not implemented - deleteLedgerEntry');
-// }
+    revalidatePath('/(dashboard)/ledger');
+    revalidatePath(`/(dashboard)/customers/${data.customerId}`);
 
-/**
- * Create ledger entry from invoice
- * This is called automatically when an invoice is created
- * 
- * Implementation steps:
- * 1. Extract invoice data
- * 2. Create ledger entry with:
- *    - transactionType: 'invoice'
- *    - debit: invoice total amount
- *    - credit: 0
- * 3. Save to database
- * 4. Update customer balance
- */
-// export async function createLedgerEntryFromInvoice(
-//   invoiceId: string,
-//   invoiceData: unknown
-// ): Promise<LedgerEntry> {
-//   // TODO: Implement
-//   // const entry = await createLedgerEntry({
-//   //   customerId: invoiceData.customerId,
-//   //   customerName: invoiceData.customerName,
-//   //   transactionType: 'invoice',
-//   //   transactionId: invoiceId,
-//   //   transactionNumber: invoiceData.invoiceNumber,
-//   //   date: invoiceData.date,
-//   //   description: `Invoice ${invoiceData.invoiceNumber}`,
-//   //   debit: invoiceData.totalAmount,
-//   //   credit: 0,
-//   //   createdBy: invoiceData.createdBy
-//   // });
-//   // return entry;
+    return transformLeanEntry(entry.toObject() as LeanLedgerEntry);
+  } catch (error: unknown) {
+    console.error('Error creating ledger entry:', error);
+    throw new Error((error as Error).message || 'Failed to create ledger entry');
+  }
+}
 
-//   throw new Error('Not implemented - createLedgerEntryFromInvoice');
-// }
+export async function createLedgerEntryFromInvoice(
+  invoiceData: {
+    id: string;
+    invoiceNumber: string;
+    customerId: string;
+    customerName: string;
+    customerCompany?: string;
+    date: Date;
+    totalAmount: number;
+    createdBy: string;
+  }
+): Promise<LedgerEntry> {
+  try {
+    const entry = await createLedgerEntry({
+      customerId: invoiceData.customerId,
+      customerName: invoiceData.customerName,
+      customerCompany: invoiceData.customerCompany,
+      transactionType: 'invoice',
+      transactionId: invoiceData.id,
+      transactionNumber: invoiceData.invoiceNumber,
+      date: invoiceData.date,
+      description: `Invoice ${invoiceData.invoiceNumber}`,
+      debit: invoiceData.totalAmount,
+      credit: 0,
+      createdBy: invoiceData.createdBy
+    });
 
-/**
- * Create ledger entry from payment
- * This is called automatically when a payment is recorded
- * 
- * Implementation steps:
- * 1. Extract payment data
- * 2. Create ledger entry with:
- *    - transactionType: 'payment'
- *    - debit: 0
- *    - credit: payment amount
- * 3. Save to database
- * 4. Update customer balance
- */
-// export async function createLedgerEntryFromPayment(
-//   paymentId: string,
-//   paymentData: unknown
-// ): Promise<LedgerEntry> {
-//   // TODO: Implement
-//   // const entry = await createLedgerEntry({
-//   //   customerId: paymentData.customerId,
-//   //   customerName: paymentData.customerName,
-//   //   transactionType: 'payment',
-//   //   transactionId: paymentId,
-//   //   transactionNumber: `PAY-${paymentId}`,
-//   //   date: paymentData.date,
-//   //   description: `Payment received`,
-//   //   debit: 0,
-//   //   credit: paymentData.amount,
-//   //   paymentMethod: paymentData.method,
-//   //   reference: paymentData.reference,
-//   //   createdBy: paymentData.createdBy
-//   // });
-//   // return entry;
+    return entry;
+  } catch (error) {
+    console.error('Error creating ledger entry from invoice:', error);
+    throw new Error('Failed to create ledger entry from invoice');
+  }
+}
 
-//   throw new Error('Not implemented - createLedgerEntryFromPayment');
-// }
+export async function createLedgerEntryFromPayment(
+  paymentData: {
+    id: string;
+    customerId: string;
+    customerName: string;
+    customerCompany?: string;
+    date: Date;
+    amount: number;
+    method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
+    reference?: string;
+    createdBy: string;
+  }
+): Promise<LedgerEntry> {
+  try {
+    const entry = await createLedgerEntry({
+      customerId: paymentData.customerId,
+      customerName: paymentData.customerName,
+      customerCompany: paymentData.customerCompany,
+      transactionType: 'payment',
+      transactionId: paymentData.id,
+      transactionNumber: `PAY-${paymentData.id.slice(-6).toUpperCase()}`,
+      date: paymentData.date,
+      description: 'Payment received',
+      debit: 0,
+      credit: paymentData.amount,
+      paymentMethod: paymentData.method,
+      reference: paymentData.reference,
+      createdBy: paymentData.createdBy
+    });
+
+    return entry;
+  } catch (error) {
+    console.error('Error creating ledger entry from payment:', error);
+    throw new Error('Failed to create ledger entry from payment');
+  }
+}
+
+export async function updateLedgerEntryFromInvoice(
+  invoiceData: {
+    id: string;
+    invoiceNumber: string;
+    totalAmount: number;
+  }
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    // Find the ledger entry for this invoice
+    const entry = await LedgerEntryModel.findOne({
+      transactionType: 'invoice',
+      transactionId: invoiceData.id
+    });
+
+    if (!entry) {
+      console.warn(`No ledger entry found for invoice ${invoiceData.id}`);
+      return;
+    }
+
+    // Calculate the difference
+    const oldDebit = entry.debit;
+    const newDebit = invoiceData.totalAmount;
+    const difference = newDebit - oldDebit;
+
+    // Update the entry
+    entry.debit = newDebit;
+    entry.description = `Invoice ${invoiceData.invoiceNumber}`;
+    
+    // Recalculate balance
+    const previousBalance = await getCustomerBalance(entry.customerId);
+    entry.balance = previousBalance - oldDebit + newDebit;
+
+    await entry.save();
+
+    // Update all subsequent entries for this customer
+    if (difference !== 0) {
+      await LedgerEntryModel.updateMany(
+        {
+          customerId: entry.customerId,
+          date: { $gt: entry.date }
+        },
+        {
+          $inc: { balance: difference }
+        }
+      );
+    }
+
+    revalidatePath('/(dashboard)/ledger', 'layout');
+  } catch (error) {
+    console.error('Error updating ledger entry from invoice:', error);
+    throw new Error('Failed to update ledger entry from invoice');
+  }
+}
+
+export async function deleteLedgerEntryFromInvoice(invoiceId: string): Promise<void> {
+  try {
+    await dbConnect();
+
+    // Find and delete the ledger entry for this invoice
+    const entry = await LedgerEntryModel.findOne({
+      transactionType: 'invoice',
+      transactionId: invoiceId
+    });
+
+    if (!entry) {
+      console.warn(`No ledger entry found for invoice ${invoiceId}`);
+      return;
+    }
+
+    const customerId = entry.customerId;
+    const entryDate = entry.date;
+    const debitAmount = entry.debit;
+
+    // Delete the entry
+    await LedgerEntryModel.deleteOne({ _id: entry._id });
+
+    // Update all subsequent entries for this customer
+    await LedgerEntryModel.updateMany(
+      {
+        customerId,
+        date: { $gt: entryDate }
+      },
+      {
+        $inc: { balance: -debitAmount }
+      }
+    );
+
+    revalidatePath('/(dashboard)/ledger', 'layout');
+  } catch (error) {
+    console.error('Error deleting ledger entry from invoice:', error);
+    throw new Error('Failed to delete ledger entry from invoice');
+  }
+}
