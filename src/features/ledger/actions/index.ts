@@ -550,9 +550,39 @@ export async function updateLedgerEntryFromInvoice(
     entry.debit = newDebit;
     entry.description = `Invoice ${invoiceData.invoiceNumber}`;
     
-    // Recalculate balance
-    const previousBalance = await getCustomerBalance(entry.customerId);
-    entry.balance = previousBalance - oldDebit + newDebit;
+    // Recalculate balance correctly:
+    // Get balance from all entries BEFORE this entry (by date and creation time)
+    const balanceBeforeResult = await LedgerEntryModel.aggregate([
+      {
+        $match: {
+          customerId: entry.customerId,
+          $or: [
+            { date: { $lt: entry.date } },
+            {
+              date: entry.date,
+              createdAt: { $lt: entry.createdAt }
+            }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalDebit: { $sum: '$debit' },
+          totalCredit: { $sum: '$credit' }
+        }
+      },
+      {
+        $project: {
+          balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+        }
+      }
+    ]);
+
+    const balanceBefore = balanceBeforeResult[0]?.balance || 0;
+    
+    // New balance = balance before this entry + this entry's debit - this entry's credit
+    entry.balance = balanceBefore + entry.debit - entry.credit;
 
     await entry.save();
 
@@ -561,7 +591,13 @@ export async function updateLedgerEntryFromInvoice(
       await LedgerEntryModel.updateMany(
         {
           customerId: entry.customerId,
-          date: { $gt: entry.date }
+          $or: [
+            { date: { $gt: entry.date } },
+            {
+              date: entry.date,
+              createdAt: { $gt: entry.createdAt }
+            }
+          ]
         },
         {
           $inc: { balance: difference }
@@ -593,19 +629,28 @@ export async function deleteLedgerEntryFromInvoice(invoiceId: string): Promise<v
 
     const customerId = entry.customerId;
     const entryDate = entry.date;
+    const entryCreatedAt = entry.createdAt;
     const debitAmount = entry.debit;
+    const creditAmount = entry.credit;
+    const balanceChange = debitAmount - creditAmount;
 
     // Delete the entry
     await LedgerEntryModel.deleteOne({ _id: entry._id });
 
-    // Update all subsequent entries for this customer
+    // Update all subsequent entries for this customer (entries after this one by date/time)
     await LedgerEntryModel.updateMany(
       {
         customerId,
-        date: { $gt: entryDate }
+        $or: [
+          { date: { $gt: entryDate } },
+          {
+            date: entryDate,
+            createdAt: { $gt: entryCreatedAt }
+          }
+        ]
       },
       {
-        $inc: { balance: -debitAmount }
+        $inc: { balance: -balanceChange }
       }
     );
 

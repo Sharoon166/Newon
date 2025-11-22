@@ -316,6 +316,19 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
         console.error('Error creating ledger entry:', ledgerError);
         // Continue - invoice is created but ledger entry failed
       }
+
+      // Update customer financial fields
+      try {
+        const { updateCustomerFinancialsOnInvoice } = await import('@/features/customers/actions');
+        await updateCustomerFinancialsOnInvoice(
+          savedInvoice.customerId,
+          savedInvoice.totalAmount,
+          savedInvoice.date
+        );
+      } catch (customerError) {
+        console.error('Error updating customer financials:', customerError);
+        // Continue - invoice is created but customer update failed
+      }
     }
 
     // Deduct stock from purchases if this is an invoice (not quotation) and stockDeducted is true
@@ -376,6 +389,13 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
 
     const updateData = Object.fromEntries(Object.entries(processedData).filter(([, value]) => value !== undefined));
 
+    // Get the original invoice BEFORE updating (for customer financial comparison)
+    const originalInvoice = await InvoiceModel.findById(id).lean();
+    
+    if (!originalInvoice) {
+      throw new Error('Invoice not found');
+    }
+
     const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
       id,
       { $set: updateData },
@@ -398,6 +418,23 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
       } catch (ledgerError) {
         console.error('Error updating ledger entry:', ledgerError);
         // Continue - invoice is updated but ledger entry update failed
+      }
+
+      // Update customer financials if amounts changed
+      if (data.totalAmount !== undefined || data.paidAmount !== undefined) {
+        try {
+          const { updateCustomerFinancialsOnInvoiceUpdate } = await import('@/features/customers/actions');
+          await updateCustomerFinancialsOnInvoiceUpdate(
+            updatedInvoice.customerId,
+            originalInvoice.totalAmount,
+            updatedInvoice.totalAmount,
+            originalInvoice.paidAmount,
+            updatedInvoice.paidAmount
+          );
+        } catch (customerError) {
+          console.error('Error updating customer financials:', customerError);
+          // Continue - invoice is updated but customer update failed
+        }
       }
     }
 
@@ -425,9 +462,26 @@ export async function deleteInvoice(id: string): Promise<void> {
       throw new Error('Invoice not found');
     }
 
-    // Prevent deletion if invoice has any payments
+    // Only allow deletion of draft invoices or quotations
+    // For invoices/quotations with any other status, they should be cancelled instead
+    if (invoice.type === 'invoice' && invoice.status !== 'draft') {
+      throw new Error(
+        'Cannot delete invoice. Only draft invoices can be deleted. Please cancel the invoice instead to maintain data integrity.'
+      );
+    }
+
+    // For quotations, allow deletion if not converted and no payments
+    if (invoice.type === 'quotation' && invoice.convertedToInvoice) {
+      throw new Error(
+        'Cannot delete quotation that has been converted to an invoice. Please cancel it instead.'
+      );
+    }
+
+    // Additional safety check: prevent deletion if invoice has any payments
     if (invoice.paidAmount > 0) {
-      throw new Error('Cannot delete invoice with partial or complete payment. Please cancel the invoice instead.');
+      throw new Error(
+        'Cannot delete invoice with payments. Please cancel the invoice and reverse payments instead.'
+      );
     }
 
     // Delete ledger entry if this is an invoice
@@ -438,6 +492,19 @@ export async function deleteInvoice(id: string): Promise<void> {
       } catch (ledgerError) {
         console.error('Error deleting ledger entry:', ledgerError);
         // Continue with deletion even if ledger entry deletion fails
+      }
+
+      // Reverse customer financial updates
+      try {
+        const { reverseCustomerFinancialsOnInvoiceDelete } = await import('@/features/customers/actions');
+        await reverseCustomerFinancialsOnInvoiceDelete(
+          invoice.customerId,
+          invoice.totalAmount,
+          invoice.paidAmount
+        );
+      } catch (customerError) {
+        console.error('Error reversing customer financials:', customerError);
+        // Continue with deletion even if customer update fails
       }
     }
 
@@ -486,6 +553,18 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
       throw new Error('Invoice not found');
     }
 
+    // Validate payment amount doesn't exceed balance
+    if (payment.amount > invoice.balanceAmount) {
+      throw new Error(
+        `Payment amount (${payment.amount}) exceeds outstanding balance (${invoice.balanceAmount})`
+      );
+    }
+
+    // Validate payment amount is positive
+    if (payment.amount <= 0) {
+      throw new Error('Payment amount must be greater than 0');
+    }
+
     // Add payment to payments array
     invoice.payments.push(payment);
 
@@ -521,6 +600,19 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
     } catch (ledgerError) {
       console.error('Error creating ledger entry for payment:', ledgerError);
       // Continue - payment is recorded but ledger entry failed
+    }
+
+    // Update customer financial fields
+    try {
+      const { updateCustomerFinancialsOnPayment } = await import('@/features/customers/actions');
+      await updateCustomerFinancialsOnPayment(
+        invoice.customerId,
+        payment.amount,
+        payment.date
+      );
+    } catch (customerError) {
+      console.error('Error updating customer financials:', customerError);
+      // Continue - payment is recorded but customer update failed
     }
 
     revalidatePath('/invoices');
@@ -603,6 +695,9 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
       throw new Error('Payment not found');
     }
 
+    // Store payment amount before deletion for customer update
+    const deletedPaymentAmount = invoice.payments[paymentIndex].amount;
+
     // Remove the payment
     invoice.payments.splice(paymentIndex, 1);
 
@@ -622,6 +717,18 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
     }
 
     await invoice.save();
+
+    // Reverse customer financial update
+    try {
+      const { reverseCustomerFinancialsOnPaymentDelete } = await import('@/features/customers/actions');
+      await reverseCustomerFinancialsOnPaymentDelete(
+        invoice.customerId,
+        deletedPaymentAmount
+      );
+    } catch (customerError) {
+      console.error('Error reversing customer payment:', customerError);
+      // Continue - payment is deleted but customer update failed
+    }
 
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
@@ -711,6 +818,19 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
       // Continue - invoice is created but ledger entry failed
     }
 
+    // Update customer financial fields
+    try {
+      const { updateCustomerFinancialsOnInvoice } = await import('@/features/customers/actions');
+      await updateCustomerFinancialsOnInvoice(
+        savedInvoice.customerId,
+        savedInvoice.totalAmount,
+        savedInvoice.date
+      );
+    } catch (customerError) {
+      console.error('Error updating customer financials:', customerError);
+      // Continue - invoice is created but customer update failed
+    }
+
     // Update quotation to mark as converted
     quotation.convertedToInvoice = true;
     quotation.convertedInvoiceId = (savedInvoice._id as mongoose.Types.ObjectId).toString();
@@ -731,6 +851,93 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
   }
 }
 
+// Cancel invoice (proper way to void an invoice instead of deleting)
+export async function cancelInvoice(id: string, reason?: string): Promise<Invoice> {
+  try {
+    await dbConnect();
+
+    const invoice = await InvoiceModel.findById(id);
+
+    if (!invoice) {
+      throw new Error('Invoice not found');
+    }
+
+    if (invoice.status === 'cancelled') {
+      throw new Error('Invoice is already cancelled');
+    }
+
+    // Prevent cancellation if invoice is fully paid
+    if (invoice.status === 'paid' && invoice.balanceAmount === 0) {
+      throw new Error(
+        'Cannot cancel a fully paid invoice. Please process a refund or credit note instead.'
+      );
+    }
+
+    // Warn if there are partial payments
+    if (invoice.paidAmount > 0) {
+      console.warn(
+        `Cancelling invoice ${invoice.invoiceNumber} with partial payment of ${invoice.paidAmount}. Consider processing refunds.`
+      );
+    }
+
+    // Update status to cancelled
+    invoice.status = 'cancelled';
+    if (reason) {
+      invoice.notes = invoice.notes ? `${invoice.notes}\n\nCancellation Reason: ${reason}` : `Cancellation Reason: ${reason}`;
+    }
+    await invoice.save();
+
+    // Restore stock if it was deducted
+    if (invoice.type === 'invoice' && invoice.stockDeducted && invoice.items.length > 0) {
+      try {
+        const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
+        await restoreStockForInvoice(
+          invoice.items.map(item => ({
+            purchaseId: item.purchaseId,
+            quantity: item.quantity
+          }))
+        );
+        invoice.stockDeducted = false;
+        await invoice.save();
+      } catch (stockError) {
+        console.error('Error restoring stock:', stockError);
+        // Continue - invoice is cancelled but stock not restored
+      }
+    }
+
+    // Note: We don't delete ledger entries for cancelled invoices
+    // They remain in the ledger with cancelled status for audit trail
+    // The ledger queries already exclude cancelled invoices from calculations
+
+    // Reverse customer financial updates
+    if (invoice.type === 'invoice') {
+      try {
+        const { reverseCustomerFinancialsOnInvoiceDelete } = await import('@/features/customers/actions');
+        await reverseCustomerFinancialsOnInvoiceDelete(
+          invoice.customerId,
+          invoice.totalAmount,
+          invoice.paidAmount
+        );
+      } catch (customerError) {
+        console.error('Error reversing customer financials:', customerError);
+        // Continue - invoice is cancelled but customer update failed
+      }
+    }
+
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${id}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/purchases');
+    revalidatePath('/inventory');
+    revalidatePath('/ledger', 'layout');
+
+    return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
+  } catch (error) {
+    console.error(`Error cancelling invoice ${id}:`, error);
+    throw new Error((error as Error).message || 'Failed to cancel invoice');
+  }
+}
+
 // Update invoice status
 export async function updateInvoiceStatus(
   id: string,
@@ -748,6 +955,11 @@ export async function updateInvoiceStatus(
 ): Promise<Invoice> {
   try {
     await dbConnect();
+
+    // If changing to cancelled status, use cancelInvoice instead
+    if (status === 'cancelled') {
+      return await cancelInvoice(id);
+    }
 
     const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
       id,

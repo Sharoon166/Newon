@@ -110,6 +110,11 @@ export async function createCustomer(data: CreateCustomerDto): Promise<Customer>
   try {
     await dbConnect();
 
+    // Protect OTC customer ID
+    if (data.email === 'otc@cash.sale' || data.name?.toLowerCase() === 'over the counter customer') {
+      throw new Error('Cannot create customer with reserved OTC details. This is a system customer.');
+    }
+
     // Check if email already exists
     const existingCustomer = await CustomerModel.findOne({ email: data.email });
     if (existingCustomer) {
@@ -182,5 +187,159 @@ export async function deleteCustomer(id: string): Promise<void> {
   } catch (error) {
     console.error(`Error deleting customer ${id}:`, error);
     throw new Error('Failed to delete customer');
+  }
+}
+
+/**
+ * Update customer financial fields when invoice is created
+ */
+export async function updateCustomerFinancialsOnInvoice(
+  customerId: string,
+  totalAmount: number,
+  invoiceDate: Date
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    const customer = await CustomerModel.findOne({ customerId });
+    
+    if (!customer) {
+      console.warn(`Customer ${customerId} not found for financial update`);
+      return;
+    }
+
+    customer.totalInvoiced += totalAmount;
+    customer.outstandingBalance += totalAmount;
+    customer.lastInvoiceDate = invoiceDate;
+
+    await customer.save();
+  } catch (error) {
+    console.error(`Error updating customer financials for ${customerId}:`, error);
+    // Don't throw - invoice creation should succeed even if customer update fails
+  }
+}
+
+/**
+ * Update customer financial fields when payment is made
+ */
+export async function updateCustomerFinancialsOnPayment(
+  customerId: string,
+  paymentAmount: number,
+  paymentDate: Date
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    const customer = await CustomerModel.findOne({ customerId });
+    
+    if (!customer) {
+      console.warn(`Customer ${customerId} not found for financial update`);
+      return;
+    }
+
+    customer.totalPaid += paymentAmount;
+    customer.outstandingBalance -= paymentAmount;
+    customer.lastPaymentDate = paymentDate;
+
+    await customer.save();
+  } catch (error) {
+    console.error(`Error updating customer financials for ${customerId}:`, error);
+    // Don't throw - payment should succeed even if customer update fails
+  }
+}
+
+/**
+ * Reverse customer financial fields when invoice is deleted
+ */
+export async function reverseCustomerFinancialsOnInvoiceDelete(
+  customerId: string,
+  totalAmount: number,
+  paidAmount: number
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    const customer = await CustomerModel.findOne({ customerId });
+    
+    if (!customer) {
+      console.warn(`Customer ${customerId} not found for financial reversal`);
+      return;
+    }
+
+    customer.totalInvoiced = Math.max(0, customer.totalInvoiced - totalAmount);
+    customer.totalPaid = Math.max(0, customer.totalPaid - paidAmount);
+    customer.outstandingBalance = Math.max(0, customer.outstandingBalance - (totalAmount - paidAmount));
+
+    await customer.save();
+  } catch (error) {
+    console.error(`Error reversing customer financials for ${customerId}:`, error);
+    // Don't throw - invoice deletion should succeed even if customer update fails
+  }
+}
+
+/**
+ * Reverse customer financial fields when payment is deleted
+ */
+export async function reverseCustomerFinancialsOnPaymentDelete(
+  customerId: string,
+  paymentAmount: number
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    const customer = await CustomerModel.findOne({ customerId });
+    
+    if (!customer) {
+      console.warn(`Customer ${customerId} not found for payment reversal`);
+      return;
+    }
+
+    customer.totalPaid = Math.max(0, customer.totalPaid - paymentAmount);
+    customer.outstandingBalance += paymentAmount;
+
+    await customer.save();
+  } catch (error) {
+    console.error(`Error reversing customer payment for ${customerId}:`, error);
+    // Don't throw - payment deletion should succeed even if customer update fails
+  }
+}
+
+/**
+ * Update customer financial fields when invoice amount is updated
+ */
+export async function updateCustomerFinancialsOnInvoiceUpdate(
+  customerId: string,
+  oldTotalAmount: number,
+  newTotalAmount: number,
+  oldPaidAmount: number,
+  newPaidAmount: number
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    const customer = await CustomerModel.findOne({ customerId });
+    
+    if (!customer) {
+      console.warn(`Customer ${customerId} not found for financial update`);
+      return;
+    }
+
+    // Calculate differences
+    const invoiceDiff = newTotalAmount - oldTotalAmount;
+    const paidDiff = newPaidAmount - oldPaidAmount;
+    const outstandingDiff = invoiceDiff - paidDiff;
+
+    customer.totalInvoiced += invoiceDiff;
+    customer.totalPaid += paidDiff;
+    customer.outstandingBalance += outstandingDiff;
+
+    // Ensure no negative values
+    customer.totalInvoiced = Math.max(0, customer.totalInvoiced);
+    customer.totalPaid = Math.max(0, customer.totalPaid);
+
+    await customer.save();
+  } catch (error) {
+    console.error(`Error updating customer financials for ${customerId}:`, error);
+    // Don't throw - invoice update should succeed even if customer update fails
   }
 }
