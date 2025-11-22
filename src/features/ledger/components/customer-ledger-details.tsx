@@ -82,23 +82,7 @@ export function CustomerLedgerDetails({ customerInfo, ledgerEntries, invoices, s
   };
 
   return (
-    <>
-      <style jsx global>{`
-        @media print {
-          body {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-          @page {
-            margin: 1cm;
-          }
-        }
-      `}</style>
-      
-      <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
@@ -256,6 +240,5 @@ export function CustomerLedgerDetails({ customerInfo, ledgerEntries, invoices, s
         </CardContent>
       </Card>
     </div>
-    </>
   );
 }

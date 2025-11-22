@@ -171,7 +171,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
         </Select>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Badge
           variant={selectedCategory === 'all' ? 'default' : 'outline'}
           onClick={() => setSelectedCategory('all')}

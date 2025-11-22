@@ -10,7 +10,7 @@ import { deletePurchase } from '../actions';
 import { toast } from 'sonner';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AlertCircle } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface PurchasesTableProps {
   purchases: Purchase[];
@@ -52,16 +52,6 @@ export function PurchasesTable({
       setDeleteDialogOpen(false);
       setPurchaseToDelete(null);
     }
-  };
-
-  const formatDate = (date: Date | string | undefined) => {
-    if (!date) return 'N/A';
-    const d = date instanceof Date ? date : new Date(date);
-    return d.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
   };
 
   const getLocationName = (locationId: string | undefined) => {

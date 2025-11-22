@@ -81,51 +81,9 @@ export function PrintableLedger({ customerInfo, ledgerEntries, invoices, summary
     <>
       <style jsx global>{`
         @media print {
-          body {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .page-break {
-            page-break-before: always;
-          }
           @page {
-            margin: 1.5cm;
             size: A4;
-          }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .ledger-page {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-          }
-          .ledger-content {
-            flex: 1;
-          }
-          .ledger-footer {
-            margin-top: auto;
-            page-break-inside: avoid;
-          }
-          /* Prevent awkward page breaks */
-          .summary-section,
-          .transaction-item,
-          .invoice-item {
-            page-break-inside: avoid;
-            break-inside: avoid;
-          }
-          .section-header {
-            page-break-after: avoid;
-            break-after: avoid;
-          }
-          /* Keep header with first item */
-          h3 {
-            page-break-after: avoid;
-            break-after: avoid;
+            margin: 1cm;
           }
         }
         @media screen {
@@ -145,7 +103,7 @@ export function PrintableLedger({ customerInfo, ledgerEntries, invoices, summary
 
       <div
         ref={contentRef}
-        className="max-w-[210mm] w-full mx-auto bg-white shadow-lg print:shadow-none py-8 px-10 print:py-4 print:px-4 ledger-page"
+        className="w-full max-w-[210mm] mx-auto bg-white shadow-lg print:shadow-none py-8 px-10 print:px-0 print:py-0 print:max-w-full ledger-page"
       >
         <div className="ledger-content space-y-6 print:space-y-4">
           {/* Header */}

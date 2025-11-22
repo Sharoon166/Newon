@@ -335,17 +335,7 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
 
   // Handle export to PDF
   const handleExportPdf = () => {
-    const data = table.getFilteredRowModel().rows.map(row => ({
-      'Purchase Date': formatDate(row.original.purchaseDate),
-      Product: row.original.productName || 'Unknown',
-      Variant: row.original.variant?.sku || row.original.variantId || '',
-      Supplier: row.original.supplier || '',
-      Quantity: row.original.quantity,
-      Remaining: row.original.remaining,
-      'Unit Price': formatCurrency(row.original.unitPrice),
-      'Total Cost': formatCurrency(row.original.totalCost)
-    }));
-    exportToPdf(data, `purchases-${new Date().toISOString().split('T')[0]}`);
+    exportToPdf();
   };
 
   // Use debounced value for filtering

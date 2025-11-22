@@ -45,7 +45,7 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/constants';
 import { toast } from 'sonner';
-import { NewonInvoiceTemplate } from './newon-invoice-template';
+import { NewonInvoiceTemplate } from './invoice-template';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),

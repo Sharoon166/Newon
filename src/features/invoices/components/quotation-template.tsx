@@ -2,8 +2,7 @@
 
 import { forwardRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { ArrowLeft, Download, Save } from "lucide-react";
 import Image from "next/image";
 import { QuotationTemplateData } from './template-types';
@@ -24,53 +23,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     : quotationData.discount;
   const total = subtotal + taxAmount - discountAmount;
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch {
-      return dateString;
-    }
-  };
-
   return (
-    <>
-      <style jsx global>{`
-        @media print {
-          @page {
-            size: A4;
-            margin: 15mm;
-          }
-          
-          /* Prevent page breaks inside these elements */
-          .print-no-break {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          
-          /* Allow page breaks before these elements if needed */
-          .print-break-before {
-            break-before: auto;
-            page-break-before: auto;
-          }
-          
-          /* Keep table rows together */
-          table tr {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          
-          /* Ensure header stays at top of each page */
-          thead {
-            display: table-header-group;
-          }
-          
-          /* Ensure footer stays at bottom */
-          tfoot {
-            display: table-footer-group;
-          }
-        }
-      `}</style>
-      <div ref={ref} className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 min-h-screen flex flex-col">
+    <div ref={ref} className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 min-h-[297mm] flex flex-col">
         {/* Header */}
         <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
         <div className="mb-6 md:mb-0 print:mb-0">
@@ -153,8 +107,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </table>
       </div>
 
-      {/* Totals */}
-      <div className="flex justify-end print:max-w-xs print:ml-auto mb-4 print:mb-2 print-no-break">
+      {/* Totals Section */}
+      <div className="flex justify-end mb-4 print:mb-2 print-no-break">
         <div className="w-full md:w-1/2">
           <div className="flex justify-between py-2">
             <span className="text-muted-foreground">Subtotal:</span>
@@ -189,8 +143,27 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </div>
       </div>
 
+      {/* Delivery Notes Section */}
+      <div className="mb-6 print:mb-3 print-no-break">
+        <div className="border-2 border-primary/30 rounded-lg p-4 bg-linear-to-br from-muted/30 to-muted/10">
+          <h3 className="text-base font-bold mb-3 text-primary flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Delivery Notes
+          </h3>
+          <div className="min-h-[60px] text-sm text-muted-foreground">
+            <p className="italic">Additional delivery instructions or notes can be added here...</p>
+          </div>
+        </div>
+      </div>
+
       {/* Spacer to push footer to bottom */}
-      <div className="grow" />
+      <div className="grow print-spacer" />
 
       {/* Notes & Terms */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4 print:mb-2 print-no-break">
@@ -248,8 +221,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           </div>
         </div>
       </div>
-      </div>
-    </>
+    </div>
   );
 });
 

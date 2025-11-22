@@ -12,32 +12,17 @@ export function PrintableLedgerTable({ data }: PrintableLedgerTableProps) {
     <>
       <style jsx global>{`
         @media print {
-          body {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-            margin: 0;
-            padding: 0;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .page-break {
-            page-break-before: always;
-          }
           @page {
-            margin: 1cm;
             size: A4 landscape;
-          }
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            margin: 1cm;
           }
           .ledger-page {
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            padding: 0.5cm !important;
+            padding: 0 !important;
             display: block;
+            box-shadow: none !important;
           }
           .ledger-content {
             width: 100%;
@@ -47,17 +32,7 @@ export function PrintableLedgerTable({ data }: PrintableLedgerTableProps) {
             page-break-inside: avoid;
           }
           .customer-item {
-            page-break-inside: avoid;
-            break-inside: avoid;
             margin-bottom: 0.3cm;
-          }
-          .section-header {
-            page-break-after: avoid;
-            break-after: avoid;
-          }
-          h3 {
-            page-break-after: avoid;
-            break-after: avoid;
           }
           h1 {
             font-size: 18pt !important;

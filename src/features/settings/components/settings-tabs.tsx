@@ -2,11 +2,10 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ReceiptText, Settings, User } from 'lucide-react';
+import { ReceiptText, User } from 'lucide-react';
 import { InvoiceSettings } from './invoice-settings';
 import { AccountSettings } from './account-settings';
 import { PaymentDetails } from '../types';
-import { Button } from '@/components/ui/button';
 
 interface SettingsTabsProps {
   paymentDetails: PaymentDetails;

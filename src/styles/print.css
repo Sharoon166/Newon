@@ -11,28 +11,123 @@
     display: none !important;
   }
 
-  /* Page setup */
+  /* Page setup - Default A4 portrait */
   @page {
     size: A4 portrait;
-    margin: 10mm 15mm;
+    margin: 15mm;
+  }
+
+  /* Prevent page breaks inside these elements */
+  .print-no-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Allow page breaks before these elements if needed */
+  .print-break-before {
+    break-before: auto;
+    page-break-before: auto;
+  }
+
+  /* Keep table rows together */
+  table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Ensure header stays at top of each page */
+  thead {
+    display: table-header-group;
+  }
+
+  /* Ensure footer stays at bottom */
+  tfoot {
+    display: table-footer-group;
+  }
+
+  /* Make container full page height in print */
+  .print-page-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Push footer sections to bottom in print */
+  .print-spacer {
+    flex-grow: 1;
+  }
+
+  /* Page break utilities */
+  .page-break {
+    page-break-before: always;
+  }
+
+  /* Prevent awkward page breaks */
+  .summary-section,
+  .transaction-item,
+  .invoice-item,
+  .purchase-item,
+  .supplier-section,
+  .customer-item {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .section-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Keep header with first item */
+  h3,
+  h4 {
+    page-break-after: avoid;
+    break-after: avoid;
   }
 
   /* Reset body styles for print */
+  html,
   body {
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
     background: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    width: 100%;
-    max-width: 210mm;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   /* Ensure colors are preserved */
   * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Page containers for different layouts */
+  .ledger-page,
+  .purchases-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .ledger-content,
+  .purchases-content {
+    flex: 1;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .ledger-footer,
+  .purchases-footer {
+    margin-top: auto;
+    page-break-inside: avoid;
   }
 
   /* Remove shadows and rounded corners for cleaner print */

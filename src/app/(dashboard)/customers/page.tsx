@@ -29,7 +29,6 @@ export default async function CustomersPage({
     }
   };
 
-  const customer = await getCustomer('CU-25-005');
 
   return (
     <>

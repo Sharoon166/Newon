@@ -105,12 +105,20 @@ export default function PrintLedgerPage() {
     pageStyle: `
       @page {
         size: A4;
-        margin: 15mm;
+        margin: 1cm;
       }
       @media print {
-        body {
+        * {
+          box-sizing: border-box;
+        }
+        html, body {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow-x: hidden !important;
         }
         .print\\:hidden {
           display: none !important;
@@ -147,7 +155,7 @@ export default function PrintLedgerPage() {
   }
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10 print:py-0 print:m-0 print:p-0 print:max-w-full">
       <div className="print:hidden mb-4 flex gap-2">
         <Button onClick={() => router.push(`/ledger/${params.customerId}`)} variant="outline">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -158,7 +166,7 @@ export default function PrintLedgerPage() {
         </Button>
       </div>
 
-      <div ref={printRef}>
+      <div ref={printRef} className="print:m-0 print:p-0 print:w-full print:max-w-full">
         <PrintableLedger
           customerInfo={ledgerData.customerInfo}
           ledgerEntries={ledgerData.ledgerEntries}

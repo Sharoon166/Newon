@@ -17,14 +17,24 @@ export function PrintableLedgerTableWithPrint({ data }: PrintableLedgerTableWith
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `Customer-Ledger-${new Date().toISOString().split('T')[0]}`,pageStyle: `
+    documentTitle: `Customer-Ledger-${new Date().toISOString().split('T')[0]}`,
+    pageStyle: `
       @page {
         size: A4;
         margin: 1cm;
       }
       @media print {
-        body {
+        * {
+          box-sizing: border-box;
+        }
+        html, body {
           -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow-x: hidden !important;
         }
       }
     `,
@@ -39,7 +49,7 @@ export function PrintableLedgerTableWithPrint({ data }: PrintableLedgerTableWith
         </Button>
       </div>
 
-      <div ref={printRef}>
+      <div ref={printRef} className="print:m-0 print:p-0 print:w-full print:max-w-full">
         <PrintableLedgerTable data={data} />
       </div>
     </>

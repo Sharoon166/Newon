@@ -18,7 +18,7 @@ import { AddPaymentDialog } from '@/features/invoices/components/add-payment-dia
 import { UpdateStatusDialog } from '@/features/invoices/components/update-status-dialog';
 import { EditInvoiceDialog } from '@/features/invoices/components/edit-invoice-dialog';
 import { PaymentsList } from '@/features/invoices/components/payments-list';
-import { NewonInvoiceTemplate } from '@/features/invoices/components/newon-invoice-template';
+import { NewonInvoiceTemplate } from '@/features/invoices/components/invoice-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
 import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
