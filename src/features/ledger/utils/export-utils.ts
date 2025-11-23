@@ -6,7 +6,7 @@
 
 import { toast } from 'sonner';
 import { CustomerLedger, LedgerEntry } from '../types';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 /**
  * Escape CSV field to handle commas, quotes, and newlines

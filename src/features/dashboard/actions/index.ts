@@ -14,7 +14,6 @@ import ProductModel from '@/models/Product';
 import type {
   DashboardMetrics,
   SalesTrendData,
-  OutOfStockAlert,
   OverdueInvoiceAlert,
   PendingPaymentAlert,
   DashboardData

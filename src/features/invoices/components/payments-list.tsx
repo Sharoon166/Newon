@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { deletePayment, updatePayment } from '../actions';
+import { deletePayment } from '../actions';
 import { toast } from 'sonner';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { EditPaymentDialog } from './edit-payment-dialog';

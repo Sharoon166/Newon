@@ -331,6 +331,44 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
       }
     }
 
+    // Create ledger entries for initial payments if any
+    if (data.type === 'invoice' && savedInvoice.payments && savedInvoice.payments.length > 0) {
+      try {
+        const { createLedgerEntryFromPayment } = await import('@/features/ledger/actions');
+        for (const payment of savedInvoice.payments) {
+          await createLedgerEntryFromPayment({
+            id: (savedInvoice._id as mongoose.Types.ObjectId).toString(),
+            customerId: savedInvoice.customerId,
+            customerName: savedInvoice.customerName,
+            customerCompany: savedInvoice.customerCompany,
+            date: payment.date,
+            amount: payment.amount,
+            method: payment.method,
+            reference: payment.reference,
+            createdBy: savedInvoice.createdBy
+          });
+        }
+      } catch (paymentLedgerError) {
+        console.error('Error creating ledger entries for initial payments:', paymentLedgerError);
+        // Continue - invoice is created but payment ledger entries failed
+      }
+
+      // Update customer financials for initial payments
+      if (savedInvoice.paidAmount > 0) {
+        try {
+          const { updateCustomerFinancialsOnPayment } = await import('@/features/customers/actions');
+          await updateCustomerFinancialsOnPayment(
+            savedInvoice.customerId,
+            savedInvoice.paidAmount,
+            savedInvoice.date
+          );
+        } catch (customerPaymentError) {
+          console.error('Error updating customer financials for initial payment:', customerPaymentError);
+          // Continue - invoice is created but customer payment update failed
+        }
+      }
+    }
+
     // Deduct stock from purchases if this is an invoice (not quotation) and stockDeducted is true
     if (data.type === 'invoice' && data.items.length > 0) {
       try {
@@ -668,6 +706,35 @@ export async function updatePayment(
 
     await invoice.save();
 
+    // Update ledger entry for payment
+    try {
+      const { updateLedgerEntryFromPayment } = await import('@/features/ledger/actions');
+      await updateLedgerEntryFromPayment({
+        invoiceId,
+        paymentIndex,
+        oldAmount: oldPayment.amount,
+        newAmount: updatedPayment.amount,
+        newDate: updatedPayment.date,
+        newMethod: updatedPayment.method,
+        newReference: updatedPayment.reference
+      });
+    } catch (ledgerError) {
+      console.error('Error updating ledger entry for payment:', ledgerError);
+      // Continue - payment is updated but ledger entry update failed
+    }
+
+    // Update customer financials
+    try {
+      const { updateCustomerFinancialsOnPayment, reverseCustomerFinancialsOnPaymentDelete } = await import('@/features/customers/actions');
+      // Reverse old payment
+      await reverseCustomerFinancialsOnPaymentDelete(invoice.customerId, oldPayment.amount);
+      // Add new payment
+      await updateCustomerFinancialsOnPayment(invoice.customerId, updatedPayment.amount, updatedPayment.date);
+    } catch (customerError) {
+      console.error('Error updating customer financials:', customerError);
+      // Continue - payment is updated but customer update failed
+    }
+
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
@@ -697,6 +764,18 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
 
     // Store payment amount before deletion for customer update
     const deletedPaymentAmount = invoice.payments[paymentIndex].amount;
+
+    // Delete ledger entry BEFORE removing from invoice (so we can still find it by index)
+    try {
+      const { deleteLedgerEntryFromPayment } = await import('@/features/ledger/actions');
+      await deleteLedgerEntryFromPayment({
+        invoiceId,
+        paymentIndex
+      });
+    } catch (ledgerError) {
+      console.error('Error deleting ledger entry for payment:', ledgerError);
+      // Continue - payment will be deleted but ledger entry deletion failed
+    }
 
     // Remove the payment
     invoice.payments.splice(paymentIndex, 1);

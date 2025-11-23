@@ -64,8 +64,10 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
     console.info('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
 
     await ProductModel.create(productWithDefaults);
-    revalidatePath('/inventory', 'page');
-    revalidatePath('/purchases', 'page');
+    revalidatePath('/inventory');
+    revalidatePath('/purchases');
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error('Error creating product:', error);
     // Provide user-friendly error messages
@@ -245,6 +247,8 @@ export const deleteProduct = async (id: string) => {
 
   await ProductModel.deleteOne({ _id: id });
   revalidatePath('/inventory');
+  revalidatePath('/invoices');
+  revalidatePath('/invoices/new');
 };
 
 interface DeleteVariantResult {
@@ -293,6 +297,8 @@ export const toggleVariantDisabled = async (productId: string, variantId: string
     revalidatePath('/inventory');
     revalidatePath(`/inventory/${productId}`);
     revalidatePath(`/inventory/${productId}/edit`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
 
     return {
       success: true,
@@ -368,6 +374,8 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
     revalidatePath('/inventory');
     revalidatePath(`/inventory/${product._id}`);
     revalidatePath(`/inventory/${product._id}/edit`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
 
     return {
       success: true,
@@ -408,6 +416,8 @@ export const deleteProductByName = async (name: string) => {
 
   await ProductModel.deleteOne({ name });
   revalidatePath('/inventory');
+  revalidatePath('/invoices');
+  revalidatePath('/invoices/new');
 };
 
 // export const updateProduct = async (id: string, data: Product) => {
@@ -498,6 +508,8 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
 
     revalidatePath('/inventory');
     revalidatePath(`/inventory/${id}/edit`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
 
     return updateProduct;
   } catch (error) {

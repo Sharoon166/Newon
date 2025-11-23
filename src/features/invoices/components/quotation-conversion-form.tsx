@@ -43,7 +43,7 @@ const invoiceFormSchema = z.object({
       z.object({
         id: z.string(),
         description: z.string().min(1, 'Description is required'),
-        quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+        quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
         rate: z.number().min(0, 'Rate must be 0 or greater'),
         amount: z.number().min(0, 'Amount must be 0 or greater'),
         productId: z.string().optional(),
@@ -717,24 +717,24 @@ export function QuotationConversionForm({
                                       <InputGroup>
                                         <InputGroupInput
                                           type="number"
-                                          min="0.01"
+                                          min="1"
                                           step="1"
                                           {...field}
                                           className="h-7 text-sm text-center"
                                           onChange={e => {
                                             const value = e.target.value;
                                             if (value === '') {
-                                              field.onChange(0.01);
-                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              field.onChange(1);
+                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
                                               return;
                                             }
-                                            const numericValue = parseFloat(value);
-                                            if (isNaN(numericValue) || numericValue < 0.01) {
+                                            const numericValue = parseInt(value, 10);
+                                            if (isNaN(numericValue) || numericValue < 1) {
                                               toast.error('Invalid quantity', {
-                                                description: 'Quantity must be at least 0.01'
+                                                description: 'Quantity must be at least 1'
                                               });
-                                              field.onChange(0.01);
-                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              field.onChange(1);
+                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
                                               return;
                                             }
                                             if (numericValue > availableStock) {

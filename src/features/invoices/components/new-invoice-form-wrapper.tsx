@@ -94,6 +94,16 @@ export function NewInvoiceFormWrapper({
           documentData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
         }`;
 
+      // Create payments array if paid amount is provided
+      const paidAmount = isInvoice ? documentData.paid || 0 : 0;
+      const payments = paidAmount > 0 ? [{
+        amount: paidAmount,
+        method: 'cash' as const,
+        date: new Date(documentData.date),
+        reference: 'Initial payment',
+        notes: 'Payment recorded during invoice creation'
+      }] : [];
+
       const createData = {
         type: documentType,
         date: new Date(documentData.date),
@@ -133,8 +143,9 @@ export function NewInvoiceFormWrapper({
         gstAmount: taxAmount,
         totalAmount,
         status: documentType === 'quotation' ? ('draft' as const) : ('pending' as const),
-        paidAmount: isInvoice ? documentData.paid || 0 : 0,
-        balanceAmount: totalAmount - (isInvoice ? documentData.paid || 0 : 0),
+        paidAmount,
+        balanceAmount: totalAmount - paidAmount,
+        payments,
         notes: documentData.notes,
         termsAndConditions: documentData.terms,
         amountInWords: documentData.amountInWords,

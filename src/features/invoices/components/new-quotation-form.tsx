@@ -24,7 +24,6 @@ import {
   NotebookTabs as NotebookTabsIcon,
   ChevronsUpDown,
   Package,
-  Eye,
   Save,
   Printer,
   Loader2
@@ -80,7 +79,7 @@ const quotationFormSchema = z.object({
       z.object({
         id: z.string(),
         description: z.string().min(1, 'Description is required'),
-        quantity: z.number().min(0.01, 'Quantity must be greater than 0'),
+        quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
         rate: z.number().min(0, 'Rate must be 0 or greater'),
         amount: z.number().min(0, 'Amount must be 0 or greater'),
         productId: z.string().optional(),
@@ -879,11 +878,11 @@ export function NewQuotationForm({
                                 size="icon"
                                 className="h-7 w-7"
                                 onClick={() => {
-                                  const newQuantity = Math.max(0.01, currentQuantity - 1);
+                                  const newQuantity = Math.max(1, currentQuantity - 1);
                                   form.setValue(`items.${index}.quantity`, newQuantity);
                                   form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                                 }}
-                                disabled={currentQuantity <= 0.01}
+                                disabled={currentQuantity <= 1}
                               >
                                 <Minus className="h-3 w-3" />
                               </Button>
@@ -896,21 +895,21 @@ export function NewQuotationForm({
                                       <InputGroup>
                                         <InputGroupInput
                                           type="number"
-                                          min="0.01"
-                                          step="0.01"
+                                          min="1"
+                                          step="1"
                                           {...field}
                                           className="h-7 text-sm text-center"
                                           onChange={e => {
                                             const value = e.target.value;
                                             if (value === '') {
-                                              field.onChange(0.01);
-                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                              field.onChange(1);
+                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
                                               return;
                                             }
-                                            const numericValue = parseFloat(value);
-                                            if (isNaN(numericValue) || numericValue < 0.01) {
-                                              field.onChange(0.01);
-                                              form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            const numericValue = parseInt(value, 10);
+                                            if (isNaN(numericValue) || numericValue < 1) {
+                                              field.onChange(1);
+                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
                                               return;
                                             }
                                             field.onChange(numericValue);

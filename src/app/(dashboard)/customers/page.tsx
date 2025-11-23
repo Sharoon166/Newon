@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { getCustomers, deleteCustomer, getCustomer } from '@/features/customers/actions';
+import { getCustomers, deleteCustomer } from '@/features/customers/actions';
 import { PageHeader } from '@/components/general/page-header';
 import { CustomerTableWrapper } from '@/features/customers/components/customer-table-wrapper';
 
@@ -28,7 +28,6 @@ export default async function CustomersPage({
       return { success: false, error: 'Failed to delete customer' };
     }
   };
-
 
   return (
     <>

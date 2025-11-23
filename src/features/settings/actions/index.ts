@@ -36,7 +36,7 @@ export async function updatePaymentDetails(data: PaymentDetails): Promise<void> 
       { upsert: true, new: true }
     );
 
-    revalidatePath('/(dashboard)/settings');
+    revalidatePath('/settings');
   } catch (error) {
     console.error('Error updating payment details:', error);
     throw new Error('Failed to update payment details');
@@ -74,7 +74,7 @@ export async function updateInvoiceTerms(terms: string[]): Promise<void> {
       { upsert: true, new: true }
     );
 
-    revalidatePath('/(dashboard)/settings');
+    revalidatePath('/settings');
   } catch (error) {
     console.error('Error updating invoice terms:', error);
     throw new Error('Failed to update invoice terms');
@@ -117,7 +117,7 @@ export async function updateAdminAccount(data: {
 
     await admin.save();
 
-    revalidatePath('/(dashboard)/settings');
+    revalidatePath('/settings');
   } catch (error) {
     console.error('Error updating admin account:', error);
     throw error;

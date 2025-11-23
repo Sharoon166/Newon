@@ -439,8 +439,8 @@ export async function createLedgerEntry(
 
     await entry.save();
 
-    revalidatePath('/(dashboard)/ledger');
-    revalidatePath(`/(dashboard)/customers/${data.customerId}`);
+    revalidatePath('/ledger');
+    revalidatePath(`/customers/${data.customerId}`);
 
     return transformLeanEntry(entry.toObject() as LeanLedgerEntry);
   } catch (error: unknown) {
@@ -605,7 +605,7 @@ export async function updateLedgerEntryFromInvoice(
       );
     }
 
-    revalidatePath('/(dashboard)/ledger', 'layout');
+    revalidatePath('/ledger', 'layout');
   } catch (error) {
     console.error('Error updating ledger entry from invoice:', error);
     throw new Error('Failed to update ledger entry from invoice');
@@ -654,9 +654,167 @@ export async function deleteLedgerEntryFromInvoice(invoiceId: string): Promise<v
       }
     );
 
-    revalidatePath('/(dashboard)/ledger', 'layout');
+    revalidatePath('/ledger', 'layout');
   } catch (error) {
     console.error('Error deleting ledger entry from invoice:', error);
     throw new Error('Failed to delete ledger entry from invoice');
+  }
+}
+
+export async function updateLedgerEntryFromPayment(
+  paymentData: {
+    invoiceId: string;
+    paymentIndex: number;
+    oldAmount: number;
+    newAmount: number;
+    newDate: Date;
+    newMethod: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
+    newReference?: string;
+  }
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    // Find the ledger entry for this payment
+    // Payment entries are linked by transactionId (invoiceId) and we need to find the specific payment
+    // Since multiple payments can exist for one invoice, we need a better way to identify them
+    // For now, we'll find all payment entries for this invoice and update by index
+    const entries = await LedgerEntryModel.find({
+      transactionType: 'payment',
+      transactionId: paymentData.invoiceId
+    }).sort({ createdAt: 1 });
+
+    if (!entries || entries.length <= paymentData.paymentIndex) {
+      console.warn(`No ledger entry found for payment ${paymentData.paymentIndex} of invoice ${paymentData.invoiceId}`);
+      return;
+    }
+
+    const entry = entries[paymentData.paymentIndex];
+
+    // Calculate the difference
+    const oldCredit = entry.credit;
+    const newCredit = paymentData.newAmount;
+    const difference = newCredit - oldCredit;
+
+    // Update the entry
+    entry.credit = newCredit;
+    entry.date = paymentData.newDate;
+    entry.paymentMethod = paymentData.newMethod;
+    entry.reference = paymentData.newReference;
+
+    // Recalculate balance correctly:
+    // Get balance from all entries BEFORE this entry (by date and creation time)
+    const balanceBeforeResult = await LedgerEntryModel.aggregate([
+      {
+        $match: {
+          customerId: entry.customerId,
+          $or: [
+            { date: { $lt: entry.date } },
+            {
+              date: entry.date,
+              createdAt: { $lt: entry.createdAt }
+            }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalDebit: { $sum: '$debit' },
+          totalCredit: { $sum: '$credit' }
+        }
+      },
+      {
+        $project: {
+          balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+        }
+      }
+    ]);
+
+    const balanceBefore = balanceBeforeResult[0]?.balance || 0;
+    
+    // New balance = balance before this entry + this entry's debit - this entry's credit
+    entry.balance = balanceBefore + entry.debit - entry.credit;
+
+    await entry.save();
+
+    // Update all subsequent entries for this customer
+    if (difference !== 0) {
+      await LedgerEntryModel.updateMany(
+        {
+          customerId: entry.customerId,
+          $or: [
+            { date: { $gt: entry.date } },
+            {
+              date: entry.date,
+              createdAt: { $gt: entry.createdAt }
+            }
+          ]
+        },
+        {
+          $inc: { balance: -difference } // Negative because credit reduces balance
+        }
+      );
+    }
+
+    revalidatePath('/ledger', 'layout');
+  } catch (error) {
+    console.error('Error updating ledger entry from payment:', error);
+    throw new Error('Failed to update ledger entry from payment');
+  }
+}
+
+export async function deleteLedgerEntryFromPayment(
+  paymentData: {
+    invoiceId: string;
+    paymentIndex: number;
+  }
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    // Find the ledger entry for this payment
+    const entries = await LedgerEntryModel.find({
+      transactionType: 'payment',
+      transactionId: paymentData.invoiceId
+    }).sort({ createdAt: 1 });
+
+    if (!entries || entries.length <= paymentData.paymentIndex) {
+      console.warn(`No ledger entry found for payment ${paymentData.paymentIndex} of invoice ${paymentData.invoiceId}`);
+      return;
+    }
+
+    const entry = entries[paymentData.paymentIndex];
+    const customerId = entry.customerId;
+    const entryDate = entry.date;
+    const entryCreatedAt = entry.createdAt;
+    const debitAmount = entry.debit;
+    const creditAmount = entry.credit;
+    const balanceChange = debitAmount - creditAmount;
+
+    // Delete the entry
+    await LedgerEntryModel.deleteOne({ _id: entry._id });
+
+    // Update all subsequent entries for this customer (entries after this one by date/time)
+    await LedgerEntryModel.updateMany(
+      {
+        customerId,
+        $or: [
+          { date: { $gt: entryDate } },
+          {
+            date: entryDate,
+            createdAt: { $gt: entryCreatedAt }
+          }
+        ]
+      },
+      {
+        $inc: { balance: -balanceChange }
+      }
+    );
+
+    revalidatePath('/ledger', 'layout');
+  } catch (error) {
+    console.error('Error deleting ledger entry from payment:', error);
+    throw new Error('Failed to delete ledger entry from payment');
   }
 }

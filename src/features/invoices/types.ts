@@ -102,6 +102,7 @@ export interface CreateInvoiceDto {
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount?: number;
   balanceAmount: number;
+  payments?: Payment[]; // Initial payments (if any paid amount during creation)
   stockDeducted?: boolean;
   notes?: string;
   termsAndConditions?: string;

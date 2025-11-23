@@ -96,7 +96,7 @@ export async function createStaffMember(data: CreateStaffDto): Promise<StaffMemb
 
     const savedStaff = await newStaff.save();
 
-    revalidatePath('/(dashboard)/staff');
+    revalidatePath('/staff');
 
     const savedStaffObj = savedStaff.toObject() as LeanStaffMember;
     return {
@@ -135,8 +135,8 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto): Promi
       throw new Error('Staff member not found');
     }
 
-    revalidatePath('/(dashboard)/staff');
-    revalidatePath(`/(dashboard)/staff/${id}`);
+    revalidatePath('/staff');
+    revalidatePath(`/staff/${id}`);
 
     const updatedStaffObj = updatedStaff as LeanStaffMember;
     return {
@@ -161,7 +161,7 @@ export async function deleteStaffMember(id: string): Promise<void> {
       throw new Error('Staff member not found');
     }
 
-    revalidatePath('/(dashboard)/staff');
+    revalidatePath('/staff');
   } catch (error) {
     console.error(`Error deleting staff member ${id}:`, error);
     throw new Error('Failed to delete staff member');
@@ -178,8 +178,8 @@ export async function toggleStaffStatus(id: string, isActive: boolean): Promise<
       throw new Error('Staff member not found');
     }
 
-    revalidatePath('/(dashboard)/staff');
-    revalidatePath(`/(dashboard)/staff/${id}`);
+    revalidatePath('/staff');
+    revalidatePath(`/staff/${id}`);
   } catch (error) {
     console.error(`Error toggling status for staff member ${id}:`, error);
     throw new Error('Failed to update staff status');

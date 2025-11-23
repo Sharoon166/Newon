@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters, PaginatedCustomers } from '../types';
+import type { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters, PaginatedCustomers } from '../types';
 import dbConnect from '@/lib/db';
 import CustomerModel from '../../../models/Customer';
 
@@ -64,7 +64,7 @@ export async function getCustomers(filters?: CustomerFilters): Promise<Paginated
     const result = await CustomerModel.paginate(query, {
       page,
       limit,
-      sort: { createdAt: -1 },
+      sort: { customerId: -1 },
       lean: true
     });
 
@@ -124,7 +124,9 @@ export async function createCustomer(data: CreateCustomerDto): Promise<Customer>
     const newCustomer = new CustomerModel(data);
     const savedCustomer = await newCustomer.save();
 
-    revalidatePath('/(dashboard)/customers');
+    revalidatePath('/customers');
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
 
     return transformLeanCustomer(savedCustomer.toObject() as LeanCustomer);
   } catch (error: unknown) {
@@ -183,7 +185,9 @@ export async function deleteCustomer(id: string): Promise<void> {
       throw new Error('Customer not found');
     }
 
-    revalidatePath('/(dashboard)/customers');
+    revalidatePath('/customers');
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error deleting customer ${id}:`, error);
     throw new Error('Failed to delete customer');

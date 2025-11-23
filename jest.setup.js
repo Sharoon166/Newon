@@ -1,5 +1,10 @@
 // Add custom jest matchers for DOM testing
 import '@testing-library/jest-dom';
+import { TextEncoder, TextDecoder } from 'util';
+
+// Polyfill for TextEncoder/TextDecoder (required for Next.js)
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
 
 // Mock any global browser APIs or modules
 Object.defineProperty(window, 'matchMedia', {

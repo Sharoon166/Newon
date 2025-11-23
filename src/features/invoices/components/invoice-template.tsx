@@ -2,7 +2,6 @@
 
 import { forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
@@ -19,8 +18,11 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
   ({ invoiceData, onBack, onPrint, onSave }, ref) => {
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
-    const total = subtotal + taxAmount - invoiceData.discount;
-    const grandTotal = total + (invoiceData.previousBalance || 0);
+    const discountAmount = invoiceData.discountType === 'percentage' 
+      ? (subtotal * invoiceData.discount) / 100 
+      : invoiceData.discount;
+    const total = subtotal + taxAmount - discountAmount;
+    const grandTotal = invoiceData.remainingPayment + (invoiceData.previousBalance || 0);
 
     const isOTC = invoiceData.customerId === 'otc';
 
@@ -153,39 +155,41 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
             )}
             {invoiceData.discount > 0 && (
               <div className="flex justify-between py-2">
-                <span className="text-muted-foreground">Discount:</span>
-                <span className="font-medium text-destructive">-{formatCurrency(invoiceData.discount)}</span>
+                <span className="text-muted-foreground">
+                  Discount {invoiceData.discountType === 'percentage' ? `(${invoiceData.discount}%)` : ''}:
+                </span>
+                <span className="font-medium text-destructive">-{formatCurrency(discountAmount)}</span>
               </div>
             )}
             <div className="flex justify-between py-2 border-t mt-2">
-              <span className="font-medium">Total Amount:</span>
+              <span className="font-medium">Total:</span>
               <span className="font-medium">{formatCurrency(total)}</span>
+            </div>
+
+            {invoiceData.paid > 0 && (
+              <div className="flex justify-between py-2">
+                <span className="text-muted-foreground">Paid:</span>
+                <span className="font-medium">{formatCurrency(invoiceData.paid)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between py-2 border-t font-bold">
+              <span>Remaining:</span>
+              <span className={invoiceData.remainingPayment > 0 ? 'text-red-600' : 'text-green-600'}>
+                {formatCurrency(invoiceData.remainingPayment)} {invoiceData.remainingPayment > 0 ? '(Due)' : '(Paid)'}
+              </span>
             </div>
 
             {invoiceData.previousBalance > 0 && (
               <div className="flex justify-between py-2">
                 <span className="text-muted-foreground">Previous Balance:</span>
-                <span className="font-medium">+{formatCurrency(invoiceData.previousBalance)}</span>
+                <span className="font-medium">{formatCurrency(invoiceData.previousBalance)}</span>
               </div>
             )}
 
             <div className="flex justify-between py-2 border-t">
               <span className="font-bold">Grand Total:</span>
               <span className="font-bold">{formatCurrency(grandTotal)}</span>
-            </div>
-
-            {invoiceData.paid > 0 && (
-              <div className="flex justify-between py-2">
-                <span className="text-muted-foreground">Amount Paid:</span>
-                <span className="font-medium">-{formatCurrency(invoiceData.paid)}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between py-2 border-t font-bold">
-              <span>Remaining Balance:</span>
-              <span className={invoiceData.remainingPayment > 0 ? 'text-red-600' : 'text-green-600'}>
-                {formatCurrency(invoiceData.remainingPayment)} {invoiceData.remainingPayment > 0 ? '(Due)' : '(Paid)'}
-              </span>
             </div>
 
             <div className="pt-2 mt-2 border-t">
