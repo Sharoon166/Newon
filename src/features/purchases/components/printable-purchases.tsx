@@ -17,9 +17,11 @@ interface PrintablePurchasesProps {
 
 export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchasesProps) {
   // Filter data by supplier if specified
-  const filteredData = selectedSupplier && selectedSupplier !== 'all' 
-    ? data.filter(p => p.supplier === selectedSupplier)
-    : data;
+  const filteredData =
+    selectedSupplier && selectedSupplier !== 'all' ? data.filter(p => p.supplier === selectedSupplier) : data;
+
+  // Check if single supplier is selected for invoice-style layout
+  const isSingleSupplier = selectedSupplier && selectedSupplier !== 'all';
   // Calculate summary statistics
   const totalPurchases = filteredData.length;
   const totalQuantity = filteredData.reduce((sum, p) => sum + (p.quantity || 0), 0);
@@ -28,17 +30,114 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
   const totalRemaining = filteredData.reduce((sum, p) => sum + (p.remaining || 0), 0);
 
   // Group purchases by supplier for better organization
-  const purchasesBySupplier = filteredData.reduce((acc, purchase) => {
-    const supplier = purchase.supplier || 'Unknown Supplier';
-    if (!acc[supplier]) {
-      acc[supplier] = [];
-    }
-    acc[supplier].push(purchase);
-    return acc;
-  }, {} as Record<string, PurchaseWithProduct[]>);
+  const purchasesBySupplier = filteredData.reduce(
+    (acc, purchase) => {
+      const supplier = purchase.supplier || 'Unknown Supplier';
+      if (!acc[supplier]) {
+        acc[supplier] = [];
+      }
+      acc[supplier].push(purchase);
+      return acc;
+    },
+    {} as Record<string, PurchaseWithProduct[]>
+  );
 
   const suppliers = Object.keys(purchasesBySupplier).sort();
 
+  // Invoice-style layout for single supplier
+  if (isSingleSupplier) {
+    return (
+      <>
+        <style jsx global>{`
+          @media print {
+            @page {
+              size: A4 portrait;
+              margin: 1cm;
+            }
+          }
+        `}</style>
+
+        <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-8 pb-6 border-b-2">
+            <div>
+              <h1 className="text-3xl font-bold text-primary mb-2">PURCHASE ORDER</h1>
+              <p className="text-sm text-muted-foreground">Report Date: {formatDate(new Date())}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold">Total Purchases: {totalPurchases}</p>
+              <p className="text-sm text-muted-foreground">Total Units: {totalQuantity}</p>
+            </div>
+          </div>
+
+          {/* Supplier Info */}
+          <hgroup className="mb-8">
+            <h2 className="text-lg font-bold text-primary mb-2">Supplier Name:</h2>
+            <p className="text-xl font-semibold capitalize">{selectedSupplier}</p>
+          </hgroup>
+
+          {/* Items Table */}
+          <div className="mb-6">
+            <h3 className="text-base font-semibold mb-3">Purchase Items</h3>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-muted/50 text-left text-sm font-medium">
+                  <th className="p-3 border">Date</th>
+                  <th className="p-3 border">Product</th>
+                  <th className="p-3 border">Variant/SKU</th>
+                  <th className="p-3 border text-right">Qty</th>
+                  <th className="p-3 border text-right">Unit Price</th>
+                  <th className="p-3 border text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData.map((purchase, index) => (
+                  <tr key={purchase.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
+                    <td className="p-3 border text-sm">{formatDate(new Date(purchase.purchaseDate))}</td>
+                    <td className="p-3 border">{purchase.productName || 'N/A'}</td>
+                    <td className="p-3 border text-sm">{purchase.variant?.sku || purchase.variantId || 'N/A'}</td>
+                    <td className="p-3 border text-right font-medium">{purchase.quantity}</td>
+                    <td className="p-3 border text-right">{formatCurrency(purchase.unitPrice)}</td>
+                    <td className="p-3 border text-right font-semibold">{formatCurrency(purchase.totalCost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Summary */}
+          <div className="flex justify-end mb-8">
+            <div className="w-80">
+              <div className="space-y-2">
+                <div className="flex justify-between py-2">
+                  <span className="text-muted-foreground">Total Quantity:</span>
+                  <span className="font-medium">{totalQuantity} units</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-muted-foreground">Remaining Stock:</span>
+                  <span className="font-medium">{totalRemaining} units</span>
+                </div>
+                <div className="flex justify-between py-3 border-t-2 border-gray-300">
+                  <span className="font-bold text-lg">Total Cost:</span>
+                  <span className="font-bold text-lg">{formatCurrency(totalCost)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="pt-6 border-t mt-8">
+            <div className="text-center text-sm text-muted-foreground">
+              <p>This is a computer-generated purchase report</p>
+              <p className="text-xs mt-1">Generated on {formatDate(new Date())}</p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Default multi-supplier layout
   return (
     <>
       <style jsx global>{`
@@ -124,7 +223,8 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                         <div>
                           <h4 className="text-lg font-bold text-gray-900">{supplier}</h4>
                           <p className="text-sm text-gray-600">
-                            {supplierPurchases.length} purchase{supplierPurchases.length !== 1 ? 's' : ''} • {supplierQuantity.toLocaleString()} units
+                            {supplierPurchases.length} purchase{supplierPurchases.length !== 1 ? 's' : ''} •{' '}
+                            {supplierQuantity.toLocaleString()} units
                           </p>
                         </div>
                         <div className="text-right">
@@ -139,13 +239,27 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                       <table className="w-full text-sm">
                         <thead className="bg-gray-100 border-b-2 border-gray-200">
                           <tr>
-                            <th className="text-left p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Date</th>
-                            <th className="text-left p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Product</th>
-                            <th className="text-left p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Variant</th>
-                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Quantity</th>
-                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Remaining</th>
-                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Unit Price</th>
-                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">Total Cost</th>
+                            <th className="text-left p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Date
+                            </th>
+                            <th className="text-left p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Product
+                            </th>
+                            <th className="text-left p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Variant
+                            </th>
+                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Quantity
+                            </th>
+                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Remaining
+                            </th>
+                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Unit Price
+                            </th>
+                            <th className="text-right p-3 print:p-2 font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                              Total Cost
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -157,9 +271,7 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                               <td className="p-3 print:p-2 text-gray-900 font-medium">
                                 {formatDate(new Date(purchase.purchaseDate))}
                               </td>
-                              <td className="p-3 print:p-2 text-gray-900">
-                                {purchase.productName || 'N/A'}
-                              </td>
+                              <td className="p-3 print:p-2 text-gray-900">{purchase.productName || 'N/A'}</td>
                               <td className="p-3 print:p-2 text-gray-700">
                                 {purchase.variant?.sku || purchase.variantId || 'N/A'}
                               </td>

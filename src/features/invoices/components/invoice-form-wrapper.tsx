@@ -73,6 +73,8 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         formData.client.phone?.replace(/[^0-9]/g, '') || 
         formData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
       
+      console.log('Creating invoice with customerId:', customerId, 'Is OTC:', customerId === 'otc');
+      
       const invoiceData: CreateInvoiceDto = {
         type,
         date: new Date(formData.date),
@@ -118,7 +120,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
           - (formData.discountType === 'percentage' 
             ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
             : formData.discount),
-        status: type === 'quotation' ? 'draft' : 'pending',
+        status: type === 'quotation' ? 'draft' : (customerId === 'otc' ? 'paid' : 'pending'),
         paidAmount: formData.paid || 0,
         balanceAmount: (formData.items.reduce((sum, item) => sum + item.amount, 0) 
           + ((formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100)
@@ -129,6 +131,8 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         termsAndConditions: formData.terms,
         createdBy: userId
       };
+
+      console.log('Invoice data status:', invoiceData.status, 'CustomerId:', invoiceData.customerId);
 
       const result = await createInvoice(invoiceData);
       

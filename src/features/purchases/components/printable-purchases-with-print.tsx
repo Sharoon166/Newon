@@ -1,27 +1,76 @@
 'use client';
 
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { PrintablePurchases } from './printable-purchases';
 import { Purchase } from '../types';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/general/page-header';
-import { Printer } from 'lucide-react';
+import { Printer, CalendarIcon, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import type { DateRange } from 'react-day-picker';
+import { getAllPurchases } from '../actions';
+import { toast } from 'sonner';
 
 interface PrintablePurchasesWithPrintProps {
-  data: Purchase[];
+  initialData: Purchase[];
 }
 
-export function PrintablePurchasesWithPrint({ data }: PrintablePurchasesWithPrintProps) {
+export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesWithPrintProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [data, setData] = useState<Purchase[]>(initialData);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Get unique suppliers from data
   const suppliers = useMemo(() => {
     const uniqueSuppliers = Array.from(new Set(data.map(p => p.supplier || 'Unknown Supplier'))).sort();
     return uniqueSuppliers;
   }, [data]);
+
+  // Fetch filtered data when date range changes
+  useEffect(() => {
+    const fetchFilteredData = async () => {
+      if (!dateRange?.from) {
+        // If no date range, use initial data
+        setData(initialData);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const allPurchases = await getAllPurchases();
+        
+        // Filter by date range
+        const filtered = allPurchases.filter(purchase => {
+          const purchaseDate = new Date(purchase.purchaseDate);
+          const from = new Date(dateRange.from!);
+          from.setHours(0, 0, 0, 0);
+          const to = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from!);
+          to.setHours(23, 59, 59, 999);
+          
+          console.log('Comparing:', purchaseDate, 'between', from, 'and', to);
+          
+          return purchaseDate >= from && purchaseDate <= to;
+        });
+        
+        console.log('Filtered purchases:', filtered.length, 'out of', allPurchases.length);
+        setData(filtered);
+      } catch (error) {
+        console.error('Error fetching purchases:', error);
+        toast.error('Failed to fetch filtered purchases');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFilteredData();
+  }, [dateRange, initialData]);
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -51,23 +100,82 @@ export function PrintablePurchasesWithPrint({ data }: PrintablePurchasesWithPrin
   return (
     <>
       <div className="print:hidden">
-        <PageHeader title="Print Purchase History Report" backLink="/purchases" />
+        <PageHeader icon={<Printer className='size-8' />} title="Print Purchase History Report" backLink="/purchases" />
         
-        <div className="mb-6 flex items-center gap-4">
-          <label className="text-sm font-medium">Filter by Supplier:</label>
-          <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-            <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder="Select supplier" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Suppliers</SelectItem>
-              {suppliers.map(supplier => (
-                <SelectItem key={supplier} value={supplier}>
-                  {supplier}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Filter by Supplier:</label>
+            <Select value={selectedSupplier} onValueChange={setSelectedSupplier} disabled={isLoading}>
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Select supplier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Suppliers</SelectItem>
+                {suppliers.map(supplier => (
+                  <SelectItem key={supplier} value={supplier}>
+                    {supplier}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Date Range:</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isLoading}
+                  className={cn(
+                    'w-[280px] justify-start text-left font-normal',
+                    !dateRange && 'text-muted-foreground'
+                  )}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                      </>
+                    ) : (
+                      format(dateRange.from, 'LLL dd, y')
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                    </>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+            {dateRange && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDateRange(undefined)}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
 
         <Button className="fixed bottom-4 right-8" onClick={handlePrint}>

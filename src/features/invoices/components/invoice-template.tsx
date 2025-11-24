@@ -22,9 +22,11 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
       ? (subtotal * invoiceData.discount) / 100 
       : invoiceData.discount;
     const total = subtotal + taxAmount - discountAmount;
-    const grandTotal = invoiceData.remainingPayment + (invoiceData.previousBalance || 0);
-
+    
     const isOTC = invoiceData.customerId === 'otc';
+    const outstandingBalance = isOTC ? 0 : (invoiceData.outstandingBalance || 0);
+    const paidAmount = invoiceData.paid || 0;
+    const grandTotal = Math.max(0, total - paidAmount);
 
     return (
       <div
@@ -173,22 +175,15 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
               </div>
             )}
 
-            <div className="flex justify-between py-2 border-t font-bold">
-              <span>Remaining:</span>
-              <span className={invoiceData.remainingPayment > 0 ? 'text-red-600' : 'text-green-600'}>
-                {formatCurrency(invoiceData.remainingPayment)} {invoiceData.remainingPayment > 0 ? '(Due)' : '(Paid)'}
-              </span>
-            </div>
-
-            {invoiceData.previousBalance > 0 && (
+            {!isOTC && outstandingBalance > 0 && (
               <div className="flex justify-between py-2">
-                <span className="text-muted-foreground">Previous Balance:</span>
-                <span className="font-medium">{formatCurrency(invoiceData.previousBalance)}</span>
+                <span className="text-muted-foreground">Outstanding Balance:</span>
+                <span className="font-medium text-orange-600">{formatCurrency(outstandingBalance)}</span>
               </div>
             )}
 
-            <div className="flex justify-between py-2 border-t">
-              <span className="font-bold">Grand Total:</span>
+            <div className="flex justify-between py-2 border-t font-bold">
+              <span>Grand Total:</span>
               <span className="font-bold">{formatCurrency(grandTotal)}</span>
             </div>
 

@@ -302,7 +302,7 @@ export function NewQuotationForm({
     if (customer) {
       setIsCustomCustomer(false);
       setSelectedCustomer(customer);
-      form.setValue('customerId', customer.id);
+      form.setValue('customerId', customer.customerId || customer.id);
       form.setValue('client.name', customer.name);
       form.setValue('client.company', customer.company || '');
       form.setValue('client.email', customer.email);

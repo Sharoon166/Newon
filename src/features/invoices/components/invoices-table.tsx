@@ -6,19 +6,30 @@ import { Invoice } from '../types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Eye, Ban, FileText, CheckCircle, XCircle, Clock, Edit, Plus, RefreshCw, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CalendarIcon, X } from 'lucide-react';
+import {
+  Eye,
+  Ban,
+  FileText,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Edit,
+  Plus,
+  RefreshCw,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  CalendarIcon,
+  X,
+  Search
+} from 'lucide-react';
 import Link from 'next/link';
 import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,14 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MoreHorizontal } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -54,6 +58,7 @@ import {
   SortingState,
   ColumnFiltersState
 } from '@tanstack/react-table';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 
 interface InvoicesTableProps {
   invoices: Invoice[];
@@ -73,7 +78,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  
+
   // Initialize date range from URL params
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     if (initialDateFrom || initialDateTo) {
@@ -88,21 +93,21 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
   // Update URL when date range changes
   const handleDateRangeChange = (range: DateRange | undefined) => {
     setDateRange(range);
-    
+
     const params = new URLSearchParams(window.location.search);
-    
+
     if (range?.from) {
       params.set('dateFrom', format(range.from, 'yyyy-MM-dd'));
     } else {
       params.delete('dateFrom');
     }
-    
+
     if (range?.to) {
       params.set('dateTo', format(range.to, 'yyyy-MM-dd'));
     } else {
       params.delete('dateTo');
     }
-    
+
     // Navigate with new params (this will trigger server-side refetch)
     router.push(`?${params.toString()}`, { scroll: false });
   };
@@ -120,7 +125,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
 
     try {
       setIsCancelling(true);
-      
+
       // Restore stock if it was deducted (BEFORE updating status)
       if (selectedInvoice.type === 'invoice' && selectedInvoice.stockDeducted) {
         try {
@@ -136,7 +141,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
           return;
         }
       }
-      
+
       // Update status to cancelled
       await updateInvoiceStatus(selectedInvoice.id, 'cancelled');
       toast.success(`${selectedInvoice.type === 'invoice' ? 'Invoice' : 'Quotation'} cancelled successfully`);
@@ -151,7 +156,14 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    const statusConfig: Record<
+      string,
+      {
+        variant: 'default' | 'secondary' | 'outline' | 'destructive';
+        label: string;
+        icon: React.ComponentType<{ className?: string }>;
+      }
+    > = {
       paid: { variant: 'default', label: 'Paid', icon: CheckCircle },
       pending: { variant: 'secondary', label: 'Pending', icon: Clock },
       partial: { variant: 'outline', label: 'Partial', icon: Clock },
@@ -181,10 +193,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       {
         accessorKey: 'invoiceNumber',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Number
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -194,10 +203,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       {
         accessorKey: 'customerName',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Customer
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -214,10 +220,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       {
         accessorKey: 'date',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Date
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -236,10 +239,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       {
         accessorKey: 'totalAmount',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Amount
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -255,30 +255,20 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       {
         accessorKey: 'balanceAmount',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Balance
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
         cell: ({ row }) => {
           const balance = row.getValue('balanceAmount') as number;
-          return (
-            <div className={balance > 0 ? 'text-red-600' : 'text-green-600'}>
-              {formatCurrency(balance)}
-            </div>
-          );
+          return <div className={balance > 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(balance)}</div>;
         }
       },
       {
         accessorKey: 'status',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Status
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -418,12 +408,16 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       <div className="space-y-4">
         {/* Filters Row 1 */}
         <div className="flex flex-wrap items-center gap-4">
-          <Input
-            placeholder="Search all columns..."
-            value={globalFilter ?? ''}
-            onChange={e => setGlobalFilter(e.target.value)}
-            className="max-w-sm"
-          />
+          <InputGroup className="w-sm grow">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search all columns..."
+              value={globalFilter ?? ''}
+              onChange={e => setGlobalFilter(e.target.value)}
+            />
+          </InputGroup>
           <Select
             value={(table.getColumn('status')?.getFilterValue() as string[])?.join(',') || 'all'}
             onValueChange={value => {
@@ -466,26 +460,26 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
         <div className="flex items-center gap-4">
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  'justify-start text-left font-normal',
-                  !dateRange && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
-                    </>
+              <div className="flex gap-2 items-center font-semibold">
+                <div>Date Range:</div>
+                <Button
+                  variant="outline"
+                  className={cn('justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                      </>
+                    ) : (
+                      format(dateRange.from, 'LLL dd, y')
+                    )
                   ) : (
-                    format(dateRange.from, 'LLL dd, y')
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </div>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
@@ -519,9 +513,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map(header => (
                     <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -532,9 +524,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                 table.getRowModel().rows.map(row => (
                   <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                     {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
+                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                     ))}
                   </TableRow>
                 ))
@@ -602,12 +592,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                   Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
                 </span>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
+              <Button variant="outline" size="icon" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button
@@ -629,9 +614,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
         onConfirm={handleCancel}
         title={`Cancel ${selectedInvoice?.type === 'invoice' ? 'Invoice' : 'Quotation'}`}
         description={`Are you sure you want to cancel ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} ${selectedInvoice?.invoiceNumber}? ${
-          selectedInvoice?.stockDeducted
-            ? 'Stock will be restored to inventory.'
-            : 'This will mark it as cancelled.'
+          selectedInvoice?.stockDeducted ? 'Stock will be restored to inventory.' : 'This will mark it as cancelled.'
         }`}
         confirmText="Cancel Invoice"
         variant="destructive"

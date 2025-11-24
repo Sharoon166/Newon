@@ -8,7 +8,7 @@ export default async function PrintPurchasesPage() {
 
   return (
     <div className="py-10 print:py-0 print:m-0 print:p-0">
-      <PrintablePurchasesWithPrint data={purchases} />
+      <PrintablePurchasesWithPrint initialData={purchases} />
     </div>
   );
 }

@@ -57,7 +57,6 @@ const invoiceFormSchema = z.object({
   discount: z.number().min(0, 'Discount cannot be negative').default(0),
   discountType: z.enum(['percentage', 'fixed']).default('fixed'),
   amountInWords: z.string().optional(),
-  previousBalance: z.number().min(0, 'Cannot be negative').default(0),
   paid: z.number().min(0, 'Cannot be negative').default(0),
   remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
   notes: z.string().optional()
@@ -172,7 +171,6 @@ export function QuotationConversionForm({
       discount: quotation.discountValue || 0,
       discountType: quotation.discountType || 'fixed',
       amountInWords: quotation.amountInWords || 'Zero Rupees Only',
-      previousBalance: 0,
       paid: 0,
       remainingPayment: 0,
       notes: quotation.notes
@@ -199,12 +197,23 @@ export function QuotationConversionForm({
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const total = subtotal + taxAmount - discountAmount;
 
-  const previousBalance = form.watch('previousBalance') || 0;
   const paid = form.watch('paid') || 0;
-  const remainingPayment = Math.max(0, total - paid);
-  const grandTotal = remainingPayment + previousBalance;
+  
+  // Get outstanding balance from customer (0 for OTC) - for display only
+  const isOtcCustomer = customerData.customerId === 'otc';
+  const outstandingBalance = isOtcCustomer ? 0 : 0; // Will be fetched from customer data if needed
+  
+  // For OTC customers, automatically set paid amount to total
+  useEffect(() => {
+    if (isOtcCustomer && total > 0 && paid !== total) {
+      form.setValue('paid', total);
+    }
+  }, [isOtcCustomer, total, paid, form]);
+  
+  // Grand total is just invoice total - paid (outstanding balance is separate)
+  const grandTotal = Math.max(0, total - paid);
 
-  form.setValue('remainingPayment', remainingPayment, { shouldValidate: true });
+  form.setValue('remainingPayment', grandTotal, { shouldValidate: true });
 
   // Safely convert to words with validation
   const safeGrandTotal = isNaN(grandTotal) || !isFinite(grandTotal) ? 0 : Math.max(0, Math.round(grandTotal));
@@ -337,12 +346,30 @@ export function QuotationConversionForm({
         field.onChange(0);
         return;
       }
-      if ((fieldName === 'paid' || fieldName === 'previousBalance') && numericValue < 0) {
-        toast.error('Invalid amount', {
-          description: 'Amount cannot be negative'
-        });
-        field.onChange(0);
-        return;
+      if (fieldName === 'paid') {
+        if (numericValue < 0) {
+          toast.error('Invalid amount', {
+            description: 'Amount cannot be negative'
+          });
+          field.onChange(0);
+          return;
+        }
+        // Get current total to validate paid amount
+        const currentSubtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
+        const currentTaxRate = form.watch('taxRate');
+        const currentDiscount = form.watch('discount');
+        const currentDiscountType = form.watch('discountType');
+        const currentTaxAmount = (currentSubtotal * currentTaxRate) / 100;
+        const currentDiscountAmount = currentDiscountType === 'percentage' ? (currentSubtotal * currentDiscount) / 100 : currentDiscount;
+        const currentTotal = currentSubtotal + currentTaxAmount - currentDiscountAmount;
+        
+        if (numericValue > currentTotal) {
+          toast.error('Invalid paid amount', {
+            description: 'Paid amount cannot exceed the invoice total'
+          });
+          field.onChange(currentTotal);
+          return;
+        }
       }
       field.onChange(numericValue);
     } else {
@@ -481,9 +508,9 @@ export function QuotationConversionForm({
               (data.discountType === 'percentage'
                 ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
                 : data.discount),
-            status: 'pending',
+            status: isOtcCustomer ? 'paid' : 'pending',
             paidAmount: data.paid,
-            balanceAmount: data.remainingPayment + data.previousBalance,
+            balanceAmount: grandTotal,
             notes: data.notes,
             termsAndConditions: quotation.termsAndConditions,
             createdBy
@@ -1152,7 +1179,9 @@ export function QuotationConversionForm({
 
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground font-medium">Paid:</span>
+                    <span className="text-muted-foreground font-medium">
+                      Paid: {isOtcCustomer && <span className="text-xs text-orange-600">(Full payment required)</span>}
+                    </span>
                     <FormField
                       control={form.control}
                       name="paid"
@@ -1169,6 +1198,8 @@ export function QuotationConversionForm({
                                 className="h-8 text-sm"
                                 onChange={e => handleNumericInput(e, field, 'paid')}
                                 value={field.value || ''}
+                                disabled={isOtcCustomer}
+                                readOnly={isOtcCustomer}
                               />
                             </InputGroup>
                           </FormControl>
@@ -1179,45 +1210,20 @@ export function QuotationConversionForm({
                   <span className="text-green-600">{formatCurrency(paid)}</span>
                 </div>
 
-                <div className="flex justify-between font-semibold">
-                  <span>Remaining:</span>
-                  <span className={remainingPayment > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(remainingPayment)} {remainingPayment > 0 ? '(Due)' : '(Paid)'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground font-medium">Previous Balance:</span>
-                    <FormField
-                      control={form.control}
-                      name="previousBalance"
-                      render={({ field }) => (
-                        <FormItem className="w-24">
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>Rs</InputGroupAddon>
-                              <InputGroupInput
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                {...field}
-                                className="h-8 text-sm"
-                                onChange={e => handleNumericInput(e, field, 'previousBalance')}
-                                value={field.value || ''}
-                              />
-                            </InputGroup>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                {!isOtcCustomer && (
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-muted-foreground font-medium">Outstanding Balance:</span>
+                    <span className={`font-medium ${outstandingBalance > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {formatCurrency(outstandingBalance)}
+                    </span>
                   </div>
-                  <span className="text-green-600">{formatCurrency(previousBalance)}</span>
-                </div>
+                )}
 
                 <div className="flex justify-between font-bold text-lg pt-2 border-t">
                   <span>Grand Total:</span>
-                  <span>{formatCurrency(grandTotal)}</span>
+                  <span className={grandTotal > 0 ? 'text-red-600' : 'text-green-600'}>
+                    {formatCurrency(grandTotal)} {grandTotal > 0 ? '(Due)' : '(Paid)'}
+                  </span>
                 </div>
 
                 <div className="mt-2 pt-2 border-t border-gray-200">

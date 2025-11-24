@@ -55,7 +55,7 @@ export type InvoiceTemplateData = {
   notes?: string;
   terms?: string;
   paymentDetails: TemplatePaymentDetails;
-  previousBalance: number;
+  outstandingBalance?: number;
   paid: number;
   remainingPayment: number;
   amountInWords?: string;

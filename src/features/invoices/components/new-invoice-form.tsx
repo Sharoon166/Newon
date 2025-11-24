@@ -94,7 +94,6 @@ const invoiceFormSchema = z.object({
   discount: z.number().min(0, 'Discount cannot be negative').default(0),
   discountType: z.enum(['percentage', 'fixed']).default('fixed'),
   amountInWords: z.string().optional(),
-  previousBalance: z.number().min(0, 'Cannot be negative').default(0),
   paid: z.number().min(0, 'Cannot be negative').default(0),
   remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
   notes: z.string().optional(),
@@ -179,7 +178,6 @@ export function NewInvoiceForm({
       discount: 0,
       discountType: 'fixed',
       amountInWords: 'Zero Rupees Only',
-      previousBalance: 0,
       paid: 0,
       remainingPayment: 0,
       notes: '',
@@ -259,16 +257,23 @@ export function NewInvoiceForm({
   const total = subtotal + taxAmount - discountAmount;
 
   // Get form values
-  const previousBalance = form.watch('previousBalance') || 0;
   const paid = form.watch('paid') || 0;
 
-  // Calculate remaining balance (total amount - paid)
-  const remainingPayment = Math.max(0, total - paid);
-  // Calculate grand total (remaining balance + previous balance)
-  const grandTotal = remainingPayment + previousBalance;
+  // Get customer's outstanding balance (0 for OTC customers) - for display only
+  const outstandingBalance = isOtcCustomer ? 0 : selectedCustomer?.outstandingBalance || 0;
+  
+  // For OTC customers, automatically set paid amount to total
+  useEffect(() => {
+    if (isOtcCustomer && total > 0 && paid !== total) {
+      form.setValue('paid', total);
+    }
+  }, [isOtcCustomer, total, paid, form]);
+  
+  // Calculate grand total (invoice total - paid amount)
+  const grandTotal = Math.max(0, total - paid);
 
   // Update form values
-  form.setValue('remainingPayment', remainingPayment, { shouldValidate: true });
+  form.setValue('remainingPayment', grandTotal, { shouldValidate: true });
 
   // Update amount in words based on grand total
   const amountInWords = `${convertToWords(Math.round(grandTotal))} Rupees Only`;
@@ -354,7 +359,7 @@ export function NewInvoiceForm({
     if (customer) {
       setIsOtcCustomer(false);
       setSelectedCustomer(customer);
-      form.setValue('customerId', customer.id);
+      form.setValue('customerId', customer.customerId || customer.id);
       form.setValue('client.name', customer.name);
       form.setValue('client.company', customer.company || '');
       form.setValue('client.email', customer.email);
@@ -473,50 +478,44 @@ export function NewInvoiceForm({
   };
 
   const handleSave = () => {
-    form.handleSubmit(
-      async data => {
-        if (!validateInvoiceData(data)) return;
+    form.handleSubmit(async data => {
+      if (!validateInvoiceData(data)) return;
 
-        try {
-          if (onSave) {
-            await onSave(data);
-          } else {
-            toast.error('Save function not available', {
-              description: 'Please contact support.'
-            });
-          }
-        } catch (error) {
-          console.error('Error saving invoice:', error);
-          toast.error('Failed to save invoice', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+      try {
+        if (onSave) {
+          await onSave(data);
+        } else {
+          toast.error('Save function not available', {
+            description: 'Please contact support.'
           });
         }
-      },
-      handleFormErrors
-    )();
+      } catch (error) {
+        console.error('Error saving invoice:', error);
+        toast.error('Failed to save invoice', {
+          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+        });
+      }
+    }, handleFormErrors)();
   };
 
   const handlePrint = () => {
-    form.handleSubmit(
-      data => {
-        if (!validateInvoiceData(data)) return;
+    form.handleSubmit(data => {
+      if (!validateInvoiceData(data)) return;
 
-        try {
-          // Open preview sheet first
-          setIsPreviewOpen(true);
-          // Then trigger print after a short delay to ensure sheet is rendered
-          setTimeout(() => {
-            handleReactToPrint();
-          }, 300);
-        } catch (error) {
-          console.error('Error printing invoice:', error);
-          toast.error('Failed to print invoice', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-          });
-        }
-      },
-      handleFormErrors
-    )();
+      try {
+        // Open preview sheet first
+        setIsPreviewOpen(true);
+        // Then trigger print after a short delay to ensure sheet is rendered
+        setTimeout(() => {
+          handleReactToPrint();
+        }, 300);
+      } catch (error) {
+        console.error('Error printing invoice:', error);
+        toast.error('Failed to print invoice', {
+          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+        });
+      }
+    }, handleFormErrors)();
   };
 
   // Get today's date in YYYY-MM-DD format for the min attribute
@@ -551,12 +550,23 @@ export function NewInvoiceForm({
         field.onChange(0);
         return;
       }
-      if ((fieldName === 'paid' || fieldName === 'previousBalance') && numericValue < 0) {
-        toast.error('Invalid amount', {
-          description: 'Amount cannot be negative'
-        });
-        field.onChange(0);
-        return;
+      if (fieldName === 'paid') {
+        if (numericValue < 0) {
+          toast.error('Invalid amount', {
+            description: 'Amount cannot be negative'
+          });
+          field.onChange(0);
+          return;
+        }
+        // Get current total to validate paid amount
+        const currentTotal = subtotal + taxAmount - discountAmount;
+        if (numericValue > currentTotal) {
+          toast.error('Invalid paid amount', {
+            description: 'Paid amount cannot exceed the invoice total'
+          });
+          field.onChange(currentTotal);
+          return;
+        }
       }
       field.onChange(numericValue);
     } else {
@@ -566,10 +576,7 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit, handleFormErrors)}
-        className="space-y-8"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex justify-between items-center gap-2 p-4">
           <FormField
             control={form.control}
@@ -1274,7 +1281,9 @@ export function NewInvoiceForm({
 
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground font-medium">Paid:</span>
+                    <span className="text-muted-foreground font-medium">
+                      Paid: {isOtcCustomer && <span className="text-xs text-orange-600">(Full payment required)</span>}
+                    </span>
                     <FormField
                       control={form.control}
                       name="paid"
@@ -1291,6 +1300,8 @@ export function NewInvoiceForm({
                                 className="h-8 text-sm"
                                 onChange={e => handleNumericInput(e, field, 'paid')}
                                 value={field.value || ''}
+                                disabled={isOtcCustomer}
+                                readOnly={isOtcCustomer}
                               />
                             </InputGroup>
                           </FormControl>
@@ -1301,45 +1312,20 @@ export function NewInvoiceForm({
                   <span className="text-green-600">{formatCurrency(paid)}</span>
                 </div>
 
-                <div className="flex justify-between font-semibold">
-                  <span>Remaining:</span>
-                  <span className={remainingPayment > 0 ? 'text-red-600' : 'text-green-600'}>
-                    {formatCurrency(remainingPayment)} {remainingPayment > 0 ? '(Due)' : '(Paid)'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground font-medium">Previous Balance:</span>
-                    <FormField
-                      control={form.control}
-                      name="previousBalance"
-                      render={({ field }) => (
-                        <FormItem className="w-24">
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>Rs</InputGroupAddon>
-                              <InputGroupInput
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                {...field}
-                                className="h-8 text-sm"
-                                onChange={e => handleNumericInput(e, field, 'previousBalance')}
-                                value={field.value || ''}
-                              />
-                            </InputGroup>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                {!isOtcCustomer && selectedCustomer && (
+                  <div className="flex justify-between items-center pt-2 border-t">
+                    <span className="text-muted-foreground font-medium">Outstanding Balance:</span>
+                    <span className={`font-medium ${outstandingBalance > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {formatCurrency(outstandingBalance)}
+                    </span>
                   </div>
-                  <span className="text-green-600">{formatCurrency(previousBalance)}</span>
-                </div>
+                )}
 
                 <div className="flex justify-between font-bold text-lg pt-2 border-t">
                   <span>Grand Total:</span>
-                  <span>{formatCurrency(grandTotal)}</span>
+                  <span className={grandTotal > 0 ? 'text-red-600' : 'text-green-600'}>
+                    {formatCurrency(grandTotal)} {grandTotal > 0 ? '(Due)' : '(Paid)'}
+                  </span>
                 </div>
 
                 <div className="mt-2 pt-2 border-t border-gray-200">
@@ -1434,7 +1420,8 @@ export function NewInvoiceForm({
               ref={printRef}
               invoiceData={{
                 ...form.getValues(),
-                invoiceNumber: form.getValues('invoiceNumber') || nextInvoiceNumber
+                invoiceNumber: form.getValues('invoiceNumber') || nextInvoiceNumber,
+                outstandingBalance
               }}
               onBack={() => setIsPreviewOpen(false)}
               onPrint={handleReactToPrint}

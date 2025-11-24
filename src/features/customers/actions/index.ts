@@ -17,6 +17,11 @@ interface LeanCustomer {
   city?: string;
   state?: string;
   zip?: string;
+  totalInvoiced?: number;
+  totalPaid?: number;
+  outstandingBalance?: number;
+  lastInvoiceDate?: Date;
+  lastPaymentDate?: Date;
   createdAt: Date;
   updatedAt: Date;
   __v?: number;
