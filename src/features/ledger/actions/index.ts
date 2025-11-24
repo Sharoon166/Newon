@@ -404,7 +404,41 @@ export async function getCustomerLedgerEntries(
   }
 }
 
-// Helper function to get customer balance
+// Helper function to get customer balance at a specific point in time
+async function getCustomerBalanceBeforeDate(customerId: string, date: Date, createdAt?: Date): Promise<number> {
+  const matchCondition: Record<string, unknown> = {
+    customerId
+  };
+  
+  if (createdAt) {
+    // Get balance before this specific entry (by date and creation time)
+    matchCondition.$or = [
+      { date: { $lt: date } },
+      {
+        date: date,
+        createdAt: { $lt: createdAt }
+      }
+    ];
+  } else {
+    // Get balance before this date
+    matchCondition.date = { $lt: date };
+  }
+  
+  const result = await LedgerEntryModel.aggregate([
+    { $match: matchCondition },
+    { $group: {
+      _id: null,
+      totalDebit: { $sum: '$debit' },
+      totalCredit: { $sum: '$credit' }
+    }},
+    { $project: {
+      balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+    }}
+  ]);
+  return result[0]?.balance || 0;
+}
+
+// Helper function to get customer balance (all entries)
 async function getCustomerBalance(customerId: string): Promise<number> {
   const result = await LedgerEntryModel.aggregate([
     { $match: { customerId } },
@@ -426,8 +460,8 @@ export async function createLedgerEntry(
   try {
     await dbConnect();
 
-    // Get previous balance for the customer
-    const previousBalance = await getCustomerBalance(data.customerId);
+    // Get previous balance for the customer at this point in time
+    const previousBalance = await getCustomerBalanceBeforeDate(data.customerId, data.date);
     
     // Calculate new balance
     const newBalance = previousBalance + data.debit - data.credit;
@@ -438,6 +472,26 @@ export async function createLedgerEntry(
     });
 
     await entry.save();
+
+    // Update all subsequent entries for this customer (entries after this one by date/time)
+    const balanceChange = data.debit - data.credit;
+    if (balanceChange !== 0) {
+      await LedgerEntryModel.updateMany(
+        {
+          customerId: data.customerId,
+          $or: [
+            { date: { $gt: data.date } },
+            {
+              date: data.date,
+              createdAt: { $gt: entry.createdAt }
+            }
+          ]
+        },
+        {
+          $inc: { balance: balanceChange }
+        }
+      );
+    }
 
     revalidatePath('/ledger');
     revalidatePath(`/customers/${data.customerId}`);
@@ -497,13 +551,23 @@ export async function createLedgerEntryFromPayment(
   }
 ): Promise<LedgerEntry> {
   try {
+    // Generate unique transaction number for this payment
+    // Count existing payment entries for this invoice to create unique number
+    const existingPayments = await LedgerEntryModel.countDocuments({
+      transactionType: 'payment',
+      transactionId: paymentData.id
+    });
+    
+    const paymentNumber = existingPayments + 1;
+    const transactionNumber = `PAY-${paymentData.id.slice(-6).toUpperCase()}-${paymentNumber}`;
+    
     const entry = await createLedgerEntry({
       customerId: paymentData.customerId,
       customerName: paymentData.customerName,
       customerCompany: paymentData.customerCompany,
       transactionType: 'payment',
       transactionId: paymentData.id,
-      transactionNumber: `PAY-${paymentData.id.slice(-6).toUpperCase()}`,
+      transactionNumber,
       date: paymentData.date,
       description: 'Payment received',
       debit: 0,

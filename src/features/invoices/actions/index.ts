@@ -297,8 +297,6 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
 
     const newInvoice = new InvoiceModel(invoiceData);
     const savedInvoice = await newInvoice.save();
-    
-    console.log('Invoice created with status:', savedInvoice.status, 'CustomerId:', savedInvoice.customerId);
 
     // Create ledger entry for invoice (only for actual invoices, not quotations)
     if (data.type === 'invoice') {
@@ -323,7 +321,6 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
       try {
         const { updateCustomerFinancialsOnInvoice } = await import('@/features/customers/actions');
         await updateCustomerFinancialsOnInvoice(savedInvoice.customerId, savedInvoice.totalAmount, savedInvoice.date);
-        console.log(savedInvoice.customerId, savedInvoice.totalAmount, savedInvoice.date);
       } catch (customerError) {
         console.error('Error updating customer financials:', customerError);
         // Continue - invoice is created but customer update failed
@@ -382,15 +379,13 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
 
         // Mark stock as deducted
         savedInvoice.stockDeducted = true;
-        
+
         // Preserve the status for OTC customers (should remain 'paid')
         if (savedInvoice.customerId === 'otc' && savedInvoice.status !== 'paid') {
           savedInvoice.status = 'paid';
         }
-        
+
         await savedInvoice.save();
-        
-        console.log('After stock deduction, invoice status:', savedInvoice.status);
       } catch (stockError) {
         console.error('Error deducting stock:', stockError);
         // Continue - invoice is created but stock not deducted

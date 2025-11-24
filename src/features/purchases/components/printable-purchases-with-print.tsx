@@ -53,13 +53,10 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
           from.setHours(0, 0, 0, 0);
           const to = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from!);
           to.setHours(23, 59, 59, 999);
-          
-          console.log('Comparing:', purchaseDate, 'between', from, 'and', to);
-          
+                    
           return purchaseDate >= from && purchaseDate <= to;
         });
         
-        console.log('Filtered purchases:', filtered.length, 'out of', allPurchases.length);
         setData(filtered);
       } catch (error) {
         console.error('Error fetching purchases:', error);

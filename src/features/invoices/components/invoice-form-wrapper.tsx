@@ -72,9 +72,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         `manual-${formData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 
         formData.client.phone?.replace(/[^0-9]/g, '') || 
         formData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-      
-      console.log('Creating invoice with customerId:', customerId, 'Is OTC:', customerId === 'otc');
-      
+            
       const invoiceData: CreateInvoiceDto = {
         type,
         date: new Date(formData.date),
@@ -131,8 +129,6 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         termsAndConditions: formData.terms,
         createdBy: userId
       };
-
-      console.log('Invoice data status:', invoiceData.status, 'CustomerId:', invoiceData.customerId);
 
       const result = await createInvoice(invoiceData);
       
