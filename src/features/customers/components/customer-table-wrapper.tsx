@@ -28,7 +28,7 @@ export function CustomerTableWrapper({
         setData(prevData => prevData.filter(customer => customer.id !== id));
         toast.success('Customer deleted successfully');
       } else {
-        throw new Error(result.error);
+        toast.error(result.error);
       }
     } catch (error) {
       console.error('Error deleting customer:', error);

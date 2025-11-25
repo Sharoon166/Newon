@@ -52,7 +52,7 @@ export function InvoicesPageClient({
     setCurrentTab(value);
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', value);
-    router.push(`/invoices?${params.toString()}`);
+    router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
   return (

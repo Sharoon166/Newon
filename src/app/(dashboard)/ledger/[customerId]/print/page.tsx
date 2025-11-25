@@ -9,6 +9,7 @@ import { PrintableLedger } from '@/features/ledger/components/printable-ledger';
 import { LedgerEntry } from '@/features/ledger/types';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Invoice {
   id: string;
@@ -53,7 +54,7 @@ export default function PrintLedgerPage() {
         const ledgerEntries = await getCustomerLedgerEntries(customerId);
         
         if (ledgerEntries.length === 0) {
-          alert('No ledger entries found for this customer');
+          toast.error('No ledger entries found for this customer');
           router.push('/ledger');
           return;
         }
@@ -87,7 +88,7 @@ export default function PrintLedgerPage() {
         });
       } catch (error) {
         console.error('Error loading customer ledger for print:', error);
-        alert('Failed to load ledger data');
+        toast.error('Failed to load ledger data');
         router.push('/ledger');
       } finally {
         setIsLoading(false);

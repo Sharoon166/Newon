@@ -35,6 +35,7 @@ interface VariantFormProps {
   isSimpleProduct?: boolean;
   productId?: string;
   variantId?: string;
+  isDeleting?: boolean;
 }
 
 // Image upload component with preview and dropzone
@@ -251,7 +252,8 @@ export function VariantForm({
   onRemove,
   isSimpleProduct = false,
   productId,
-  variantId
+  variantId,
+  isDeleting = false
 }: VariantFormProps) {
   const [activeTab, setActiveTab] = useState('details');
   const [activeLocations, setActiveLocations] = useState<InventoryLocation[]>([]);
@@ -439,10 +441,15 @@ export function VariantForm({
               variant="ghost"
               size="icon"
               onClick={onRemove}
+              disabled={isDeleting}
               className="text-destructive hover:bg-destructive/10"
             >
-              <Trash2 className="h-4 w-4" />
-              <span className="sr-only">Remove variant</span>
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              <span className="sr-only">{isDeleting ? 'Deleting variant' : 'Remove variant'}</span>
             </Button>
           )}
         </div>

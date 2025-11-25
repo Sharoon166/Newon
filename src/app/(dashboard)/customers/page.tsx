@@ -25,7 +25,7 @@ export default async function CustomersPage({
       return { success: true };
     } catch (error) {
       console.error('Error deleting customer:', error);
-      return { success: false, error: 'Failed to delete customer' };
+      return { success: false, error: 'Cannot delete invoiced customer' };
     }
   };
 

@@ -340,9 +340,15 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
 
   const deleteCurrentProduct = async () => {
     if (!initialData?._id) return;
-    await deleteProduct(initialData._id);
-    router.push('/inventory');
-    // router.refresh();
+    try {
+      await deleteProduct(initialData._id);
+      toast.success('Product deleted successfully');
+      router.push('/inventory');
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete product');
+      // throw error; // Re-throw to prevent dialog from closing
+    }
   };
 
   const onInvalid = (errors: typeof form.formState.errors) => {
@@ -478,10 +484,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                   variant="destructive"
                   requireTextConfirmation={initialData?.name || ''}
                   confirmationLabel="Enter product name to confirm deletion"
-                  onConfirm={async () => {
-                    await deleteCurrentProduct();
-                    toast.success('Product deleted successfully');
-                  }}
+                  onConfirm={deleteCurrentProduct}
                   icon={<AlertCircle className="h-12 w-12 text-destructive" />}
                 />
               </div>

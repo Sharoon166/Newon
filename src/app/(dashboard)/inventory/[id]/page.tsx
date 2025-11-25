@@ -326,7 +326,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <CardTitle>Variant Details</CardTitle>
+                  <CardTitle>Product Details</CardTitle>
                   {singleVariant.disabled && (
                     <Badge variant="destructive" className="text-xs">
                       Disabled
@@ -367,7 +367,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   ) : null}
                 </div>
 
-                      <PricingBadge />
+                <PricingBadge />
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <div className="text-muted-foreground">Retail Price</div>
@@ -378,9 +378,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     <div className="font-medium">{formatCurrency(singleVariant.wholesalePrice || 0)}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground flex items-center gap-1">
-                      Purchase Price
-                    </div>
+                    <div className="text-muted-foreground flex items-center gap-1">Purchase Price</div>
                     <div className="font-medium text-muted-foreground">
                       {formatCurrency(singleVariant.purchasePrice || 0)}
                     </div>
@@ -405,8 +403,14 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     <div className="font-medium">{singleVariant.stockOnBackorder || 0}</div>
                   </div>
                 </div>
+                  <VariantActions
+                    productId={id}
+                    variantId={singleVariant.id}
+                    disabled={singleVariant.disabled || false}
+                    variantSku={singleVariant.sku}
+                  />
 
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex gap-2 overflow-auto">
                   <VariantPurchaseHistoryButton
                     productId={id}
                     variantId={singleVariant.id}
@@ -414,12 +418,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     variantAttributes={singleVariant.attributes}
                     productAttributes={product.attributes || []}
                     locations={product.locations || []}
-                  />
-                  <VariantActions
-                    productId={id}
-                    variantId={singleVariant.id}
-                    disabled={singleVariant.disabled || false}
-                    variantSku={singleVariant.sku}
                   />
                 </div>
               </CardContent>
@@ -492,9 +490,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     <div className="text-xl font-bold">{formatCurrency(singleVariant.retailPrice || 0)}</div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium mb-1 flex items-center gap-1">
-                      Current Purchase Price
-                    </div>
+                    <div className="text-sm font-medium mb-1 flex items-center gap-1">Current Purchase Price</div>
                     <div className="text-xl font-bold text-muted-foreground">
                       {formatCurrency(singleVariant.purchasePrice || 0)}
                     </div>
@@ -526,45 +522,44 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                           {location.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-2 pt-2">
                         <div className="text-sm">
                           <div className="text-muted-foreground">Available</div>
-                          <div className={cn(
-                            "text-lg font-semibold",
-                            location.totalAvailable < 10 && "text-amber-500"
-                          )}>
+                          <div
+                            className={cn('text-lg font-semibold', location.totalAvailable < 10 && 'text-amber-500')}
+                          >
                             {location.totalAvailable}
                           </div>
                         </div>
                         <div className="text-sm">
                           <div className="text-muted-foreground">Backorder</div>
-                          <div className="text-lg font-semibold">
-                            {location.totalBackorder}
-                          </div>
+                          <div className="text-lg font-semibold">{location.totalBackorder}</div>
                         </div>
                       </div>
 
                       {/* Show variant breakdown for this location if multiple variants */}
                       {!isSingleVariant && product.variants && product.variants.length > 1 && (
                         <div className="pt-2 border-t mt-2">
-                          <div className="text-xs font-medium text-muted-foreground mb-2">Variants at this location:</div>
+                          <div className="text-xs font-medium text-muted-foreground mb-2">
+                            Variants at this location:
+                          </div>
                           <div className="space-y-1">
                             {product.variants
-                              .filter(v => v.inventory?.some(inv => inv.locationId === location.id && inv.availableStock > 0))
+                              .filter(v =>
+                                v.inventory?.some(inv => inv.locationId === location.id && inv.availableStock > 0)
+                              )
                               .map(variant => {
                                 const locationInv = variant.inventory?.find(inv => inv.locationId === location.id);
                                 if (!locationInv) return null;
-                                
+
                                 const attrString = Object.entries(variant.attributes || {})
                                   .map(([, value]) => value)
                                   .join(', ');
-                                
+
                                 return (
                                   <div key={variant.id} className="flex justify-between text-xs">
-                                    <span className="text-muted-foreground">
-                                      {attrString || variant.sku}
-                                    </span>
+                                    <span className="text-muted-foreground">{attrString || variant.sku}</span>
                                     <span className="font-medium">{locationInv.availableStock} units</span>
                                   </div>
                                 );

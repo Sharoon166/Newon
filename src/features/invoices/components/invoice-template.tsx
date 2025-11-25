@@ -31,7 +31,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
     return (
       <div
         ref={ref}
-        className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 min-h-screen flex flex-col"
+        className="max-w-4xl mx-auto bg-white p-8 not-print:border rounded-lg shadow-sm print:shadow-none print:p-4 min-h-screen flex flex-col"
       >
         {/* Header */}
         <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">

@@ -38,7 +38,8 @@ import {
   MoreHorizontal,
   Pencil,
   LucideColumns3Cog,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Eye
 } from 'lucide-react';
 import { EnhancedVariants, ProductLocation } from '../types';
 import { formatCurrency } from '@/lib/utils';
@@ -286,6 +287,12 @@ const columns: ColumnDef<EnhancedVariants>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[160px]">
+            <DropdownMenuItem asChild>
+              <Link href={`/inventory/${row.original.productId}`} className="flex items-center cursor-pointer">
+                <Eye className="mr-2 h-4 w-4" />
+                <span>View Details</span>
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/inventory/${row.original.productId}/edit`} className="flex items-center cursor-pointer">
                 <Pencil className="mr-2 h-4 w-4" />

@@ -82,7 +82,7 @@ export function VariantPurchaseHistoryButton({
   }, [purchases]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(!isOpen)} className="w-full sm:w-auto">
         <History className="mr-2 h-4 w-4" />
         View Purchase History
@@ -149,14 +149,14 @@ export function VariantPurchaseHistoryButton({
             {selectedLocation === 'all' && locationStats.size > 0 && (
               <Card>
                 <CardTitle className="text-base font-semibold p-4 pb-0">Purchases by Location</CardTitle>
-                <CardContent className="p-4">
+                <CardContent>
                   <div className="space-y-3">
                     {Array.from(locationStats.entries()).map(([locationId, stats]) => {
                       const location = locations.find(loc => loc.id === locationId);
                       const locationName = location?.name || (locationId === 'unassigned' ? 'Unassigned' : locationId);
 
                       return (
-                        <div key={locationId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div key={locationId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
                           <div>
                             <div className="font-medium">{locationName}</div>
                             <div className="text-sm text-muted-foreground">
@@ -179,7 +179,7 @@ export function VariantPurchaseHistoryButton({
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">Loading purchases...</div>
             ) : (
-              <div className='w-full max-w-full'>
+              <div className="max-w-contain overflow-auto border rounded-lg">
                 <PurchasesTable
                   purchases={filteredPurchases}
                   locations={locations}

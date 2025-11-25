@@ -7,6 +7,9 @@ import { ProductVariant, ProductAttribute } from '../../types';
 import { VariantForm } from './variant-form';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { deleteProductVariant, toggleVariantDisabled } from '../../actions';
+import { toast } from 'sonner';
+import { useState } from 'react';
 
 type VariantsManagerProps = {
   attributes: ProductAttribute[];
@@ -30,6 +33,8 @@ export function VariantsManager({
   isSimpleProduct = false,
   productId
 }: VariantsManagerProps) {
+  const [deletingVariantId, setDeletingVariantId] = useState<string | null>(null);
+
   const updateVariant = (id: string, updates: Partial<ProductVariant>) => {
     onChange(variants.map(variant => (variant.id === id ? { ...variant, ...updates } : variant)));
   };
@@ -56,8 +61,50 @@ export function VariantsManager({
     onChange([...variants, newVariant]);
   };
 
-  const removeVariant = (id: string) => {
-    onChange(variants.filter(variant => variant.id !== id));
+  const removeVariant = async (id: string) => {
+    // If this is a new variant (not saved to DB yet), just remove from local state
+    if (!productId || id.startsWith('var_')) {
+      onChange(variants.filter(variant => variant.id !== id));
+      return;
+    }
+
+    // For existing variants, call the server action
+    setDeletingVariantId(id);
+    try {
+      const result = await deleteProductVariant(id);
+      
+      if (!result.success) {
+        toast.error(result.message);
+        
+        // If deletion failed because variant was sold, offer to disable instead
+        if (result.canDisable) {
+          toast.info('You can disable this variant instead to hide it from new orders', {
+            action: {
+              label: 'Disable Variant',
+              onClick: async () => {
+                const toggleResult = await toggleVariantDisabled(productId, id);
+                if (toggleResult.success) {
+                  toast.success(toggleResult.message);
+                  // Update local state to reflect disabled status
+                  updateVariant(id, { disabled: true });
+                } else {
+                  toast.error(toggleResult.message);
+                }
+              }
+            }
+          });
+        }
+        return;
+      }
+
+      // If successful, remove from local state
+      onChange(variants.filter(variant => variant.id !== id));
+      toast.success(result.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete variant');
+    } finally {
+      setDeletingVariantId(null);
+    }
   };
 
   const isAllVariantsValid = variants.every(variant => {
@@ -95,6 +142,7 @@ export function VariantsManager({
                     isSimpleProduct={isSimpleProduct}
                     productId={productId}
                     variantId={variant.id}
+                    isDeleting={deletingVariantId === variant.id}
                   />
                 </Card>
               ))}

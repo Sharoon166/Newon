@@ -50,7 +50,7 @@ export default function InvoiceDetailPage() {
       setInvoice(data);
     } catch (error) {
       console.error('Error fetching invoice:', error);
-      alert('Failed to load invoice');
+      toast.error((error as Error).message || 'Failed to load invoice');
     } finally {
       setIsLoading(false);
     }
@@ -531,23 +531,25 @@ export default function InvoiceDetailPage() {
       {/* Print Preview Sheet */}
       <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
         <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
-          <SheetHeader>
+          <SheetHeader className='pt-12 lg:pl-12'>
             <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
               <Printer /> Print Preview
             </SheetTitle>
           </SheetHeader>
-          <div className="mt-6" ref={printRef}>
+          <div className="mt-6">
             {invoice.type === 'invoice' ? (
               <NewonInvoiceTemplate
                 invoiceData={templateData as InvoiceTemplateData}
                 onBack={() => setIsPrintPreviewOpen(false)}
                 onPrint={handleReactToPrint}
+                ref={printRef}
               />
             ) : (
               <QuotationTemplate
                 quotationData={templateData as QuotationTemplateData}
                 onBack={() => setIsPrintPreviewOpen(false)}
                 onPrint={handleReactToPrint}
+                ref={printRef}
               />
             )}
           </div>

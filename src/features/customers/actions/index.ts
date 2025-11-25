@@ -190,7 +190,7 @@ export async function deleteCustomer(id: string): Promise<void> {
       throw new Error('Cannot delete OTC customer. This is a system customer for walk-in sales.');
     }
 
-    const result = await CustomerModel.deleteOne({ customerId: id });
+    const result = await CustomerModel.deleteOne({ customerId: id, totalInvoiced: 0 });
 
     if (result.deletedCount === 0) {
       throw new Error('Customer not found');
@@ -201,7 +201,7 @@ export async function deleteCustomer(id: string): Promise<void> {
     revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error deleting customer ${id}:`, error);
-    throw new Error('Failed to delete customer');
+    throw new Error('Cannot delete invoiced customers');
   }
 }
 

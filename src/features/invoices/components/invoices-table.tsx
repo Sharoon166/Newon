@@ -15,14 +15,16 @@ import {
   Clock,
   Edit,
   Plus,
-  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   CalendarIcon,
   X,
-  Search
+  Search,
+  Hash
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
@@ -189,22 +191,52 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
     () => [
       {
         accessorKey: 'invoiceNumber',
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-            Number
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent"
+            >
+              INV <Hash />
+              {isSorted ? (
+                isSorted === 'asc' ? (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                )
+              ) : (
+                <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+              )}
+            </Button>
+          );
+        },
         cell: ({ row }) => <div className="font-medium">{row.getValue('invoiceNumber')}</div>
       },
       {
         accessorKey: 'customerName',
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-            Customer
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent"
+            >
+              Customer
+              {isSorted ? (
+                isSorted === 'asc' ? (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                )
+              ) : (
+                <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+              )}
+            </Button>
+          );
+        },
         cell: ({ row }) => (
           <div>
             <div className="font-medium">{row.getValue('customerName')}</div>
@@ -216,12 +248,27 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       },
       {
         accessorKey: 'date',
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-            Date
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent"
+            >
+              Date
+              {isSorted ? (
+                isSorted === 'asc' ? (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                )
+              ) : (
+                <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+              )}
+            </Button>
+          );
+        },
         cell: ({ row }) => format(new Date(row.getValue('date')), 'MMM dd, yyyy'),
         sortingFn: 'datetime'
       },
@@ -235,12 +282,27 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       },
       {
         accessorKey: 'totalAmount',
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-            Amount
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent"
+            >
+              Amount
+              {isSorted ? (
+                isSorted === 'asc' ? (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                )
+              ) : (
+                <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+              )}
+            </Button>
+          );
+        },
         cell: ({ row }) => <div className="font-medium">{formatCurrency(row.getValue('totalAmount'))}</div>,
         sortingFn: 'basic'
       },
@@ -251,12 +313,27 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       },
       {
         accessorKey: 'balanceAmount',
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-            Balance
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent"
+            >
+              Balance
+              {isSorted ? (
+                isSorted === 'asc' ? (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                )
+              ) : (
+                <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+              )}
+            </Button>
+          );
+        },
         cell: ({ row }) => {
           const balance = row.getValue('balanceAmount') as number;
           return <div className={balance > 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(balance)}</div>;
@@ -264,12 +341,27 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       },
       {
         accessorKey: 'status',
-        header: ({ column }) => (
-          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-            Status
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent"
+            >
+              Status
+              {isSorted ? (
+                isSorted === 'asc' ? (
+                  <ChevronUp className="ml-2 h-4 w-4" />
+                ) : (
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                )
+              ) : (
+                <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+              )}
+            </Button>
+          );
+        },
         cell: ({ row }) => getStatusBadge(row.getValue('status')),
         filterFn: (row, id, value) => {
           return value.includes(row.getValue(id));

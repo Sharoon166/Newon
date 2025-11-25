@@ -36,7 +36,8 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Printer
+  Printer,
+  Hash
 } from 'lucide-react';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/lib/utils';
@@ -119,7 +120,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
               onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
               className="p-0 hover:bg-transparent"
             >
-              Number
+              QT <Hash />
               {isSorted ? (
                 isSorted === 'asc' ? (
                   <ChevronUp className="ml-2 h-4 w-4" />
