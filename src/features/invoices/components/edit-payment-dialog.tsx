@@ -17,15 +17,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
 import { updatePayment } from '../actions';
 import { toast } from 'sonner';
 import { Payment } from '../types';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const paymentSchema = z.object({
   amount: z.number().min(0.01, 'Amount must be greater than 0'),
   method: z.enum(['cash', 'bank_transfer', 'online', 'cheque', 'upi']),
-  date: z.string().min(1, 'Date is required'),
+  date: z.date(),
   reference: z.string().optional(),
   notes: z.string().optional()
 });
@@ -56,7 +60,7 @@ export function EditPaymentDialog({
     defaultValues: {
       amount: payment.amount,
       method: payment.method,
-      date: typeof payment.date === 'string' ? payment.date.split('T')[0] : format(new Date(payment.date), 'yyyy-MM-dd'),
+      date: typeof payment.date === 'string' ? new Date(payment.date) : new Date(payment.date),
       reference: payment.reference || '',
       notes: payment.notes || ''
     }
@@ -65,10 +69,7 @@ export function EditPaymentDialog({
   const onSubmit = async (data: PaymentFormValues) => {
     try {
       setIsSubmitting(true);
-      await updatePayment(invoiceId, paymentIndex, {
-        ...data,
-        date: new Date(data.date)
-      });
+      await updatePayment(invoiceId, paymentIndex, data);
       toast.success('Payment updated successfully');
       onSuccess();
       onOpenChange(false);
@@ -120,10 +121,10 @@ export function EditPaymentDialog({
               name="method"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Payment Method *</FormLabel>
+                  <FormLabel>Payment Method <span className='text-destructive'>*</span></FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className='w-full'>
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                     </FormControl>
@@ -144,11 +145,24 @@ export function EditPaymentDialog({
               control={form.control}
               name="date"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Payment Date *</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn('w-full pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}
+                        >
+                          {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} />
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}

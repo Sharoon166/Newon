@@ -15,7 +15,6 @@ import {
   Clock,
   Edit,
   Plus,
-  RefreshCw,
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
@@ -45,7 +44,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { DateRange } from 'react-day-picker';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AddPaymentDialog } from './add-payment-dialog';
-import { UpdateStatusDialog } from './update-status-dialog';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
 import {
   useReactTable,
@@ -71,7 +69,6 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
   const router = useRouter();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -316,15 +313,6 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                     >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSelectedInvoice(invoice);
-                        setStatusDialogOpen(true);
-                      }}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Update Status
                     </DropdownMenuItem>
                     {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
                       <DropdownMenuItem
@@ -628,15 +616,6 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
             onOpenChange={setPaymentDialogOpen}
             invoiceId={selectedInvoice.id}
             balanceAmount={selectedInvoice.balanceAmount}
-            onSuccess={handleRefresh}
-          />
-
-          <UpdateStatusDialog
-            open={statusDialogOpen}
-            onOpenChange={setStatusDialogOpen}
-            invoiceId={selectedInvoice.id}
-            currentStatus={selectedInvoice.status}
-            type={selectedInvoice.type}
             onSuccess={handleRefresh}
           />
 

@@ -157,7 +157,7 @@ export function PurchaseForm({
           productId: productId || '',
           variantId: editVariantId,
           supplier: purchase.supplier || '',
-          locationId: purchase.locationId || '',
+          locationId: purchase.locationId || 'office',
           quantity: purchase.quantity || 1,
           unitPrice: purchase.unitPrice || 0,
           retailPrice: purchase.retailPrice || 0,
@@ -190,9 +190,9 @@ export function PurchaseForm({
   const watchedProductId = form.watch('productId');
   useEffect(() => {
     if (open && !productId && !isEditMode && watchedProductId) {
-      // Reset variant and location when product changes
+      // Reset variant when product changes, but keep office as default location
       form.setValue('variantId', '');
-      form.setValue('locationId', '');
+      form.setValue('locationId', 'office');
 
       // Auto-select the product's supplier
       if (productSupplier) {

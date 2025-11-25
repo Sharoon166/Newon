@@ -479,6 +479,7 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
     revalidatePath(`/invoices/${id}`);
     revalidatePath('/dashboard');
     revalidatePath('/ledger', 'layout');
+    revalidatePath('/customers');
 
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
   } catch (error) {
@@ -564,6 +565,7 @@ export async function deleteInvoice(id: string): Promise<void> {
     revalidatePath('/purchases');
     revalidatePath('/inventory');
     revalidatePath('/ledger', 'layout');
+    revalidatePath('/customers');
   } catch (error) {
     console.error(`Error deleting invoice ${id}:`, error);
     throw new Error('Failed to delete invoice');
@@ -600,11 +602,13 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
     // Update balance amount
     invoice.balanceAmount = invoice.totalAmount - invoice.paidAmount;
 
-    // Update status based on payment
+    // Update status based on payment (automatic calculation)
     if (invoice.balanceAmount <= 0) {
       invoice.status = 'paid';
     } else if (invoice.paidAmount > 0) {
       invoice.status = 'partial';
+    } else {
+      invoice.status = 'pending';
     }
 
     await invoice.save();
@@ -726,6 +730,7 @@ export async function updatePayment(
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
     revalidatePath('/ledger', 'layout');
+    revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -797,6 +802,7 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
     revalidatePath('/ledger', 'layout');
+    revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -902,6 +908,7 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
     revalidatePath('/purchases');
     revalidatePath('/inventory');
     revalidatePath('/ledger', 'layout');
+    revalidatePath('/customers');
 
     return transformInvoice(savedInvoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -925,15 +932,10 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
       throw new Error('Invoice is already cancelled');
     }
 
-    // Prevent cancellation if invoice is fully paid
-    if (invoice.status === 'paid' && invoice.balanceAmount === 0) {
-      throw new Error('Cannot cancel a fully paid invoice. Please process a refund or credit note instead.');
-    }
-
-    // Warn if there are partial payments
+    // Prevent cancellation if invoice has any payments
     if (invoice.paidAmount > 0) {
-      console.warn(
-        `Cancelling invoice ${invoice.invoiceNumber} with partial payment of ${invoice.paidAmount}. Consider processing refunds.`
+      throw new Error(
+        `Cannot cancel invoice with payments (${invoice.paidAmount} paid). Please delete all payments first or process a refund/credit note instead.`
       );
     }
 
@@ -985,6 +987,7 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     revalidatePath('/purchases');
     revalidatePath('/inventory');
     revalidatePath('/ledger', 'layout');
+    revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1016,25 +1019,33 @@ export async function updateInvoiceStatus(
       return await cancelInvoice(id);
     }
 
-    const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
-      id,
-      { $set: { status } },
-      { new: true, runValidators: true }
-    ).lean();
-
-    if (!updatedInvoice) {
+    // Get the invoice to check its type
+    const invoice = await InvoiceModel.findById(id);
+    
+    if (!invoice) {
       throw new Error('Invoice not found');
     }
+
+    // For invoices (not quotations), prevent manual setting of payment-related statuses
+    // These statuses are automatically calculated based on payments
+    if (invoice.type === 'invoice' && ['pending', 'paid', 'partial'].includes(status)) {
+      throw new Error(
+        `Cannot manually set status to '${status}'. Payment statuses are automatically calculated based on payments made.`
+      );
+    }
+
+    invoice.status = status;
+    await invoice.save();
 
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
     revalidatePath('/dashboard');
     revalidatePath('/ledger', 'layout');
 
-    return transformInvoice(updatedInvoice as unknown as LeanInvoice);
+    return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
     console.error(`Error updating invoice status ${id}:`, error);
-    throw new Error('Failed to update invoice status');
+    throw new Error((error as Error).message || 'Failed to update invoice status');
   }
 }
 

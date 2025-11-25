@@ -259,9 +259,14 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
             variant="ghost" 
             size="icon"
             onClick={() => handleDeleteClick(row.original)}
-            title="Delete purchase"
+            disabled={row.original.remaining < row.original.quantity}
+            title={
+              row.original.remaining < row.original.quantity
+                ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
+                : 'Delete purchase'
+            }
           >
-            <Trash2 className="h-4 w-4 text-destructive" />
+            <Trash2 className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
           </Button>
           <Button 
             variant="ghost" 
@@ -444,7 +449,15 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Purchase?"
-        description={`Are you sure you want to delete this purchase? This will remove ${purchaseToDelete?.quantity || 0} units from inventory and cannot be undone.`}
+        description={
+          purchaseToDelete 
+            ? `Are you sure you want to delete this purchase? This will remove ${purchaseToDelete.quantity} unit(s) from inventory and cannot be undone. ${
+                purchaseToDelete.remaining === purchaseToDelete.quantity 
+                  ? 'All units are still available (none have been sold).' 
+                  : ''
+              }`
+            : 'Are you sure you want to delete this purchase?'
+        }
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"

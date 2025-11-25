@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Trash2, Ban, CheckCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +14,14 @@ import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 
 export function CustomerActions({
   id,
+  disabled,
   onDelete,
+  onToggleDisabled,
 }: {
   id: string;
+  disabled?: boolean;
   onDelete: (id: string) => Promise<void>;
+  onToggleDisabled: (id: string) => Promise<void>;
 }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,15 +39,44 @@ export function CustomerActions({
     }
   };
 
+  const handleToggleDisabled = async () => {
+    try {
+      setIsProcessing(true);
+      await onToggleDisabled(id);
+      toast.success(disabled ? 'Customer enabled' : 'Customer disabled');
+    } catch (error) {
+      console.error('Error toggling customer status:', error);
+      toast.error('Failed to update customer status');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" disabled={isProcessing}>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem 
+            onClick={handleToggleDisabled}
+            className="cursor-pointer"
+          >
+            {disabled ? (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                Enable Customer
+              </>
+            ) : (
+              <>
+                <Ban className="mr-2 h-4 w-4 text-orange-600" />
+                Disable Customer
+              </>
+            )}
+          </DropdownMenuItem>
           <DropdownMenuItem 
             onClick={() => setShowDeleteDialog(true)}
             className="text-destructive focus:text-destructive cursor-pointer"

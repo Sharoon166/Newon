@@ -5,6 +5,7 @@ interface InvoicesPageProps {
   searchParams: Promise<{
     dateFrom?: string;
     dateTo?: string;
+    tab?: string;
   }>;
 }
 
@@ -23,12 +24,13 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   const quotations = quotationsData.docs;
 
   return (
-    <InvoicesPageClient
-      invoices={invoices}
-      quotations={quotations}
-      initialStats={stats}
-      initialDateFrom={params.dateFrom}
-      initialDateTo={params.dateTo}
-    />
+      <InvoicesPageClient
+        invoices={invoices}
+        quotations={quotations}
+        initialStats={stats}
+        initialDateFrom={params.dateFrom}
+        initialDateTo={params.dateTo}
+        activeTab={params.tab}
+      />
   );
 }

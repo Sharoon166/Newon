@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -15,10 +15,10 @@ import {
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-import { ArrowUpDown, Pencil, Search } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowUpDown, Pencil, Search, Filter, Ban } from 'lucide-react';
 import { Customer } from '../types';
-import { formatDate } from '@/lib/utils';
+import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
 
@@ -28,20 +28,49 @@ interface CustomerTableProps {
   actions?: (row: Row<Customer>) => React.ReactNode;
 }
 
+type BalanceFilter = 'all' | 'outstanding' | 'no-balance' | 'paid-in-full';
+
 export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [balanceFilter, setBalanceFilter] = useState<BalanceFilter>('all');
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10
   });
 
+  // Filter data based on balance filter
+  const filteredData = useMemo(() => {
+    if (balanceFilter === 'all') return data;
+
+    return data.filter(customer => {
+      const balance = customer.outstandingBalance || 0;
+      const totalInvoiced = customer.totalInvoiced || 0;
+
+      switch (balanceFilter) {
+        case 'outstanding':
+          return balance > 0;
+        case 'no-balance':
+          return totalInvoiced === 0;
+        case 'paid-in-full':
+          return totalInvoiced > 0 && balance === 0;
+        default:
+          return true;
+      }
+    });
+  }, [data, balanceFilter]);
+
   const columns: ColumnDef<Customer>[] = [
     {
       accessorKey: 'customerId',
       header: 'Customer ID',
-      cell: ({ row }) => <div className="font-mono text-sm">{row.original.customerId || '-'}</div>
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.disabled && <Ban className="h-4 w-4 text-red-500" />}
+          <div className="font-mono text-sm">{row.original.customerId || '-'}</div>
+        </div>
+      )
     },
     {
       accessorKey: 'name',
@@ -52,7 +81,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
         </Button>
       ),
       cell: ({ row }) => (
-        <div>
+        <div className={row.original.disabled ? 'opacity-50' : ''}>
           <div className="font-medium">{row.original.name}</div>
           {row.original.company && <div className="text-sm text-muted-foreground">{row.original.company}</div>}
         </div>
@@ -77,6 +106,50 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
       }
     },
     {
+      accessorKey: 'totalInvoiced',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Total Invoiced
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const amount = row.original.totalInvoiced || 0;
+        return <div className="text-right font-medium">{formatCurrency(amount)}</div>;
+      }
+    },
+    {
+      accessorKey: 'totalPaid',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Total Paid
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const amount = row.original.totalPaid || 0;
+        return <div className="text-right font-medium text-green-600">{formatCurrency(amount)}</div>;
+      }
+    },
+    {
+      accessorKey: 'outstandingBalance',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Outstanding
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const amount = row.original.outstandingBalance || 0;
+        const isOverdue = amount > 0;
+        return (
+          <div className={`text-right font-medium ${isOverdue ? 'text-red-600' : 'text-muted-foreground'}`}>
+            {formatCurrency(amount)}
+          </div>
+        );
+      }
+    },
+    {
       accessorKey: 'createdAt',
       header: 'Date Added',
       cell: ({ row }) => {
@@ -89,10 +162,16 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
       enableHiding: false,
       cell: ({ row }) => {
         const customer = row.original;
+        const allowDeletion = row.original.totalInvoiced === 0 || row.original.totalPaid === 0;
         return row.original.id === 'otc' ? null : (
           <div className="flex justify-end">
             {onEdit && (
-              <Button variant="ghost" size="icon" onClick={() => onEdit(customer.customerId ?? "otc")} className="h-8 w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onEdit(customer.customerId ?? 'otc')}
+                className="h-8 w-8"
+              >
                 <Pencil className="h-4 w-4" />
                 <span className="sr-only">Edit</span>
               </Button>
@@ -105,7 +184,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
   ];
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     state: {
       sorting,
@@ -131,8 +210,8 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <InputGroup className="max-w-sm">
+      <div className="flex sm:items-center justify-between max-sm:flex-col flex-wrap gap-4">
+        <InputGroup className="max-w-sm flex-1">
           <InputGroupInput
             placeholder="Search customers..."
             value={globalFilter ?? ''}
@@ -142,6 +221,21 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
             <Search className="h-4 w-4" />
           </InputGroupAddon>
         </InputGroup>
+
+        <div className="flex items-center gap-2">
+          <Select value={balanceFilter} onValueChange={(value: BalanceFilter) => setBalanceFilter(value)}>
+            <SelectTrigger className="w-[200px]">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Filter by balance" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Customers</SelectItem>
+              <SelectItem value="outstanding">Has Outstanding Balance</SelectItem>
+              <SelectItem value="paid-in-full">Paid in Full</SelectItem>
+              <SelectItem value="no-balance">No Invoices</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -162,7 +256,11 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map(row => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                <TableRow 
+                  key={row.id} 
+                  data-state={row.getIsSelected() && 'selected'}
+                  className={row.original.disabled ? 'opacity-60' : ''}
+                >
                   {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}

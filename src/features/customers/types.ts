@@ -9,6 +9,7 @@ export interface Customer {
   city?: string;
   state?: string;
   zip?: string;
+  disabled?: boolean;
   totalInvoiced?: number;
   totalPaid?: number;
   outstandingBalance?: number;

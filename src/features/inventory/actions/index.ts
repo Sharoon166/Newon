@@ -228,19 +228,35 @@ export const deleteProduct = async (id: string) => {
   // Get the product to access variant images
   const product = await ProductModel.findById(id);
 
-  if (product) {
-    // Delete all variant images from Cloudinary
-    const { deleteCloudinaryImage } = await import('@/app/actions/cloudinary');
+  if (!product) {
+    throw new Error('Product not found');
+  }
 
-    for (const variant of product.variants) {
-      if (variant.imageFile?.publicId) {
-        try {
-          await deleteCloudinaryImage(variant.imageFile.publicId);
-          console.info(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
-        } catch (error) {
-          console.error(`Failed to delete image for variant ${variant.sku}:`, error);
-          // Continue with deletion even if image deletion fails
-        }
+  // Check if any variant has been sold in invoices
+  const InvoiceModel = (await import('@/models/Invoice')).default;
+  const variantIds = product.variants.map((v: ProductVariant) => v.id);
+  
+  const soldVariants = await InvoiceModel.findOne({
+    'items.variantId': { $in: variantIds },
+    type: 'invoice',
+    status: { $nin: ['cancelled', 'draft'] }
+  });
+
+  if (soldVariants) {
+    throw new Error('Cannot delete product with sold variants. Please disable the variants instead.');
+  }
+
+  // Delete all variant images from Cloudinary
+  const { deleteCloudinaryImage } = await import('@/app/actions/cloudinary');
+
+  for (const variant of product.variants) {
+    if (variant.imageFile?.publicId) {
+      try {
+        await deleteCloudinaryImage(variant.imageFile.publicId);
+        console.info(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
+      } catch (error) {
+        console.error(`Failed to delete image for variant ${variant.sku}:`, error);
+        // Continue with deletion even if image deletion fails
       }
     }
   }
@@ -328,6 +344,22 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
       };
     }
 
+    // Check if variant has been sold in any invoices
+    const InvoiceModel = (await import('@/models/Invoice')).default;
+    const soldInvoice = await InvoiceModel.findOne({
+      'items.variantId': variantId,
+      type: 'invoice',
+      status: { $nin: ['cancelled', 'draft'] }
+    });
+
+    if (soldInvoice) {
+      return {
+        success: false,
+        message: 'Cannot delete variant that has been sold. Please disable it instead.',
+        canDisable: true
+      };
+    }
+
     // Check if variant has any purchases
     const PurchaseModel = (await import('@/models/Purchase')).default;
     const purchaseCount = await PurchaseModel.countDocuments({
@@ -397,19 +429,35 @@ export const deleteProductByName = async (name: string) => {
   // Get the product to access variant images
   const product = await ProductModel.findOne({ name });
 
-  if (product) {
-    // Delete all variant images from Cloudinary
-    const { deleteCloudinaryImage } = await import('@/app/actions/cloudinary');
+  if (!product) {
+    throw new Error('Product not found');
+  }
 
-    for (const variant of product.variants) {
-      if (variant.imageFile?.publicId) {
-        try {
-          await deleteCloudinaryImage(variant.imageFile.publicId);
-          console.info(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
-        } catch (error) {
-          console.error(`Failed to delete image for variant ${variant.sku}:`, error);
-          // Continue with deletion even if image deletion fails
-        }
+  // Check if any variant has been sold in invoices
+  const InvoiceModel = (await import('@/models/Invoice')).default;
+  const variantIds = product.variants.map((v: ProductVariant) => v.id);
+  
+  const soldVariants = await InvoiceModel.findOne({
+    'items.variantId': { $in: variantIds },
+    type: 'invoice',
+    status: { $nin: ['cancelled', 'draft'] }
+  });
+
+  if (soldVariants) {
+    throw new Error('Cannot delete product with sold variants. Please disable the variants instead.');
+  }
+
+  // Delete all variant images from Cloudinary
+  const { deleteCloudinaryImage } = await import('@/app/actions/cloudinary');
+
+  for (const variant of product.variants) {
+    if (variant.imageFile?.publicId) {
+      try {
+        await deleteCloudinaryImage(variant.imageFile.publicId);
+        console.info(`Deleted image for variant ${variant.sku}: ${variant.imageFile.publicId}`);
+      } catch (error) {
+        console.error(`Failed to delete image for variant ${variant.sku}:`, error);
+        // Continue with deletion even if image deletion fails
       }
     }
   }

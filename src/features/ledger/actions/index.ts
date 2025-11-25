@@ -138,10 +138,20 @@ export async function getCustomerLedgers(
     const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
     const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
 
+    // Exclude both invoice entries AND payment entries for cancelled invoices
     const matchStage: Record<string, unknown> = {
-      $or: [
-        { transactionType: { $ne: 'invoice' } },
-        { transactionId: { $nin: cancelledInvoiceIds } }
+      $and: [
+        {
+          $or: [
+            { transactionType: { $nin: ['invoice', 'payment'] } },
+            {
+              $and: [
+                { transactionType: { $in: ['invoice', 'payment'] } },
+                { transactionId: { $nin: cancelledInvoiceIds } }
+              ]
+            }
+          ]
+        }
       ]
     };
 
@@ -268,12 +278,18 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Exclude both invoice entries AND payment entries for cancelled invoices
     const summary = await LedgerEntryModel.aggregate([
       {
         $match: {
           $or: [
-            { transactionType: { $ne: 'invoice' } },
-            { transactionId: { $nin: cancelledInvoiceIds } }
+            { transactionType: { $nin: ['invoice', 'payment'] } },
+            {
+              $and: [
+                { transactionType: { $in: ['invoice', 'payment'] } },
+                { transactionId: { $nin: cancelledInvoiceIds } }
+              ]
+            }
           ]
         }
       },
@@ -295,14 +311,19 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       }
     ]);
 
-    // Get monthly data
+    // Get monthly data - exclude cancelled invoice entries and their payments
     const monthlySummary = await LedgerEntryModel.aggregate([
       {
         $match: {
           date: { $gte: monthStart },
           $or: [
-            { transactionType: { $ne: 'invoice' } },
-            { transactionId: { $nin: cancelledInvoiceIds } }
+            { transactionType: { $nin: ['invoice', 'payment'] } },
+            {
+              $and: [
+                { transactionType: { $in: ['invoice', 'payment'] } },
+                { transactionId: { $nin: cancelledInvoiceIds } }
+              ]
+            }
           ]
         }
       },
@@ -315,13 +336,18 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       }
     ]);
 
-    // Count customers with balance
+    // Count customers with balance - exclude cancelled invoice entries and their payments
     const customersWithBalance = await LedgerEntryModel.aggregate([
       {
         $match: {
           $or: [
-            { transactionType: { $ne: 'invoice' } },
-            { transactionId: { $nin: cancelledInvoiceIds } }
+            { transactionType: { $nin: ['invoice', 'payment'] } },
+            {
+              $and: [
+                { transactionType: { $in: ['invoice', 'payment'] } },
+                { transactionId: { $nin: cancelledInvoiceIds } }
+              ]
+            }
           ]
         }
       },
@@ -391,7 +417,24 @@ export async function getCustomerLedgerEntries(
   try {
     await dbConnect();
 
-    const entries = await LedgerEntryModel.find({ customerId })
+    // Get cancelled invoice IDs to exclude
+    const InvoiceModel = (await import('@/models/Invoice')).default;
+    const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
+    const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
+
+    // Exclude both invoice entries AND payment entries for cancelled invoices
+    const entries = await LedgerEntryModel.find({
+      customerId,
+      $or: [
+        { transactionType: { $nin: ['invoice', 'payment'] } },
+        {
+          $and: [
+            { transactionType: { $in: ['invoice', 'payment'] } },
+            { transactionId: { $nin: cancelledInvoiceIds } }
+          ]
+        }
+      ]
+    })
       .sort({ date: -1, createdAt: -1 })
       .lean();
 
@@ -406,22 +449,47 @@ export async function getCustomerLedgerEntries(
 
 // Helper function to get customer balance at a specific point in time
 async function getCustomerBalanceBeforeDate(customerId: string, date: Date, createdAt?: Date): Promise<number> {
+  // Get cancelled invoice IDs to exclude
+  const InvoiceModel = (await import('@/models/Invoice')).default;
+  const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
+  const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
+
   const matchCondition: Record<string, unknown> = {
-    customerId
+    customerId,
+    // Exclude cancelled invoice entries and their payments
+    $or: [
+      { transactionType: { $nin: ['invoice', 'payment'] } },
+      {
+        $and: [
+          { transactionType: { $in: ['invoice', 'payment'] } },
+          { transactionId: { $nin: cancelledInvoiceIds } }
+        ]
+      }
+    ]
   };
   
   if (createdAt) {
     // Get balance before this specific entry (by date and creation time)
-    matchCondition.$or = [
-      { date: { $lt: date } },
+    matchCondition.$and = [
+      matchCondition.$or ? { $or: matchCondition.$or } : {},
       {
-        date: date,
-        createdAt: { $lt: createdAt }
+        $or: [
+          { date: { $lt: date } },
+          {
+            date: date,
+            createdAt: { $lt: createdAt }
+          }
+        ]
       }
     ];
+    delete matchCondition.$or;
   } else {
     // Get balance before this date
-    matchCondition.date = { $lt: date };
+    matchCondition.$and = [
+      matchCondition.$or ? { $or: matchCondition.$or } : {},
+      { date: { $lt: date } }
+    ];
+    delete matchCondition.$or;
   }
   
   const result = await LedgerEntryModel.aggregate([
@@ -440,8 +508,27 @@ async function getCustomerBalanceBeforeDate(customerId: string, date: Date, crea
 
 // Helper function to get customer balance (all entries)
 async function getCustomerBalance(customerId: string): Promise<number> {
+  // Get cancelled invoice IDs to exclude
+  const InvoiceModel = (await import('@/models/Invoice')).default;
+  const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
+  const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
+
   const result = await LedgerEntryModel.aggregate([
-    { $match: { customerId } },
+    { 
+      $match: { 
+        customerId,
+        // Exclude cancelled invoice entries and their payments
+        $or: [
+          { transactionType: { $nin: ['invoice', 'payment'] } },
+          {
+            $and: [
+              { transactionType: { $in: ['invoice', 'payment'] } },
+              { transactionId: { $nin: cancelledInvoiceIds } }
+            ]
+          }
+        ]
+      } 
+    },
     { $group: {
       _id: null,
       totalDebit: { $sum: '$debit' },
@@ -614,36 +701,8 @@ export async function updateLedgerEntryFromInvoice(
     entry.debit = newDebit;
     entry.description = `Invoice ${invoiceData.invoiceNumber}`;
     
-    // Recalculate balance correctly:
-    // Get balance from all entries BEFORE this entry (by date and creation time)
-    const balanceBeforeResult = await LedgerEntryModel.aggregate([
-      {
-        $match: {
-          customerId: entry.customerId,
-          $or: [
-            { date: { $lt: entry.date } },
-            {
-              date: entry.date,
-              createdAt: { $lt: entry.createdAt }
-            }
-          ]
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalDebit: { $sum: '$debit' },
-          totalCredit: { $sum: '$credit' }
-        }
-      },
-      {
-        $project: {
-          balance: { $subtract: ['$totalDebit', '$totalCredit'] }
-        }
-      }
-    ]);
-
-    const balanceBefore = balanceBeforeResult[0]?.balance || 0;
+    // Use the helper function to get balance before this entry (excludes cancelled invoices)
+    const balanceBefore = await getCustomerBalanceBeforeDate(entry.customerId, entry.date, entry.createdAt);
     
     // New balance = balance before this entry + this entry's debit - this entry's credit
     entry.balance = balanceBefore + entry.debit - entry.credit;
@@ -766,36 +825,8 @@ export async function updateLedgerEntryFromPayment(
     entry.paymentMethod = paymentData.newMethod;
     entry.reference = paymentData.newReference;
 
-    // Recalculate balance correctly:
-    // Get balance from all entries BEFORE this entry (by date and creation time)
-    const balanceBeforeResult = await LedgerEntryModel.aggregate([
-      {
-        $match: {
-          customerId: entry.customerId,
-          $or: [
-            { date: { $lt: entry.date } },
-            {
-              date: entry.date,
-              createdAt: { $lt: entry.createdAt }
-            }
-          ]
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalDebit: { $sum: '$debit' },
-          totalCredit: { $sum: '$credit' }
-        }
-      },
-      {
-        $project: {
-          balance: { $subtract: ['$totalDebit', '$totalCredit'] }
-        }
-      }
-    ]);
-
-    const balanceBefore = balanceBeforeResult[0]?.balance || 0;
+    // Use the helper function to get balance before this entry (excludes cancelled invoices)
+    const balanceBefore = await getCustomerBalanceBeforeDate(entry.customerId, entry.date, entry.createdAt);
     
     // New balance = balance before this entry + this entry's debit - this entry's credit
     entry.balance = balanceBefore + entry.debit - entry.credit;

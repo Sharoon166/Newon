@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { NewInvoiceForm } from './new-invoice-form';
 import { NewQuotationForm } from './new-quotation-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -65,6 +66,7 @@ export function NewInvoiceFormWrapper({
   paymentDetails,
   invoiceTerms
 }: NewInvoiceFormWrapperProps) {
+  const router = useRouter();
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -156,7 +158,10 @@ export function NewInvoiceFormWrapper({
       toast.info(
         `${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`
       );
-      window.location.href = '/invoices';
+      
+      // Route to the correct tab based on document type
+      const targetUrl = documentType === 'quotation' ? '/invoices?tab=quotations' : '/invoices';
+      router.push(targetUrl);
     } catch (error) {
       console.error('Error saving document:', error);
       toast.error(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);

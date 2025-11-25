@@ -14,6 +14,7 @@ import type { Purchase } from '@/features/purchases/types';
 import { toast } from 'sonner';
 
 interface ProductSelectorProps {
+  label?: string;
   variants: EnhancedVariants[];
   purchases: Purchase[];
   currentItems?: Array<{
@@ -30,9 +31,17 @@ interface ProductSelectorProps {
     rate: number;
     purchaseId?: string;
   }) => void;
+  skipStockValidation?: boolean; // For quotations - allow any quantity
 }
 
-export function ProductSelector({ variants, purchases, currentItems = [], onAddItem }: ProductSelectorProps) {
+export function ProductSelector({
+  label = 'Add to Invoice',
+  variants,
+  purchases,
+  currentItems = [],
+  onAddItem,
+  skipStockValidation = false
+}: ProductSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   // Remove selectedVariant state - cards are always expanded
@@ -70,9 +79,27 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
   };
 
   const handleAddToInvoice = (variant: EnhancedVariants) => {
-    const variantPurchases = purchases
-      .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
+    // Get all purchases for this variant, sorted by FIFO
+    // For quotations (skipStockValidation), include all purchases even if out of stock
+    const allVariantPurchases = purchases
+      .filter(p => p.productId === variant.productId && p.variantId === variant.id && (skipStockValidation || p.remaining > 0))
       .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+
+    // Calculate effective remaining for each purchase based on items in invoice
+    const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
+      const quantityUsedInInvoice = currentItems
+        .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
+        .reduce((sum, item) => sum + item.quantity, 0);
+      return {
+        ...purchase,
+        effectiveRemaining: purchase.remaining - quantityUsedInInvoice
+      };
+    });
+
+    // Filter to only purchases with effective remaining > 0 (or all purchases for quotations)
+    const variantPurchases = skipStockValidation 
+      ? purchasesWithEffectiveRemaining 
+      : purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
 
     const firstPurchase = variantPurchases[0];
     const quantity = getVariantQuantity(variant.id);
@@ -85,7 +112,7 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
       .reduce((sum, item) => sum + item.quantity, 0);
 
     // Calculate remaining available stock after accounting for items in invoice from SAME purchase
-    const remainingAvailable = available - quantityInInvoice;
+    const remainingAvailable = firstPurchase?.effectiveRemaining || 0;
 
     // Validation checks
     if (available === 0) {
@@ -142,12 +169,29 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
       purchaseId: firstPurchase?.purchaseId
     });
 
+    // Check if this purchase will be fully used up
+    const willBeFullyUsed = quantity === remainingAvailable;
+    
+    // If purchase is fully used and there's a next purchase available
+    if (willBeFullyUsed && variantPurchases.length > 1) {
+      const nextPurchase = variantPurchases[1];
+      toast.info('Purchase fully used', {
+        description: `Purchase ${firstPurchase.purchaseId} is now depleted. Now using Purchase ${nextPurchase.purchaseId} (${nextPurchase.remaining} units available).`,
+        duration: 5000
+      });
+    } else if (willBeFullyUsed && variantPurchases.length === 1) {
+      toast.warning('Last purchase depleted', {
+        description: `Purchase ${firstPurchase.purchaseId} is now fully used. No more stock available for this product.`,
+        duration: 5000
+      });
+    }
+
     // Reset quantity for this variant
     setVariantQuantity(variant.id, 1);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Search and Filter */}
       <div className="flex flex-wrap gap-4">
         <div className="flex-1 min-w-[200px] relative">
@@ -165,8 +209,12 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
             <SelectValue placeholder="Price Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="retail"><Tag /> Retail Price</SelectItem>
-            <SelectItem value="wholesale"><Tags /> Wholesale Price</SelectItem>
+            <SelectItem value="retail">
+              <Tag /> Retail Price
+            </SelectItem>
+            <SelectItem value="wholesale">
+              <Tags /> Wholesale Price
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -198,28 +246,40 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
       {/* Product Grid with Scroll Area */}
       <div
         ref={gridRef}
-        className="@container grid grid-flow-dense  grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 p-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+        className="@container grid grid-flow-dense grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 p-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
       >
         {filteredVariants.map(variant => {
-          const variantPurchasesForCard = purchases
+          // Get all purchases for this variant, sorted by FIFO
+          const allVariantPurchases = purchases
             .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
             .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
 
+          // Calculate effective remaining for each purchase based on items in invoice
+          const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
+            const quantityUsedInInvoice = currentItems
+              .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
+              .reduce((sum, item) => sum + item.quantity, 0);
+            return {
+              ...purchase,
+              effectiveRemaining: purchase.remaining - quantityUsedInInvoice
+            };
+          });
+
+          // Filter to only purchases with effective remaining > 0
+          const variantPurchasesForCard = purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
+
           const firstPurchase = variantPurchasesForCard[0];
-          // FIFO: Only show stock from the first purchase
+          // FIFO: Only show stock from the first purchase with available stock
           const available = firstPurchase?.remaining || 0;
           // Only count items from the SAME purchase when calculating remaining stock
           const quantityInInvoice = currentItems
             .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
             .reduce((sum, item) => sum + item.quantity, 0);
-          const remainingAvailable = available - quantityInInvoice;
+          const remainingAvailable = firstPurchase?.effectiveRemaining || 0;
           const quantity = getVariantQuantity(variant.id);
 
           return (
-            <Card
-              key={`${variant.productId}-${variant.id}`}
-              className="p-3 transition-all hover:shadow-md"
-            >
+            <Card key={`${variant.productId}-${variant.id}`} className="p-3 transition-all hover:shadow-md">
               <div className="flex flex-col gap-3">
                 {/* Product Card Content */}
                 <div className="flex flex-col gap-2">
@@ -261,7 +321,11 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                                 <p className="text-xs text-muted-foreground">
                                   This Purchase: {firstPurchase.remaining} units
                                   {variantPurchasesForCard.length > 1 && (
-                                    <> | Total Across All: {variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0)} units</>
+                                    <>
+                                      {' '}
+                                      | Total Across All:{' '}
+                                      {variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0)} units
+                                    </>
                                   )}
                                 </p>
                               </div>
@@ -320,13 +384,14 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                     )}
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex flex-col gap-0.5">
-                        <Badge variant={remainingAvailable > 0 ? 'default' : 'destructive'} className="text-xs px-1.5 py-0">
+                        <Badge
+                          variant={remainingAvailable > 0 ? 'default' : 'destructive'}
+                          className="text-xs px-1.5 py-0"
+                        >
                           {remainingAvailable} left
                         </Badge>
                         {quantityInInvoice > 0 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            ({quantityInInvoice} in invoice)
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">({quantityInInvoice} in invoice)</span>
                         )}
                       </div>
                       <span className="text-sm font-bold">
@@ -414,12 +479,10 @@ export function ProductSelector({ variants, purchases, currentItems = [], onAddI
                     size="sm"
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Add to Invoice
+                    {label}
                   </Button>
                   {quantity > remainingAvailable && (
-                    <p className="text-xs text-destructive text-center">
-                      Stock was used up
-                    </p>
+                    <p className="text-xs text-destructive text-center">Stock was used up</p>
                   )}
                 </div>
               </div>

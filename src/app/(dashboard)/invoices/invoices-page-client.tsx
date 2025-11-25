@@ -10,6 +10,8 @@ import { Card, CardContent, CardTitle, CardHeader } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { InvoicesTable } from '@/features/invoices/components/invoices-table';
 import type { Invoice } from '@/features/invoices/types';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 interface InvoicesPageClientProps {
   invoices: Invoice[];
@@ -27,6 +29,7 @@ interface InvoicesPageClientProps {
   };
   initialDateFrom?: string;
   initialDateTo?: string;
+  activeTab?: string;
 }
 
 export function InvoicesPageClient({
@@ -34,8 +37,23 @@ export function InvoicesPageClient({
   quotations,
   initialStats,
   initialDateFrom,
-  initialDateTo
+  initialDateTo,
+  activeTab
 }: InvoicesPageClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [currentTab, setCurrentTab] = useState(activeTab === 'quotations' ? 'quotations' : 'invoices');
+
+  useEffect(() => {
+    setCurrentTab(activeTab === 'quotations' ? 'quotations' : 'invoices');
+  }, [activeTab]);
+
+  const handleTabChange = (value: string) => {
+    setCurrentTab(value);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', value);
+    router.push(`/invoices?${params.toString()}`);
+  };
 
   return (
     <div className="container mx-auto py-10">
@@ -107,7 +125,7 @@ export function InvoicesPageClient({
       </div>
 
       {/* Tabs for Invoices and Quotations */}
-      <Tabs defaultValue="invoices" className="w-full">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
           <TabsTrigger value="invoices" className="flex items-center gap-2">
             <Receipt className="h-4 w-4" />

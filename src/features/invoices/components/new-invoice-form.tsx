@@ -33,6 +33,7 @@ import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, formatCurrency, formatDate, getToday } from '@/lib/utils';
+import { v4 as uuidv4 } from 'uuid';
 import useBrandStore from '@/stores/useBrandStore';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { convertToWords } from '../utils';
@@ -261,14 +262,14 @@ export function NewInvoiceForm({
 
   // Get customer's outstanding balance (0 for OTC customers) - for display only
   const outstandingBalance = isOtcCustomer ? 0 : selectedCustomer?.outstandingBalance || 0;
-  
+
   // For OTC customers, automatically set paid amount to total
   useEffect(() => {
     if (isOtcCustomer && total > 0 && paid !== total) {
       form.setValue('paid', total);
     }
   }, [isOtcCustomer, total, paid, form]);
-  
+
   // Calculate grand total (invoice total - paid amount)
   const grandTotal = Math.max(0, total - paid);
 
@@ -325,7 +326,7 @@ export function NewInvoiceForm({
     } else {
       // Item doesn't exist or is from a different purchase, add new entry
       append({
-        id: Date.now().toString(),
+        id: uuidv4(),
         description: item.description,
         quantity: item.quantity,
         rate: item.rate,
@@ -578,50 +579,88 @@ export function NewInvoiceForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex justify-between items-center gap-2 p-4">
-          <FormField
-            control={form.control}
-            name="dueDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-lg font-semibold flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Due Date
-                </FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full max-w-sm justify-start text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a due date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={date => {
-                        const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                        field.onChange(formattedDate);
-                      }}
-                      disabled={date => date < new Date(today + 'T00:00:00')}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Invoice Date
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full max-w-sm justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick invoice date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={date => {
+                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          field.onChange(formattedDate);
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Due Date
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full max-w-sm justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a due date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={date => {
+                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          field.onChange(formattedDate);
+                        }}
+                        disabled={date => date < new Date(today + 'T00:00:00')}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <div className="space-y-2">
             <div className="flex gap-2">
               <FileText className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm font-semibold text-primary">{nextInvoiceNumber}</span>
             </div>
-            <div className="text-muted-foreground font-medium">{formatDate(new Date())}</div>
           </div>
         </div>
 
@@ -744,7 +783,7 @@ export function NewInvoiceForm({
                 size="sm"
                 onClick={() => {
                   append({
-                    id: Date.now().toString(),
+                    id: uuidv4(),
                     description: '',
                     quantity: 1,
                     rate: 0,
@@ -757,7 +796,7 @@ export function NewInvoiceForm({
               </Button>
             </div>
           </div>
-
+          
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
             {variants.length > 0 && (
@@ -804,7 +843,13 @@ export function NewInvoiceForm({
                       const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
                       const currentRate = form.watch(`items.${index}.rate`) || 0;
                       const variantId = form.watch(`items.${index}.variantId`);
+                      const purchaseId = form.watch(`items.${index}.purchaseId`);
                       const availableStock = getAvailableStock(variantId);
+
+                      // Get stock limit for this specific purchase (including current item's quantity)
+                      const purchaseStockLimit = purchaseId
+                        ? (purchases.find(p => p.purchaseId === purchaseId)?.remaining || 0) + currentQuantity
+                        : Infinity;
 
                       return (
                         <tr key={item.id} className="group hover:bg-muted/30 transition-colors">
@@ -828,11 +873,6 @@ export function NewInvoiceForm({
                                 </FormItem>
                               )}
                             />
-                            {variantId && availableStock < Infinity && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Available: {availableStock} units
-                              </div>
-                            )}
                           </td>
                           <td className="py-3 px-2">
                             <div className="flex items-center justify-center gap-1">
@@ -846,7 +886,7 @@ export function NewInvoiceForm({
                                   form.setValue(`items.${index}.quantity`, newQuantity);
                                   form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                                 }}
-                                disabled={currentQuantity < 1}
+                                disabled={currentQuantity <= 1}
                               >
                                 <Minus className="h-3 w-3" />
                               </Button>
@@ -860,7 +900,15 @@ export function NewInvoiceForm({
                                         <InputGroupInput
                                           type="number"
                                           min="1"
-                                          max={availableStock < Infinity ? availableStock : undefined}
+                                          max={
+                                            purchaseId
+                                              ? purchaseStockLimit < Infinity
+                                                ? purchaseStockLimit
+                                                : undefined
+                                              : availableStock < Infinity
+                                                ? availableStock
+                                                : undefined
+                                          }
                                           step="1"
                                           {...field}
                                           className="h-7 text-sm text-center"
@@ -880,12 +928,15 @@ export function NewInvoiceForm({
                                               form.setValue(`items.${index}.amount`, 1 * currentRate);
                                               return;
                                             }
-                                            if (numericValue > availableStock) {
+                                            const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                            if (numericValue > maxStock) {
                                               toast.error('Insufficient stock', {
-                                                description: `Only ${availableStock} units available`
+                                                description: purchaseId
+                                                  ? `Only ${maxStock} units available in this purchase`
+                                                  : `Only ${maxStock} units available`
                                               });
-                                              field.onChange(availableStock);
-                                              form.setValue(`items.${index}.amount`, availableStock * currentRate);
+                                              field.onChange(maxStock);
+                                              form.setValue(`items.${index}.amount`, maxStock * currentRate);
                                               return;
                                             }
                                             field.onChange(numericValue);
@@ -905,16 +956,19 @@ export function NewInvoiceForm({
                                 className="h-7 w-7"
                                 onClick={() => {
                                   const newQuantity = currentQuantity + 1;
-                                  if (newQuantity > availableStock) {
+                                  const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                  if (newQuantity > maxStock) {
                                     toast.error('Insufficient stock', {
-                                      description: `Only ${availableStock} units available`
+                                      description: purchaseId
+                                        ? `Only ${maxStock} units available in this purchase`
+                                        : `Only ${maxStock} units available`
                                     });
                                     return;
                                   }
                                   form.setValue(`items.${index}.quantity`, newQuantity);
                                   form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                                 }}
-                                disabled={currentQuantity >= availableStock}
+                                disabled={currentQuantity >= (purchaseId ? purchaseStockLimit : availableStock)}
                               >
                                 <Plus className="h-3 w-3" />
                               </Button>
@@ -991,7 +1045,13 @@ export function NewInvoiceForm({
                   const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
+                  const purchaseId = form.watch(`items.${index}.purchaseId`);
                   const availableStock = getAvailableStock(variantId);
+
+                  // Get stock limit for this specific purchase (including current item's quantity)
+                  const purchaseStockLimit = purchaseId
+                    ? (purchases.find(p => p.purchaseId === purchaseId)?.remaining || 0) + currentQuantity
+                    : Infinity;
 
                   return (
                     <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
@@ -1019,11 +1079,6 @@ export function NewInvoiceForm({
                                 </FormItem>
                               )}
                             />
-                            {variantId && availableStock < Infinity && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Available: {availableStock} units
-                              </div>
-                            )}
                           </div>
                         </div>
                         <Button
@@ -1046,11 +1101,11 @@ export function NewInvoiceForm({
                               size="icon"
                               className="h-8 w-8"
                               onClick={() => {
-                                const newQuantity = Math.max(0.01, currentQuantity - 1);
+                                const newQuantity = Math.max(1, currentQuantity - 1);
                                 form.setValue(`items.${index}.quantity`, newQuantity);
                                 form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                               }}
-                              disabled={currentQuantity <= 0.01}
+                              disabled={currentQuantity <= 1}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -1064,32 +1119,43 @@ export function NewInvoiceForm({
                                       <InputGroupInput
                                         type="number"
                                         min="1"
-                                        max={availableStock < Infinity ? availableStock : undefined}
+                                        max={
+                                          purchaseId
+                                            ? purchaseStockLimit < Infinity
+                                              ? purchaseStockLimit
+                                              : undefined
+                                            : availableStock < Infinity
+                                              ? availableStock
+                                              : undefined
+                                        }
                                         step="1"
                                         {...field}
                                         className="h-8 text-sm text-center"
                                         onChange={e => {
                                           const value = e.target.value;
                                           if (value === '') {
-                                            field.onChange(0.01);
-                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            field.onChange(1);
+                                            form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
-                                          const numericValue = parseFloat(value);
-                                          if (isNaN(numericValue) || numericValue < 0.01) {
+                                          const numericValue = parseInt(value, 10);
+                                          if (isNaN(numericValue) || numericValue < 1) {
                                             toast.error('Invalid quantity', {
-                                              description: 'Quantity must be at least 0.01'
+                                              description: 'Quantity must be at least 1'
                                             });
-                                            field.onChange(0.01);
-                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            field.onChange(1);
+                                            form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
-                                          if (numericValue > availableStock) {
+                                          const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                          if (numericValue > maxStock) {
                                             toast.error('Insufficient stock', {
-                                              description: `Only ${availableStock} units available`
+                                              description: purchaseId
+                                                ? `Only ${maxStock} units available in this purchase`
+                                                : `Only ${maxStock} units available`
                                             });
-                                            field.onChange(availableStock);
-                                            form.setValue(`items.${index}.amount`, availableStock * currentRate);
+                                            field.onChange(maxStock);
+                                            form.setValue(`items.${index}.amount`, maxStock * currentRate);
                                             return;
                                           }
                                           field.onChange(numericValue);
@@ -1109,16 +1175,19 @@ export function NewInvoiceForm({
                               className="h-8 w-8"
                               onClick={() => {
                                 const newQuantity = currentQuantity + 1;
-                                if (newQuantity > availableStock) {
+                                const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                if (newQuantity > maxStock) {
                                   toast.error('Insufficient stock', {
-                                    description: `Only ${availableStock} units available`
+                                    description: purchaseId
+                                      ? `Only ${maxStock} units available in this purchase`
+                                      : `Only ${maxStock} units available`
                                   });
                                   return;
                                 }
                                 form.setValue(`items.${index}.quantity`, newQuantity);
                                 form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                               }}
-                              disabled={currentQuantity >= availableStock}
+                              disabled={currentQuantity >= (purchaseId ? purchaseStockLimit : availableStock)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>

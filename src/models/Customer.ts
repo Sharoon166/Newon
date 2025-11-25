@@ -13,6 +13,7 @@ interface ICustomer extends Document {
   city?: string;
   state?: string;
   zip?: string;
+  disabled: boolean;
   // Financial tracking fields (to be used by future features)
   totalInvoiced: number;
   totalPaid: number;
@@ -72,6 +73,10 @@ const customerSchema = new Schema<ICustomer>(
     zip: {
       type: String,
       trim: true,
+    },
+    disabled: {
+      type: Boolean,
+      default: false,
     },
     // Financial tracking fields (to be used by future features)
     totalInvoiced: {

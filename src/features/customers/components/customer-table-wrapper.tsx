@@ -10,10 +10,12 @@ import { Row } from '@tanstack/react-table';
 
 export function CustomerTableWrapper({
   initialData,
-  deleteCustomerAction
+  deleteCustomerAction,
+  toggleDisabledAction
 }: {
   initialData: PaginatedCustomers;
   deleteCustomerAction: (id: string) => Promise<{ success: boolean; error?: string }>;
+  toggleDisabledAction: (id: string) => Promise<{ success: boolean; error?: string }>;
 }) {
   const router = useRouter();
   const [data, setData] = useState(initialData.docs);
@@ -34,13 +36,36 @@ export function CustomerTableWrapper({
     }
   };
 
+  const handleToggleDisabled = async (id: string) => {
+    try {
+      const result = await toggleDisabledAction(id);
+
+      if (result.success) {
+        setData(prevData =>
+          prevData.map(customer =>
+            customer.id === id ? { ...customer, disabled: !customer.disabled } : customer
+          )
+        );
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error toggling customer status:', error);
+      throw error;
+    }
+  };
+
   const handleEdit = (id: string) => {
     router.push(`/customers/${id}/edit`);
   };
 
-  // Temporary don't allow deletion
-  const actions = (row: Row<Customer>) => (  null
-    // <CustomerActions id={row.original.id} onDelete={() => handleDelete(row.original.customerId || 'otc')} />
+  const actions = (row: Row<Customer>) => ( 
+    <CustomerActions 
+      id={row.original.id} 
+      disabled={row.original.disabled}
+      onDelete={() => handleDelete(row.original.customerId || 'otc')} 
+      onToggleDisabled={() => handleToggleDisabled(row.original.customerId || 'otc')}
+    />
   );
 
   return <CustomerTable data={data} onEdit={handleEdit} actions={actions} />;

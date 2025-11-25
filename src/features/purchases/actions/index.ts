@@ -49,7 +49,7 @@ export const getAllPurchases = async () => {
       }
     },
     {
-      $sort: { purchaseDate: -1 }
+      $sort: { purchaseDate: 1 }
     },
     {
       $project: {
@@ -466,7 +466,14 @@ export const deletePurchase = async (id: string) => {
 
   const purchase = (await PurchaseModel.findById(id).lean()) as LeanPurchase | null;
   if (!purchase) {
-    throw new Error('PurchaseModel not found');
+    throw new Error('Purchase not found');
+  }
+
+  // Check if any quantity has been used (sold/allocated)
+  if (purchase.remaining < purchase.quantity) {
+    throw new Error(
+      `Cannot delete this purchase. ${purchase.quantity - purchase.remaining} unit(s) have already been sold or allocated. Only purchases with no sales can be deleted.`
+    );
   }
 
   const productId = purchase.productId.toString();

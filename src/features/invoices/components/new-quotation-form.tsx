@@ -45,6 +45,7 @@ import type { Purchase } from '@/features/purchases/types';
 import { INVOICE_TERMS_AND_CONDITIONS } from '@/constants';
 import { toast } from 'sonner';
 import { QuotationTemplate } from './quotation-template';
+import { v4 as uuidv4 } from 'uuid';
 
 const quotationFormSchema = z.object({
   logo: z.string().optional(),
@@ -279,11 +280,10 @@ export function NewQuotationForm({
       const newQuantity = existingItem.quantity + item.quantity;
       form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
       form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
-
     } else {
       // Item doesn't exist or is from a different purchase, add new entry
       append({
-        id: Date.now().toString(),
+        id: uuidv4(),
         description: item.description,
         quantity: item.quantity,
         rate: item.rate,
@@ -293,7 +293,6 @@ export function NewQuotationForm({
         variantSKU: item.sku,
         purchaseId: item.purchaseId
       });
-
     }
   };
 
@@ -420,50 +419,44 @@ export function NewQuotationForm({
   };
 
   const handleSave = () => {
-    form.handleSubmit(
-      async data => {
-        if (!validateQuotationData(data)) return;
+    form.handleSubmit(async data => {
+      if (!validateQuotationData(data)) return;
 
-        try {
-          if (onSave) {
-            await onSave(data);
-          } else {
-            toast.error('Save function not available', {
-              description: 'Please contact support.'
-            });
-          }
-        } catch (error) {
-          console.error('Error saving quotation:', error);
-          toast.error('Failed to save quotation', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+      try {
+        if (onSave) {
+          await onSave(data);
+        } else {
+          toast.error('Save function not available', {
+            description: 'Please contact support.'
           });
         }
-      },
-      handleFormErrors
-    )();
+      } catch (error) {
+        console.error('Error saving quotation:', error);
+        toast.error('Failed to save quotation', {
+          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+        });
+      }
+    }, handleFormErrors)();
   };
 
   const handlePrint = () => {
-    form.handleSubmit(
-      data => {
-        if (!validateQuotationData(data)) return;
+    form.handleSubmit(data => {
+      if (!validateQuotationData(data)) return;
 
-        try {
-          // Open preview sheet first
-          setIsPreviewOpen(true);
-          // Then trigger print after a short delay to ensure sheet is rendered
-          setTimeout(() => {
-            handleReactToPrint();
-          }, 300);
-        } catch (error) {
-          console.error('Error printing quotation:', error);
-          toast.error('Failed to print quotation', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-          });
-        }
-      },
-      handleFormErrors
-    )();
+      try {
+        // Open preview sheet first
+        setIsPreviewOpen(true);
+        // Then trigger print after a short delay to ensure sheet is rendered
+        setTimeout(() => {
+          handleReactToPrint();
+        }, 300);
+      } catch (error) {
+        console.error('Error printing quotation:', error);
+        toast.error('Failed to print quotation', {
+          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+        });
+      }
+    }, handleFormErrors)();
   };
 
   const today = new Date().toISOString().split('T')[0];
@@ -488,56 +481,91 @@ export function NewQuotationForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit, handleFormErrors)}
-        className="space-y-8"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         {/* Quotation Header */}
         <div className="flex justify-between items-center gap-2 p-4">
-          <FormField
-            control={form.control}
-            name="validUntil"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-lg font-semibold flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Valid Until
-                </FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full max-w-sm justify-start text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a valid until date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={date => {
-                        const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                        field.onChange(formattedDate);
-                      }}
-                      disabled={date => date < new Date(today + 'T00:00:00')}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Quotation Date
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full max-w-sm justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick quotation date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={date => {
+                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          field.onChange(formattedDate);
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="validUntil"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Valid Until
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full max-w-sm justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a valid until date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={date => {
+                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          field.onChange(formattedDate);
+                        }}
+                        disabled={date => date < new Date(today + 'T00:00:00')}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <div className="space-y-2">
             <div className="flex gap-2">
               <FileText className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm font-semibold text-primary">{nextQuotationNumber}</span>
             </div>
-            <div className="text-muted-foreground font-medium">{format(new Date(), 'MMM dd, yyyy')}</div>
           </div>
         </div>
 
@@ -787,7 +815,7 @@ export function NewQuotationForm({
                 size="sm"
                 onClick={() => {
                   append({
-                    id: Date.now().toString(),
+                    id: uuidv4(),
                     description: '',
                     quantity: 1,
                     rate: 0,
@@ -806,6 +834,7 @@ export function NewQuotationForm({
             {variants.length > 0 && (
               <div className="bg-muted/30 p-4 rounded-lg">
                 <ProductSelector
+                  label="Add to Quotation"
                   variants={variants}
                   purchases={purchases}
                   currentItems={form.watch('items')}

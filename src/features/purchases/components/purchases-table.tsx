@@ -127,15 +127,20 @@ export function PurchasesTable({
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      {purchase.remaining !== purchase.quantity && <Button
+                      <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteClick(purchase)}
-                        title="Delete purchase"
+                        disabled={purchase.remaining < purchase.quantity}
+                        title={
+                          purchase.remaining < purchase.quantity
+                            ? `Cannot delete: ${purchase.quantity - purchase.remaining} unit(s) already sold`
+                            : 'Delete purchase'
+                        }
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>}
+                        <Trash2 className={`h-4 w-4 ${purchase.remaining < purchase.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
+                      </Button>
                     </div>
                   </TableCell>
                 )}
@@ -149,7 +154,15 @@ export function PurchasesTable({
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Purchase?"
-        description="Are you sure you want to delete this purchase? This action cannot be undone and will affect stock calculations."
+        description={
+          purchaseToDelete
+            ? `Are you sure you want to delete this purchase? This will remove ${purchaseToDelete.quantity} unit(s) from inventory and cannot be undone. ${
+                purchaseToDelete.remaining === purchaseToDelete.quantity
+                  ? 'All units are still available (none have been sold).'
+                  : ''
+              }`
+            : 'Are you sure you want to delete this purchase?'
+        }
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"

@@ -17,10 +17,9 @@ import {
   Package,
   Save,
   Calendar as CalendarIcon,
-  FileText,
-  AlertTriangle
+  FileText
 } from 'lucide-react';
-import { cn, formatCurrency, formatDate, getToday } from '@/lib/utils';
+import { cn, formatCurrency, getToday } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { convertToWords } from '../utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,6 +32,7 @@ import type { Purchase } from '@/features/purchases/types';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { ProductSelector } from './product-selector';
+import { v4 as uuidv4 } from 'uuid';
 
 const invoiceFormSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -156,17 +156,37 @@ export function QuotationConversionForm({
       invoiceNumber: '',
       date: getToday(),
       dueDate: getToday(),
-      items: quotation.items.map(item => ({
-        id: item.id,
-        description: item.description || item.productName,
-        quantity: item.quantity,
-        rate: item.unitPrice,
-        amount: item.totalPrice,
-        productId: item.productId,
-        variantId: item.variantId,
-        variantSKU: item.variantSKU,
-        purchaseId: item.purchaseId
-      })),
+      items: quotation.items.map(item => {
+        // Validate and cap quantity based on purchase stock limit
+        let validatedQuantity = item.quantity;
+        if (item.purchaseId) {
+          const purchase = purchases.find(p => p.purchaseId === item.purchaseId);
+          if (purchase) {
+            if (purchase.remaining === 0) {
+              // Purchase is depleted - set to 1 and clear purchaseId so user can select another
+              validatedQuantity = 1;
+            } else if (item.quantity > purchase.remaining) {
+              // Cap to available stock
+              validatedQuantity = purchase.remaining;
+            }
+          }
+        }
+        
+        return {
+          id: item.id,
+          description: item.description || item.productName,
+          quantity: validatedQuantity,
+          rate: item.unitPrice,
+          amount: validatedQuantity * item.unitPrice,
+          productId: item.productId,
+          variantId: item.variantId,
+          variantSKU: item.variantSKU,
+          // Clear purchaseId if the purchase is depleted
+          purchaseId: item.purchaseId && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0 
+            ? undefined 
+            : item.purchaseId
+        };
+      }),
       taxRate: quotation.taxRate || quotation.gstValue || 0,
       discount: quotation.discountValue || 0,
       discountType: quotation.discountType || 'fixed',
@@ -249,6 +269,36 @@ export function QuotationConversionForm({
         duration: 8000
       });
     }
+
+    // Check if any quantities were adjusted due to purchase stock limits
+    const depletedItems = quotation.items.filter(item => {
+      if (item.purchaseId) {
+        const purchase = purchases.find(p => p.purchaseId === item.purchaseId);
+        return purchase && purchase.remaining === 0;
+      }
+      return false;
+    });
+
+    const adjustedItems = quotation.items.filter(item => {
+      if (item.purchaseId) {
+        const purchase = purchases.find(p => p.purchaseId === item.purchaseId);
+        return purchase && purchase.remaining > 0 && item.quantity > purchase.remaining;
+      }
+      return false;
+    });
+
+    if (depletedItems.length > 0) {
+      const itemNames = depletedItems.map(item => item.productName || item.description).join(', ');
+      toast.error('Purchases depleted', {
+        description: `The following items have depleted purchases and need to be sourced from available stock: ${itemNames}`,
+        duration: 8000
+      });
+    } else if (adjustedItems.length > 0) {
+      toast.warning('Quantities adjusted', {
+        description: 'Some item quantities were reduced to match available stock in their purchases.',
+        duration: 6000
+      });
+    }
   }, []);
 
   const handleAddItemFromSelector = (item: {
@@ -282,10 +332,12 @@ export function QuotationConversionForm({
       return;
     }
 
+    // Check if item from the SAME purchase already exists in the table
     const existingItemIndex = form.watch('items').findIndex(
       (formItem) =>
         formItem.variantId === item.variantId && 
-        formItem.variantSKU === item.sku
+        formItem.variantSKU === item.sku &&
+        formItem.purchaseId === item.purchaseId
       );
 
     if (existingItemIndex !== -1) {
@@ -307,7 +359,7 @@ export function QuotationConversionForm({
     } else {
       // Item doesn't exist or is from a different purchase, add new entry
       append({
-        id: Date.now().toString(),
+        id: uuidv4(),
         description: item.description,
         quantity: item.quantity,
         rate: item.rate,
@@ -479,7 +531,7 @@ export function QuotationConversionForm({
             customerState: customerData.customerState ?? '',
             customerZip: customerData.customerZip ?? '',
             items: data.items.map(item => ({
-              productId: item.productId || '',
+              productId: item.productId || 'custom-item',
               productName: item.description,
               variantId: item.variantId,
               variantSKU: item.variantSKU,
@@ -548,50 +600,88 @@ export function QuotationConversionForm({
     <Form {...form}>
       <form className="space-y-8">
         <div className="flex justify-between items-center gap-2 p-4">
-          <FormField
-            control={form.control}
-            name="dueDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel className="text-lg font-semibold flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Due Date
-                </FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full max-w-sm justify-start text-left font-normal',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a due date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={date => {
-                        const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
-                        field.onChange(formattedDate);
-                      }}
-                      disabled={date => date < new Date(today + 'T00:00:00')}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Invoice Date
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full max-w-sm justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick invoice date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={date => {
+                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          field.onChange(formattedDate);
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Due Date
+                  </FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          'w-full max-w-sm justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a due date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={date => {
+                          const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
+                          field.onChange(formattedDate);
+                        }}
+                        disabled={date => date < new Date(today + 'T00:00:00')}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <div className="space-y-2">
             <div className="flex gap-2">
               <FileText className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm font-semibold text-primary">{nextInvoiceNumber}</span>
             </div>
-            <div className="text-muted-foreground font-medium">{formatDate(new Date())}</div>
           </div>
         </div>
 
@@ -614,11 +704,12 @@ export function QuotationConversionForm({
                 size="sm"
                 onClick={() => {
                   append({
-                    id: Date.now().toString(),
+                    id: uuidv4(),
                     description: '',
                     quantity: 1,
                     rate: 0,
-                    amount: 0
+                    amount: 0,
+                    productId: 'custom-item' // Required by Invoice model for custom items
                   });
                 }}
               >
@@ -654,238 +745,29 @@ export function QuotationConversionForm({
                 </div>
               )}
 
-              {/* Table view for larger containers */}
-              <div className="hidden @[600px]:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-xs font-medium bg-muted/50 border-b">
-                      <th className="p-3 w-12">#</th>
-                      <th className="py-3 px-2">Item Description</th>
-                      <th className="py-3 px-2 text-center">Qty</th>
-                      <th className="py-3 px-2 text-right">Rate</th>
-                      <th className="py-3 px-2 text-right">Amount</th>
-                      <th className="py-3 px-2 w-16"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {fields.map((item, index) => {
-                      const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
-                      const currentRate = form.watch(`items.${index}.rate`) || 0;
-                      const variantId = form.watch(`items.${index}.variantId`);
-                      const availableStock = getAvailableStock(variantId);
-                      const isOutOfStock = isItemOutOfStock(variantId, currentQuantity);
-
-                      return (
-                        <tr
-                          key={item.id}
-                          className={cn(
-                            'group hover:bg-muted/30 transition-colors',
-                            isOutOfStock && 'opacity-60 bg-destructive/5'
-                          )}
-                        >
-                          <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
-                          <td className="py-3 px-2">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.description`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        placeholder="Item description (e.g., Labor, Fuel, etc.)"
-                                        {...field}
-                                        className="text-sm"
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            {variantId && (
-                              <div className="flex items-center gap-2 mt-1">
-                                {isOutOfStock && (
-                                  <div className="flex items-center gap-1 text-xs text-destructive">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    <span className="font-medium">
-                                      {availableStock === 0 ? 'Out of stock' : `Only ${availableStock} available`}
-                                    </span>
-                                  </div>
-                                )}
-                                {!isOutOfStock && availableStock < Infinity && (
-                                  <div className="text-xs text-muted-foreground">Available: {availableStock} units</div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-2">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => {
-                                  const newQuantity = Math.max(1, currentQuantity - 1);
-                                  form.setValue(`items.${index}.quantity`, newQuantity);
-                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
-                                }}
-                                disabled={currentQuantity < 1}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.quantity`}
-                                render={({ field }) => (
-                                  <FormItem className="w-16">
-                                    <FormControl>
-                                      <InputGroup>
-                                        <InputGroupInput
-                                          type="number"
-                                          min="1"
-                                          step="1"
-                                          {...field}
-                                          className="h-7 text-sm text-center"
-                                          onChange={e => {
-                                            const value = e.target.value;
-                                            if (value === '') {
-                                              field.onChange(1);
-                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
-                                              return;
-                                            }
-                                            const numericValue = parseInt(value, 10);
-                                            if (isNaN(numericValue) || numericValue < 1) {
-                                              toast.error('Invalid quantity', {
-                                                description: 'Quantity must be at least 1'
-                                              });
-                                              field.onChange(1);
-                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
-                                              return;
-                                            }
-                                            if (numericValue > availableStock) {
-                                              toast.error('Insufficient stock', {
-                                                description: `Only ${availableStock} units available`
-                                              });
-                                              field.onChange(availableStock);
-                                              form.setValue(`items.${index}.amount`, availableStock * currentRate);
-                                              return;
-                                            }
-                                            field.onChange(numericValue);
-                                            form.setValue(`items.${index}.amount`, numericValue * currentRate);
-                                          }}
-                                          value={field.value || ''}
-                                        />
-                                      </InputGroup>
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => {
-                                  const newQuantity = currentQuantity + 1;
-                                  if (newQuantity > availableStock) {
-                                    toast.error('Insufficient stock', {
-                                      description: `Only ${availableStock} units available`
-                                    });
-                                    return;
-                                  }
-                                  form.setValue(`items.${index}.quantity`, newQuantity);
-                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
-                                }}
-                                disabled={currentQuantity >= availableStock}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-right">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.rate`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        {...field}
-                                        className="h-7 text-sm text-right"
-                                        onChange={e => {
-                                          const value = e.target.value;
-                                          if (value === '') {
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          const numericValue = parseFloat(value);
-                                          if (isNaN(numericValue) || numericValue < 0) {
-                                            toast.error('Invalid rate', {
-                                              description: 'Rate must be 0 or greater'
-                                            });
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          field.onChange(numericValue);
-                                          form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                        }}
-                                        value={field.value || ''}
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </td>
-                          <td className="py-3 px-2 text-right">
-                            <div className="text-sm font-semibold">
-                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
-                            </div>
-                          </td>
-                          <td className="py-3 px-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => remove(index)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Card view for smaller containers */}
-              <div className="@[600px]:hidden divide-y">
+              {/* Card view */}
+              <div className="divide-y">
                 {fields.map((item, index) => {
                   const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
+                  const purchaseId = form.watch(`items.${index}.purchaseId`);
                   const availableStock = getAvailableStock(variantId);
-                  const isOutOfStock = isItemOutOfStock(variantId, currentQuantity);
+                  
+                  // Get stock limit for this specific purchase
+                  const purchaseStockLimit = purchaseId 
+                    ? (() => {
+                        const purchase = purchases.find(p => p.purchaseId === purchaseId);
+                        if (!purchase) return 0;
+                        
+                        // The max this item can have is simply the purchase's remaining stock
+                        // No need to add current quantity since 'remaining' already represents available stock
+                        return purchase.remaining;
+                      })()
+                    : Infinity;
 
                   return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        'p-4 hover:bg-muted/30 transition-colors',
-                        isOutOfStock && 'opacity-60 bg-destructive/5'
-                      )}
-                    >
+                    <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-start gap-2 flex-1">
                           <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
@@ -910,18 +792,6 @@ export function QuotationConversionForm({
                                 </FormItem>
                               )}
                             />
-                            {variantId && (
-                              <div className="flex items-center gap-2 mt-1">
-                                {isOutOfStock && (
-                                  <div className="flex items-center gap-1 text-xs text-destructive">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    <span className="font-medium">
-                                      {availableStock === 0 ? 'Out of stock' : `Only ${availableStock} available`}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
                         </div>
                         <Button
@@ -962,7 +832,9 @@ export function QuotationConversionForm({
                                       <InputGroupInput
                                         type="number"
                                         min="1"
-                                        max={availableStock < Infinity ? availableStock : undefined}
+                                        max={purchaseId 
+                                          ? (purchaseStockLimit < Infinity ? purchaseStockLimit : undefined)
+                                          : (availableStock < Infinity ? availableStock : undefined)}
                                         step="1"
                                         {...field}
                                         className="h-8 text-sm text-center"
@@ -973,21 +845,24 @@ export function QuotationConversionForm({
                                             form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
-                                          const numericValue = parseFloat(value);
-                                          if (isNaN(numericValue) || numericValue < 0.01) {
+                                          const numericValue = parseInt(value, 10);
+                                          if (isNaN(numericValue) || numericValue < 1) {
                                             toast.error('Invalid quantity', {
-                                              description: 'Quantity must be at least 0.01'
+                                              description: 'Quantity must be at least 1'
                                             });
-                                            field.onChange(0.01);
-                                            form.setValue(`items.${index}.amount`, 0.01 * currentRate);
+                                            field.onChange(1);
+                                            form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
-                                          if (numericValue > availableStock) {
+                                          const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                          if (numericValue > maxStock) {
                                             toast.error('Insufficient stock', {
-                                              description: `Only ${availableStock} units available`
+                                              description: purchaseId 
+                                                ? `Only ${maxStock} units available in this purchase`
+                                                : `Only ${maxStock} units available`
                                             });
-                                            field.onChange(availableStock);
-                                            form.setValue(`items.${index}.amount`, availableStock * currentRate);
+                                            field.onChange(maxStock);
+                                            form.setValue(`items.${index}.amount`, maxStock * currentRate);
                                             return;
                                           }
                                           field.onChange(numericValue);
@@ -1007,16 +882,19 @@ export function QuotationConversionForm({
                               className="h-8 w-8"
                               onClick={() => {
                                 const newQuantity = currentQuantity + 1;
-                                if (newQuantity > availableStock) {
+                                const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                if (newQuantity > maxStock) {
                                   toast.error('Insufficient stock', {
-                                    description: `Only ${availableStock} units available`
+                                    description: purchaseId 
+                                      ? `Only ${maxStock} units available in this purchase`
+                                      : `Only ${maxStock} units available`
                                   });
                                   return;
                                 }
                                 form.setValue(`items.${index}.quantity`, newQuantity);
                                 form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                               }}
-                              disabled={currentQuantity >= availableStock}
+                              disabled={currentQuantity >= (purchaseId ? purchaseStockLimit : availableStock)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>

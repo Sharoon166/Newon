@@ -144,13 +144,21 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
     {
       id: 'actions',
       cell: ({ row }) => (
-        <div className="flex justify-end">
-          {/* Remove after test */}
-          <Button variant="destructive" onClick={() => row.original._id && deletePurchase(row.original._id)}>
-            <Trash2 />
+        <div className="flex justify-end gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => row.original._id && deletePurchase(row.original._id)}
+            disabled={row.original.remaining < row.original.quantity}
+            title={
+              row.original.remaining < row.original.quantity
+                ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
+                : 'Delete purchase'
+            }
+          >
+            <Trash2 className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
             <div className="sr-only">delete</div>
           </Button>
-          {/* -------------------------- */}
           <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}>
             <ExternalLink className="h-4 w-4" />
             <span className="sr-only">Go to Product</span>

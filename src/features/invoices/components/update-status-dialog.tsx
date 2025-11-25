@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateInvoiceStatus } from '../actions';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 interface UpdateStatusDialogProps {
   open: boolean;
@@ -24,7 +25,17 @@ interface UpdateStatusDialogProps {
   onSuccess: () => void;
 }
 
-type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+type InvoiceStatus =
+  | 'pending'
+  | 'paid'
+  | 'partial'
+  | 'delivered'
+  | 'cancelled'
+  | 'draft'
+  | 'sent'
+  | 'accepted'
+  | 'rejected'
+  | 'expired';
 
 export function UpdateStatusDialog({
   open,
@@ -37,12 +48,11 @@ export function UpdateStatusDialog({
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>(currentStatus as InvoiceStatus);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Payment statuses (pending, paid, partial) are automatically calculated based on payments
+  // Only allow manual status changes for delivery tracking
   const invoiceStatuses = [
-    { value: 'pending', label: 'Pending' },
-    { value: 'paid', label: 'Paid' },
-    { value: 'partial', label: 'Partial' },
-    { value: 'delivered', label: 'Delivered' },
-    // { value: 'cancelled', label: 'Cancelled' }
+    { value: 'delivered', label: 'Delivered' }
+    // { value: 'cancelled', label: 'Cancelled' } - Use cancel button instead
   ] as const;
 
   const quotationStatuses = [
@@ -53,9 +63,14 @@ export function UpdateStatusDialog({
     { value: 'expired', label: 'Expired' }
   ] as const;
 
+  const immutableStatuses = ['converted'];
   const statuses = type === 'invoice' ? invoiceStatuses : quotationStatuses;
 
   const handleSubmit = async () => {
+    if (immutableStatuses.includes(currentStatus)) {
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       await updateInvoiceStatus(invoiceId, selectedStatus);
@@ -77,12 +92,17 @@ export function UpdateStatusDialog({
           <DialogTitle>Update Status</DialogTitle>
           <DialogDescription>Change the status of this {type}.</DialogDescription>
         </DialogHeader>
-
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="status">Status</Label>
-            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as InvoiceStatus)}>
-              <SelectTrigger id="status" className='w-full'>
+            <Label htmlFor="status">
+              Status <Badge>{currentStatus}</Badge>
+            </Label>
+            <Select
+              value={selectedStatus}
+              onValueChange={value => setSelectedStatus(value as InvoiceStatus)}
+              disabled={immutableStatuses.includes(currentStatus)}
+            >
+              <SelectTrigger id="status" className="w-full">
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
               <SelectContent>
@@ -93,6 +113,11 @@ export function UpdateStatusDialog({
                 ))}
               </SelectContent>
             </Select>
+            {immutableStatuses.includes(currentStatus) && (
+              <p className="text-sm text-destructive/80">
+                Status <span className="font-semibold">{currentStatus}</span> cannot be changed.
+              </p>
+            )}
           </div>
         </div>
 

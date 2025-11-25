@@ -334,8 +334,9 @@ invoiceSchema.index({ market: 1, billingType: 1 });
 // Add pagination plugin
 invoiceSchema.plugin(mongoosePaginate);
 
-// Pre-save hook to generate invoice number
+// Pre-save hook to generate invoice number and auto-calculate payment status
 invoiceSchema.pre('save', async function (next) {
+  // Generate invoice number for new documents
   if (this.isNew && !this.invoiceNumber) {
     try {
       const prefix = this.type === 'quotation' ? 'QT' : 'INV';
@@ -347,6 +348,19 @@ invoiceSchema.pre('save', async function (next) {
       return next(error as Error);
     }
   }
+
+  // Auto-calculate payment status for invoices (not quotations)
+  // Only if status is one of the payment-related statuses
+  if (this.type === 'invoice' && ['pending', 'paid', 'partial'].includes(this.status)) {
+    if (this.balanceAmount <= 0 && this.paidAmount > 0) {
+      this.status = 'paid';
+    } else if (this.paidAmount > 0) {
+      this.status = 'partial';
+    } else {
+      this.status = 'pending';
+    }
+  }
+
   next();
 });
 

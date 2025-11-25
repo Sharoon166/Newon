@@ -8,7 +8,7 @@ import { getPaymentDetails, getInvoiceTerms } from '@/features/settings/actions'
 
 export default async function NewDocument() {
   const [customersData, variants, purchases, paymentDetails, invoiceTerms] = await Promise.all([
-    getCustomers({ limit: 1000 }),
+    getCustomers({ limit: 1000, includeDisabled: false }), // Exclude disabled customers from invoice creation
     getProducts(),
     getAllPurchases(),
     getPaymentDetails(),

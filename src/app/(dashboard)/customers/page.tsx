@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { getCustomers, deleteCustomer } from '@/features/customers/actions';
+import { getCustomers, deleteCustomer, toggleCustomerDisabled } from '@/features/customers/actions';
 import { PageHeader } from '@/components/general/page-header';
 import { CustomerTableWrapper } from '@/features/customers/components/customer-table-wrapper';
 
@@ -14,8 +14,8 @@ export default async function CustomersPage({
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 10;
 
-  // Fetch customers on the server with pagination
-  const customers = await getCustomers({ page, limit });
+  // Fetch all customers (including disabled) on the server with pagination
+  const customers = await getCustomers({ page, limit, includeDisabled: true });
 
   // Server action for deleting a customer
   const deleteCustomerAction = async (id: string) => {
@@ -26,6 +26,18 @@ export default async function CustomersPage({
     } catch (error) {
       console.error('Error deleting customer:', error);
       return { success: false, error: 'Failed to delete customer' };
+    }
+  };
+
+  // Server action for toggling customer disabled status
+  const toggleDisabledAction = async (id: string) => {
+    'use server';
+    try {
+      await toggleCustomerDisabled(id);
+      return { success: true };
+    } catch (error) {
+      console.error('Error toggling customer status:', error);
+      return { success: false, error: 'Failed to toggle customer status' };
     }
   };
 
@@ -41,7 +53,11 @@ export default async function CustomersPage({
       </PageHeader>
 
       <div className="mt-6">
-        <CustomerTableWrapper initialData={customers} deleteCustomerAction={deleteCustomerAction} />
+        <CustomerTableWrapper 
+          initialData={customers} 
+          deleteCustomerAction={deleteCustomerAction}
+          toggleDisabledAction={toggleDisabledAction}
+        />
       </div>
     </>
   );

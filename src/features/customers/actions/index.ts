@@ -17,6 +17,7 @@ interface LeanCustomer {
   city?: string;
   state?: string;
   zip?: string;
+  disabled?: boolean;
   totalInvoiced?: number;
   totalPaid?: number;
   outstandingBalance?: number;
@@ -37,11 +38,16 @@ function transformLeanCustomer(leanDoc: LeanCustomer): Customer {
   } as Customer;
 }
 
-export async function getCustomers(filters?: CustomerFilters): Promise<PaginatedCustomers> {
+export async function getCustomers(filters?: CustomerFilters & { includeDisabled?: boolean }): Promise<PaginatedCustomers> {
   try {
     await dbConnect();
 
     const query: Record<string, unknown> = {};
+
+    // By default, exclude disabled customers unless explicitly requested
+    if (!filters?.includeDisabled) {
+      query.disabled = { $ne: true };
+    }
 
     if (filters?.search) {
       query.$or = [
@@ -210,21 +216,33 @@ export async function updateCustomerFinancialsOnInvoice(
   try {
     await dbConnect();
 
-    const customer = await CustomerModel.findOne({ customerId });
+    const result = await CustomerModel.findOneAndUpdate(
+      { customerId },
+      {
+        $inc: {
+          totalInvoiced: totalAmount,
+          outstandingBalance: totalAmount
+        },
+        $set: {
+          lastInvoiceDate: invoiceDate
+        }
+      },
+      { new: true }
+    );
     
-    if (!customer) {
+    if (!result) {
       console.warn(`Customer ${customerId} not found for financial update`);
       return;
     }
-
-    customer.totalInvoiced += totalAmount;
-    customer.outstandingBalance += totalAmount;
-    customer.lastInvoiceDate = invoiceDate;
-
-    await customer.save();
+    
+    // Revalidate pages that show customer financial data
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${customerId}`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error updating customer financials for ${customerId}:`, error);
-    // Don't throw - invoice creation should succeed even if customer update fails
+    // Don't throw - invoice creation should succeed even if customer update failed
   }
 }
 
@@ -239,18 +257,30 @@ export async function updateCustomerFinancialsOnPayment(
   try {
     await dbConnect();
 
-    const customer = await CustomerModel.findOne({ customerId });
+    const result = await CustomerModel.findOneAndUpdate(
+      { customerId },
+      {
+        $inc: {
+          totalPaid: paymentAmount,
+          outstandingBalance: -paymentAmount
+        },
+        $set: {
+          lastPaymentDate: paymentDate
+        }
+      },
+      { new: true }
+    );
     
-    if (!customer) {
+    if (!result) {
       console.warn(`Customer ${customerId} not found for financial update`);
       return;
     }
-
-    customer.totalPaid += paymentAmount;
-    customer.outstandingBalance -= paymentAmount;
-    customer.lastPaymentDate = paymentDate;
-
-    await customer.save();
+    
+    // Revalidate pages that show customer financial data
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${customerId}`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error updating customer financials for ${customerId}:`, error);
     // Don't throw - payment should succeed even if customer update fails
@@ -268,6 +298,7 @@ export async function reverseCustomerFinancialsOnInvoiceDelete(
   try {
     await dbConnect();
 
+    // First get current values to ensure we don't go negative
     const customer = await CustomerModel.findOne({ customerId });
     
     if (!customer) {
@@ -275,11 +306,26 @@ export async function reverseCustomerFinancialsOnInvoiceDelete(
       return;
     }
 
-    customer.totalInvoiced = Math.max(0, customer.totalInvoiced - totalAmount);
-    customer.totalPaid = Math.max(0, customer.totalPaid - paidAmount);
-    customer.outstandingBalance = Math.max(0, customer.outstandingBalance - (totalAmount - paidAmount));
+    const newTotalInvoiced = Math.max(0, customer.totalInvoiced - totalAmount);
+    const newTotalPaid = Math.max(0, customer.totalPaid - paidAmount);
+    const newOutstandingBalance = Math.max(0, customer.outstandingBalance - (totalAmount - paidAmount));
 
-    await customer.save();
+    await CustomerModel.findOneAndUpdate(
+      { customerId },
+      {
+        $set: {
+          totalInvoiced: newTotalInvoiced,
+          totalPaid: newTotalPaid,
+          outstandingBalance: newOutstandingBalance
+        }
+      }
+    );
+    
+    // Revalidate pages that show customer financial data
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${customerId}`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error reversing customer financials for ${customerId}:`, error);
     // Don't throw - invoice deletion should succeed even if customer update fails
@@ -296,6 +342,7 @@ export async function reverseCustomerFinancialsOnPaymentDelete(
   try {
     await dbConnect();
 
+    // First get current values to ensure totalPaid doesn't go negative
     const customer = await CustomerModel.findOne({ customerId });
     
     if (!customer) {
@@ -303,10 +350,25 @@ export async function reverseCustomerFinancialsOnPaymentDelete(
       return;
     }
 
-    customer.totalPaid = Math.max(0, customer.totalPaid - paymentAmount);
-    customer.outstandingBalance += paymentAmount;
+    const newTotalPaid = Math.max(0, customer.totalPaid - paymentAmount);
 
-    await customer.save();
+    await CustomerModel.findOneAndUpdate(
+      { customerId },
+      {
+        $set: {
+          totalPaid: newTotalPaid
+        },
+        $inc: {
+          outstandingBalance: paymentAmount
+        }
+      }
+    );
+    
+    // Revalidate pages that show customer financial data
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${customerId}`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error reversing customer payment for ${customerId}:`, error);
     // Don't throw - payment deletion should succeed even if customer update fails
@@ -326,6 +388,12 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
   try {
     await dbConnect();
 
+    // Calculate differences
+    const invoiceDiff = newTotalAmount - oldTotalAmount;
+    const paidDiff = newPaidAmount - oldPaidAmount;
+    const outstandingDiff = invoiceDiff - paidDiff;
+
+    // Get current values to ensure no negative results
     const customer = await CustomerModel.findOne({ customerId });
     
     if (!customer) {
@@ -333,22 +401,68 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
       return;
     }
 
-    // Calculate differences
-    const invoiceDiff = newTotalAmount - oldTotalAmount;
-    const paidDiff = newPaidAmount - oldPaidAmount;
-    const outstandingDiff = invoiceDiff - paidDiff;
+    const newTotalInvoiced = Math.max(0, customer.totalInvoiced + invoiceDiff);
+    const newTotalPaid = Math.max(0, customer.totalPaid + paidDiff);
+    const newOutstandingBalance = customer.outstandingBalance + outstandingDiff;
 
-    customer.totalInvoiced += invoiceDiff;
-    customer.totalPaid += paidDiff;
-    customer.outstandingBalance += outstandingDiff;
-
-    // Ensure no negative values
-    customer.totalInvoiced = Math.max(0, customer.totalInvoiced);
-    customer.totalPaid = Math.max(0, customer.totalPaid);
-
-    await customer.save();
+    await CustomerModel.findOneAndUpdate(
+      { customerId },
+      {
+        $set: {
+          totalInvoiced: newTotalInvoiced,
+          totalPaid: newTotalPaid,
+          outstandingBalance: newOutstandingBalance
+        }
+      }
+    );
+    
+    // Revalidate pages that show customer financial data
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${customerId}`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
   } catch (error) {
     console.error(`Error updating customer financials for ${customerId}:`, error);
     // Don't throw - invoice update should succeed even if customer update fails
+  }
+}
+
+/**
+ * Toggle customer disabled status
+ */
+export async function toggleCustomerDisabled(id: string): Promise<Customer> {
+  try {
+    await dbConnect();
+
+    // Protect OTC customer from being disabled
+    if (id === 'otc') {
+      throw new Error('Cannot disable OTC customer. This is a system customer for walk-in sales.');
+    }
+
+    const customer = await CustomerModel.findOne({ customerId: id });
+
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    const updatedCustomer = await CustomerModel.findOneAndUpdate(
+      { customerId: id },
+      { $set: { disabled: !customer.disabled } },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updatedCustomer) {
+      throw new Error('Customer not found');
+    }
+
+    revalidatePath('/customers');
+    revalidatePath(`/customers/${id}`);
+    revalidatePath('/invoices');
+    revalidatePath('/invoices/new');
+
+    return transformLeanCustomer(updatedCustomer as unknown as LeanCustomer);
+  } catch (error) {
+    console.error(`Error toggling customer disabled status ${id}:`, error);
+    throw new Error('Failed to toggle customer status');
   }
 }
