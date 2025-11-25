@@ -87,7 +87,7 @@ export async function updateAdminAccount(data: {
   email: string;
   currentPassword: string;
   newPassword?: string;
-}): Promise<void> {
+}): Promise<{ success: boolean; error?: string }> {
   try {
     const session = await requireAdmin();
     await dbConnect();
@@ -96,13 +96,13 @@ export async function updateAdminAccount(data: {
     const admin = await Staff.findById(session.user.id).select('+password');
 
     if (!admin) {
-      throw new Error('Admin user not found');
+      return { success: false, error: 'Admin user not found' };
     }
 
     // Verify current password
     const isPasswordValid = await admin.comparePassword(data.currentPassword);
     if (!isPasswordValid) {
-      throw new Error('Current password is incorrect');
+      return { success: false, error: 'Current password is incorrect' };
     }
 
     // Update admin details
@@ -118,8 +118,9 @@ export async function updateAdminAccount(data: {
     await admin.save();
 
     revalidatePath('/settings');
+    return { success: true };
   } catch (error) {
     console.error('Error updating admin account:', error);
-    throw error;
+    return { success: false, error: 'Failed to update account' };
   }
 }

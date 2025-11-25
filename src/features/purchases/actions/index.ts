@@ -49,7 +49,7 @@ export const getAllPurchases = async () => {
       }
     },
     {
-      $sort: { purchaseDate: 1 }
+      $sort: { purchaseDate: -1, purchaseId: -1 }
     },
     {
       $project: {

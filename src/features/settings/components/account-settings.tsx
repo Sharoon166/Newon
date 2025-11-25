@@ -89,13 +89,18 @@ export function AccountSettings({ currentUser }: AccountSettingsProps) {
     try {
       setLoading(true);
 
-      await updateAdminAccount({
+      const result = await updateAdminAccount({
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         currentPassword: data.currentPassword,
         newPassword: data.newPassword || undefined
       });
+
+      if (!result.success) {
+        toast.error(result.error || 'Failed to update account');
+        return;
+      }
 
       // Update the session with new user data
       await update({
@@ -112,7 +117,7 @@ export function AccountSettings({ currentUser }: AccountSettingsProps) {
       form.setValue('newPassword', '');
       form.setValue('confirmPassword', '');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update account');
+      toast.error('Failed to update account');
     } finally {
       setLoading(false);
     }
