@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { NewInvoiceForm } from './new-invoice-form';
 import { NewQuotationForm } from './new-quotation-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -57,6 +57,7 @@ interface NewInvoiceFormWrapperProps {
   purchases: Purchase[];
   paymentDetails: PaymentDetails;
   invoiceTerms: string[];
+  initialTab?: DocumentType;
 }
 
 export function NewInvoiceFormWrapper({
@@ -64,11 +65,17 @@ export function NewInvoiceFormWrapper({
   variants,
   purchases,
   paymentDetails,
-  invoiceTerms
+  invoiceTerms,
+  initialTab = 'invoice'
 }: NewInvoiceFormWrapperProps) {
   const router = useRouter();
-  const [documentType, setDocumentType] = useState<DocumentType>('invoice');
+  const searchParams = useSearchParams();
+  const [documentType, setDocumentType] = useState<DocumentType>(initialTab);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setDocumentType(initialTab);
+  }, [initialTab]);
 
   const handleSaveInvoice = async (formData: FormData) => {
     const documentData: FormData = {
@@ -170,8 +177,16 @@ export function NewInvoiceFormWrapper({
     }
   };
 
+  const handleTabChange = (value: string) => {
+    const newType = value as DocumentType;
+    setDocumentType(newType);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', newType);
+    router.push(`/invoices/new?${params.toString()}`, { scroll: false });
+  };
+
   return (
-    <Tabs defaultValue="invoice" className="w-full" onValueChange={value => setDocumentType(value as DocumentType)}>
+    <Tabs value={documentType} className="w-full" onValueChange={handleTabChange}>
       <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
         <TabsTrigger value="invoice">Invoice</TabsTrigger>
         <TabsTrigger value="quotation">Quotation</TabsTrigger>

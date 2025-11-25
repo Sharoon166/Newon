@@ -17,25 +17,17 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AdminGate } from '@/components/auth/permission-gate';
 import { format } from 'date-fns';
-import { Pencil, ArrowUpDown, Users } from 'lucide-react';
+import { Pencil, ArrowUpDown, Users, Trash2 } from 'lucide-react';
 import { TablePagination } from '@/components/general/table-pagination';
+import { toggleStaffStatus } from '../actions';
+import { toast } from 'sonner';
+import { deleteStaffMember } from '@/features/staff/actions';
+import { StaffMember } from '../types';
+import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 
 interface Staff {
   id: string;
@@ -51,41 +43,64 @@ interface Staff {
 
 interface StaffTableProps {
   staff: Staff[];
-  isLoading: boolean;
-  onStatusChange: (staffId: string, isActive: boolean) => void;
 }
 
-export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps) {
+export function StaffTable({ staff }: StaffTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [staffToDelete, setStaffToDelete] = useState<{ id: string; member: Omit<StaffMember, 'updatedAt' | 'createdAt'> } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleStatusChange = async (staffId: string, isActive: boolean) => {
+    try {
+      await toggleStaffStatus(staffId, isActive);
+      toast.success(`Staff ${isActive ? 'activated' : 'deactivated'} successfully`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update staff status');
+    }
+  };
+
+  const handleDeleteClick = (staffId: string, staffMember: Omit<StaffMember, 'updatedAt' | 'createdAt'>) => {
+    setStaffToDelete({ id: staffId, member: staffMember });
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    if (!staffToDelete) return;
+    
+    try {
+      setIsProcessing(true);
+      await deleteStaffMember(staffToDelete.id, staffToDelete.member);
+      toast.success('Staff deleted successfully');
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete staff');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const columns = useMemo<ColumnDef<Staff>[]>(
     () => [
       {
         accessorKey: 'staffId',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Staff ID
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ row }) => (
-          <div className="font-medium">{row.getValue('staffId') || '-'}</div>
-        )
+        cell: ({ row }) => <div className="font-medium">{row.getValue('staffId') || '-'}</div>
       },
       {
         id: 'name',
-        accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+        accessorFn: row => `${row.firstName} ${row.lastName}`,
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Name
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -99,10 +114,7 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
       {
         accessorKey: 'email',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Email
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -117,10 +129,7 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
       {
         accessorKey: 'role',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Role
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -140,10 +149,7 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
       {
         accessorKey: 'isActive',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Status
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -160,8 +166,8 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
             >
               <Switch
                 checked={member.isActive}
-                onCheckedChange={(checked) => onStatusChange(member.id, checked)}
-                disabled={member.role == "admin"}
+                onCheckedChange={checked => handleStatusChange(member.id, checked)}
+                disabled={member.role == 'admin'}
               />
             </AdminGate>
           );
@@ -174,10 +180,7 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
       {
         accessorKey: 'createdAt',
         header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
             Joined
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -191,20 +194,20 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
           const member = row.original;
           return (
             <AdminGate>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/staff/${member.id}/edit`)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => router.push(`/staff/${member.id}/edit`)}>
                 <Pencil className="h-4 w-4 mr-1" />
-                Edit
+                <span className="sr-only">Edit {row.original.firstName}</span>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(row.original.id, row.original)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+                <span className="sr-only">Delete {row.original.firstName}</span>
               </Button>
             </AdminGate>
           );
         }
       }
     ],
-    [router, onStatusChange]
+    [router]
   );
 
   const table = useReactTable({
@@ -229,17 +232,6 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
     }
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading staff...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (staff.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
@@ -250,21 +242,22 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
     );
   }
 
-  const uniqueRoles = Array.from(new Set(staff.map((s) => s.role)));
+  const uniqueRoles = Array.from(new Set(staff.map(s => s.role)));
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex items-center gap-4">
+    <>
+      <div className="space-y-4">
+        {/* Filters */}
+        <div className="flex items-center gap-4">
         <Input
           placeholder="Search all columns..."
           value={globalFilter ?? ''}
-          onChange={(e) => setGlobalFilter(e.target.value)}
+          onChange={e => setGlobalFilter(e.target.value)}
           className="max-w-sm"
         />
         <Select
           value={(table.getColumn('role')?.getFilterValue() as string[])?.join(',') || 'all'}
-          onValueChange={(value) => {
+          onValueChange={value => {
             table.getColumn('role')?.setFilterValue(value === 'all' ? undefined : [value]);
           }}
         >
@@ -273,7 +266,7 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
-            {uniqueRoles.map((role) => (
+            {uniqueRoles.map(role => (
               <SelectItem key={role} value={role} className="capitalize">
                 {role}
               </SelectItem>
@@ -282,7 +275,7 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
         </Select>
         <Select
           value={(table.getColumn('isActive')?.getFilterValue() as string) || 'all'}
-          onValueChange={(value) => {
+          onValueChange={value => {
             table.getColumn('isActive')?.setFilterValue(value === 'all' ? undefined : value);
           }}
         >
@@ -301,13 +294,11 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+            {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map(header => (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
               </TableRow>
@@ -315,12 +306,10 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map(row => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))
@@ -335,8 +324,21 @@ export function StaffTable({ staff, isLoading, onStatusChange }: StaffTableProps
         </Table>
       </div>
 
-      {/* Pagination */}
-      <TablePagination table={table} itemName="staff members" />
-    </div>
+        {/* Pagination */}
+        <TablePagination table={table} itemName="staff members" />
+      </div>
+
+      {/* Delete Confirmation */}
+      <ConfirmationDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Staff Member"
+        description="This action cannot be undone. This will permanently delete the staff member and all associated data."
+        confirmText="Delete"
+        onConfirm={handleDelete}
+        isProcessing={isProcessing}
+        variant="destructive"
+      />
+    </>
   );
 }

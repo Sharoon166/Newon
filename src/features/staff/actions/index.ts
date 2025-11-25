@@ -6,7 +6,7 @@ import { StaffMember, CreateStaffDto, UpdateStaffDto, StaffFilters } from '../ty
 import dbConnect from '@/lib/db';
 import Staff from '../../../models/Staff';
 
-type LeanStaffMember = Omit<StaffMember, '_id' | '__v'> & {
+export type LeanStaffMember = Omit<StaffMember, '_id' | '__v'> & {
   _id: string;
   __v: number;
 };
@@ -36,7 +36,7 @@ export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMemb
       query.isActive = filters.isActive;
     }
 
-    const staffMembers = await Staff.find(query).sort({ createdAt: -1 }).lean();
+    const staffMembers = await Staff.find(query).sort({ role: 1, createdAt: -1 }).lean();
 
     return staffMembers.map(member => {
       const memberObj = member as LeanStaffMember;
@@ -151,7 +151,15 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto): Promi
   }
 }
 
-export async function deleteStaffMember(id: string): Promise<void> {
+export async function deleteStaffMember(id: string, staff: Omit<StaffMember, 'updatedAt' | "createdAt">): Promise<void> {
+  if (staff.role === 'admin') {
+    throw new Error(`Cannot delete ${staff.firstName}. He's an admin`);
+  }
+
+  if (staff.isActive) {
+    throw new Error(`Cannot delete an active staff member.`);
+  }
+
   try {
     await dbConnect();
 
