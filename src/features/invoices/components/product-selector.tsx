@@ -246,7 +246,7 @@ export function ProductSelector({
       {/* Product Grid with Scroll Area */}
       <div
         ref={gridRef}
-        className="@container grid grid-flow-dense grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 p-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+        className="@container grid grid-flow-dense sm:grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 p-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
       >
         {filteredVariants.map(variant => {
           // Get all purchases for this variant, sorted by FIFO
@@ -286,7 +286,7 @@ export function ProductSelector({
                   {/* Product Image */}
                   {variant.image || variant.imageFile?.cloudinaryUrl ? (
                     <div
-                      className="w-full h-32 overflow-clip rounded-md flex justify-center bg-cover bg-no-repeat"
+                      className="w-full h-32 overflow-clip rounded-md flex justify-center bg-cover bg-no-repeat max-sm:bg-center"
                       style={{
                         backgroundImage: `url(${variant.imageFile?.cloudinaryUrl || variant.image})`
                       }}

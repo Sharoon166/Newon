@@ -825,222 +825,8 @@ export function NewInvoiceForm({
                 </div>
               )}
 
-              {/* Table view for larger containers */}
-              <div className="hidden @[600px]:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-xs font-medium bg-muted/50 border-b">
-                      <th className="p-3 w-12">#</th>
-                      <th className="py-3 px-2">Item Description</th>
-                      <th className="py-3 px-2 text-center">Qty</th>
-                      <th className="py-3 px-2 text-right">Rate</th>
-                      <th className="py-3 px-2 text-right">Amount</th>
-                      <th className="py-3 px-2 w-16"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {fields.map((item, index) => {
-                      const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
-                      const currentRate = form.watch(`items.${index}.rate`) || 0;
-                      const variantId = form.watch(`items.${index}.variantId`);
-                      const purchaseId = form.watch(`items.${index}.purchaseId`);
-                      const availableStock = getAvailableStock(variantId);
-
-                      // Get stock limit for this specific purchase (including current item's quantity)
-                      const purchaseStockLimit = purchaseId
-                        ? (purchases.find(p => p.purchaseId === purchaseId)?.remaining || 0) + currentQuantity
-                        : Infinity;
-
-                      return (
-                        <tr key={item.id} className="group hover:bg-muted/30 transition-colors">
-                          <td className="p-3 text-sm text-muted-foreground">{index + 1}</td>
-                          <td className="py-3 px-2">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.description`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        placeholder="Item description (e.g., Labor, Fuel, etc.)"
-                                        {...field}
-                                        className="text-sm"
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </td>
-                          <td className="py-3 px-2">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => {
-                                  const newQuantity = Math.max(1, currentQuantity - 1);
-                                  form.setValue(`items.${index}.quantity`, newQuantity);
-                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
-                                }}
-                                disabled={currentQuantity <= 1}
-                              >
-                                <Minus className="h-3 w-3" />
-                              </Button>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.quantity`}
-                                render={({ field }) => (
-                                  <FormItem className="w-16">
-                                    <FormControl>
-                                      <InputGroup>
-                                        <InputGroupInput
-                                          type="number"
-                                          min="1"
-                                          max={
-                                            purchaseId
-                                              ? purchaseStockLimit < Infinity
-                                                ? purchaseStockLimit
-                                                : undefined
-                                              : availableStock < Infinity
-                                                ? availableStock
-                                                : undefined
-                                          }
-                                          step="1"
-                                          {...field}
-                                          className="h-7 text-sm text-center"
-                                          onChange={e => {
-                                            const value = e.target.value;
-                                            if (value === '') {
-                                              field.onChange(1);
-                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
-                                              return;
-                                            }
-                                            const numericValue = parseInt(value, 10);
-                                            if (isNaN(numericValue) || numericValue < 1) {
-                                              toast.error('Invalid quantity', {
-                                                description: 'Quantity must be at least 1'
-                                              });
-                                              field.onChange(1);
-                                              form.setValue(`items.${index}.amount`, 1 * currentRate);
-                                              return;
-                                            }
-                                            const maxStock = purchaseId ? purchaseStockLimit : availableStock;
-                                            if (numericValue > maxStock) {
-                                              toast.error('Insufficient stock', {
-                                                description: purchaseId
-                                                  ? `Only ${maxStock} units available in this purchase`
-                                                  : `Only ${maxStock} units available`
-                                              });
-                                              field.onChange(maxStock);
-                                              form.setValue(`items.${index}.amount`, maxStock * currentRate);
-                                              return;
-                                            }
-                                            field.onChange(numericValue);
-                                            form.setValue(`items.${index}.amount`, numericValue * currentRate);
-                                          }}
-                                          value={field.value || ''}
-                                        />
-                                      </InputGroup>
-                                    </FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => {
-                                  const newQuantity = currentQuantity + 1;
-                                  const maxStock = purchaseId ? purchaseStockLimit : availableStock;
-                                  if (newQuantity > maxStock) {
-                                    toast.error('Insufficient stock', {
-                                      description: purchaseId
-                                        ? `Only ${maxStock} units available in this purchase`
-                                        : `Only ${maxStock} units available`
-                                    });
-                                    return;
-                                  }
-                                  form.setValue(`items.${index}.quantity`, newQuantity);
-                                  form.setValue(`items.${index}.amount`, newQuantity * currentRate);
-                                }}
-                                disabled={currentQuantity >= (purchaseId ? purchaseStockLimit : availableStock)}
-                              >
-                                <Plus className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-right">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.rate`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        {...field}
-                                        className="h-7 text-sm text-right"
-                                        onChange={e => {
-                                          const value = e.target.value;
-                                          if (value === '') {
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          const numericValue = parseFloat(value);
-                                          if (isNaN(numericValue) || numericValue < 0) {
-                                            toast.error('Invalid rate', {
-                                              description: 'Rate must be 0 or greater'
-                                            });
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          field.onChange(numericValue);
-                                          form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                        }}
-                                        value={field.value || ''}
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </td>
-                          <td className="py-3 px-2 text-right">
-                            <div className="text-sm font-semibold">
-                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
-                            </div>
-                          </td>
-                          <td className="py-3 px-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => remove(index)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
               {/* Card view for smaller containers */}
-              <div className="@[600px]:hidden divide-y">
+              <div className="divide-y">
                 {fields.map((item, index) => {
                   const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
@@ -1049,8 +835,15 @@ export function NewInvoiceForm({
                   const availableStock = getAvailableStock(variantId);
 
                   // Get stock limit for this specific purchase (including current item's quantity)
-                  const purchaseStockLimit = purchaseId
-                    ? (purchases.find(p => p.purchaseId === purchaseId)?.remaining || 0) + currentQuantity
+                  const purchaseStockLimit = purchaseId 
+                    ? (() => {
+                        const purchase = purchases.find(p => p.purchaseId === purchaseId);
+                        if (!purchase) return 0;
+                        
+                        // The max this item can have is simply the purchase's remaining stock
+                        // No need to add current quantity since 'remaining' already represents available stock
+                        return purchase.remaining;
+                      })()
                     : Infinity;
 
                   return (
