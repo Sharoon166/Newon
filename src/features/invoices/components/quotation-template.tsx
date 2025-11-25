@@ -170,7 +170,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         {quotationData.notes && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
-            <p className="whitespace-pre-line">{quotationData.notes}</p>
+            <p className="whitespace-pre-line text-xs">{quotationData.notes}</p>
           </div>
         )}
         {quotationData.terms && (

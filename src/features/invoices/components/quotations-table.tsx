@@ -36,7 +36,6 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Printer,
   Hash
 } from 'lucide-react';
 import { Invoice } from '../types';
@@ -276,12 +275,6 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                   <DropdownMenuItem>
                     <Eye className="h-4 w-4 mr-2" />
                     View Details
-                  </DropdownMenuItem>
-                </Link>
-                <Link href={`/invoices/${quotation.id}/print`}>
-                  <DropdownMenuItem>
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuItem

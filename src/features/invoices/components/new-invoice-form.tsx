@@ -1,8 +1,7 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect, useRef } from 'react';
-import { useReactToPrint } from 'react-to-print';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,6 @@ import {
   Package,
   Eye,
   Save,
-  Printer,
   Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -112,7 +110,6 @@ export function NewInvoiceForm({
   isLoading,
   onPreview,
   onSave,
-  onPrint,
   customers,
   variants = [],
   purchases = [],
@@ -122,7 +119,6 @@ export function NewInvoiceForm({
   isLoading: boolean;
   onPreview: (data: InvoiceFormValues) => void;
   onSave?: (data: InvoiceFormValues) => void | Promise<void>;
-  onPrint?: (data: InvoiceFormValues) => void;
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
@@ -135,15 +131,8 @@ export function NewInvoiceForm({
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
-
-  // Configure react-to-print
-  const handleReactToPrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `Invoice-${nextInvoiceNumber}`
-  });
   const form = useForm<InvoiceFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(invoiceFormSchema) as any,
@@ -198,7 +187,6 @@ export function NewInvoiceForm({
         const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
         const number = await getNextInvoiceNumber('invoice');
         setNextInvoiceNumber(number);
-        form.setValue('invoiceNumber', number);
       } catch (error) {
         console.error('Error fetching next invoice number:', error);
         setNextInvoiceNumber('Error loading');
@@ -493,26 +481,6 @@ export function NewInvoiceForm({
       } catch (error) {
         console.error('Error saving invoice:', error);
         toast.error('Failed to save invoice', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-        });
-      }
-    }, handleFormErrors)();
-  };
-
-  const handlePrint = () => {
-    form.handleSubmit(data => {
-      if (!validateInvoiceData(data)) return;
-
-      try {
-        // Open preview sheet first
-        setIsPreviewOpen(true);
-        // Then trigger print after a short delay to ensure sheet is rendered
-        setTimeout(() => {
-          handleReactToPrint();
-        }, 300);
-      } catch (error) {
-        console.error('Error printing invoice:', error);
-        toast.error('Failed to print invoice', {
           description: error instanceof Error ? error.message : 'An unexpected error occurred.'
         });
       }
@@ -1262,10 +1230,6 @@ export function NewInvoiceForm({
             {isLoading ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             {isLoading ? 'Saving' : 'Save Invoice'}
           </Button>
-          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
         </div>
       </form>
 
@@ -1274,19 +1238,17 @@ export function NewInvoiceForm({
         <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex gap-2 items-center text-primary">
-              <Printer /> Invoice Preview
+              <Eye /> Invoice Preview
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             <NewonInvoiceTemplate
-              ref={printRef}
               invoiceData={{
                 ...form.getValues(),
-                invoiceNumber: form.getValues('invoiceNumber') || nextInvoiceNumber,
+                invoiceNumber: nextInvoiceNumber,
                 outstandingBalance
               }}
               onBack={() => setIsPreviewOpen(false)}
-              onPrint={handleReactToPrint}
               onSave={handleSave}
             />
           </div>

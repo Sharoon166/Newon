@@ -295,7 +295,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                               <div className="font-medium">{variant.stockOnBackorder || 0}</div>
                             </div>
                           </div>
-
+                          <VariantActions
+                            productId={id}
+                            variantId={variant.id}
+                            disabled={variant.disabled || false}
+                            variantSku={variant.sku}
+                          />
                           <div className="mt-2 flex gap-2">
                             <VariantPurchaseHistoryButton
                               productId={id}
@@ -304,12 +309,6 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                               variantAttributes={variant.attributes}
                               productAttributes={product.attributes || []}
                               locations={product.locations || []}
-                            />
-                            <VariantActions
-                              productId={id}
-                              variantId={variant.id}
-                              disabled={variant.disabled || false}
-                              variantSku={variant.sku}
                             />
                           </div>
                         </div>
@@ -403,12 +402,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                     <div className="font-medium">{singleVariant.stockOnBackorder || 0}</div>
                   </div>
                 </div>
-                  <VariantActions
-                    productId={id}
-                    variantId={singleVariant.id}
-                    disabled={singleVariant.disabled || false}
-                    variantSku={singleVariant.sku}
-                  />
+                <VariantActions
+                  productId={id}
+                  variantId={singleVariant.id}
+                  disabled={singleVariant.disabled || false}
+                  variantSku={singleVariant.sku}
+                />
 
                 <div className="mt-2 flex gap-2 overflow-auto">
                   <VariantPurchaseHistoryButton

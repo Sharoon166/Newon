@@ -1,8 +1,7 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect, useRef } from 'react';
-import { useReactToPrint } from 'react-to-print';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,7 @@ import {
   ChevronsUpDown,
   Package,
   Save,
-  Printer,
+  Eye,
   Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -72,7 +71,6 @@ const quotationFormSchema = z.object({
     email: z.string().email('Invalid email address'),
     phone: z.string().min(1, 'Phone is required')
   }),
-  quotationNumber: z.string().min(1, 'Quotation number is required'),
   date: z.string().min(1, 'Date is required'),
   validUntil: z.string().min(1, 'Valid until date is required'),
   items: z
@@ -104,7 +102,6 @@ export function NewQuotationForm({
   isLoading,
   onPreview,
   onSave,
-  onPrint,
   customers,
   variants = [],
   purchases = [],
@@ -113,7 +110,6 @@ export function NewQuotationForm({
   isLoading: boolean;
   onPreview: (data: QuotationFormValues) => void;
   onSave?: (data: QuotationFormValues) => void | Promise<void>;
-  onPrint?: (data: QuotationFormValues) => void;
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
@@ -125,15 +121,8 @@ export function NewQuotationForm({
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextQuotationNumber, setNextQuotationNumber] = useState<string>('Loading...');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
-
-  // Configure react-to-print
-  const handleReactToPrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `Quotation-${nextQuotationNumber}`
-  });
 
   const form = useForm<QuotationFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -163,7 +152,6 @@ export function NewQuotationForm({
       billingType: 'retail',
       market: currentBrandId === 'waymor' ? 'waymor' : 'newon',
       customerId: '',
-      quotationNumber: `QT-${Math.floor(1000 + Math.random() * 9000)}`,
       date: getToday(),
       validUntil: getToday(),
       items: [],
@@ -188,7 +176,6 @@ export function NewQuotationForm({
         const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
         const number = await getNextInvoiceNumber('quotation');
         setNextQuotationNumber(number);
-        form.setValue('quotationNumber', number);
       } catch (error) {
         console.error('Error fetching next quotation number:', error);
         setNextQuotationNumber('Error loading');
@@ -433,26 +420,6 @@ export function NewQuotationForm({
       } catch (error) {
         console.error('Error saving quotation:', error);
         toast.error('Failed to save quotation', {
-          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-        });
-      }
-    }, handleFormErrors)();
-  };
-
-  const handlePrint = () => {
-    form.handleSubmit(data => {
-      if (!validateQuotationData(data)) return;
-
-      try {
-        // Open preview sheet first
-        setIsPreviewOpen(true);
-        // Then trigger print after a short delay to ensure sheet is rendered
-        setTimeout(() => {
-          handleReactToPrint();
-        }, 300);
-      } catch (error) {
-        console.error('Error printing quotation:', error);
-        toast.error('Failed to print quotation', {
           description: error instanceof Error ? error.message : 'An unexpected error occurred.'
         });
       }
@@ -1182,20 +1149,20 @@ export function NewQuotationForm({
           >
             Reset Form
           </Button>
+          <Button type="submit" variant="outline" className="w-full sm:w-auto">
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </Button>
           <Button
             aria-disabled={isLoading}
             disabled={isLoading}
-            type="submit"
+            type="button"
             variant="default"
             className="w-full sm:w-auto"
             onClick={handleSave}
           >
             {isLoading ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             {isLoading ? 'Saving' : 'Save Quotation'}
-          </Button>
-          <Button type="button" variant="secondary" className="w-full sm:w-auto" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print
           </Button>
         </div>
       </form>
@@ -1205,18 +1172,16 @@ export function NewQuotationForm({
         <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex gap-2 items-center text-primary">
-              <Printer /> Quotation Preview
+              <Eye /> Quotation Preview
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             <QuotationTemplate
-              ref={printRef}
               quotationData={{
                 ...form.getValues(),
-                quotationNumber: form.getValues('quotationNumber') || nextQuotationNumber
+                quotationNumber: nextQuotationNumber
               }}
               onBack={() => setIsPreviewOpen(false)}
-              onPrint={handleReactToPrint}
               onSave={handleSave}
             />
           </div>

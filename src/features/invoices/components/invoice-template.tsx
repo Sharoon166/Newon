@@ -18,13 +18,12 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
   ({ invoiceData, onBack, onPrint, onSave }, ref) => {
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
-    const discountAmount = invoiceData.discountType === 'percentage' 
-      ? (subtotal * invoiceData.discount) / 100 
-      : invoiceData.discount;
+    const discountAmount =
+      invoiceData.discountType === 'percentage' ? (subtotal * invoiceData.discount) / 100 : invoiceData.discount;
     const total = subtotal + taxAmount - discountAmount;
-    
+
     const isOTC = invoiceData.customerId === 'otc';
-    const outstandingBalance = isOTC ? 0 : (invoiceData.outstandingBalance || 0);
+    const outstandingBalance = isOTC ? 0 : invoiceData.outstandingBalance || 0;
     const paidAmount = invoiceData.paid || 0;
     const grandTotal = Math.max(0, total - paidAmount);
 
@@ -231,7 +230,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
           {invoiceData.notes && (
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
-              <p className="whitespace-pre-line">{invoiceData.notes}</p>
+              <p className="whitespace-pre-line text-xs">{invoiceData.notes}</p>
             </div>
           )}
           {invoiceData.terms && (
@@ -258,7 +257,6 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
               )}
               {onPrint && (
                 <Button onClick={onPrint} className="print:hidden">
-                  {' '}
                   <Download />
                   Print Invoice
                 </Button>

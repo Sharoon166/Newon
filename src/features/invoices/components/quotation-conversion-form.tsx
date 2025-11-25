@@ -198,11 +198,7 @@ export function QuotationConversionForm({
   });
 
   // Update invoice number when fetched
-  useEffect(() => {
-    if (nextInvoiceNumber && nextInvoiceNumber !== 'Loading...' && nextInvoiceNumber !== 'Error loading') {
-      form.setValue('invoiceNumber', nextInvoiceNumber);
-    }
-  }, [nextInvoiceNumber, form]);
+  // Invoice number is display-only, not set in form to avoid race conditions
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -514,8 +510,8 @@ export function QuotationConversionForm({
           const createdBy = session?.user?.email || 'unknown';
 
           // Create the invoice with modified data
+          // Note: invoiceNumber is not passed - it will be auto-generated to avoid race conditions
           const newInvoice = await createInvoice({
-            invoiceNumber: data.invoiceNumber,
             type: 'invoice' as const,
             date: new Date(data.date),
             dueDate: data.dueDate ? new Date(data.dueDate) : undefined,

@@ -345,8 +345,8 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
       toast.success('Product deleted successfully');
       router.push('/inventory');
       router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete product');
+    } catch {
+      toast.error('Cannot delete product with sold variants. Please disable the variants instead.');
       // throw error; // Re-throw to prevent dialog from closing
     }
   };

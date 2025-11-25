@@ -78,9 +78,9 @@ export function NewInvoiceFormWrapper({
   }, [initialTab]);
 
   const handleSaveInvoice = async (formData: FormData) => {
+    // Note: invoiceNumber is not included in documentData - it will be auto-generated to avoid race conditions
     const documentData: FormData = {
-      ...formData,
-      invoiceNumber: formData.invoiceNumber || 'DRAFT'
+      ...formData
     };
 
     try {

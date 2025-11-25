@@ -603,7 +603,7 @@ export function PurchaseForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Shipping Cost <span className="text-destructive">*</span>
+                        Shipping Cost
                       </FormLabel>
                       <FormControl>
                         <NumberInput

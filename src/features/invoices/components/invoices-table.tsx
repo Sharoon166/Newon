@@ -146,9 +146,8 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       toast.success(`${selectedInvoice.type === 'invoice' ? 'Invoice' : 'Quotation'} cancelled successfully`);
       handleRefresh();
       setCancelDialogOpen(false);
-    } catch (error) {
-      console.error('Error cancelling invoice:', error);
-      toast.error((error as Error).message || 'Failed to cancel invoice');
+    } catch {
+      toast.error('Cannot cancel invoice with payments. Please delete all payments first or process a refund/credit note instead.');
     } finally {
       setIsCancelling(false);
     }
@@ -474,10 +473,10 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
     return (
       <div className="border rounded-lg p-12 text-center">
         <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No documents found</h3>
-        <p className="text-muted-foreground mb-4">Create your first invoice or quotation to get started</p>
+        <h3 className="text-lg font-semibold mb-2">No Invoices found</h3>
+        <p className="text-muted-foreground mb-4">Create your first invoice to get started</p>
         <Link href="/invoices/new">
-          <Button>Create Document</Button>
+          <Button>Create Invoice</Button>
         </Link>
       </div>
     );

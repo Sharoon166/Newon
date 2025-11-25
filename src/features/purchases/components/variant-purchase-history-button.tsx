@@ -82,7 +82,7 @@ export function VariantPurchaseHistoryButton({
   }, [purchases]);
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="space-y-4 w-full flex flex-col justify-center">
       <Button type="button" variant="outline" size="sm" onClick={() => setIsOpen(!isOpen)} className="w-full sm:w-auto">
         <History className="mr-2 h-4 w-4" />
         View Purchase History
