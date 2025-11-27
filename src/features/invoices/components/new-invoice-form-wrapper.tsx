@@ -41,6 +41,7 @@ interface FormData {
     rate: number;
     amount: number;
     purchaseId?: string;
+    originalRate?: number;
   }>;
   discountType?: string;
   discount: number;
@@ -113,6 +114,17 @@ export function NewInvoiceFormWrapper({
         notes: 'Payment recorded during invoice creation'
       }] : [];
 
+      // Check if invoice has custom items
+      // An item is custom if:
+      // 1. It has no productId (custom item)
+      // 2. It has productId === 'manual-entry' (manually entered)
+      // 3. The rate has been modified from the original rate
+      const hasCustomItems = documentData.items.some(
+        item => !item.productId || 
+                item.productId === 'manual-entry' || 
+                (item.originalRate !== undefined && item.rate !== item.originalRate)
+      );
+
       const createData = {
         type: documentType,
         date: new Date(documentData.date),
@@ -158,6 +170,7 @@ export function NewInvoiceFormWrapper({
         notes: documentData.notes,
         termsAndConditions: documentData.terms,
         amountInWords: documentData.amountInWords,
+        custom: hasCustomItems,
         createdBy: 'system-user'
       };
 

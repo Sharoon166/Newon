@@ -66,6 +66,9 @@ interface IInvoice extends Document {
   validUntil?: Date;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;
+  description?: string;
+  profit?: number;
+  custom: boolean;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
@@ -314,6 +317,17 @@ const invoiceSchema = new Schema<IInvoice>(
     },
     convertedInvoiceId: {
       type: String
+    },
+    description: {
+      type: String
+    },
+    profit: {
+      type: Number,
+      min: 0
+    },
+    custom: {
+      type: Boolean,
+      default: false
     },
     createdBy: {
       type: String,

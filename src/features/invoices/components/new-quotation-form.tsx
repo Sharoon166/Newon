@@ -84,7 +84,8 @@ const quotationFormSchema = z.object({
         productId: z.string().optional(),
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
-        purchaseId: z.string().optional()
+        purchaseId: z.string().optional(),
+        originalRate: z.number().optional()
       })
     )
     .min(1, 'At least one item is required'),
@@ -225,12 +226,14 @@ export function NewQuotationForm({
   form.setValue('amountInWords', amountInWords, { shouldValidate: true });
 
   const handleAddItemFromSelector = (item: {
+    productId?: string;
     variantId: string;
     productName: string;
     sku: string;
     description: string;
     quantity: number;
     rate: number;
+    originalRate?: number;
     purchaseId?: string;
   }) => {
     // Validate item data
@@ -275,10 +278,11 @@ export function NewQuotationForm({
         quantity: item.quantity,
         rate: item.rate,
         amount: item.quantity * item.rate,
-        productId: item.variantId,
+        productId: item.productId,
         variantId: item.variantId,
         variantSKU: item.sku,
-        purchaseId: item.purchaseId
+        purchaseId: item.purchaseId,
+        originalRate: item.originalRate
       });
     }
   };

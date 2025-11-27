@@ -67,6 +67,9 @@ export interface Invoice {
   validUntil?: string | Date;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;
+  description?: string;
+  profit?: number;
+  custom: boolean;
   createdBy: string;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -108,6 +111,9 @@ export interface CreateInvoiceDto {
   termsAndConditions?: string;
   amountInWords?: string;
   validUntil?: Date;
+  description?: string;
+  profit?: number;
+  custom?: boolean;
   createdBy: string;
 }
 
@@ -146,6 +152,9 @@ export interface UpdateInvoiceDto {
   validUntil?: Date;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;
+  description?: string;
+  profit?: number;
+  custom?: boolean;
 }
 
 // Add Payment DTO

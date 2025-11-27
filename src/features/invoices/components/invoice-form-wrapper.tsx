@@ -22,6 +22,7 @@ interface FormItem {
   discountValue?: number;
   discountAmount?: number;
   stockLocation?: string;
+  originalRate?: number;
 }
 
 interface ClientInfo {
@@ -72,6 +73,17 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         `manual-${formData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 
         formData.client.phone?.replace(/[^0-9]/g, '') || 
         formData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      
+      // Check if invoice has custom items
+      // An item is custom if:
+      // 1. It has no productId (custom item)
+      // 2. It has productId === 'manual-entry' (manually entered)
+      // 3. The rate has been modified from the original rate
+      const hasCustomItems = formData.items.some(
+        item => !item.productId || 
+                item.productId === 'manual-entry' || 
+                (item.originalRate !== undefined && item.rate !== item.originalRate)
+      );
             
       const invoiceData: CreateInvoiceDto = {
         type,
@@ -127,6 +139,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
             : formData.discount)) - (formData.paid || 0),
         notes: formData.notes,
         termsAndConditions: formData.terms,
+        custom: hasCustomItems,
         createdBy: userId
       };
 

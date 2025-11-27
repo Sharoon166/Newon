@@ -1,7 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import { Coins, LayoutDashboard, Package, ScrollTextIcon, Settings2, ShoppingCart, Users, UserSquare } from 'lucide-react';
+import {
+  Coins,
+  LayoutDashboard,
+  Package,
+  ScrollTextIcon,
+  Settings2,
+  ShoppingCart,
+  Users,
+  UserSquare
+} from 'lucide-react';
 
 import {
   Sidebar,
@@ -25,6 +34,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
 
 const data = {
   navSecondary: [
@@ -55,10 +65,7 @@ const data = {
       url: '/staff',
       icon: Users
     },
-    {name: 'Customers',
-      url: '/customers',
-      icon: UserSquare
-    },
+    { name: 'Customers', url: '/customers', icon: UserSquare },
     {
       name: 'Invoices & Quotations',
       url: '/invoices',
@@ -76,6 +83,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { getCurrentBrand, setBrand } = useBrandStore();
   const currentBrand = getCurrentBrand();
   const { isMobile } = useSidebar();
+  const { data: session, status } = useSession();
+  const isStaff = session?.user?.role === 'staff' || status == 'loading';
+
+  // Filter links based on user role
+  const staffLinks = [
+    {
+      name: 'Inventory',
+      url: '/inventory/staff',
+      icon: ShoppingCart
+    }
+  ];
+
+  const visibleLinks = isStaff ? staffLinks : data.projects;
+  const visibleSecondary = isStaff ? [] : data.navSecondary;
+
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -86,7 +108,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <div className='bg-white p-2 -m-2 rounded-lg'>
+                      <div className="bg-white p-2 -m-2 rounded-lg">
                         <div className="flex items-center gap-3 cursor-pointer group">
                           <div
                             className={cn(
@@ -177,8 +199,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavLinks links={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavLinks links={visibleLinks} />
+        {visibleSecondary.length > 0 && <NavSecondary items={visibleSecondary} className="mt-auto" />}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

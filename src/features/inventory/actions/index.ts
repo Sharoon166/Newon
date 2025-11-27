@@ -87,6 +87,85 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
   }
 };
 
+// Simplified version for staff - only returns essential fields
+export const getProductsForStaff = async (): Promise<
+  Array<{
+    productId: string;
+    productName: string;
+    sku: string;
+    categories: string[];
+    retailPrice: number;
+    availableStock: number;
+    image?: string;
+    disabled: boolean;
+  }>
+> => {
+  await dbConnect();
+
+  const data = await ProductModel.aggregate([
+    {
+      $unwind: {
+        path: '$variants',
+        preserveNullAndEmptyArrays: false
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        productId: { $toString: '$_id' },
+        productName: '$name',
+        categories: '$categories',
+        sku: '$variants.sku',
+        disabled: '$variants.disabled',
+        image: '$variants.image',
+        variantId: '$variants.id',
+        availableStock: '$variants.availableStock'
+      }
+    }
+  ]);
+
+  // Fetch purchases for pricing calculation
+  const purchases = await PurchaseModel.find({}).lean();
+
+  // Group purchases by productId-variantId
+  const purchaseMap = new Map<string, Purchase[]>();
+  (purchases as unknown[]).forEach(purchase => {
+    const purchaseObj = purchase as Record<string, unknown>;
+    const key = `${(purchaseObj.productId as string).toString()}-${purchaseObj.variantId as string}`;
+    if (!purchaseMap.has(key)) {
+      purchaseMap.set(key, []);
+    }
+    purchaseMap.get(key)!.push({
+      ...purchaseObj,
+      id: (purchaseObj._id as string).toString(),
+      productId: (purchaseObj.productId as string).toString()
+    } as Purchase);
+  });
+
+  // Add retail pricing and calculate actual stock
+  const enhancedData = data.map((variant: Record<string, unknown> & { productId: string; variantId: string }) => {
+    const key = `${variant.productId}-${variant.variantId}`;
+    const variantPurchases = purchaseMap.get(key) || [];
+    const pricing = calculateVariantPricing(variantPurchases);
+
+    // Calculate actual available stock from purchases
+    const actualAvailableStock = variantPurchases.reduce((sum, purchase) => sum + (purchase.remaining || 0), 0);
+
+    return {
+      productId: variant.productId,
+      productName: variant.productName as string,
+      sku: variant.sku as string,
+      categories: (variant.categories as string[]) || [],
+      retailPrice: pricing.retailPrice,
+      availableStock: actualAvailableStock,
+      image: variant.image as string | undefined,
+      disabled: Boolean(variant.disabled)
+    };
+  });
+
+  return enhancedData;
+};
+
 export const getProducts = async (): Promise<EnhancedVariants[]> => {
   await dbConnect();
 

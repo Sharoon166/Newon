@@ -85,7 +85,8 @@ const invoiceFormSchema = z.object({
         productId: z.string().optional(),
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
-        purchaseId: z.string().optional()
+        purchaseId: z.string().optional(),
+        originalRate: z.number().optional()
       })
     )
     .min(1, 'At least one item is required'),
@@ -269,12 +270,14 @@ export function NewInvoiceForm({
   form.setValue('amountInWords', amountInWords, { shouldValidate: true });
 
   const handleAddItemFromSelector = (item: {
+    productId?: string;
     variantId: string;
     productName: string;
     sku: string;
     description: string;
     quantity: number;
     rate: number;
+    originalRate?: number;
     purchaseId?: string;
   }) => {
     // Validate item data
@@ -319,9 +322,11 @@ export function NewInvoiceForm({
         quantity: item.quantity,
         rate: item.rate,
         amount: item.quantity * item.rate,
+        productId: item.productId,
         variantId: item.variantId,
         variantSKU: item.sku,
-        purchaseId: item.purchaseId
+        purchaseId: item.purchaseId,
+        originalRate: item.originalRate
       });
     }
   };
@@ -808,8 +813,6 @@ export function NewInvoiceForm({
                         const purchase = purchases.find(p => p.purchaseId === purchaseId);
                         if (!purchase) return 0;
                         
-                        // The max this item can have is simply the purchase's remaining stock
-                        // No need to add current quantity since 'remaining' already represents available stock
                         return purchase.remaining;
                       })()
                     : Infinity;

@@ -49,7 +49,8 @@ const invoiceFormSchema = z.object({
         productId: z.string().optional(),
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
-        purchaseId: z.string().optional()
+        purchaseId: z.string().optional(),
+        originalRate: z.number().optional()
       })
     )
     .min(1, 'At least one item is required'),
@@ -184,7 +185,8 @@ export function QuotationConversionForm({
           // Clear purchaseId if the purchase is depleted
           purchaseId: item.purchaseId && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0 
             ? undefined 
-            : item.purchaseId
+            : item.purchaseId,
+          originalRate: item.unitPrice // Store original rate to detect custom pricing
         };
       }),
       taxRate: quotation.taxRate || quotation.gstValue || 0,
@@ -298,12 +300,14 @@ export function QuotationConversionForm({
   }, []);
 
   const handleAddItemFromSelector = (item: {
+    productId?: string;
     variantId: string;
     productName: string;
     sku: string;
     description: string;
     quantity: number;
     rate: number;
+    originalRate?: number;
     purchaseId?: string;
   }) => {
     // Validate item data
@@ -360,9 +364,11 @@ export function QuotationConversionForm({
         quantity: item.quantity,
         rate: item.rate,
         amount: item.quantity * item.rate,
+        productId: item.productId,
         variantId: item.variantId,
         variantSKU: item.sku,
-        purchaseId: item.purchaseId
+        purchaseId: item.purchaseId,
+        originalRate: item.originalRate
       });
     }
   };
@@ -509,6 +515,17 @@ export function QuotationConversionForm({
           const session = await getSession();
           const createdBy = session?.user?.email || 'unknown';
 
+          // Check if invoice has custom items
+          // An item is custom if:
+          // 1. It has no productId (custom item)
+          // 2. It has productId === 'custom-item' (manually entered)
+          // 3. The rate has been modified from the original rate
+          const hasCustomItems = data.items.some(
+            item => !item.productId || 
+                    item.productId === 'custom-item' || 
+                    (item.originalRate !== undefined && item.rate !== item.originalRate)
+          );
+
           // Create the invoice with modified data
           // Note: invoiceNumber is not passed - it will be auto-generated to avoid race conditions
           const newInvoice = await createInvoice({
@@ -561,6 +578,7 @@ export function QuotationConversionForm({
             balanceAmount: grandTotal,
             notes: data.notes,
             termsAndConditions: quotation.termsAndConditions,
+            custom: hasCustomItems,
             createdBy
           });
 

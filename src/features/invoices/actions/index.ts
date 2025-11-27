@@ -86,6 +86,9 @@ interface LeanInvoice {
   validUntil?: Date | string;
   convertedToInvoice?: boolean;
   convertedInvoiceId?: string;
+  description?: string;
+  profit?: number;
+  custom?: boolean;
   createdBy: string;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -162,6 +165,9 @@ function transformInvoice(doc: LeanInvoice): Invoice {
       : undefined,
     convertedToInvoice: doc.convertedToInvoice,
     convertedInvoiceId: doc.convertedInvoiceId,
+    description: doc.description,
+    profit: doc.profit,
+    custom: doc.custom || false,
     createdBy: doc.createdBy,
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
     updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt

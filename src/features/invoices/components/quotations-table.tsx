@@ -36,7 +36,8 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Hash
+  Hash,
+  Copyright
 } from 'lucide-react';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/lib/utils';
@@ -132,7 +133,14 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
             </Button>
           );
         },
-        cell: ({ row }) => <div className="font-medium">{row.original.invoiceNumber}</div>
+        cell: ({ row }) => (
+          <div className="font-medium flex items-center gap-2">
+            {row.original.invoiceNumber}
+            {row.original.custom && (
+             <Copyright className='text-primary'/>
+            )}
+          </div>
+        )
       },
       {
         accessorKey: 'customerName',

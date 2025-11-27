@@ -160,12 +160,14 @@ export function ProductSelector({
     }
 
     onAddItem({
+      productId: variant.productId,
       variantId: variant.id,
       productName: variant.productName,
       sku: variant.sku,
       description,
       quantity,
       rate,
+      originalRate: rate, // Store original rate to detect custom pricing
       purchaseId: firstPurchase?.purchaseId
     });
 

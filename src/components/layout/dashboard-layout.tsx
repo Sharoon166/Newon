@@ -11,6 +11,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { getCurrentBrand } = useBrandStore();
   const currentBrand = getCurrentBrand();
+
   return (
     <SidebarProvider>
       <AppSidebar />

@@ -304,7 +304,27 @@ export default function InvoiceDetailPage() {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-2xl">{invoice.invoiceNumber}</CardTitle>
+                  <CardTitle className="text-2xl flex items-center gap-2">
+                    {invoice.invoiceNumber}
+                    {invoice.custom && (
+                      <span className="text-amber-600" title="Custom Invoice">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 6v6l4 2" />
+                        </svg>
+                      </span>
+                    )}
+                  </CardTitle>
                   <div className="flex gap-2 mt-2 capitalize">
                     <Badge>{invoice.status}</Badge>
                     <Badge variant="outline">{invoice.market}</Badge>
@@ -439,6 +459,24 @@ export default function InvoiceDetailPage() {
               <CardTitle>Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {invoice.custom && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+                  <p className="text-sm font-medium text-amber-800">Custom Invoice</p>
+                  <p className="text-xs text-amber-600">Contains custom items or modified rates</p>
+                </div>
+              )}
+              {invoice.description && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <p className="text-sm font-medium text-blue-800 mb-1">Internal Notes:</p>
+                  <p className="text-xs text-blue-600 whitespace-pre-wrap">{invoice.description}</p>
+                </div>
+              )}
+              {invoice.profit !== undefined && invoice.profit > 0 && (
+                <div className="flex justify-between bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                  <span className="text-sm font-medium text-green-800">Profit:</span>
+                  <span className="font-semibold text-green-700">{formatCurrency(invoice.profit)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal:</span>
                 <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>

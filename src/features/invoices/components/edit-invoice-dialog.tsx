@@ -13,12 +13,13 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { updateInvoice } from '../actions';
@@ -32,7 +33,9 @@ const editInvoiceSchema = z.object({
   billingType: z.enum(['wholesale', 'retail']),
   market: z.enum(['newon', 'waymor']),
   notes: z.string().optional(),
-  termsAndConditions: z.string().optional()
+  termsAndConditions: z.string().optional(),
+  description: z.string().optional(),
+  profit: z.number().min(0, 'Profit cannot be negative').optional()
 });
 
 type EditInvoiceFormValues = z.infer<typeof editInvoiceSchema>;
@@ -56,7 +59,9 @@ export function EditInvoiceDialog({ open, onOpenChange, invoice, onSuccess }: Ed
       billingType: invoice.billingType,
       market: invoice.market,
       notes: invoice.notes || '',
-      termsAndConditions: invoice.termsAndConditions || ''
+      termsAndConditions: invoice.termsAndConditions || '',
+      description: invoice.description || '',
+      profit: invoice.profit || 0
     }
   });
 
@@ -69,7 +74,9 @@ export function EditInvoiceDialog({ open, onOpenChange, invoice, onSuccess }: Ed
       billingType: invoice.billingType,
       market: invoice.market,
       notes: invoice.notes || '',
-      termsAndConditions: invoice.termsAndConditions || ''
+      termsAndConditions: invoice.termsAndConditions || '',
+      description: invoice.description || '',
+      profit: invoice.profit || 0
     });
   }, [invoice, form]);
 
@@ -83,7 +90,9 @@ export function EditInvoiceDialog({ open, onOpenChange, invoice, onSuccess }: Ed
         billingType: data.billingType,
         market: data.market,
         notes: data.notes,
-        termsAndConditions: data.termsAndConditions
+        termsAndConditions: data.termsAndConditions,
+        description: data.description,
+        profit: data.profit
       });
       toast.success('Invoice updated successfully');
       onOpenChange(false);
@@ -244,6 +253,53 @@ export function EditInvoiceDialog({ open, onOpenChange, invoice, onSuccess }: Ed
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Internal Notes)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Custom notes visible only here, not on print..." rows={2} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="profit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Profit (Manual Entry)</FormLabel>
+                  <FormControl>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      {...field}
+                      onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {invoice.custom && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <Info  className='text-inherit'/>
+                  <p className="text-sm font-medium text-amber-800">
+                    This is a custom invoice (contains custom items or modified rates)
+                  </p>
+                </div>
+              </div>
+            )}
 
             <FormField
               control={form.control}

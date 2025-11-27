@@ -24,7 +24,8 @@ import {
   CalendarIcon,
   X,
   Search,
-  Hash
+  Hash,
+  Copyright
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
@@ -147,7 +148,9 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
       handleRefresh();
       setCancelDialogOpen(false);
     } catch {
-      toast.error('Cannot cancel invoice with payments. Please delete all payments first or process a refund/credit note instead.');
+      toast.error(
+        'Cannot cancel invoice with payments. Please delete all payments first or process a refund/credit note instead.'
+      );
     } finally {
       setIsCancelling(false);
     }
@@ -211,7 +214,12 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
             </Button>
           );
         },
-        cell: ({ row }) => <div className="font-medium">{row.getValue('invoiceNumber')}</div>
+        cell: ({ row }) => (
+          <div className="font-medium flex items-center gap-2">
+            {row.getValue('invoiceNumber')}
+            {row.original.custom && <Copyright className='text-primary'/>}
+          </div>
+        )
       },
       {
         accessorKey: 'customerName',

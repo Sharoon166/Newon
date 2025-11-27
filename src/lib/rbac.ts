@@ -44,9 +44,6 @@ const rolePermissions: Record<Role, Permission[]> = {
   ],
   staff: [
     'view:inventory',
-    'view:invoices',
-    'create:invoices',
-    'view:purchases'
   ]
 };
 
