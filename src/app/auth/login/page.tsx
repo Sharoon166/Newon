@@ -38,7 +38,7 @@ export default function LoginPage() {
         toast.error(result.error);
       } else {
         toast.success('Login successful');
-        router.push('/inventory');
+        router.push('/');
         router.refresh();
       }
     } catch (error) {

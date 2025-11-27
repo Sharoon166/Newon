@@ -30,19 +30,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(inventoryUrl);
   }
 
-  // Role-based access control for staff
-  if (token && token.role === 'staff') {
-    // Staff can only access /inventory/staff and /not-allowed
-    const allowedStaffRoutes = ['/inventory/staff', '/not-allowed'];
-    const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
-    
-    if (!isAllowedStaffRoute) {
-      // Redirect staff to not-allowed page
-      const notAllowedUrl = new URL('/not-allowed', request.url);
-      return NextResponse.redirect(notAllowedUrl);
-    }
-  }
-
   // Redirect root to appropriate page based on role
   if (pathname === '/') {
     if (token?.role === 'staff') {
@@ -51,6 +38,22 @@ export async function middleware(request: NextRequest) {
     }
     const dashboardUrl = new URL('/inventory', request.url);
     return NextResponse.redirect(dashboardUrl);
+  }
+
+  // Role-based access control for staff
+  if (token && token.role === 'staff') {
+    // Staff can only access /inventory/staff, /not-allowed, and API routes
+    const allowedStaffRoutes = ['/inventory/staff', '/not-allowed', '/api'];
+    const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
+    
+    // Also allow access to static assets and Next.js internals
+    const isStaticAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon');
+    
+    if (!isAllowedStaffRoute && !isStaticAsset) {
+      // Redirect staff to not-allowed page
+      const notAllowedUrl = new URL('/not-allowed', request.url);
+      return NextResponse.redirect(notAllowedUrl);
+    }
   }
 
   return NextResponse.next();

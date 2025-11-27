@@ -46,6 +46,7 @@ interface FormData {
   discountType?: string;
   discount: number;
   taxRate: number;
+  description?: string;
   notes?: string;
   terms?: string;
   paid?: number;
@@ -167,6 +168,7 @@ export function NewInvoiceFormWrapper({
         paidAmount,
         balanceAmount: totalAmount - paidAmount,
         payments,
+        description: documentData.description,
         notes: documentData.notes,
         termsAndConditions: documentData.terms,
         amountInWords: documentData.amountInWords,

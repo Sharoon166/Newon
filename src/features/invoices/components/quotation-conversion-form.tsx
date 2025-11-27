@@ -60,6 +60,7 @@ const invoiceFormSchema = z.object({
   amountInWords: z.string().optional(),
   paid: z.number().min(0, 'Cannot be negative').default(0),
   remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
+  description: z.string().optional(),
   notes: z.string().optional()
 });
 
@@ -102,6 +103,7 @@ interface QuotationConversionFormProps {
     taxAmount?: number;
     totalAmount: number;
     amountInWords?: string;
+    description?: string;
     notes?: string;
     termsAndConditions?: string;
     terms?: string;
@@ -131,6 +133,7 @@ export function QuotationConversionForm({
   variants = [],
   purchases = []
 }: QuotationConversionFormProps) {
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
 
@@ -195,6 +198,7 @@ export function QuotationConversionForm({
       amountInWords: quotation.amountInWords || 'Zero Rupees Only',
       paid: 0,
       remainingPayment: 0,
+      description: quotation.description || '',
       notes: quotation.notes
     }
   });
@@ -576,6 +580,7 @@ export function QuotationConversionForm({
             status: isOtcCustomer ? 'paid' : 'pending',
             paidAmount: data.paid,
             balanceAmount: grandTotal,
+            description: data.description,
             notes: data.notes,
             termsAndConditions: quotation.termsAndConditions,
             custom: hasCustomItems,
@@ -1128,6 +1133,44 @@ export function QuotationConversionForm({
           </div>
         </div>
 
+        {/* Description - Collapsible */}
+        <Collapsible open={isDescriptionOpen} onOpenChange={setIsDescriptionOpen} className="border rounded-lg">
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isDescriptionOpen
+                })}
+              >
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Description (Internal)
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea 
+                        className="min-h-[100px]" 
+                        placeholder="Internal description - not visible on printed invoice..." 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
         {/* Notes - Collapsible */}
         <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen} className="border rounded-lg">
           <div className="p-2">
@@ -1140,7 +1183,7 @@ export function QuotationConversionForm({
               >
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <NotebookTabsIcon className="h-5 w-5" />
-                  Notes
+                  Notes (Printed on Invoice)
                 </h2>
                 <ChevronsUpDown />
               </Button>
@@ -1152,7 +1195,7 @@ export function QuotationConversionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea className="min-h-[100px]" placeholder="Add any additional notes here..." {...field} />
+                      <Textarea className="min-h-[100px]" placeholder="Notes visible on printed invoice..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
