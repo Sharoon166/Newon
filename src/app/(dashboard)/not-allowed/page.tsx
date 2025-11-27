@@ -15,7 +15,7 @@ export default function NotAllowedPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Access Denied</h1>
           <p className="text-muted-foreground text-lg">
-            You don't have permission to access this page.
+            You don&apos;t have permission to access this page.
           </p>
         </div>
 

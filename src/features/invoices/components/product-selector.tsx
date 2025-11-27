@@ -23,12 +23,14 @@ interface ProductSelectorProps {
     purchaseId?: string;
   }>;
   onAddItem: (item: {
+    productId?: string;
     variantId: string;
     productName: string;
     sku: string;
     description: string;
     quantity: number;
     rate: number;
+    originalRate?: number;
     purchaseId?: string;
   }) => void;
   skipStockValidation?: boolean; // For quotations - allow any quantity
