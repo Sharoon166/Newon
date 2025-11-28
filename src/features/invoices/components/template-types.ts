@@ -27,12 +27,12 @@ export type TemplateCompanyDetails = {
 export type TemplateClientDetails = {
   name: string;
   company?: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  email: string;
-  phone: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  email?: string;
+  phone?: string;
 };
 
 export type TemplatePaymentDetails = {

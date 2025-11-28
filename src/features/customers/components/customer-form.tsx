@@ -18,7 +18,7 @@ const customerFormSchema = z.object({
   }),
   email: z.string().email({
     message: 'Please enter a valid email address.'
-  }),
+  }).optional().or(z.literal('')),
   company: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
@@ -60,6 +60,7 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
       // Transform empty strings to undefined for optional fields, but keep non-empty strings
       const transformedData = {
         ...data,
+        email: data.email?.trim() || null,
         company: data.company?.trim() || null,
         phone: data.phone?.trim() || null,
         address: data.address?.trim() || null,
@@ -71,11 +72,11 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
       if (isEditMode && initialData) {
         // For updates, only include non-null/non-empty optional fields
         const updateData: UpdateCustomerDto = {
-          name: data.name,
-          email: data.email
+          name: data.name
         };
 
         // Add optional fields only if they have values
+        if (transformedData.email) updateData.email = transformedData.email;
         if (transformedData.company) updateData.company = transformedData.company;
         if (transformedData.phone) updateData.phone = transformedData.phone;
         if (transformedData.address) updateData.address = transformedData.address;
@@ -88,11 +89,11 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
       } else {
         // For creation, ensure required fields are present
         const createData: CreateCustomerDto = {
-          name: data.name,
-          email: data.email
+          name: data.name
         };
 
         // Add optional fields only if they have values
+        if (transformedData.email) createData.email = transformedData.email;
         if (transformedData.company) createData.company = transformedData.company;
         if (transformedData.phone) createData.phone = transformedData.phone;
         if (transformedData.address) createData.address = transformedData.address;
@@ -121,7 +122,7 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="John Doe" {...field} />
               </FormControl>

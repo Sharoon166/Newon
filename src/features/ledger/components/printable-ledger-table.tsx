@@ -108,11 +108,11 @@ export function PrintableLedgerTable({ data }: PrintableLedgerTableProps) {
                       {item.customerCompany && (
                         <p className="text-sm text-gray-600 mb-2 print:text-xs print:mb-1">{item.customerCompany}</p>
                       )}
-                      {item.customerEmail && item.customerPhone && (
+                      {(item.customerEmail || item.customerPhone) && (
                         <div className="flex gap-4 text-sm text-gray-600 print:text-[10px] print:gap-2">
-                          <span>{item.customerEmail}</span>
-                          <span>•</span>
-                          <span>{item.customerPhone}</span>
+                          {item.customerEmail && <span>{item.customerEmail}</span>}
+                          {item.customerEmail && item.customerPhone && <span>•</span>}
+                          {item.customerPhone && <span>{item.customerPhone}</span>}
                         </div>
                       )}
                     </div>

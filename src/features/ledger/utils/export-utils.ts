@@ -29,7 +29,7 @@ export function exportLedgerToCsv(data: CustomerLedger[]): void {
     const rows = data.map(item => [
       escapeCsvField(item.customerName),
       escapeCsvField(item.customerCompany || ''),
-      escapeCsvField(item.customerEmail),
+      escapeCsvField(item.customerEmail || ''),
       escapeCsvField(item.customerPhone),
       escapeCsvField(item.totalDebit.toFixed(2)),
       escapeCsvField(item.totalCredit.toFixed(2)),

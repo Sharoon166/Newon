@@ -74,8 +74,8 @@ export interface CustomerLedger {
   customerId: string;
   customerName: string;
   customerCompany?: string;
-  customerEmail: string;
-  customerPhone: string;
+  customerEmail?: string;
+  customerPhone?: string;
   totalDebit: number;
   totalCredit: number;
   currentBalance: number;

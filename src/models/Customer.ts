@@ -6,7 +6,7 @@ import { generateId } from './Counter';
 interface ICustomer extends Document {
   customerId?: string;
   name: string;
-  email: string;
+  email?: string;
   company?: string;
   phone?: string;
   address?: string;
@@ -44,8 +44,9 @@ const customerSchema = new Schema<ICustomer>(
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      required: false,
       unique: true,
+      sparse: true,
       trim: true,
       lowercase: true,
       match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],

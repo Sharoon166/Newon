@@ -75,8 +75,10 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 <span className="text-muted-foreground"> - {quotationData.client.company}</span>
               )}
             </p>
-            <p>{quotationData.client.address}</p>
-            <p>{quotationData.client.city}, {quotationData.client.state} {quotationData.client.zip}</p>
+            {quotationData.client.address && <p>{quotationData.client.address}</p>}
+            {(quotationData.client.city || quotationData.client.state || quotationData.client.zip) && (
+              <p>{[quotationData.client.city, quotationData.client.state, quotationData.client.zip].filter(Boolean).join(', ')}</p>
+            )}
             {quotationData.client.phone && <p>{quotationData.client.phone}</p>}
             {quotationData.client.email && <p>{quotationData.client.email}</p>}
           </div>

@@ -206,15 +206,15 @@ const invoiceSchema = new Schema<IInvoice>(
     },
     customerEmail: {
       type: String,
-      required: true
+      required: false
     },
     customerPhone: {
       type: String,
-      required: true
+      required: false
     },
     customerAddress: {
       type: String,
-      required: true
+      required: false
     },
     customerCity: {
       type: String

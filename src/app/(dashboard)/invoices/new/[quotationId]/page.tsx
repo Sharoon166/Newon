@@ -55,22 +55,30 @@ export default async function QuotationConversionPage({ params }: QuotationConve
                   <span className="sr-only">View Details</span>
                 </PopoverTrigger>
                 <PopoverContent className="text-sm">
-                  <div>
-                    <span className="font-semibold text-primary">Email: </span>
-                    {quotation.customerEmail}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-primary">Pone Number: </span>
-                    {quotation.customerPhone}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-primary">Address: </span>
-                    {quotation.customerAddress}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-primary">City: </span>
-                    {quotation.customerCity}
-                  </div>
+                  {quotation.customerEmail && (
+                    <div>
+                      <span className="font-semibold text-primary">Email: </span>
+                      {quotation.customerEmail}
+                    </div>
+                  )}
+                  {quotation.customerPhone && (
+                    <div>
+                      <span className="font-semibold text-primary">Phone Number: </span>
+                      {quotation.customerPhone}
+                    </div>
+                  )}
+                  {quotation.customerAddress && (
+                    <div>
+                      <span className="font-semibold text-primary">Address: </span>
+                      {quotation.customerAddress}
+                    </div>
+                  )}
+                  {quotation.customerCity && (
+                    <div>
+                      <span className="font-semibold text-primary">City: </span>
+                      {quotation.customerCity}
+                    </div>
+                  )}
                   <div>
                     <span className="font-semibold text-primary">State: </span>
                     {quotation.customerState}
@@ -101,7 +109,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
               : '',
             customerName: quotation.customerName,
             customerCompany: quotation.customerCompany,
-            customerEmail: quotation.customerEmail,
+            customerEmail: quotation.customerEmail || '',
             customerPhone: quotation.customerPhone,
             customerAddress: quotation.customerAddress,
             customerCity: quotation.customerCity ?? '',
@@ -141,9 +149,9 @@ export default async function QuotationConversionPage({ params }: QuotationConve
           customerData={{
             customerName: quotation.customerName,
             customerCompany: quotation.customerCompany,
-            customerEmail: quotation.customerEmail,
-            customerPhone: quotation.customerPhone,
-            customerAddress: quotation.customerAddress,
+            customerEmail: quotation.customerEmail || '',
+            customerPhone: quotation.customerPhone || '',
+            customerAddress: quotation.customerAddress || '',
             customerCity: quotation.customerCity ?? null,
             customerState: quotation.customerState ?? null,
             customerZip: quotation.customerZip ?? null,

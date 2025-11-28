@@ -83,8 +83,8 @@ const columns: ColumnDef<CustomerLedger>[] = [
     header: 'Contact',
     cell: ({ row }) => (
       <div className="text-sm">
-        <div className="truncate">{row.original.customerEmail}</div>
-        <div className="text-xs text-muted-foreground">{row.original.customerPhone}</div>
+        <div className="truncate">{row.original.customerEmail || '-'}</div>
+        <div className="text-xs text-muted-foreground">{row.original.customerPhone || '-'}</div>
       </div>
     ),
     minSize: 180,
@@ -269,8 +269,8 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
       const matchesSearch =
         item.customerName.toLowerCase().includes(search) ||
         item.customerCompany?.toLowerCase().includes(search) ||
-        item.customerEmail.toLowerCase().includes(search) ||
-        item.customerPhone.toLowerCase().includes(search);
+        item.customerEmail?.toLowerCase().includes(search) ||
+        item.customerPhone?.toLowerCase().includes(search);
 
       // Balance filter
       let matchesBalance = true;

@@ -152,7 +152,7 @@ export default function InvoiceDetailPage() {
             city: invoice.customerCity || '',
             state: invoice.customerState || '',
             zip: invoice.customerZip || '',
-            email: invoice.customerEmail,
+            email: invoice.customerEmail || '',
             phone: invoice.customerPhone
           },
           invoiceNumber: invoice.invoiceNumber,
@@ -201,7 +201,7 @@ export default function InvoiceDetailPage() {
             city: invoice.customerCity || '',
             state: invoice.customerState || '',
             zip: invoice.customerZip || '',
-            email: invoice.customerEmail,
+            email: invoice.customerEmail || '',
             phone: invoice.customerPhone
           },
           quotationNumber: invoice.invoiceNumber,
@@ -386,14 +386,13 @@ export default function InvoiceDetailPage() {
                     {invoice.customerCompany && <p className="text-muted-foreground">{invoice.customerCompany}</p>}
                   </div>
                   <div className="text-sm">
-                    <p>{invoice.customerEmail}</p>
-                    <p>{invoice.customerPhone}</p>
-                    <p className="mt-2">
-                      {invoice.customerAddress}
-                      {invoice.customerCity && `, ${invoice.customerCity}`}
-                      {invoice.customerState && `, ${invoice.customerState}`}
-                      {invoice.customerZip && ` ${invoice.customerZip}`}
-                    </p>
+                    {invoice.customerEmail && <p>{invoice.customerEmail}</p>}
+                    {invoice.customerPhone && <p>{invoice.customerPhone}</p>}
+                    {(invoice.customerAddress || invoice.customerCity || invoice.customerState || invoice.customerZip) && (
+                      <p className="mt-2">
+                        {[invoice.customerAddress, invoice.customerCity, invoice.customerState, invoice.customerZip].filter(Boolean).join(', ')}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>

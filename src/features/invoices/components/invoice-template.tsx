@@ -83,10 +83,12 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                       <span className="text-muted-foreground"> - {invoiceData.client.company}</span>
                     )}
                   </p>
-                  <p>{invoiceData.client.address}</p>
-                  <p>
-                    {invoiceData.client.city}, {invoiceData.client.state} {invoiceData.client.zip}
-                  </p>
+                  {invoiceData.client.address && <p>{invoiceData.client.address}</p>}
+                  {(invoiceData.client.city || invoiceData.client.state || invoiceData.client.zip) && (
+                    <p>
+                      {[invoiceData.client.city, invoiceData.client.state, invoiceData.client.zip].filter(Boolean).join(', ')}
+                    </p>
+                  )}
                   {invoiceData.client.phone && <p>{invoiceData.client.phone}</p>}
                   {invoiceData.client.email && <p>{invoiceData.client.email}</p>}
                 </>

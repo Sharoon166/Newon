@@ -205,7 +205,7 @@ export async function getInvoices(filters?: InvoiceFilters): Promise<PaginatedIn
       query.$or = [
         { invoiceNumber: { $regex: filters.search, $options: 'i' } },
         { customerName: { $regex: filters.search, $options: 'i' } },
-        { customerEmail: { $regex: filters.search, $options: 'i' } },
+        { customerEmail: { $regex: filters.search, $options: 'i', $exists: true } },
         { customerPhone: { $regex: filters.search, $options: 'i' } }
       ];
     }

@@ -39,12 +39,14 @@ import { Customer } from '@/features/customers/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProductSelector } from './product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/constants';
 import { toast } from 'sonner';
 import { NewonInvoiceTemplate } from './invoice-template';
+import { CustomerForm } from '@/features/customers/components/customer-form';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
@@ -64,12 +66,12 @@ const invoiceFormSchema = z.object({
   client: z.object({
     name: z.string().min(1, 'Client name is required'),
     company: z.string().optional(),
-    address: z.string().min(1, 'Address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
-    zip: z.string().min(1, 'ZIP code is required'),
-    email: z.string().email('Invalid email address'),
-    phone: z.string().min(1, 'Phone is required')
+    address: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip: z.string().optional(),
+    email: z.email('Invalid email address').optional().or(z.literal('')),
+    phone: z.string().optional()
   }),
   invoiceNumber: z.string().optional(), // Auto-generated on save
   date: z.string().min(1, 'Date is required'),
@@ -134,6 +136,8 @@ export function NewInvoiceForm({
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
+  const [refreshCustomers, setRefreshCustomers] = useState(0);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
   const form = useForm<InvoiceFormValues>({
@@ -359,7 +363,7 @@ export function NewInvoiceForm({
       form.setValue('customerId', customer.customerId || customer.id);
       form.setValue('client.name', customer.name);
       form.setValue('client.company', customer.company || '');
-      form.setValue('client.email', customer.email);
+      form.setValue('client.email', customer.email || '');
       form.setValue('client.phone', customer.phone || '');
       form.setValue('client.address', customer.address || '');
       form.setValue('client.city', customer.city || '');
@@ -659,18 +663,28 @@ export function NewInvoiceForm({
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
               <div className="space-y-3">
-                <Select onValueChange={handleCustomerSelect} disabled={isOtcCustomer}>
-                  <SelectTrigger className="w-full max-w-sm">
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.company || 'No Company'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex max-sm:flex-col justify-between gap-2">
+                  <Select onValueChange={handleCustomerSelect} disabled={isOtcCustomer}>
+                    <SelectTrigger className="w-full max-w-sm">
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map(customer => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name} - {customer.company || 'No Company'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    onClick={() => setIsCreateCustomerOpen(true)}
+                    disabled={isOtcCustomer}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Customer
+                  </Button>
+                </div>
 
                 <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <input
@@ -709,25 +723,30 @@ export function NewInvoiceForm({
                       )}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {selectedCustomer.email}
-                      </p>
-                      <p className="text-sm flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        {selectedCustomer.phone}
-                      </p>
+                      {selectedCustomer.email && (
+                        <p className="text-sm flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          {selectedCustomer.email}
+                        </p>
+                      )}
+                      {selectedCustomer.phone && (
+                        <p className="text-sm flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          {selectedCustomer.phone}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t">
-                    <p className="text-sm flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5" />
-                      <span>
-                        {selectedCustomer.address}, {selectedCustomer.city}, {selectedCustomer.state}{' '}
-                        {selectedCustomer.zip}
-                      </span>
-                    </p>
-                  </div>
+                  {(selectedCustomer.address || selectedCustomer.city || selectedCustomer.state || selectedCustomer.zip) && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-sm flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5" />
+                        <span>
+                          {[selectedCustomer.address, selectedCustomer.city, selectedCustomer.state, selectedCustomer.zip].filter(Boolean).join(', ')}
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {!selectedCustomer && (
@@ -1298,6 +1317,23 @@ export function NewInvoiceForm({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Create Customer Dialog */}
+      <Dialog open={isCreateCustomerOpen} onOpenChange={setIsCreateCustomerOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Customer</DialogTitle>
+          </DialogHeader>
+          <CustomerForm
+            onSuccess={() => {
+              setIsCreateCustomerOpen(false);
+              setRefreshCustomers(prev => prev + 1);
+              toast.success('Customer created successfully');
+            }}
+            onCancel={() => setIsCreateCustomerOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

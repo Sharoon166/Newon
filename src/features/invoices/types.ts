@@ -40,9 +40,9 @@ export interface Invoice {
   customerId: string;
   customerName: string;
   customerCompany?: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerAddress: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
@@ -86,9 +86,9 @@ export interface CreateInvoiceDto {
   customerId: string;
   customerName: string;
   customerCompany?: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerAddress: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   customerCity?: string;
   customerState?: string;
   customerZip?: string;

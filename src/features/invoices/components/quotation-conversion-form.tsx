@@ -73,12 +73,12 @@ interface QuotationConversionFormProps {
     validUntil: string;
     customerName: string;
     customerCompany?: string;
-    customerEmail: string;
-    customerPhone: string;
-    customerAddress: string;
-    customerCity: string;
-    customerState: string;
-    customerZip: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    customerCity?: string;
+    customerState?: string;
+    customerZip?: string;
     customerId?: string;
     items: Array<{
       id: string;

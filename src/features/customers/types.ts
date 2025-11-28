@@ -2,7 +2,7 @@ export interface Customer {
   id: string;
   customerId?: string;
   name: string;
-  email: string;
+  email?: string;
   company?: string;
   phone?: string;
   address?: string;
@@ -21,7 +21,7 @@ export interface Customer {
 
 export interface CreateCustomerDto {
   name: string;
-  email: string;
+  email?: string;
   company?: string;
   phone?: string;
   address?: string;

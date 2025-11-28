@@ -127,10 +127,10 @@ export async function createCustomer(data: CreateCustomerDto): Promise<Customer>
     }
 
     // Check if email already exists
-    const existingCustomer = await CustomerModel.findOne({ email: data.email });
-    if (existingCustomer) {
-      throw new Error('Email already in use');
-    }
+    // const existingCustomer = await CustomerModel.findOne({ email: data.email });
+    // if (existingCustomer) {
+    //   throw new Error('Email already in use');
+    // }
 
     const newCustomer = new CustomerModel(data);
     const savedCustomer = await newCustomer.save();
