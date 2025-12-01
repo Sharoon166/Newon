@@ -6,7 +6,7 @@ export const COMPANY_DETAILS = {
   zip: '44000',
   phone: '+92 300 1234567',
   email: 'info@newon.com',
-  website: 'www.newon.com'
+  website: 'newon.com'
 };
 
 export const PAYMENT_DETAILS = {

@@ -36,7 +36,7 @@ const brandData: BrandData[] = [
     zip: '44000',
     phone: '+92 343 9227883',
     email: 'info@newon.com',
-    website: 'www.newon.pk'
+    website: 'newon.pk'
   },
   {
     id: 'waymor',
