@@ -48,7 +48,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                 {invoiceData.company.city} {invoiceData.company.state} {invoiceData.company.zip}
               </p>
               {invoiceData.company.phone && <p>{invoiceData.company.phone}</p>}
-              {invoiceData.company.name.toLowerCase() == 'newon' && invoiceData.company.email && <p>{invoiceData.company.email}</p>}
+              {invoiceData.company.email && <p>{invoiceData.company.email}</p>}
               {invoiceData.company.website && <p>{invoiceData.company.website}</p>}
               {getCurrentBrand()?.ntnNo && (
                 <p>

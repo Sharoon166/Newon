@@ -47,7 +47,7 @@ const brandData: BrandData[] = [
     state: 'Islamabad',
     zip: '44000',
     phone: '+92 343 9227883',
-    email: 'info@waymor.com',
+    email: 'morway4@gmail.com',
     ntnNo: '8938936-1',
     strnNo: ' 3277876217651',
     website: ''

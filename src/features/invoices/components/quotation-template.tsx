@@ -44,7 +44,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 {quotationData.company.city} {quotationData.company.state} {quotationData.company.zip}
               </p>
               {quotationData.company.phone && <p>{quotationData.company.phone}</p>}
-              {quotationData.company.name.toLowerCase() == 'newon' && quotationData.company.email && <p>{quotationData.company.email}</p>}
+              {quotationData.company.email && <p>{quotationData.company.email}</p>}
               {quotationData.company.website && <p>{quotationData.company.website}</p>}
               {getCurrentBrand()?.ntnNo && (
                 <p>
