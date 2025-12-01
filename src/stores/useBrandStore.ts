@@ -15,6 +15,8 @@ interface BrandData {
   phone: string;
   email: string;
   website: string;
+  ntnNo?: string;
+  strnNo?: string;
 }
 
 // Full brand type including the icon (for runtime use)
@@ -27,26 +29,28 @@ const brandData: BrandData[] = [
   {
     id: 'newon',
     displayName: 'Newon',
-    address: 'I-9, Islamabad',
+    address: 'I-9 markaz, Islamabad',
     description: 'Inventory Management System',
     city: 'Islamabad',
     state: 'Islamabad',
     zip: '44000',
-    phone: '+92 300 1234567',
-    email: 'support@newon.com',
-    website: 'www.newon.com'
+    phone: '+92 343 9227883',
+    email: 'info@newon.com',
+    website: 'www.newon.pk'
   },
   {
     id: 'waymor',
-    displayName: 'Waymor',
-    address: 'G-9, Islamabad',
+    displayName: 'Waymor International',
+    address: 'Office# 02, 1st floor, Haroon Plaza, I-9 markaz',
     description: 'Waymor Inventory System',
     city: 'Islamabad',
     state: 'Islamabad',
     zip: '44000',
-    phone: '+92 300 1234567',
+    phone: '+92 343 9227883',
     email: 'info@waymor.com',
-    website: 'www.waymor.com'
+    ntnNo: '8938936-1',
+    strnNo: ' 3277876217651',
+    website: ''
   }
 ];
 

@@ -108,7 +108,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <div className="bg-white p-2 -m-2 rounded-lg">
+                      <div className="bg-white p-2 -m-2 truncate">
                         <div className="flex items-center gap-3 cursor-pointer group">
                           <div
                             className={cn(
@@ -120,8 +120,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           >
                             {currentBrand.icon && <currentBrand.icon className="size-5" />}
                           </div>
-                          <div className="flex items-center w-full justify-between gap-2">
-                            <div className="">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs">
                               <div className="truncate font-medium group-hover:underline">
                                 {currentBrand.displayName}
                               </div>
@@ -133,7 +133,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       </div>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      className="w-64 rounded-lg p-2"
+                      className="w-fit rounded-lg p-2"
                       side={isMobile ? 'bottom' : 'right'}
                       align="end"
                       sideOffset={4}

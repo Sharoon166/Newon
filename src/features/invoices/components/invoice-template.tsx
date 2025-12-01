@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { InvoiceTemplateData } from './template-types';
+import useBrandStore from '@/stores/useBrandStore';
 
 type InvoiceTemplateProps = {
   invoiceData: InvoiceTemplateData;
@@ -16,6 +17,7 @@ type InvoiceTemplateProps = {
 
 export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
   ({ invoiceData, onBack, onPrint, onSave }, ref) => {
+    const { getCurrentBrand } = useBrandStore();
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
     const discountAmount =
@@ -41,13 +43,24 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
               <h1 className="text-3xl font-bold text-primary">{invoiceData.company.name || 'Company Name'}</h1>
             )}
             <div className="text-muted-foreground text-sm print:text-xs">
-              <p>{invoiceData.company.address}</p>
+              <p className="max-w-sm">{invoiceData.company.address}</p>
               <p>
                 {invoiceData.company.city} {invoiceData.company.state} {invoiceData.company.zip}
               </p>
               {invoiceData.company.phone && <p>{invoiceData.company.phone}</p>}
-              {invoiceData.company.email && <p>{invoiceData.company.email}</p>}
+              {invoiceData.company.name.toLowerCase() == 'newon' && invoiceData.company.email && <p>{invoiceData.company.email}</p>}
               {invoiceData.company.website && <p>{invoiceData.company.website}</p>}
+              {getCurrentBrand()?.ntnNo && (
+                <p>
+                  <span className="font-semibold">NTN#:</span> {getCurrentBrand().ntnNo}
+                </p>
+              )}
+              {getCurrentBrand()?.strnNo && (
+                <p>
+                  <span className="font-semibold">STRN#:</span>
+                  {getCurrentBrand().strnNo}
+                </p>
+              )}
             </div>
           </div>
 
@@ -86,7 +99,9 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                   {invoiceData.client.address && <p>{invoiceData.client.address}</p>}
                   {(invoiceData.client.city || invoiceData.client.state || invoiceData.client.zip) && (
                     <p>
-                      {[invoiceData.client.city, invoiceData.client.state, invoiceData.client.zip].filter(Boolean).join(', ')}
+                      {[invoiceData.client.city, invoiceData.client.state, invoiceData.client.zip]
+                        .filter(Boolean)
+                        .join(', ')}
                     </p>
                   )}
                   {invoiceData.client.phone && <p>{invoiceData.client.phone}</p>}
