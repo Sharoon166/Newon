@@ -1116,6 +1116,7 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       totalOutstanding,
       dailySales,
       monthlySales,
+      monthlyProfit,
       cancelledInvoices,
       cancelledRevenue
     ] = await Promise.all([
@@ -1138,6 +1139,10 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
         { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: monthStart } } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
       ]),
+      InvoiceModel.aggregate([
+        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: monthStart }, profit: { $exists: true, $gt: 0 } } },
+        { $group: { _id: null, total: { $sum: '$profit' } } }
+      ]),
       InvoiceModel.countDocuments({ ...query, status: 'cancelled' }),
       InvoiceModel.aggregate([
         { $match: { ...query, status: 'cancelled' } },
@@ -1153,6 +1158,7 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       totalOutstanding: totalOutstanding[0]?.total || 0,
       dailySales: dailySales[0]?.total || 0,
       monthlySales: monthlySales[0]?.total || 0,
+      monthlyProfit: monthlyProfit[0]?.total || 0,
       cancelledInvoices,
       cancelledRevenue: cancelledRevenue[0]?.total || 0
     };

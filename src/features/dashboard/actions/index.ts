@@ -109,12 +109,13 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       }
     ]);
 
-    // Get total profit (sum of all profit fields from invoices)
-    const totalProfitData = await InvoiceModel.aggregate([
+    // Get monthly profit (sum of profit fields from this month's invoices)
+    const monthlyProfitData = await InvoiceModel.aggregate([
       {
         $match: {
           type: 'invoice',
           status: { $ne: 'cancelled' },
+          date: { $gte: monthStart },
           profit: { $exists: true, $gt: 0 }
         }
       },
@@ -135,7 +136,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       dailySales: dailySalesData[0]?.total || 0,
       monthlySales: monthlySalesData[0]?.total || 0,
       totalRevenue: totalRevenueData[0]?.total || 0,
-      totalProfit: totalProfitData[0]?.total || 0,
+      monthlyProfit: monthlyProfitData[0]?.total || 0,
       pendingPayments: pendingPaymentsData[0]?.total || 0,
       pendingPaymentsCount: pendingPaymentsData[0]?.count || 0,
       totalCustomers
@@ -149,7 +150,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       dailySales: 0,
       monthlySales: 0,
       totalRevenue: 0,
-      totalProfit: 0,
+      monthlyProfit: 0,
       pendingPayments: 0,
       pendingPaymentsCount: 0,
       totalCustomers: 0

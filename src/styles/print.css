@@ -24,6 +24,14 @@
     }
   }
 
+  /* Mobile page setup with smaller margins */
+  @media print and (max-width: 768px) {
+    @page {
+      size: A4 portrait;
+      margin: 10mm 10mm 15mm 10mm;
+    }
+  }
+
   /* Prevent page breaks inside these elements */
   .print-no-break {
     break-inside: avoid;
@@ -52,9 +60,8 @@
     display: table-footer-group;
   }
 
-  /* Make container full page height in print */
+  /* Make container full page height in print - avoid min-height on mobile */
   .print-page-container {
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
@@ -102,13 +109,22 @@
     print-color-adjust: exact;
     width: 100% !important;
     max-width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Prevent content duplication by ensuring proper container behavior */
+  .max-w-4xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   /* Ensure colors are preserved */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    color-adjust: exact !important;
   }
 
   /* Page containers for different layouts */
@@ -295,11 +311,7 @@
     overflow: hidden;
   }
 
-  /* Force flexbox layout for print to push footer to bottom */
-  .print\:min-h-screen {
-    min-height: 100vh !important;
-  }
-
+  /* Force flexbox layout for print to push footer to bottom - avoid min-height issues */
   .print\:flex {
     display: flex !important;
   }
@@ -347,16 +359,63 @@
     page-break-inside: avoid;
   }
 
-  /* Try to keep delivery notes and footer together */
+  /* Try to keep delivery notes and footer together - but allow breaks on mobile */
   .print-bottom-content {
-    break-inside: avoid;
-    page-break-inside: avoid;
     margin-top: auto;
   }
 
-  /* Allow flexible spacing for bottom content */
+  /* Allow flexible spacing for bottom content - avoid min-height on mobile */
   .print-flexible-spacer {
     flex: 1;
-    min-height: 2rem;
+  }
+
+  /* Mobile-specific print adjustments */
+  @media print and (max-width: 768px) {
+    .print-bottom-content {
+      break-inside: auto;
+      page-break-inside: auto;
+      margin-top: 1rem;
+    }
+    
+    .print-footer-section {
+      break-inside: auto;
+      page-break-inside: auto;
+    }
+    
+    /* Remove flexbox on mobile to prevent pagination issues */
+    .print\:flex {
+      display: block !important;
+    }
+    
+    .print\:flex-col {
+      flex-direction: initial !important;
+    }
+    
+    /* Ensure proper page breaks on mobile */
+    .invoice-table-container,
+    .quotation-table-container {
+      break-after: auto;
+      page-break-after: auto;
+    }
+    
+    /* Prevent orphaned content */
+    .print-flexible-spacer {
+      display: none;
+    }
+    
+    /* Compact spacing on mobile */
+    .mb-8 {
+      margin-bottom: 0.5rem !important;
+    }
+    
+    .pb-8 {
+      padding-bottom: 0.5rem !important;
+    }
+    
+    /* Ensure footer doesn't create extra pages */
+    .print-footer-section:last-child {
+      margin-bottom: 0 !important;
+      padding-bottom: 0 !important;
+    }
   }
 }

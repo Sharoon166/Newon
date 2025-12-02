@@ -24,6 +24,7 @@ interface InvoicesPageClientProps {
     totalOutstanding: number;
     dailySales: number;
     monthlySales: number;
+    monthlyProfit: number;
     cancelledInvoices: number;
     cancelledRevenue: number;
   };
@@ -98,6 +99,17 @@ export function InvoicesPageClient({
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(initialStats.totalRevenue)}</div>
             <p className="text-xs text-muted-foreground mt-1">All time revenue</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monthly Profit</CardTitle>
+            <TrendingUp className="h-6 w-6 text-indigo-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(initialStats.monthlyProfit)}</div>
+            <p className="text-xs text-muted-foreground mt-1">This month&apos;s profit</p>
           </CardContent>
         </Card>
 

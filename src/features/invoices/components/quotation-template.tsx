@@ -28,7 +28,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     return (
       <div
         ref={ref}
-        className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 print:min-h-screen print:flex print:flex-col"
+        className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 print:flex print:flex-col"
       >
         {/* Header */}
         <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
@@ -108,6 +108,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           <table className="w-full border-collapse rounded-xl quotation-table">
             <thead>
               <tr className="bg-muted/50 text-left text-sm font-medium">
+                <th className="p-3 print:py-2 border">#</th>
                 <th className="p-3 print:py-2 border">Description</th>
                 <th className="p-3 print:py-2 border text-right">Qty</th>
                 <th className="p-3 print:py-2 border text-right">Rate</th>
@@ -117,6 +118,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
             <tbody>
               {quotationData.items.map((item, index) => (
                 <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
+                  <td className="p-3 print:py-2 border">{index + 1}.</td>
                   <td className="p-3 print:py-2 border">{item.description || 'Item description'}</td>
                   <td className="p-3 print:py-2 border text-right">{item.quantity}</td>
                   <td className="p-3 print:py-2 border text-right">{formatCurrency(item.rate)}</td>
@@ -165,7 +167,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </div>
 
         {/* Flexible spacer */}
-        <div className="grow print-flexible-spacer" />
+        <div className="flex-1 print-flexible-spacer" />
       
         {/* Bottom content group - delivery notes, terms, and footer */}
         <div className="print-bottom-content">

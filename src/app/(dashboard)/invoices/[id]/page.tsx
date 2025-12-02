@@ -239,7 +239,7 @@ export default function InvoiceDetailPage() {
         title={`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`}
         backLink="/invoices"
       >
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setEditDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
@@ -302,7 +302,7 @@ export default function InvoiceDetailPage() {
           {/* Invoice Header */}
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-start">
+              <div className="flex max-sm:flex-col justify-between max-sm:items-start gap-4">
                 <div>
                   <CardTitle className="text-2xl flex items-center gap-2">
                     {invoice.invoiceNumber}
@@ -325,7 +325,7 @@ export default function InvoiceDetailPage() {
                       </span>
                     )}
                   </CardTitle>
-                  <div className="flex gap-2 mt-2 capitalize">
+                  <div className="flex flex-wrap gap-2 mt-2 capitalize">
                     <Badge>{invoice.status}</Badge>
                     <Badge variant="outline">{invoice.market}</Badge>
                     <Badge variant="outline">{invoice.billingType}</Badge>
@@ -336,7 +336,7 @@ export default function InvoiceDetailPage() {
                     )}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="max-sm:text-right">
                   <p className="text-sm text-muted-foreground">Date</p>
                   <p className="font-medium">{format(new Date(invoice.date), 'MMM dd, yyyy')}</p>
                   {invoice.dueDate && (

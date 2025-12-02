@@ -9,7 +9,7 @@ import {
   ShoppingCart,
   Wallet,
   Coins,
-  TrendingDown
+  BarChart3
 } from 'lucide-react';
 
 interface MetricsCardsProps {
@@ -29,7 +29,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       title: 'Daily Sales',
       value: formatCurrency(metrics.dailySales),
       subtitle: 'Today\'s revenue',
-      icon: TrendingUp,
+      icon: BarChart3,
       color: 'text-green-600'
     },
     {
@@ -47,10 +47,10 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       color: 'text-emerald-600'
     },
     {
-      title: 'Total Profit',
-      value: formatCurrency(metrics.totalProfit),
-      subtitle: 'All time profit',
-      icon: TrendingDown,
+      title: 'Monthly Profit',
+      value: formatCurrency(metrics.monthlyProfit),
+      subtitle: 'This month\'s profit',
+      icon: TrendingUp,
       color: 'text-indigo-600'
     },
     {
