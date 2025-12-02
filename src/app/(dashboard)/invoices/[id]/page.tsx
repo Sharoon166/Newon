@@ -58,6 +58,7 @@ export default function InvoiceDetailPage() {
 
   const handleReactToPrint = useReactToPrint({
     contentRef: printRef,
+    preserveAfterPrint: true,
     documentTitle:
       invoice?.type === 'invoice' ? `Invoice-${invoice.invoiceNumber}` : `Quotation-${invoice?.invoiceNumber}`,
     pageStyle: `

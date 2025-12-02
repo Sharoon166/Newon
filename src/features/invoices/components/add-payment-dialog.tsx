@@ -75,7 +75,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Payment</DialogTitle>
           <DialogDescription>Record a payment for this invoice. Balance: PKR {balanceAmount.toFixed(2)}</DialogDescription>

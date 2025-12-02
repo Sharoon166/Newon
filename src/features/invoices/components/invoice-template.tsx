@@ -15,8 +15,12 @@ type InvoiceTemplateProps = {
   onSave?: () => void;
 };
 
-export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplateProps>(
-  ({ invoiceData, onBack, onPrint, onSave }, ref) => {
+type InvoiceTemplatePropsWithMode = InvoiceTemplateProps & {
+  viewMode?: 'print' | 'mobile';
+};
+
+export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePropsWithMode>(
+  ({ invoiceData, onBack, onPrint, onSave, viewMode = 'print' }, ref) => {
     const { getCurrentBrand } = useBrandStore();
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
@@ -29,13 +33,21 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
     const paidAmount = invoiceData.paid || 0;
     const grandTotal = Math.max(0, total - paidAmount);
 
+    const isMobileView = viewMode === 'mobile';
+    
     return (
       <div
         ref={ref}
-        className="max-w-4xl mx-auto bg-white p-8 not-print:border rounded-lg shadow-sm print:shadow-none print:p-4 print:flex print:flex-col"
+        className={`max-w-4xl mx-auto bg-white ${
+          isMobileView 
+            ? 'p-4 border-0 shadow-none' 
+            : 'p-8 not-print:border rounded-lg shadow-sm print:shadow-none print:p-4 print:flex print:flex-col'
+        }`}
       >
         {/* Header */}
-        <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
+        <div className={`flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center ${
+          isMobileView ? 'mb-4 pb-4' : 'mb-8 print:mb-2 pb-8 print:pb-2'
+        } border-b print-no-break`}>
           <div className="mb-6 md:mb-0 print:mb-0">
             {invoiceData.logo ? (
               <Image src={invoiceData.logo} alt="Company Logo" fill className="h-16 mb-4" />
@@ -113,8 +125,8 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
         </div>
 
         {/* Items Table */}
-        <div className="mb-4 print:mb-2 invoice-table-container">
-          <table className="w-full border-collapse rounded-xl invoice-table">
+        <div className={`${isMobileView ? 'mb-3' : 'mb-4 print:mb-2'} invoice-table-container`}>
+          <table className={`w-full border-collapse ${isMobileView ? '' : 'rounded-xl'} invoice-table`}>
             <thead>
               <tr className="bg-muted/50 text-left text-sm font-medium">
                 <th className="p-3 print:py-2 border">#</th>
