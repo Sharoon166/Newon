@@ -4,9 +4,9 @@ export const COMPANY_DETAILS = {
   city: 'Islamabad',
   state: 'Federal',
   zip: '44000',
-  phone: '+92 300 1234567',
-  email: 'info@newon.com',
-  website: 'newon.com'
+  phone: '+92 343 9227883',
+  email: 'info@newon.pk',
+  website: 'https://newon.pk/'
 };
 
 export const PAYMENT_DETAILS = {
