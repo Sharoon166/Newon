@@ -98,6 +98,7 @@ const invoiceFormSchema = z.object({
   amountInWords: z.string().optional(),
   paid: z.number().min(0, 'Cannot be negative').default(0),
   remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
+  profit: z.number().min(0, 'Profit cannot be negative').default(0),
   description: z.string().optional(),
   notes: z.string().optional(),
   terms: z.string().optional(),
@@ -177,6 +178,7 @@ export function NewInvoiceForm({
       amountInWords: 'Zero Rupees Only',
       paid: 0,
       remainingPayment: 0,
+      profit: 0,
       description: '',
       notes: '',
       terms: initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n'),
@@ -544,6 +546,24 @@ export function NewInvoiceForm({
         if (numericValue > currentTotal) {
           toast.error('Invalid paid amount', {
             description: 'Paid amount cannot exceed the invoice total'
+          });
+          field.onChange(currentTotal);
+          return;
+        }
+      }
+      if (fieldName === 'profit') {
+        if (numericValue < 0) {
+          toast.error('Invalid profit', {
+            description: 'Profit cannot be negative'
+          });
+          field.onChange(0);
+          return;
+        }
+        // Get current total to validate profit amount
+        const currentTotal = subtotal + taxAmount - discountAmount;
+        if (numericValue > currentTotal) {
+          toast.error('Invalid profit amount', {
+            description: 'Profit cannot exceed the invoice total'
           });
           field.onChange(currentTotal);
           return;
@@ -1165,6 +1185,36 @@ export function NewInvoiceForm({
                     />
                   </div>
                   <span className="text-green-600">{formatCurrency(paid)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground font-medium">Profit:</span>
+                    <FormField
+                      control={form.control}
+                      name="profit"
+                      render={({ field }) => (
+                        <FormItem className="w-24">
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>Rs</InputGroupAddon>
+                              <InputGroupInput
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                {...field}
+                                className="h-8 text-sm"
+                                onChange={e => handleNumericInput(e, field, 'profit')}
+                                value={field.value || ''}
+                                placeholder="0.00"
+                              />
+                            </InputGroup>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <span className="text-blue-600">{formatCurrency(form.watch('profit') || 0)}</span>
                 </div>
 
                 {!isOtcCustomer && selectedCustomer && (

@@ -95,6 +95,7 @@ const quotationFormSchema = z.object({
   discount: z.number().min(0, 'Discount cannot be negative'),
   discountType: z.enum(['percentage', 'fixed']).default('fixed'),
   amountInWords: z.string().optional(),
+  profit: z.number().min(0, 'Profit cannot be negative').default(0),
   description: z.string().optional(),
   notes: z.string().optional(),
   terms: z.string().optional()
@@ -166,6 +167,7 @@ export function NewQuotationForm({
       discount: 0,
       discountType: 'fixed',
       amountInWords: 'Zero Rupees Only',
+      profit: 0,
       description: '',
       notes: '',
       terms: initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')
@@ -441,7 +443,8 @@ export function NewQuotationForm({
 
   const handleNumericInput = (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: { onChange: (value: number) => void; value: number }
+    field: { onChange: (value: number) => void; value: number },
+    fieldName?: string
   ) => {
     const value = e.target.value;
     if (value === '') {
@@ -451,6 +454,39 @@ export function NewQuotationForm({
     const numericString = value.replace(/[^0-9.]/g, '');
     const numericValue = parseFloat(numericString);
     if (!isNaN(numericValue)) {
+      // Validate specific field constraints
+      if (fieldName === 'taxRate' && numericValue > 100) {
+        toast.error('Invalid tax rate', {
+          description: 'Tax rate cannot exceed 100%'
+        });
+        field.onChange(100);
+        return;
+      }
+      if (fieldName === 'discount' && numericValue < 0) {
+        toast.error('Invalid discount', {
+          description: 'Discount cannot be negative'
+        });
+        field.onChange(0);
+        return;
+      }
+      if (fieldName === 'profit') {
+        if (numericValue < 0) {
+          toast.error('Invalid profit', {
+            description: 'Profit cannot be negative'
+          });
+          field.onChange(0);
+          return;
+        }
+        // Get current total to validate profit amount
+        const currentTotal = subtotal + taxAmount - discountAmount;
+        if (numericValue > currentTotal) {
+          toast.error('Invalid profit amount', {
+            description: 'Profit cannot exceed the quotation total'
+          });
+          field.onChange(currentTotal);
+          return;
+        }
+      }
       field.onChange(numericValue);
     } else {
       field.onChange(0);
@@ -1045,7 +1081,7 @@ export function NewQuotationForm({
                             step="0.01"
                             {...field}
                             className="h-8 text-sm text-right"
-                            onChange={e => handleNumericInput(e, field)}
+                            onChange={e => handleNumericInput(e, field, 'taxRate')}
                             value={field.value === 0 ? '' : field.value}
                           />
                           <InputGroupAddon>
@@ -1096,7 +1132,7 @@ export function NewQuotationForm({
                             step="0.01"
                             {...field}
                             className="h-8 text-sm"
-                            onChange={e => handleNumericInput(e, field)}
+                            onChange={e => handleNumericInput(e, field, 'discount')}
                             value={field.value === 0 ? '' : field.value}
                           />
                         </InputGroup>
@@ -1113,6 +1149,36 @@ export function NewQuotationForm({
               <div className="flex justify-between font-semibold">
                 <span>Total:</span>
                 <span>{formatCurrency(total)}</span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground font-medium">Profit:</span>
+                  <FormField
+                    control={form.control}
+                    name="profit"
+                    render={({ field }) => (
+                      <FormItem className="w-24">
+                        <FormControl>
+                          <InputGroup>
+                            <InputGroupAddon>Rs</InputGroupAddon>
+                            <InputGroupInput
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              {...field}
+                              className="h-8 text-sm"
+                              onChange={e => handleNumericInput(e, field, 'profit')}
+                              value={field.value || ''}
+                              placeholder="0.00"
+                            />
+                          </InputGroup>
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <span className="text-blue-600">{formatCurrency(form.watch('profit') || 0)}</span>
               </div>
 
               <div className="mt-2 pt-2 border-t border-gray-200">

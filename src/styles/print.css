@@ -14,7 +14,14 @@
   /* Page setup - Default A4 portrait */
   @page {
     size: A4 portrait;
-    margin: 15mm;
+    margin: 15mm 15mm 25mm 15mm; /* Extra bottom margin for page numbers */
+    
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9pt;
+      color: #666;
+      margin-top: 5mm;
+    }
   }
 
   /* Prevent page breaks inside these elements */
@@ -146,7 +153,7 @@
 
   /* Ensure tables print properly */
   table {
-    page-break-inside: avoid;
+    page-break-inside: auto;
     border-collapse: collapse;
   }
 
@@ -156,6 +163,35 @@
 
   tr {
     page-break-inside: avoid;
+  }
+
+  /* Specific styles for invoice and quotation tables */
+  .invoice-table, .quotation-table {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+  
+  /* Ensure table headers repeat on each page */
+  .invoice-table thead, .quotation-table thead {
+    display: table-header-group;
+  }
+  
+  /* Prevent individual table rows from breaking */
+  .invoice-table tr, .quotation-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* Allow table body to break between rows */
+  .invoice-table tbody, .quotation-table tbody {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  
+  /* Remove any forced page breaks before tables */
+  .invoice-table-container, .quotation-table-container {
+    break-before: auto !important;
+    page-break-before: auto !important;
   }
 
   /* Avoid breaking inside important sections */
@@ -274,5 +310,53 @@
 
   .print\:flex-1 {
     flex: 1 !important;
+  }
+
+  /* Page numbering and footer positioning */
+  .print-page-number {
+    position: fixed;
+    bottom: 10mm;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9pt;
+    color: #666;
+  }
+
+  /* Ensure footer content stays at bottom of page */
+  .print-footer {
+    margin-top: auto;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Main content container for proper page layout */
+  .print-main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Content that can expand */
+  .print-expandable-content {
+    flex: 1;
+  }
+
+  /* Footer sections that should stay together */
+  .print-footer-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Try to keep delivery notes and footer together */
+  .print-bottom-content {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: auto;
+  }
+
+  /* Allow flexible spacing for bottom content */
+  .print-flexible-spacer {
+    flex: 1;
+    min-height: 2rem;
   }
 }

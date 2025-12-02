@@ -50,6 +50,7 @@ interface FormData {
   notes?: string;
   terms?: string;
   paid?: number;
+  profit?: number;
   amountInWords?: string;
 }
 
@@ -172,6 +173,7 @@ export function NewInvoiceFormWrapper({
         notes: documentData.notes,
         termsAndConditions: documentData.terms,
         amountInWords: documentData.amountInWords,
+        profit: documentData.profit || 0,
         custom: hasCustomItems,
         createdBy: 'system-user'
       };

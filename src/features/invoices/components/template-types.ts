@@ -58,6 +58,7 @@ export type InvoiceTemplateData = {
   outstandingBalance?: number;
   paid: number;
   remainingPayment: number;
+  profit?: number;
   amountInWords?: string;
   billingType?: 'wholesale' | 'retail';
   market?: 'newon' | 'waymor';
@@ -77,6 +78,7 @@ export type QuotationTemplateData = {
   discountType: 'percentage' | 'fixed';
   notes?: string;
   terms?: string;
+  profit?: number;
   amountInWords?: string;
   billingType?: 'wholesale' | 'retail';
   market?: 'newon' | 'waymor';

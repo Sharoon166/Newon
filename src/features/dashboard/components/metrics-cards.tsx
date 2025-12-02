@@ -8,7 +8,8 @@ import {
   TrendingUp,
   ShoppingCart,
   Wallet,
-  Coins
+  Coins,
+  TrendingDown
 } from 'lucide-react';
 
 interface MetricsCardsProps {
@@ -46,6 +47,13 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       color: 'text-emerald-600'
     },
     {
+      title: 'Total Profit',
+      value: formatCurrency(metrics.totalProfit),
+      subtitle: 'All time profit',
+      icon: TrendingDown,
+      color: 'text-indigo-600'
+    },
+    {
       title: 'Pending Payments',
       value: formatCurrency(metrics.pendingPayments),
       subtitle: `${metrics.pendingPaymentsCount} invoices`,
@@ -55,7 +63,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
       {cards.map((card, index) => {
         const Icon = card.icon;
         return (

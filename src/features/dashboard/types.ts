@@ -11,6 +11,7 @@ export interface DashboardMetrics {
   dailySales: number;
   monthlySales: number;
   totalRevenue: number;
+  totalProfit: number;
   pendingPayments: number;
   pendingPaymentsCount: number;
   totalCustomers: number;

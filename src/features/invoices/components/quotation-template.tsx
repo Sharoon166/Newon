@@ -28,7 +28,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
     return (
       <div
         ref={ref}
-        className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 min-h-[297mm] flex flex-col"
+        className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-sm print:shadow-none print:p-4 print:min-h-screen print:flex print:flex-col"
       >
         {/* Header */}
         <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
@@ -104,8 +104,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         </div>
 
         {/* Items Table */}
-        <div className="mb-4 print:mb-2 print-break-before">
-          <table className="w-full border-collapse rounded-xl">
+        <div className="mb-4 print:mb-2 quotation-table-container">
+          <table className="w-full border-collapse rounded-xl quotation-table">
             <thead>
               <tr className="bg-muted/50 text-left text-sm font-medium">
                 <th className="p-3 print:py-2 border">Description</th>
@@ -153,6 +153,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               <span>{formatCurrency(total)}</span>
             </div>
 
+
+
             <div className="pt-2 mt-2 border-t">
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium">Amount in words:</span>{' '}
@@ -162,55 +164,57 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
           </div>
         </div>
 
-        {/* Spacer to push footer to bottom */}
-        <div className="grow print-spacer" />
+        {/* Flexible spacer */}
+        <div className="grow print-flexible-spacer" />
       
-        {/* Delivery Notes Section */}
-        <div className="mb-6 print:mb-3 print-no-break">
-          <div className="border-2 border-primary/30 rounded-lg p-4 bg-linear-to-br from-muted/30 to-muted/10">
-            <h3 className="text-base font-bold mb-3 text-primary flex items-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              Delivery Notes
-            </h3>
-            <div className="min-h-[60px] text-sm text-muted-foreground">
-              <p className="italic">Additional delivery instructions or notes can be added here...</p>
+        {/* Bottom content group - delivery notes, terms, and footer */}
+        <div className="print-bottom-content">
+          {/* Delivery Notes Section */}
+          <div className="mb-6 print:mb-3 print-footer-section">
+            <div className="border-2 border-primary/30 rounded-lg p-4 bg-linear-to-br from-muted/30 to-muted/10">
+              <h3 className="text-base font-bold mb-3 text-primary flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                Delivery Notes
+              </h3>
+              <div className="min-h-[60px] text-sm text-muted-foreground">
+                <p className="italic">Additional delivery instructions or notes can be added here...</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Notes & Terms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4 print:mb-2 print-no-break">
-          {quotationData.notes && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
-              <p className="whitespace-pre-line text-xs">{quotationData.notes}</p>
-            </div>
-          )}
-          {quotationData.terms && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Terms & Conditions</h3>
-              <p className="whitespace-pre-line text-xs">{quotationData.terms}</p>
-            </div>
-          )}
-        </div>
+          {/* Notes & Terms */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4 print:mb-2 print-footer-section">
+            {quotationData.notes && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
+                <p className="whitespace-pre-line text-xs">{quotationData.notes}</p>
+              </div>
+            )}
+            {quotationData.terms && (
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Terms & Conditions</h3>
+                <p className="whitespace-pre-line text-xs">{quotationData.terms}</p>
+              </div>
+            )}
+          </div>
 
-        {/* Footer */}
-        <div className="pt-4 print:pt-2 border-t print-no-break print:mt-auto">
+          {/* Footer */}
+          <div className="pt-4 print:pt-2 border-t print-footer-section">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-center md:text-left mb-4 print:mb-0 md:mb-0">
               <p className="text-sm print:text-xs text-muted-foreground">Thank you for your interest!</p>
@@ -237,6 +241,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
     );
