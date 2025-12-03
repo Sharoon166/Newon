@@ -62,17 +62,22 @@ export function ProductSelector({
 
   // Filter variants
   const filteredVariants = useMemo(() => {
-    return variants.filter(variant => {
-      const matchesSearch =
-        searchQuery === '' ||
-        variant.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        variant.sku.toLowerCase().includes(searchQuery.toLowerCase());
+  return variants.filter(variant => {
+    const matchesSearch =
+      searchQuery === '' ||
+      variant.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      variant.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesCategory = selectedCategory === 'all' || variant.categories?.includes(selectedCategory);
+    const matchesCategory =
+      selectedCategory === 'all' ||
+      (variant.categories?.includes(selectedCategory)) ||
+      (selectedCategory === 'uncategorized' &&
+        (!variant.categories || variant.categories.length === 0));
 
-      return matchesSearch && matchesCategory && !variant.disabled;
-    });
-  }, [variants, searchQuery, selectedCategory]);
+    return matchesSearch && matchesCategory && !variant.disabled;
+  });
+}, [variants, searchQuery, selectedCategory]);
+
 
   const getVariantQuantity = (variantId: string) => quantities[variantId] || 1;
 
