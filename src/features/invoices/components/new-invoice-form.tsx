@@ -1157,7 +1157,7 @@ export function NewInvoiceForm({
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground font-medium">
-                      Paid: {isOtcCustomer && <span className="text-xs text-orange-600">(Full payment required)</span>}
+                      Paid: {isOtcCustomer && <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>}
                     </span>
                     <FormField
                       control={form.control}

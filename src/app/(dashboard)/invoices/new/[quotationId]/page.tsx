@@ -36,7 +36,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
 
       <div className="bg-white py-6 mb-6">
         <h2 className="text-lg font-bold mb-4">Quotation Details</h2>
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid sm:grid-cols-2 gap-4 mb-6">
           <div>
             <p className="text-sm text-gray-500">Quotation #</p>
             <p>{quotation.invoiceNumber}</p>

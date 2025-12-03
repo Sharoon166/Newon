@@ -46,13 +46,13 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       icon: Coins,
       color: 'text-emerald-600'
     },
-    {
-      title: 'Monthly Profit',
-      value: formatCurrency(metrics.monthlyProfit),
-      subtitle: 'This month\'s profit',
-      icon: TrendingUp,
-      color: 'text-indigo-600'
-    },
+    // {
+    //   title: 'Monthly Profit',
+    //   value: formatCurrency(metrics.monthlyProfit),
+    //   subtitle: 'This month\'s profit',
+    //   icon: TrendingUp,
+    //   color: 'text-indigo-600'
+    // },
     {
       title: 'Pending Payments',
       value: formatCurrency(metrics.pendingPayments),

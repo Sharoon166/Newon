@@ -102,7 +102,7 @@ export function InvoicesPageClient({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card hidden aria-hidden>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Monthly Profit</CardTitle>
             <TrendingUp className="h-6 w-6 text-indigo-600" />

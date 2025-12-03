@@ -17,7 +17,8 @@ import {
   Package,
   Save,
   Calendar as CalendarIcon,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { cn, formatCurrency, getToday } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -136,6 +137,7 @@ export function QuotationConversionForm({
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch next invoice number on mount
   useEffect(() => {
@@ -513,6 +515,7 @@ export function QuotationConversionForm({
         if (!validateInvoiceData(data)) return;
 
         try {
+          setIsSubmitting(true);
           const { createInvoice } = await import('@/features/invoices/actions');
           const { getSession } = await import('next-auth/react');
 
@@ -606,6 +609,8 @@ export function QuotationConversionForm({
           toast.error('Failed to save invoice', {
             description: error instanceof Error ? error.message : 'An unexpected error occurred.'
           });
+        } finally {
+          setIsSubmitting(false);
         }
       },
       handleFormErrors
@@ -618,7 +623,7 @@ export function QuotationConversionForm({
   return (
     <Form {...form}>
       <form className="space-y-8">
-        <div className="flex justify-between items-center gap-2 p-4">
+        <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <FormField
               control={form.control}
@@ -707,7 +712,7 @@ export function QuotationConversionForm({
         {/* Invoice Items */}
         <div className="border rounded-lg p-6">
           <div className="space-y-1 mb-6">
-            <div className="flex gap-2 items-center justify-between">
+            <div className="flex flex-wrap gap-2 items-center justify-between">
               <div>
                 <div className="flex gap-2 items-center">
                   <ShoppingCart className="h-5 w-5" />
@@ -741,7 +746,7 @@ export function QuotationConversionForm({
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
             {variants.length > 0 && (
-              <div className="bg-muted/30 p-4 rounded-lg">
+              <div className="bg-muted/30 md:p-4 rounded-lg">
                 <ProductSelector
                   variants={variants}
                   purchases={purchases}
@@ -979,7 +984,7 @@ export function QuotationConversionForm({
           </div>
 
           {/* Financial Summary */}
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 max-md:text-sm flex justify-end">
             <div className="w-full max-w-xl space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground font-medium">Subtotal:</span>
@@ -1019,7 +1024,7 @@ export function QuotationConversionForm({
                 <span className="font-medium">{formatCurrency(taxAmount)}</span>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex flex-wrap justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground font-medium">Discount:</span>
                   <FormField
@@ -1077,7 +1082,7 @@ export function QuotationConversionForm({
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground font-medium">
-                      Paid: {isOtcCustomer && <span className="text-xs text-orange-600">(Full payment required)</span>}
+                      Paid: {isOtcCustomer && <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>}
                     </span>
                     <FormField
                       control={form.control}
@@ -1116,7 +1121,7 @@ export function QuotationConversionForm({
                   </div>
                 )}
 
-                <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                <div className="flex justify-between font-bold text-sm md:text-lg pt-2 border-t">
                   <span>Grand Total:</span>
                   <span className={grandTotal > 0 ? 'text-red-600' : 'text-green-600'}>
                     {formatCurrency(grandTotal)} {grandTotal > 0 ? '(Due)' : '(Paid)'}
@@ -1143,7 +1148,7 @@ export function QuotationConversionForm({
                   'mb-4': isDescriptionOpen
                 })}
               >
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   Description (Internal)
                 </h2>
@@ -1181,9 +1186,9 @@ export function QuotationConversionForm({
                   'mb-4': isNotesOpen
                 })}
               >
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
                   <NotebookTabsIcon className="h-5 w-5" />
-                  Notes (Printed on Invoice)
+                  Notes (Printed)
                 </h2>
                 <ChevronsUpDown />
               </Button>
@@ -1217,9 +1222,9 @@ export function QuotationConversionForm({
           >
             Reset Form
           </Button>
-          <Button type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Create Invoice
+          <Button disabled={isSubmitting} aria-disabled={isSubmitting} type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
+            {isSubmitting ? <Loader2 className='animate-spin' /> : <Save className="h-4 w-4 mr-2" />}
+            {isSubmitting? 'Creating' : 'Create Invoice'}
           </Button>
         </div>
       </form>
