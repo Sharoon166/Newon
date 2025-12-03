@@ -355,13 +355,31 @@
 
   /* Footer sections that should stay together */
   .print-footer-section {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  
+  /* Delivery notes section - prevent breaking */
+  .delivery-notes-section {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-before: auto;
+    page-break-before: auto;
   }
 
   /* Try to keep delivery notes and footer together - but allow breaks on mobile */
   .print-bottom-content {
     margin-top: auto;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* If bottom content is too large, allow break before it */
+  .print-bottom-content::before {
+    content: '';
+    display: block;
+    break-before: auto;
+    page-break-before: auto;
   }
 
   /* Allow flexible spacing for bottom content - avoid min-height on mobile */

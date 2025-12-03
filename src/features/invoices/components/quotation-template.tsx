@@ -172,7 +172,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         {/* Bottom content group - delivery notes, terms, and footer */}
         <div className="print-bottom-content">
           {/* Delivery Notes Section */}
-          <div className="mb-6 print:mb-3 print-footer-section">
+          <div className="mb-6 print:mb-3 print-footer-section delivery-notes-section">
             <div className="border-2 border-primary/30 rounded-lg p-4 bg-linear-to-br from-muted/30 to-muted/10">
               <h3 className="text-base font-bold mb-3 text-primary flex items-center gap-2">
                 <svg

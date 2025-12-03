@@ -21,13 +21,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AdminGate } from '@/components/auth/permission-gate';
 import { format } from 'date-fns';
-import { Pencil, ArrowUpDown, Users, Trash2 } from 'lucide-react';
+import { Pencil, ArrowUpDown, Users, Trash2, Search } from 'lucide-react';
 import { TablePagination } from '@/components/general/table-pagination';
 import { toggleStaffStatus } from '../actions';
 import { toast } from 'sonner';
 import { deleteStaffMember } from '@/features/staff/actions';
 import { StaffMember } from '../types';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 
 interface Staff {
   id: string;
@@ -51,7 +52,10 @@ export function StaffTable({ staff }: StaffTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [staffToDelete, setStaffToDelete] = useState<{ id: string; member: Omit<StaffMember, 'updatedAt' | 'createdAt'> } | null>(null);
+  const [staffToDelete, setStaffToDelete] = useState<{
+    id: string;
+    member: Omit<StaffMember, 'updatedAt' | 'createdAt'>;
+  } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleStatusChange = async (staffId: string, isActive: boolean) => {
@@ -71,7 +75,7 @@ export function StaffTable({ staff }: StaffTableProps) {
 
   const handleDelete = async () => {
     if (!staffToDelete) return;
-    
+
     try {
       setIsProcessing(true);
       await deleteStaffMember(staffToDelete.id, staffToDelete.member);
@@ -248,81 +252,85 @@ export function StaffTable({ staff }: StaffTableProps) {
     <>
       <div className="space-y-4">
         {/* Filters */}
-        <div className="flex items-center gap-4">
-        <Input
-          placeholder="Search all columns..."
-          value={globalFilter ?? ''}
-          onChange={e => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
-        />
-        <Select
-          value={(table.getColumn('role')?.getFilterValue() as string[])?.join(',') || 'all'}
-          onValueChange={value => {
-            table.getColumn('role')?.setFilterValue(value === 'all' ? undefined : [value]);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            {uniqueRoles.map(role => (
-              <SelectItem key={role} value={role} className="capitalize">
-                {role}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={(table.getColumn('isActive')?.getFilterValue() as string) || 'all'}
-          onValueChange={value => {
-            table.getColumn('isActive')?.setFilterValue(value === 'all' ? undefined : value);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <InputGroup className="max-w-sm">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search all columns..."
+              value={globalFilter ?? ''}
+              onChange={e => setGlobalFilter(e.target.value)}
+            />
+          </InputGroup>
+          <Select
+            value={(table.getColumn('role')?.getFilterValue() as string[])?.join(',') || 'all'}
+            onValueChange={value => {
+              table.getColumn('role')?.setFilterValue(value === 'all' ? undefined : [value]);
+            }}
+          >
+            <SelectTrigger className="">
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {uniqueRoles.map(role => (
+                <SelectItem key={role} value={role} className="capitalize">
+                  {role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={(table.getColumn('isActive')?.getFilterValue() as string) || 'all'}
+            onValueChange={value => {
+              table.getColumn('isActive')?.setFilterValue(value === 'all' ? undefined : value);
+            }}
+          >
+            <SelectTrigger className="">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map(headerGroup => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map(row => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                  {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+        {/* Table */}
+        <div className="border rounded-lg">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map(headerGroup => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map(row => (
+                  <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                    {row.getVisibleCells().map(cell => (
+                      <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No results found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {/* Pagination */}
         <TablePagination table={table} itemName="staff members" />

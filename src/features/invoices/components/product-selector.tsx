@@ -209,7 +209,7 @@ export function ProductSelector({
         </div>
 
         <Select value={priceType} onValueChange={(value: 'wholesale' | 'retail') => setPriceType(value)}>
-          <SelectTrigger className="w-[150px] truncate">
+          <SelectTrigger className="w-full max-w-[150px] truncate">
             <SelectValue placeholder="Price Type" />
           </SelectTrigger>
           <SelectContent>
@@ -245,12 +245,21 @@ export function ProductSelector({
             <Hash /> {category}
           </Badge>
         ))}
+        <Badge
+          variant={selectedCategory === 'uncategorized' ? 'default' : 'outline'}
+          onClick={() => setSelectedCategory('uncategorized')}
+          role="button"
+          aria-label={`Select uncategorized`}
+          className="px-4 py-1 rounded-full text-sm cursor-pointer"
+        >
+          <Hash /> Uncategorized
+        </Badge>
       </div>
 
       {/* Product Grid with Scroll Area */}
       <div
         ref={gridRef}
-        className="@container grid grid-flow-dense sm:grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 p-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+        className="@container grid grid-flow-dense sm:grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 md:p-3 max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
       >
         {filteredVariants.map(variant => {
           // Get all purchases for this variant, sorted by FIFO

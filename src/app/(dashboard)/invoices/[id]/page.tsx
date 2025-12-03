@@ -7,7 +7,7 @@ import { getInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info } from 'lucide-react';
+import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -25,6 +25,7 @@ import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import Link from 'next/link';
 import { convertToWords } from '@/features/invoices/utils';
+import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -35,6 +36,7 @@ export default function InvoiceDetailPage() {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,6 +87,16 @@ export default function InvoiceDetailPage() {
     setTimeout(() => {
       handleReactToPrint();
     }, 300);
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return;
+    setIsGeneratingPDF(true);
+    try {
+      await printInvoicePDF(invoice.id, invoice.invoiceNumber, invoice.type);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   const handleDeductStock = async () => {
@@ -273,9 +285,13 @@ export default function InvoiceDetailPage() {
               </Link>
             </Button>
           )}
-          <Button onClick={handlePrint}>
+          <Button variant="outline" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print
+          </Button>
+          <Button onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
           </Button>
         </div>
       </PageHeader>

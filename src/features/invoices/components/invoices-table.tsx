@@ -17,15 +17,12 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   CalendarIcon,
   X,
   Search,
   Hash,
-  Copyright
+  Copyright,
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
@@ -60,6 +57,8 @@ import {
   ColumnFiltersState
 } from '@tanstack/react-table';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { TablePagination } from '@/components/general/table-pagination';
+import { printInvoicePDF } from '../utils/print-invoice';
 
 interface InvoicesTableProps {
   invoices: Invoice[];
@@ -75,6 +74,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -217,7 +217,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
         cell: ({ row }) => (
           <div className="font-medium flex items-center gap-2">
             {row.getValue('invoiceNumber')}
-            {row.original.custom && <Copyright className='text-primary'/>}
+            {row.original.custom && <Copyright className="text-primary" />}
           </div>
         )
       },
@@ -402,6 +402,17 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                     View Details
                   </DropdownMenuItem>
                 </Link>
+                <DropdownMenuItem
+                  disabled={downloadingPDF === invoice.id}
+                  onClick={async () => {
+                    setDownloadingPDF(invoice.id);
+                    await printInvoicePDF(invoice.id, invoice.invoiceNumber, invoice.type);
+                    setDownloadingPDF(null);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
+                </DropdownMenuItem>
                 {invoice.status !== 'cancelled' && (
                   <>
                     <DropdownMenuItem
@@ -511,7 +522,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
               table.getColumn('status')?.setFilterValue(value === 'all' ? undefined : [value]);
             }}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger>
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -529,7 +540,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
               table.getColumn('market')?.setFilterValue(value === 'all' ? undefined : [value]);
             }}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger>
               <SelectValue placeholder="Filter by market" />
             </SelectTrigger>
             <SelectContent>
@@ -544,7 +555,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
         </div>
 
         {/* Filters Row 2 - Date Range */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Popover>
             <PopoverTrigger asChild>
               <div className="flex gap-2 items-center font-semibold">
@@ -626,73 +637,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
           </Table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to{' '}
-            {Math.min(
-              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-              table.getFilteredRowModel().rows.length
-            )}{' '}
-            of {table.getFilteredRowModel().rows.length} results
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Rows per page:</span>
-              <Select
-                value={`${table.getState().pagination.pageSize}`}
-                onValueChange={value => {
-                  table.setPageSize(Number(value));
-                }}
-              >
-                <SelectTrigger className="h-8 w-[70px]">
-                  <SelectValue placeholder={table.getState().pagination.pageSize} />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[10, 20, 30, 40, 50].map(pageSize => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex items-center gap-1 px-2">
-                <span className="text-sm">
-                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                </span>
-              </div>
-              <Button variant="outline" size="icon" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <TablePagination table={table} itemName="Invoices" />
       </div>
 
       <ConfirmationDialog

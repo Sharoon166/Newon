@@ -497,7 +497,7 @@ export function NewQuotationForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         {/* Quotation Header */}
-        <div className="flex justify-between items-center gap-2 p-4">
+        <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <FormField
               control={form.control}
@@ -825,7 +825,7 @@ export function NewQuotationForm({
         {/* Quotation Items */}
         <div className="border rounded-lg p-6">
           <div className="space-y-1 mb-6">
-            <div className="flex gap-2 items-center justify-between">
+            <div className="flex flex-wrap gap-2 items-center justify-between">
               <div>
                 <div className="flex gap-2 items-center">
                   <ShoppingCart className="h-5 w-5" />
@@ -858,7 +858,7 @@ export function NewQuotationForm({
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
             {variants.length > 0 && (
-              <div className="bg-muted/30 p-4 rounded-lg">
+              <div className="bg-muted/30 sm:p-4 rounded-lg">
                 <ProductSelector
                   label="Add to Quotation"
                   variants={variants}
@@ -1057,7 +1057,7 @@ export function NewQuotationForm({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 max-md:text-sm flex justify-end">
           <div className="w-full max-w-xl space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground font-medium">Subtotal:</span>
@@ -1200,7 +1200,7 @@ export function NewQuotationForm({
                   'mb-4': isDescriptionOpen
                 })}
               >
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   Description (Internal)
                 </h2>
@@ -1238,9 +1238,9 @@ export function NewQuotationForm({
                   'mb-4': isNotesOpen
                 })}
               >
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
                   <NotebookTabsIcon className="h-5 w-5" />
-                  Notes (Printed on Quotation)
+                  Notes (Printed)
                 </h2>
                 <ChevronsUpDown />
               </Button>

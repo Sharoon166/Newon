@@ -17,6 +17,7 @@ interface BrandData {
   website: string;
   ntnNo?: string;
   strnNo?: string;
+  logo?: string;
 }
 
 // Full brand type including the icon (for runtime use)
@@ -36,7 +37,8 @@ const brandData: BrandData[] = [
     zip: '44000',
     phone: '+92 343 9227883',
     email: 'info@newon.pk',
-    website: 'https://newon.pk/'
+    website: 'https://newon.pk/',
+    logo: '/newon.png'
   },
   {
     id: 'waymor',

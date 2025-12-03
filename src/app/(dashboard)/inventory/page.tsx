@@ -16,7 +16,7 @@ export default async function InventoryPage() {
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div>
           <h2 className="text-2xl md:text-4xl text-primary font-bold tracking-tight">Inventory Management</h2>
-          <p className="text-muted-foreground">View and manage your product inventory</p>
+          <p className="text-muted-foreground max-sm:text-sm">View and manage your product inventory</p>
         </div>
         <Button variant="outline" asChild>
           <Link href="/inventory/add" className="inline-flex items-center gap-2 group">

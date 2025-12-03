@@ -21,7 +21,7 @@ type InvoiceTemplatePropsWithMode = InvoiceTemplateProps & {
 
 export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePropsWithMode>(
   ({ invoiceData, onBack, onPrint, onSave, viewMode = 'print' }, ref) => {
-    const { getCurrentBrand } = useBrandStore();
+    const { getCurrentBrand, } = useBrandStore();
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
     const discountAmount =
@@ -34,6 +34,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
     const grandTotal = Math.max(0, total - paidAmount);
 
     const isMobileView = viewMode === 'mobile';
+
     
     return (
       <div
@@ -49,8 +50,8 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
           isMobileView ? 'mb-4 pb-4' : 'mb-8 print:mb-2 pb-8 print:pb-2'
         } border-b print-no-break`}>
           <div className="mb-6 md:mb-0 print:mb-0">
-            {invoiceData.logo ? (
-              <Image src={invoiceData.logo} alt="Company Logo" fill className="h-16 mb-4" />
+            {getCurrentBrand()?.logo ? (
+              <Image src={getCurrentBrand()?.logo || ""} unoptimized alt="Company Logo" width={200} height={100} className="w-24 mb-4" />
             ) : (
               <h1 className="text-3xl font-bold text-primary">{invoiceData.company.name || 'Company Name'}</h1>
             )}
@@ -233,7 +234,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
         {/* Bottom content group - delivery notes, terms, and footer */}
         <div className="print-bottom-content">
           {/* Delivery Notes Section */}
-          <div className="mb-6 print:mb-3 print-footer-section border-2 border-primary/60 rounded-lg p-2">
+          <div className="mb-6 print:mb-3 print-footer-section delivery-notes-section border-2 border-primary/60 rounded-lg p-2">
             <div className="bg-linear-to-br from-muted/30 to-muted/10">
               <h3 className="text-sm font-bold mb-3 text-primary flex items-center gap-2">
                 <svg

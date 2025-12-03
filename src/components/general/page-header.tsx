@@ -24,7 +24,7 @@ export function PageHeader({ icon,  title, description, backLink, children }: Pa
         )}
         <div className="space-y-1">
           <h1 className="text-2xl md:text-4xl text-primary font-bold tracking-tight inline-flex items-center gap-2"> {icon ?? icon} {title}</h1>
-          {description && <p className="text-muted-foreground">{description}</p>}
+          {description && <p className="max-sm:text-sm text-muted-foreground">{description}</p>}
         </div>
       </div>
       {children && <div className="flex items-center gap-2">{children}</div>}

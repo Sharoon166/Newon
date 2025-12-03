@@ -265,18 +265,18 @@ export function PurchaseForm({
         }}
         onClick={e => e.stopPropagation()}
       >
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
-            {isEditMode && purchase?.purchaseId && (
-              <span className="ml-2 text-sm font-mono text-muted-foreground">({purchase.purchaseId})</span>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditMode ? 'Update the purchase details below.' : 'Add a new purchase record for this variant.'}
-          </DialogDescription>
-        </DialogHeader>
         <ScrollArea className="max-h-[75vh] -mx-4 px-4">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
+              {isEditMode && purchase?.purchaseId && (
+                <span className="ml-2 text-sm font-mono text-muted-foreground">({purchase.purchaseId})</span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {isEditMode ? 'Update the purchase details below.' : 'Add a new purchase record for this variant.'}
+            </DialogDescription>
+          </DialogHeader>
           <Form {...form}>
             <form
               data-purchase-form
@@ -602,9 +602,7 @@ export function PurchaseForm({
                   name="shippingCost"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Shipping Cost
-                      </FormLabel>
+                      <FormLabel>Shipping Cost</FormLabel>
                       <FormControl>
                         <NumberInput
                           value={field.value}

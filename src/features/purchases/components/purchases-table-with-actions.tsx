@@ -366,10 +366,11 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
               className="w-full pl-8"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button 
               onClick={() => setAddPurchaseOpen(true)}
               disabled={products.length === 0}
+              className='grow'
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Purchase

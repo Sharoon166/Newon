@@ -37,7 +37,8 @@ import {
   CheckCircle,
   XCircle,
   Hash,
-  Copyright
+  Copyright,
+  Download
 } from 'lucide-react';
 import { Invoice } from '../types';
 import { formatCurrency } from '@/lib/utils';
@@ -50,6 +51,7 @@ import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { UpdateStatusDialog } from './update-status-dialog';
 import { EditInvoiceDialog } from './edit-invoice-dialog';
 import { toast } from 'sonner';
+import { printInvoicePDF } from '../utils/print-invoice';
 
 interface QuotationsTableProps {
   quotations: Invoice[];
@@ -65,6 +67,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Invoice | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<
@@ -286,6 +289,17 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuItem
+                  disabled={downloadingPDF === quotation.id}
+                  onClick={async () => {
+                    setDownloadingPDF(quotation.id);
+                    await printInvoicePDF(quotation.id, quotation.invoiceNumber, quotation.type);
+                    setDownloadingPDF(null);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingPDF === quotation.id ? 'Generating...' : 'Download PDF'}
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   onClick={() => {
                     setSelectedQuotation(quotation);
                     setEditDialogOpen(true);
@@ -450,7 +464,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
       </div>
 
       {/* Pagination */}
-      <TablePagination table={table} />
+      <TablePagination table={table} itemName='Quotations' />
 
       {/* Dialogs */}
       <ConfirmationDialog
