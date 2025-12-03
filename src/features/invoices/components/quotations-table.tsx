@@ -72,7 +72,11 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<
       string,
-      { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string; icon: React.ComponentType<{ className?: string }> }
+      {
+        variant: 'default' | 'secondary' | 'destructive' | 'outline';
+        label: string;
+        icon: React.ComponentType<{ className?: string }>;
+      }
     > = {
       draft: { variant: 'secondary', label: 'Draft', icon: FileText },
       sent: { variant: 'outline', label: 'Sent', icon: FileText },
@@ -139,9 +143,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
         cell: ({ row }) => (
           <div className="font-medium flex items-center gap-2">
             {row.original.invoiceNumber}
-            {row.original.custom && (
-             <Copyright className='text-primary'/>
-            )}
+            {row.original.custom && <Copyright className="text-primary" />}
           </div>
         )
       },
@@ -289,6 +291,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuItem
+                  hidden
                   disabled={downloadingPDF === quotation.id}
                   onClick={async () => {
                     setDownloadingPDF(quotation.id);
@@ -464,7 +467,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
       </div>
 
       {/* Pagination */}
-      <TablePagination table={table} itemName='Quotations' />
+      <TablePagination table={table} itemName="Quotations" />
 
       {/* Dialogs */}
       <ConfirmationDialog

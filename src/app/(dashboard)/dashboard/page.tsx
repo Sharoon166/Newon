@@ -1,6 +1,7 @@
 import { getDashboardData } from '@/features/dashboard/actions';
 import { MetricsCards } from '@/features/dashboard/components/metrics-cards';
 import { SalesChart } from '@/features/dashboard/components/sales-chart';
+import { ProfitChart } from '@/features/dashboard/components/profit-chart';
 import { AlertsSection } from '@/features/dashboard/components/alerts-section';
 import { getSession } from '@/lib/auth-utils';
 import { redirect } from 'next/navigation';
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
   }
 
   // Fetch all dashboard data
-  const { metrics, salesTrend, salesTrend30Days, outOfStockAlerts, overdueInvoices, pendingPayments } = await getDashboardData();
+  const { metrics, salesTrend, salesTrend30Days, profitTrend, profitTrend30Days, outOfStockAlerts, overdueInvoices, pendingPayments } = await getDashboardData();
 
   return (
     <div className="space-y-6">
@@ -32,9 +33,14 @@ export default async function DashboardPage() {
       {/* Metrics Cards */}
       <MetricsCards metrics={metrics} />
 
+      {/* Charts Row */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SalesChart data={salesTrend} data30Days={salesTrend30Days} />
+        <ProfitChart data={profitTrend} data30Days={profitTrend30Days} />
+      </div>
+
       {/* Alerts Row */}
       <div className="grid gap-6">
-        <SalesChart data={salesTrend} data30Days={salesTrend30Days} />
         <AlertsSection
           outOfStockAlerts={outOfStockAlerts}
           overdueInvoices={overdueInvoices}

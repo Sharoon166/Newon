@@ -28,6 +28,15 @@ export interface SalesTrendData {
 }
 
 /**
+ * Profit Trend Data Point
+ */
+export interface ProfitTrendData {
+  date: string;
+  profit: number;
+  invoices: number;
+}
+
+/**
  * Low Stock Alert
  */
 export interface OutOfStockAlert {
@@ -70,6 +79,8 @@ export interface DashboardData {
   metrics: DashboardMetrics;
   salesTrend: SalesTrendData[];
   salesTrend30Days: SalesTrendData[];
+  profitTrend: ProfitTrendData[];
+  profitTrend30Days: ProfitTrendData[];
   outOfStockAlerts: OutOfStockAlert[];
   overdueInvoices: OverdueInvoiceAlert[];
   pendingPayments: PendingPaymentAlert[];

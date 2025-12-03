@@ -285,11 +285,11 @@ export default function InvoiceDetailPage() {
               </Link>
             </Button>
           )}
-          <Button variant="outline" onClick={handlePrint}>
+          <Button onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-          <Button onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
+          <Button hidden onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
             <Download className="h-4 w-4 mr-2" />
             {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
           </Button>

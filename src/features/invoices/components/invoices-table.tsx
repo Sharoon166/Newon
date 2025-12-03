@@ -403,6 +403,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuItem
+                  hidden
                   disabled={downloadingPDF === invoice.id}
                   onClick={async () => {
                     setDownloadingPDF(invoice.id);

@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { QuotationTemplateData } from './template-types';
-import useBrandStore from '@/stores/useBrandStore';
+import { brands } from '@/stores/useBrandStore';
 
 type QuotationTemplateProps = {
   quotationData: QuotationTemplateData;
@@ -17,7 +17,8 @@ type QuotationTemplateProps = {
 
 export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplateProps>(
   ({ quotationData, onBack, onPrint, onSave }, ref) => {
-    const { getCurrentBrand } = useBrandStore();
+    // Get brand based on quotation market field, not current brand context
+    const quotationBrand = brands.find(brand => brand.id === quotationData.market) || brands[0];
 
     const subtotal = quotationData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * quotationData.taxRate) / 100;
@@ -33,8 +34,8 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         {/* Header */}
         <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
           <div className="mb-6 md:mb-0 print:mb-0">
-            {quotationData.logo ? (
-              <Image src={quotationData.logo} alt="Company Logo" fill className="h-16 mb-4" />
+            {quotationBrand?.logo ? (
+              <Image src={quotationBrand.logo} unoptimized alt="Company Logo" width={200} height={100} className="w-24 mb-4" />
             ) : (
               <h1 className="text-3xl font-bold text-primary">{quotationData.company.name || 'Company Name'}</h1>
             )}
@@ -46,15 +47,14 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               {quotationData.company.phone && <p>{quotationData.company.phone}</p>}
               {quotationData.company.email && <p>{quotationData.company.email}</p>}
               {quotationData.company.website && <p>{quotationData.company.website}</p>}
-              {getCurrentBrand()?.ntnNo && (
+              {quotationBrand?.ntnNo && (
                 <p>
-                  <span className="font-semibold">NTN#:</span> {getCurrentBrand().ntnNo}
+                  <span className="font-semibold">NTN#:</span> {quotationBrand.ntnNo}
                 </p>
               )}
-              {getCurrentBrand()?.strnNo && (
+              {quotationBrand?.strnNo && (
                 <p>
-                  <span className="font-semibold">STRN#:</span>
-                  {getCurrentBrand().strnNo}
+                  <span className="font-semibold">STRN#:</span> {quotationBrand.strnNo}
                 </p>
               )}
             </div>

@@ -52,7 +52,8 @@ const brandData: BrandData[] = [
     email: 'morway4@gmail.com',
     ntnNo: '8938936-1',
     strnNo: ' 3277876217651',
-    website: ''
+    website: '',
+    logo: '/waymor.jpg'
   }
 ];
 

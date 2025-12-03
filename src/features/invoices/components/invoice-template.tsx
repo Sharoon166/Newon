@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { InvoiceTemplateData } from './template-types';
-import useBrandStore from '@/stores/useBrandStore';
+import { brands } from '@/stores/useBrandStore';
 
 type InvoiceTemplateProps = {
   invoiceData: InvoiceTemplateData;
@@ -21,7 +21,9 @@ type InvoiceTemplatePropsWithMode = InvoiceTemplateProps & {
 
 export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePropsWithMode>(
   ({ invoiceData, onBack, onPrint, onSave, viewMode = 'print' }, ref) => {
-    const { getCurrentBrand, } = useBrandStore();
+    // Get brand based on invoice market field, not current brand context
+    const invoiceBrand = brands.find(brand => brand.id === invoiceData.market) || brands[0];
+    
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
     const discountAmount =
@@ -50,8 +52,8 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
           isMobileView ? 'mb-4 pb-4' : 'mb-8 print:mb-2 pb-8 print:pb-2'
         } border-b print-no-break`}>
           <div className="mb-6 md:mb-0 print:mb-0">
-            {getCurrentBrand()?.logo ? (
-              <Image src={getCurrentBrand()?.logo || ""} unoptimized alt="Company Logo" width={200} height={100} className="w-24 mb-4" />
+            {invoiceBrand?.logo ? (
+              <Image src={invoiceBrand.logo} unoptimized alt="Company Logo" width={200} height={100} className="w-24 mb-4" />
             ) : (
               <h1 className="text-3xl font-bold text-primary">{invoiceData.company.name || 'Company Name'}</h1>
             )}
@@ -63,15 +65,14 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
               {invoiceData.company.phone && <p>{invoiceData.company.phone}</p>}
               {invoiceData.company.email && <p>{invoiceData.company.email}</p>}
               {invoiceData.company.website && <p>{invoiceData.company.website}</p>}
-              {getCurrentBrand()?.ntnNo && (
+              {invoiceBrand?.ntnNo && (
                 <p>
-                  <span className="font-semibold">NTN#:</span> {getCurrentBrand().ntnNo}
+                  <span className="font-semibold">NTN#:</span> {invoiceBrand.ntnNo}
                 </p>
               )}
-              {getCurrentBrand()?.strnNo && (
+              {invoiceBrand?.strnNo && (
                 <p>
-                  <span className="font-semibold">STRN#:</span>
-                  {getCurrentBrand().strnNo}
+                  <span className="font-semibold">STRN#:</span> {invoiceBrand.strnNo}
                 </p>
               )}
             </div>

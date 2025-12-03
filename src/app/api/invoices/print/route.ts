@@ -4,8 +4,36 @@ import autoTable from 'jspdf-autotable';
 import { getInvoice } from '@/features/invoices/actions';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
-import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
+import { PAYMENT_DETAILS } from '@/constants';
 import { convertToWords } from '@/features/invoices/utils';
+
+// Brand-specific company details
+const BRAND_DETAILS = {
+  newon: {
+    name: 'Newon',
+    address: 'I-9 Markaz',
+    city: 'Islamabad',
+    state: 'Federal',
+    zip: '44000',
+    phone: '+92 343 9227883',
+    email: 'info@newon.pk',
+    website: 'https://newon.pk/',
+    ntnNo: undefined,
+    strnNo: undefined
+  },
+  waymor: {
+    name: 'Waymor International',
+    address: 'Office# 02, 1st floor, Haroon Plaza, I-9 markaz',
+    city: 'Islamabad',
+    state: 'Islamabad',
+    zip: '44000',
+    phone: '+92 343 9227883',
+    email: 'morway4@gmail.com',
+    website: '',
+    ntnNo: '8938936-1',
+    strnNo: '3277876217651'
+  }
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +49,9 @@ export async function POST(request: NextRequest) {
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
+
+    // Get brand-specific details based on invoice market
+    const COMPANY_DETAILS = BRAND_DETAILS[invoice.market] || BRAND_DETAILS.newon;
 
     // Create PDF
     const doc = new jsPDF();
@@ -46,6 +77,18 @@ export async function POST(request: NextRequest) {
     }
     if (COMPANY_DETAILS.email) {
       doc.text(COMPANY_DETAILS.email, 20, yPos);
+      yPos += 5;
+    }
+    if (COMPANY_DETAILS.website) {
+      doc.text(COMPANY_DETAILS.website, 20, yPos);
+      yPos += 5;
+    }
+    if (COMPANY_DETAILS.ntnNo) {
+      doc.text(`NTN#: ${COMPANY_DETAILS.ntnNo}`, 20, yPos);
+      yPos += 5;
+    }
+    if (COMPANY_DETAILS.strnNo) {
+      doc.text(`STRN#: ${COMPANY_DETAILS.strnNo}`, 20, yPos);
       yPos += 5;
     }
 

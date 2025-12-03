@@ -14,6 +14,7 @@ import ProductModel from '@/models/Product';
 import type {
   DashboardMetrics,
   SalesTrendData,
+  ProfitTrendData,
   OverdueInvoiceAlert,
   PendingPaymentAlert,
   DashboardData
@@ -226,6 +227,71 @@ export async function getSalesTrend(days: number = 7): Promise<SalesTrendData[]>
 }
 
 /**
+ * Get Profit Trend Data
+ */
+export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[]> {
+  try {
+    await dbConnect();
+
+    const now = new Date();
+    const todayEnd = endOfDay(now);
+    const startDate = startOfDay(subDays(now, days - 1));
+
+    // Get profit data grouped by date
+    const profitData = await InvoiceModel.aggregate([
+      {
+        $match: {
+          type: 'invoice',
+          status: { $ne: 'cancelled' },
+          date: { $gte: startDate, $lte: todayEnd },
+          profit: { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
+          },
+          profit: { $sum: '$profit' },
+          invoices: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create a map of existing data
+    const dataMap = new Map<string, { profit: number; invoices: number }>();
+    profitData.forEach((item: { _id: string; profit: number; invoices: number }) => {
+      dataMap.set(item._id, {
+        profit: item.profit,
+        invoices: item.invoices
+      });
+    });
+
+    // Fill in missing dates with zero values
+    const data: ProfitTrendData[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const date = subDays(now, i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+
+      const existing = dataMap.get(dateStr);
+      data.push({
+        date: dateStr,
+        profit: existing?.profit || 0,
+        invoices: existing?.invoices || 0
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching profit trend:', error);
+    return [];
+  }
+}
+
+/**
  * Get Out of Stock Alerts (products with 0 total remaining stock or no purchases)
  */
 export async function getLowStockAlerts(limit = 5, skip = 0, threshold = 0) {
@@ -394,10 +460,12 @@ export async function getPendingPayments(limit: number = 5, skip: number = 0): P
  * Get Complete Dashboard Data
  */
 export async function getDashboardData(): Promise<DashboardData> {
-  const [metrics, salesTrend, salesTrend30Days, outOfStockAlerts, overdueInvoices, pendingPayments] = await Promise.all([
+  const [metrics, salesTrend, salesTrend30Days, profitTrend, profitTrend30Days, outOfStockAlerts, overdueInvoices, pendingPayments] = await Promise.all([
     getDashboardMetrics(),
     getSalesTrend(7),
     getSalesTrend(30),
+    getProfitTrend(7),
+    getProfitTrend(30),
     getLowStockAlerts(),
     getOverdueInvoices(),
     getPendingPayments()
@@ -407,6 +475,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     metrics,
     salesTrend,
     salesTrend30Days,
+    profitTrend,
+    profitTrend30Days,
     outOfStockAlerts,
     overdueInvoices,
     pendingPayments
