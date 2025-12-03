@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get final Y position after table
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    yPos = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
 
     // Payment Details and Totals Side by Side
     const leftColumnX = 20;
