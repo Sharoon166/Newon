@@ -42,6 +42,7 @@ interface FormData {
     amount: number;
     purchaseId?: string;
     originalRate?: number;
+    saleRate?: number;
   }>;
   discountType?: string;
   discount: number;
@@ -124,7 +125,7 @@ export function NewInvoiceFormWrapper({
       const hasCustomItems = documentData.items.some(
         item => !item.productId || 
                 item.productId === 'manual-entry' || 
-                (item.originalRate !== undefined && item.rate !== item.originalRate)
+                (item.saleRate !== undefined && item.rate !== item.saleRate)
       );
 
       const createData = {

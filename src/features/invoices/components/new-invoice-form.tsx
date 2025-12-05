@@ -88,7 +88,8 @@ const invoiceFormSchema = z.object({
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
         purchaseId: z.string().optional(),
-        originalRate: z.number().optional()
+        originalRate: z.number().optional(),
+        saleRate: z.number().optional()
       })
     )
     .min(1, 'At least one item is required'),
@@ -257,12 +258,13 @@ export function NewInvoiceForm({
 
   // Calculate profit in real-time
   const items = form.watch('items');
-  const calculatedProfit = items.reduce((sum, item) => {
-    const costPrice = item.originalRate ?? 0;
-    const sellingPrice = item.rate;
-    const profitPerUnit = sellingPrice - costPrice;
-    return sum + (profitPerUnit * item.quantity);
-  }, 0) - discountAmount;
+  const calculatedProfit =
+    items.reduce((sum, item) => {
+      const costPrice = item.originalRate ?? 0;
+      const sellingPrice = item.rate;
+      const profitPerUnit = sellingPrice - costPrice;
+      return sum + profitPerUnit * item.quantity;
+    }, 0) - discountAmount;
 
   // Update profit field with calculated value
   useEffect(() => {
@@ -300,6 +302,7 @@ export function NewInvoiceForm({
     description: string;
     quantity: number;
     rate: number;
+    saleRate: number;
     originalRate?: number;
     purchaseId?: string;
   }) => {
@@ -349,7 +352,8 @@ export function NewInvoiceForm({
         variantId: item.variantId,
         variantSKU: item.sku,
         purchaseId: item.purchaseId,
-        originalRate: item.originalRate
+        originalRate: item.originalRate,
+        saleRate: item.saleRate
       });
     }
   };
@@ -591,9 +595,7 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
-      <pre>
-        {JSON.stringify(form.getValues(),null,2)}
-      </pre>
+      <pre>{JSON.stringify(form.getValues(), null, 2)}</pre>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -1181,7 +1183,9 @@ export function NewInvoiceForm({
                 {/* Profit Display */}
                 <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950/20 p-2 rounded">
                   <span className="text-green-700 dark:text-green-400 font-medium">Estimated Profit:</span>
-                  <span className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <span
+                    className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                  >
                     {formatCurrency(calculatedProfit)}
                   </span>
                 </div>

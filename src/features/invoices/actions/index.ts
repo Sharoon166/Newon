@@ -12,7 +12,7 @@ import {
   InvoiceFilters,
   PaginatedInvoices
 } from '../types';
-import { calculateInvoiceProfit, isInvoiceCustom } from '../utils/calculate-profit';
+import { calculateInvoiceProfit } from '../utils/calculate-profit';
 
 // Helper types for lean documents
 interface LeanInvoiceItem {
@@ -292,20 +292,10 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
   try {
     await dbConnect();
 
-    // Check if invoice is custom (prices were manually changed)
-    const custom = isInvoiceCustom(
-      data.items.map(item => ({
-        rate: item.unitPrice,
-        originalRate: item.originalRate,
-        quantity: item.quantity
-      }))
-    );
-
     // Convert date strings to UTC Date objects to avoid timezone issues
     const { dateStringToUTC } = await import('@/lib/utils');
     const invoiceData = {
       ...data,
-      custom,
       date: typeof data.date === 'string' ? dateStringToUTC(data.date) : data.date,
       dueDate: data.dueDate && typeof data.dueDate === 'string' ? dateStringToUTC(data.dueDate) : data.dueDate,
       validUntil:
@@ -447,15 +437,6 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
           quantity: item.quantity
         })),
         discountAmount
-      );
-
-      // Check if custom
-      data.custom = isInvoiceCustom(
-        items.map(item => ({
-          rate: item.unitPrice,
-          originalRate: item.originalRate,
-          quantity: item.quantity
-        }))
       );
     }
 

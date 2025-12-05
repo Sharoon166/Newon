@@ -23,6 +23,7 @@ interface FormItem {
   discountAmount?: number;
   stockLocation?: string;
   originalRate?: number;
+  saleRate: number
 }
 
 interface ClientInfo {
@@ -84,7 +85,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
       const hasCustomItems = formData.items.some(
         item => !item.productId || 
                 item.productId === 'manual-entry' || 
-                (item.originalRate !== undefined && item.rate !== item.originalRate)
+                (item.saleRate !== undefined && item.rate !== item.saleRate)
       );
             
       const invoiceData: CreateInvoiceDto = {

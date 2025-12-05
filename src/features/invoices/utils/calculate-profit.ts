@@ -31,23 +31,3 @@ export function calculateInvoiceProfit(
   return finalProfit;
 }
 
-/**
- * Check if an invoice is custom (prices were manually changed)
- * An invoice is custom if any item's rate differs from originalRate
- */
-export function isInvoiceCustom(items: ItemWithProfit[]): boolean {
-  for (const item of items) {
-    // If no originalRate, it's a custom/manual entry
-    if (item.originalRate === undefined) {
-      return true;
-    }
-
-    // If rate differs from originalRate, prices were changed
-    // Use small tolerance for floating point comparison
-    if (Math.abs(item.rate - item.originalRate) > 0.01) {
-      return true;
-    }
-  }
-
-  return false;
-}

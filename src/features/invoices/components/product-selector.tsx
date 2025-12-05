@@ -30,6 +30,7 @@ interface ProductSelectorProps {
     description: string;
     quantity: number;
     rate: number;
+    saleRate: number;
     originalRate?: number;
     purchaseId?: string;
   }) => void;
@@ -175,6 +176,7 @@ export function ProductSelector({
       quantity,
       rate,
       originalRate: firstPurchase?.unitPrice || 0, // Store unit price from purchase for profit calculation
+      saleRate: rate,
       purchaseId: firstPurchase?.purchaseId
     });
 

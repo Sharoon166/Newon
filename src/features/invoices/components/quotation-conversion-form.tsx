@@ -51,7 +51,8 @@ const invoiceFormSchema = z.object({
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
         purchaseId: z.string().optional(),
-        originalRate: z.number().optional()
+        originalRate: z.number().optional(),
+        saleRate: z.number().optional()
       })
     )
     .min(1, 'At least one item is required'),
@@ -545,7 +546,7 @@ export function QuotationConversionForm({
           const hasCustomItems = data.items.some(
             item => !item.productId || 
                     item.productId === 'custom-item' || 
-                    (item.originalRate !== undefined && item.rate !== item.originalRate)
+                    (item.saleRate !== undefined && item.rate !== item.saleRate)
           );
 
           // Create the invoice with modified data
