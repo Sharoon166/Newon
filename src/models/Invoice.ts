@@ -26,6 +26,7 @@ interface IInvoiceItem {
   totalPrice: number;
   stockLocation?: string;
   purchaseId?: string;
+  originalRate?: number;
 }
 
 // Main Invoice document interface
@@ -153,6 +154,10 @@ const invoiceItemSchema = new Schema<IInvoiceItem>({
   },
   purchaseId: {
     type: String
+  },
+  originalRate: {
+    type: Number,
+    min: 0
   }
 });
 

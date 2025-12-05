@@ -61,6 +61,7 @@ const invoiceFormSchema = z.object({
   amountInWords: z.string().optional(),
   paid: z.number().min(0, 'Cannot be negative').default(0),
   remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
+  profit: z.number().min(0, 'Profit cannot be negative').default(0),
   description: z.string().optional(),
   notes: z.string().optional()
 });
@@ -220,6 +221,20 @@ export function QuotationConversionForm({
   const taxAmount = (subtotal * taxRate) / 100;
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const total = subtotal + taxAmount - discountAmount;
+
+  // Calculate profit in real-time
+  const items = form.watch('items');
+  const calculatedProfit = items.reduce((sum, item) => {
+    const costPrice = item.originalRate ?? 0;
+    const sellingPrice = item.rate;
+    const profitPerUnit = sellingPrice - costPrice;
+    return sum + (profitPerUnit * item.quantity);
+  }, 0) - discountAmount;
+
+  // Update profit field with calculated value
+  useEffect(() => {
+    form.setValue('profit', calculatedProfit, { shouldValidate: false });
+  }, [calculatedProfit, form]);
 
   const paid = form.watch('paid') || 0;
   
@@ -583,6 +598,7 @@ export function QuotationConversionForm({
             status: isOtcCustomer ? 'paid' : 'pending',
             paidAmount: data.paid,
             balanceAmount: grandTotal,
+            profit: data.profit || 0,
             description: data.description,
             notes: data.notes,
             termsAndConditions: quotation.termsAndConditions,
@@ -1077,6 +1093,14 @@ export function QuotationConversionForm({
                 <div className="flex justify-between font-semibold">
                   <span>Total:</span>
                   <span>{formatCurrency(total)}</span>
+                </div>
+
+                {/* Profit Display */}
+                <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                  <span className="text-green-700 dark:text-green-400 font-medium">Estimated Profit:</span>
+                  <span className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(calculatedProfit)}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center">

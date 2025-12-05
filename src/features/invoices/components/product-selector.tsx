@@ -174,7 +174,7 @@ export function ProductSelector({
       description,
       quantity,
       rate,
-      originalRate: rate, // Store original rate to detect custom pricing
+      originalRate: firstPurchase?.unitPrice || 0, // Store unit price from purchase for profit calculation
       purchaseId: firstPurchase?.purchaseId
     });
 

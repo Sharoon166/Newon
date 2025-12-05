@@ -255,6 +255,20 @@ export function NewInvoiceForm({
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const total = subtotal + taxAmount - discountAmount;
 
+  // Calculate profit in real-time
+  const items = form.watch('items');
+  const calculatedProfit = items.reduce((sum, item) => {
+    const costPrice = item.originalRate ?? 0;
+    const sellingPrice = item.rate;
+    const profitPerUnit = sellingPrice - costPrice;
+    return sum + (profitPerUnit * item.quantity);
+  }, 0) - discountAmount;
+
+  // Update profit field with calculated value
+  useEffect(() => {
+    form.setValue('profit', calculatedProfit, { shouldValidate: false });
+  }, [calculatedProfit, form]);
+
   // Get form values
   const paid = form.watch('paid') || 0;
 
@@ -577,6 +591,9 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
+      <pre>
+        {JSON.stringify(form.getValues(),null,2)}
+      </pre>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -696,11 +713,7 @@ export function NewInvoiceForm({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    type="button"
-                    onClick={() => setIsCreateCustomerOpen(true)}
-                    disabled={isOtcCustomer}
-                  >
+                  <Button type="button" onClick={() => setIsCreateCustomerOpen(true)} disabled={isOtcCustomer}>
                     <Plus className="h-4 w-4 mr-2" />
                     New Customer
                   </Button>
@@ -757,12 +770,22 @@ export function NewInvoiceForm({
                       )}
                     </div>
                   </div>
-                  {(selectedCustomer.address || selectedCustomer.city || selectedCustomer.state || selectedCustomer.zip) && (
+                  {(selectedCustomer.address ||
+                    selectedCustomer.city ||
+                    selectedCustomer.state ||
+                    selectedCustomer.zip) && (
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-sm flex items-start gap-2">
                         <MapPin className="h-4 w-4 mt-0.5" />
                         <span>
-                          {[selectedCustomer.address, selectedCustomer.city, selectedCustomer.state, selectedCustomer.zip].filter(Boolean).join(', ')}
+                          {[
+                            selectedCustomer.address,
+                            selectedCustomer.city,
+                            selectedCustomer.state,
+                            selectedCustomer.zip
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
                         </span>
                       </p>
                     </div>
@@ -811,7 +834,7 @@ export function NewInvoiceForm({
               </Button>
             </div>
           </div>
-          
+
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
             {variants.length > 0 && (
@@ -845,16 +868,17 @@ export function NewInvoiceForm({
                 {fields.map((item, index) => {
                   const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
+                  const originalRate = form.watch(`items.${index}.originalRate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
                   const purchaseId = form.watch(`items.${index}.purchaseId`);
                   const availableStock = getAvailableStock(variantId);
 
                   // Get stock limit for this specific purchase (including current item's quantity)
-                  const purchaseStockLimit = purchaseId 
+                  const purchaseStockLimit = purchaseId
                     ? (() => {
                         const purchase = purchases.find(p => p.purchaseId === purchaseId);
                         if (!purchase) return 0;
-                        
+
                         return purchase.remaining;
                       })()
                     : Infinity;
@@ -1154,10 +1178,21 @@ export function NewInvoiceForm({
                   <span>{formatCurrency(total)}</span>
                 </div>
 
+                {/* Profit Display */}
+                <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                  <span className="text-green-700 dark:text-green-400 font-medium">Estimated Profit:</span>
+                  <span className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(calculatedProfit)}
+                  </span>
+                </div>
+
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground font-medium">
-                      Paid: {isOtcCustomer && <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>}
+                      Paid:{' '}
+                      {isOtcCustomer && (
+                        <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>
+                      )}
                     </span>
                     <FormField
                       control={form.control}
@@ -1267,10 +1302,10 @@ export function NewInvoiceForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea 
-                        className="min-h-[100px]" 
-                        placeholder="Internal description - not visible on printed invoice..." 
-                        {...field} 
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="Internal description - not visible on printed invoice..."
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1305,7 +1340,11 @@ export function NewInvoiceForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea className="min-h-[100px]" placeholder="Notes visible on printed invoice..." {...field} />
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="Notes visible on printed invoice..."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

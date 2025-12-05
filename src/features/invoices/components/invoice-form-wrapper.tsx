@@ -48,6 +48,7 @@ interface InvoiceFormData {
   taxRate: number;
   discount: number;
   discountType: 'percentage' | 'fixed';
+  profit: number;
   paid?: number;
   description?: string;
   notes?: string;
@@ -138,6 +139,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
           - (formData.discountType === 'percentage' 
             ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
             : formData.discount)) - (formData.paid || 0),
+        profit: formData.profit || 0,
         description: formData.description,
         notes: formData.notes,
         termsAndConditions: formData.terms,

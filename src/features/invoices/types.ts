@@ -26,6 +26,7 @@ export interface InvoiceItem {
   totalPrice: number;
   stockLocation?: string;
   purchaseId?: string;
+  originalRate?: number;
 }
 
 // Main Invoice interface

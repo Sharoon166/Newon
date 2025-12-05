@@ -1,7 +1,7 @@
 import { getDashboardData } from '@/features/dashboard/actions';
 import { MetricsCards } from '@/features/dashboard/components/metrics-cards';
 import { SalesChart } from '@/features/dashboard/components/sales-chart';
-// import { ProfitChart } from '@/features/dashboard/components/profit-chart';
+import { ProfitChart } from '@/features/dashboard/components/profit-chart';
 import { AlertsSection } from '@/features/dashboard/components/alerts-section';
 import { getSession } from '@/lib/auth-utils';
 import { redirect } from 'next/navigation';
@@ -36,7 +36,7 @@ export default async function DashboardPage() {
       {/* Charts Row */}
       <div className="grid gap-6">
         <SalesChart data={salesTrend} data30Days={salesTrend30Days} />
-        {/* <ProfitChart data={profitTrend} data30Days={profitTrend30Days} /> */}
+        <ProfitChart data={profitTrend} data30Days={profitTrend30Days} />
       </div>
 
       {/* Alerts Row */}
