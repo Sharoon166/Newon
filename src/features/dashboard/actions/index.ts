@@ -227,6 +227,140 @@ export async function getSalesTrend(days: number = 7): Promise<SalesTrendData[]>
 }
 
 /**
+ * Get Sales Trend Data for Custom Date Range
+ */
+export async function getSalesTrendByDateRange(startDate: Date, endDate: Date): Promise<SalesTrendData[]> {
+  try {
+    await dbConnect();
+
+    const start = startOfDay(startDate);
+    const end = endOfDay(endDate);
+
+    // Get sales data grouped by date
+    const salesData = await InvoiceModel.aggregate([
+      {
+        $match: {
+          type: 'invoice',
+          status: { $ne: 'cancelled' },
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
+          },
+          sales: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' },
+          invoices: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create a map of existing data
+    const dataMap = new Map<string, { sales: number; revenue: number; invoices: number }>();
+    salesData.forEach((item: { _id: string; sales: number; revenue: number; invoices: number }) => {
+      dataMap.set(item._id, {
+        sales: item.sales,
+        revenue: item.revenue,
+        invoices: item.invoices
+      });
+    });
+
+    // Fill in missing dates with zero values
+    const data: SalesTrendData[] = [];
+    const daysDiff = differenceInDays(end, start);
+    
+    for (let i = 0; i <= daysDiff; i++) {
+      const date = addDays(start, i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+
+      const existing = dataMap.get(dateStr);
+      data.push({
+        date: dateStr,
+        sales: existing?.sales || 0,
+        revenue: existing?.revenue || 0,
+        invoices: existing?.invoices || 0
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching sales trend by date range:', error);
+    return [];
+  }
+}
+
+/**
+ * Get Monthly Sales Trend Data (Last 12 Months)
+ */
+export async function getMonthlySalesTrend(): Promise<SalesTrendData[]> {
+  try {
+    await dbConnect();
+
+    const now = new Date();
+    const startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+
+    // Get sales data grouped by month
+    const salesData = await InvoiceModel.aggregate([
+      {
+        $match: {
+          type: 'invoice',
+          status: { $ne: 'cancelled' },
+          date: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-01', date: '$date', timezone: 'UTC' }
+          },
+          sales: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' },
+          invoices: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create a map of existing data
+    const dataMap = new Map<string, { sales: number; revenue: number; invoices: number }>();
+    salesData.forEach((item: { _id: string; sales: number; revenue: number; invoices: number }) => {
+      dataMap.set(item._id, {
+        sales: item.sales,
+        revenue: item.revenue,
+        invoices: item.invoices
+      });
+    });
+
+    // Fill in missing months with zero values
+    const data: SalesTrendData[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const dateStr = format(date, 'yyyy-MM-01');
+
+      const existing = dataMap.get(dateStr);
+      data.push({
+        date: dateStr,
+        sales: existing?.sales || 0,
+        revenue: existing?.revenue || 0,
+        invoices: existing?.invoices || 0
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching monthly sales trend:', error);
+    return [];
+  }
+}
+
+/**
  * Get Profit Trend Data
  */
 export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[]> {
@@ -287,6 +421,136 @@ export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[
     return data;
   } catch (error) {
     console.error('Error fetching profit trend:', error);
+    return [];
+  }
+}
+
+/**
+ * Get Profit Trend Data for Custom Date Range
+ */
+export async function getProfitTrendByDateRange(startDate: Date, endDate: Date): Promise<ProfitTrendData[]> {
+  try {
+    await dbConnect();
+
+    const start = startOfDay(startDate);
+    const end = endOfDay(endDate);
+
+    // Get profit data grouped by date
+    const profitData = await InvoiceModel.aggregate([
+      {
+        $match: {
+          type: 'invoice',
+          status: { $ne: 'cancelled' },
+          date: { $gte: start, $lte: end },
+          profit: { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
+          },
+          profit: { $sum: '$profit' },
+          invoices: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create a map of existing data
+    const dataMap = new Map<string, { profit: number; invoices: number }>();
+    profitData.forEach((item: { _id: string; profit: number; invoices: number }) => {
+      dataMap.set(item._id, {
+        profit: item.profit,
+        invoices: item.invoices
+      });
+    });
+
+    // Fill in missing dates with zero values
+    const data: ProfitTrendData[] = [];
+    const daysDiff = differenceInDays(end, start);
+    
+    for (let i = 0; i <= daysDiff; i++) {
+      const date = addDays(start, i);
+      const dateStr = format(date, 'yyyy-MM-dd');
+
+      const existing = dataMap.get(dateStr);
+      data.push({
+        date: dateStr,
+        profit: existing?.profit || 0,
+        invoices: existing?.invoices || 0
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching profit trend by date range:', error);
+    return [];
+  }
+}
+
+/**
+ * Get Monthly Profit Trend Data (Last 12 Months)
+ */
+export async function getMonthlyProfitTrend(): Promise<ProfitTrendData[]> {
+  try {
+    await dbConnect();
+
+    const now = new Date();
+    const startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+
+    // Get profit data grouped by month
+    const profitData = await InvoiceModel.aggregate([
+      {
+        $match: {
+          type: 'invoice',
+          status: { $ne: 'cancelled' },
+          date: { $gte: startDate },
+          profit: { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-01', date: '$date', timezone: 'UTC' }
+          },
+          profit: { $sum: '$profit' },
+          invoices: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create a map of existing data
+    const dataMap = new Map<string, { profit: number; invoices: number }>();
+    profitData.forEach((item: { _id: string; profit: number; invoices: number }) => {
+      dataMap.set(item._id, {
+        profit: item.profit,
+        invoices: item.invoices
+      });
+    });
+
+    // Fill in missing months with zero values
+    const data: ProfitTrendData[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const dateStr = format(date, 'yyyy-MM-01');
+
+      const existing = dataMap.get(dateStr);
+      data.push({
+        date: dateStr,
+        profit: existing?.profit || 0,
+        invoices: existing?.invoices || 0
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching monthly profit trend:', error);
     return [];
   }
 }
@@ -460,12 +724,25 @@ export async function getPendingPayments(limit: number = 5, skip: number = 0): P
  * Get Complete Dashboard Data
  */
 export async function getDashboardData(): Promise<DashboardData> {
-  const [metrics, salesTrend, salesTrend30Days, profitTrend, profitTrend30Days, outOfStockAlerts, overdueInvoices, pendingPayments] = await Promise.all([
+  const [
+    metrics,
+    salesTrend,
+    salesTrend30Days,
+    salesTrendMonthly,
+    profitTrend,
+    profitTrend30Days,
+    profitTrendMonthly,
+    outOfStockAlerts,
+    overdueInvoices,
+    pendingPayments
+  ] = await Promise.all([
     getDashboardMetrics(),
     getSalesTrend(7),
     getSalesTrend(30),
+    getMonthlySalesTrend(),
     getProfitTrend(7),
     getProfitTrend(30),
+    getMonthlyProfitTrend(),
     getLowStockAlerts(),
     getOverdueInvoices(),
     getPendingPayments()
@@ -475,8 +752,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     metrics,
     salesTrend,
     salesTrend30Days,
+    salesTrendMonthly,
     profitTrend,
     profitTrend30Days,
+    profitTrendMonthly,
     outOfStockAlerts,
     overdueInvoices,
     pendingPayments

@@ -20,7 +20,18 @@ export default async function DashboardPage() {
   }
 
   // Fetch all dashboard data
-  const { metrics, salesTrend, salesTrend30Days, profitTrend, profitTrend30Days, outOfStockAlerts, overdueInvoices, pendingPayments } = await getDashboardData();
+  const {
+    metrics,
+    salesTrend,
+    salesTrend30Days,
+    salesTrendMonthly,
+    profitTrend,
+    profitTrend30Days,
+    profitTrendMonthly,
+    outOfStockAlerts,
+    overdueInvoices,
+    pendingPayments
+  } = await getDashboardData();
 
   return (
     <div className="space-y-6">
@@ -35,8 +46,8 @@ export default async function DashboardPage() {
 
       {/* Charts Row */}
       <div className="grid gap-6">
-        <SalesChart data={salesTrend} data30Days={salesTrend30Days} />
-        <ProfitChart data={profitTrend} data30Days={profitTrend30Days} />
+        <SalesChart data={salesTrend} data30Days={salesTrend30Days} dataMonthly={salesTrendMonthly} />
+        <ProfitChart data={profitTrend} data30Days={profitTrend30Days} dataMonthly={profitTrendMonthly} />
       </div>
 
       {/* Alerts Row */}

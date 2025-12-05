@@ -79,8 +79,10 @@ export interface DashboardData {
   metrics: DashboardMetrics;
   salesTrend: SalesTrendData[];
   salesTrend30Days: SalesTrendData[];
+  salesTrendMonthly: SalesTrendData[];
   profitTrend: ProfitTrendData[];
   profitTrend30Days: ProfitTrendData[];
+  profitTrendMonthly: ProfitTrendData[];
   outOfStockAlerts: OutOfStockAlert[];
   overdueInvoices: OverdueInvoiceAlert[];
   pendingPayments: PendingPaymentAlert[];
