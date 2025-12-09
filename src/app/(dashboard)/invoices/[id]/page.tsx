@@ -62,7 +62,13 @@ export default function InvoiceDetailPage() {
     contentRef: printRef,
     preserveAfterPrint: true,
     documentTitle:
-      invoice?.type === 'invoice' ? `Invoice-${invoice.invoiceNumber}` : `Quotation-${invoice?.invoiceNumber}`,
+      invoice?.type === 'invoice' ? `Invoice-${invoice.invoiceNumber}.pdf` : `Quotation-${invoice?.invoiceNumber}.pdf`,
+    onBeforePrint: async () => {
+      document.title =
+        invoice?.type === 'invoice'
+          ? `Invoice-${invoice.invoiceNumber}.pdf`
+          : `Quotation-${invoice?.invoiceNumber}.pdf`;
+    },
     pageStyle: `
       @page {
         size: A4;
@@ -156,95 +162,95 @@ export default function InvoiceDetailPage() {
   const templateData =
     invoice.type === 'invoice'
       ? ({
-          logo: undefined,
-          company: COMPANY_DETAILS,
-          client: {
-            name: invoice.customerName,
-            company: invoice.customerCompany,
-            address: invoice.customerAddress,
-            city: invoice.customerCity || '',
-            state: invoice.customerState || '',
-            zip: invoice.customerZip || '',
-            email: invoice.customerEmail || '',
-            phone: invoice.customerPhone
-          },
-          invoiceNumber: invoice.invoiceNumber,
-          date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
-          dueDate: invoice.dueDate
-            ? typeof invoice.dueDate === 'string'
-              ? invoice.dueDate
-              : invoice.dueDate.toISOString()
-            : '',
-          items: invoice.items.map(item => ({
-            id: item.productId,
-            description: item.productName,
-            quantity: item.quantity,
-            rate: item.unitPrice,
-            amount: item.totalPrice,
-            productId: item.productId,
-            variantId: item.variantId,
-            variantSKU: item.variantSKU,
-            purchaseId: item.purchaseId
-          })),
-          taxRate: invoice.gstValue || 0,
-          discount: invoice.discountAmount,
-          discountType: invoice.discountType || 'fixed',
-          notes: invoice.notes,
-          terms: invoice.termsAndConditions,
-          paymentDetails: {
-            bankName: PAYMENT_DETAILS.BANK_NAME,
-            accountNumber: PAYMENT_DETAILS.ACCOUNT_NUMBER,
-            iban: PAYMENT_DETAILS.IBAN
-          },
-          previousBalance: 0,
-          paid: invoice.paidAmount,
-          remainingPayment: invoice.balanceAmount,
-          amountInWords: `${convertToWords(Math.round(invoice.balanceAmount + (invoice.balanceAmount > 0 ? 0 : 0)))} Rupees Only`,
-          billingType: invoice.billingType,
-          market: invoice.market,
-          customerId: invoice.customerId
-        } as InvoiceTemplateData)
+        logo: undefined,
+        company: COMPANY_DETAILS,
+        client: {
+          name: invoice.customerName,
+          company: invoice.customerCompany,
+          address: invoice.customerAddress,
+          city: invoice.customerCity || '',
+          state: invoice.customerState || '',
+          zip: invoice.customerZip || '',
+          email: invoice.customerEmail || '',
+          phone: invoice.customerPhone
+        },
+        invoiceNumber: invoice.invoiceNumber,
+        date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+        dueDate: invoice.dueDate
+          ? typeof invoice.dueDate === 'string'
+            ? invoice.dueDate
+            : invoice.dueDate.toISOString()
+          : '',
+        items: invoice.items.map(item => ({
+          id: item.productId,
+          description: item.productName,
+          quantity: item.quantity,
+          rate: item.unitPrice,
+          amount: item.totalPrice,
+          productId: item.productId,
+          variantId: item.variantId,
+          variantSKU: item.variantSKU,
+          purchaseId: item.purchaseId
+        })),
+        taxRate: invoice.gstValue || 0,
+        discount: invoice.discountAmount,
+        discountType: invoice.discountType || 'fixed',
+        notes: invoice.notes,
+        terms: invoice.termsAndConditions,
+        paymentDetails: {
+          bankName: PAYMENT_DETAILS.BANK_NAME,
+          accountNumber: PAYMENT_DETAILS.ACCOUNT_NUMBER,
+          iban: PAYMENT_DETAILS.IBAN
+        },
+        previousBalance: 0,
+        paid: invoice.paidAmount,
+        remainingPayment: invoice.balanceAmount,
+        amountInWords: `${convertToWords(Math.round(invoice.balanceAmount + (invoice.balanceAmount > 0 ? 0 : 0)))} Rupees Only`,
+        billingType: invoice.billingType,
+        market: invoice.market,
+        customerId: invoice.customerId
+      } as InvoiceTemplateData)
       : ({
-          logo: undefined,
-          company: COMPANY_DETAILS,
-          client: {
-            name: invoice.customerName,
-            company: invoice.customerCompany,
-            address: invoice.customerAddress,
-            city: invoice.customerCity || '',
-            state: invoice.customerState || '',
-            zip: invoice.customerZip || '',
-            email: invoice.customerEmail || '',
-            phone: invoice.customerPhone
-          },
-          quotationNumber: invoice.invoiceNumber,
-          date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
-          validUntil: invoice.validUntil
-            ? typeof invoice.validUntil === 'string'
-              ? invoice.validUntil
-              : invoice.validUntil.toISOString()
-            : '',
-          items: invoice.items.map(item => ({
-            id: item.productId,
-            description: item.productName,
-            quantity: item.quantity,
-            rate: item.unitPrice,
-            amount: item.totalPrice,
-            productId: item.productId,
-            variantId: item.variantId,
-            variantSKU: item.variantSKU,
-            purchaseId: item.purchaseId
-          })),
-          taxRate: invoice.gstValue || 0,
-          discount: invoice.discountAmount,
-          discountType: invoice.discountType || 'fixed',
-          notes: invoice.notes,
-          terms: invoice.termsAndConditions,
-          amountInWords: `${convertToWords(Math.round(invoice.totalAmount))} Rupees Only`,
-          billingType: invoice.billingType,
-          market: invoice.market,
-          customerId: invoice.customerId
-        } as QuotationTemplateData);
+        logo: undefined,
+        company: COMPANY_DETAILS,
+        client: {
+          name: invoice.customerName,
+          company: invoice.customerCompany,
+          address: invoice.customerAddress,
+          city: invoice.customerCity || '',
+          state: invoice.customerState || '',
+          zip: invoice.customerZip || '',
+          email: invoice.customerEmail || '',
+          phone: invoice.customerPhone
+        },
+        quotationNumber: invoice.invoiceNumber,
+        date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+        validUntil: invoice.validUntil
+          ? typeof invoice.validUntil === 'string'
+            ? invoice.validUntil
+            : invoice.validUntil.toISOString()
+          : '',
+        items: invoice.items.map(item => ({
+          id: item.productId,
+          description: item.productName,
+          quantity: item.quantity,
+          rate: item.unitPrice,
+          amount: item.totalPrice,
+          productId: item.productId,
+          variantId: item.variantId,
+          variantSKU: item.variantSKU,
+          purchaseId: item.purchaseId
+        })),
+        taxRate: invoice.gstValue || 0,
+        discount: invoice.discountAmount,
+        discountType: invoice.discountType || 'fixed',
+        notes: invoice.notes,
+        terms: invoice.termsAndConditions,
+        amountInWords: `${convertToWords(Math.round(invoice.totalAmount))} Rupees Only`,
+        billingType: invoice.billingType,
+        market: invoice.market,
+        customerId: invoice.customerId
+      } as QuotationTemplateData);
 
   return (
     <div className="container mx-auto py-10">
@@ -289,7 +295,7 @@ export default function InvoiceDetailPage() {
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-          <Button hidden onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
+          <Button hidden aria-hidden onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
             <Download className="h-4 w-4 mr-2" />
             {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
           </Button>

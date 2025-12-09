@@ -595,7 +595,6 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
-      <pre>{JSON.stringify(form.getValues(), null, 2)}</pre>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">

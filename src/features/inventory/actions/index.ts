@@ -61,8 +61,6 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
       variants: processedVariants
     };
 
-    console.info('Creating product with attributes:', JSON.stringify(processedAttributes, null, 2));
-
     await ProductModel.create(productWithDefaults);
     revalidatePath('/inventory');
     revalidatePath('/purchases');

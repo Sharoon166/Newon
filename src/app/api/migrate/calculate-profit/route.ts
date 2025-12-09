@@ -7,7 +7,7 @@ export async function GET() {
   try {
     await dbConnect();
 
-    // Find invoices that need updating
+    // Find invoices that need updatingj
     const invoices = await InvoiceModel.find({
       $or: [
         { profit: { $exists: false } },
