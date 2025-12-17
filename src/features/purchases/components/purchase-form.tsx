@@ -325,7 +325,7 @@ export function PurchaseForm({
                             }}
                             disabled={isEditMode}
                           >
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className="w-full truncate">
                               <SelectValue placeholder="Select product" />
                             </SelectTrigger>
                             <SelectContent>
@@ -423,17 +423,28 @@ export function PurchaseForm({
                           <Input
                             {...field}
                             ref={supplierInputRef}
-                            value={isEditingSupplier ? field.value : (productSupplier || field.value)}
+                            value={field.value}
                             onChange={field.onChange}
-                            onBlur={() => setIsEditingSupplier(false)}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
+                              if (e.key === 'Enter' || e.key === 'Escape') {
                                 e.preventDefault();
                                 setIsEditingSupplier(false);
                               }
                             }}
+                            onBlur={() => {
+                              if (isEditingSupplier && !field.value) {
+                                field.onChange(productSupplier);
+                              }
+                              setIsEditingSupplier(false);
+                            }}
+                            onClick={(e) => {
+                              if (!isEditingSupplier) {
+                                e.preventDefault();
+                                setIsEditingSupplier(true);
+                              }
+                            }}
                             readOnly={!isEditingSupplier}
-                            className={!isEditingSupplier ? 'bg-muted' : ''}
+                            className={!isEditingSupplier ? 'bg-muted cursor-pointer' : ''}
                             placeholder={selectedProductId ? 'Enter supplier name' : 'No supplier set'}
                           />
                         </FormControl>
