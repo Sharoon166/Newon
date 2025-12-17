@@ -76,6 +76,11 @@ export function StaffTable({ staff }: StaffTableProps) {
   const handleDelete = async () => {
     if (!staffToDelete) return;
 
+    if (staffToDelete.member.isActive) {
+      toast.error("Cannot delete an active member.");
+      return;
+    }
+
     try {
       setIsProcessing(true);
       await deleteStaffMember(staffToDelete.id, staffToDelete.member);

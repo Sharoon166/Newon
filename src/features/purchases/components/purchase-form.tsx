@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Loader2, Info, CalendarIcon } from 'lucide-react';
+import { Loader2, Info, CalendarIcon, Pencil, X } from 'lucide-react';
 import { Purchase, CreatePurchaseDto, UpdatePurchaseDto } from '../types';
 import { createPurchase, updatePurchase } from '../actions';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -79,6 +79,8 @@ export function PurchaseForm({
   onSuccess
 }: PurchaseFormProps) {
   const [loading, setLoading] = useState(false);
+  const [isEditingSupplier, setIsEditingSupplier] = useState(false);
+  const supplierInputRef = useRef<HTMLInputElement>(null);
   const isEditMode = !!purchase;
   // Auto-select variant if only one exists
   const defaultVariantId = variantId || (variants.length === 1 ? variants[0].id : '');
@@ -141,9 +143,17 @@ export function PurchaseForm({
     return productVariant?.supplier || '';
   }, [selectedProductId, variants, productId, supplier]);
 
+  // Focus the input when editing starts
+  useEffect(() => {
+    if (isEditingSupplier && supplierInputRef.current) {
+      supplierInputRef.current.focus();
+    }
+  }, [isEditingSupplier]);
+
   // Reset form when purchase or open state changes
   useEffect(() => {
     if (open) {
+      setIsEditingSupplier(false);
       if (purchase) {
         const purchaseDate =
           purchase.purchaseDate instanceof Date
@@ -266,7 +276,7 @@ export function PurchaseForm({
         onClick={e => e.stopPropagation()}
       >
         <ScrollArea className="max-h-[75vh] -mx-4 px-4">
-          <DialogHeader>
+          <DialogHeader className='mb-4'>
             <DialogTitle>
               {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
               {isEditMode && purchase?.purchaseId && (
@@ -386,19 +396,48 @@ export function PurchaseForm({
                   name="supplier"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Supplier <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={productSupplier || field.value}
-                          readOnly
-                          disabled
-                          className="bg-muted cursor-not-allowed"
-                          placeholder={selectedProductId ? 'Select a product first' : 'No supplier set'}
-                        />
-                      </FormControl>
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="flex items-center gap-2">
+                          Supplier <span className="text-destructive">*</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEditingSupplier) {
+                                field.onChange('');
+                              }
+                              setIsEditingSupplier(!isEditingSupplier);
+                            }}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            title={isEditingSupplier ? 'Reset to default' : 'Edit supplier'}
+                          >
+                            {isEditingSupplier ? (
+                              <X className="h-4 w-4" />
+                            ) : (
+                              <Pencil className="h-4 w-4" />
+                            )}
+                          </button>
+                        </FormLabel>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <FormControl>
+                          <Input
+                            {...field}
+                            ref={supplierInputRef}
+                            value={isEditingSupplier ? field.value : (productSupplier || field.value)}
+                            onChange={field.onChange}
+                            onBlur={() => setIsEditingSupplier(false)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                setIsEditingSupplier(false);
+                              }
+                            }}
+                            readOnly={!isEditingSupplier}
+                            className={!isEditingSupplier ? 'bg-muted' : ''}
+                            placeholder={selectedProductId ? 'Enter supplier name' : 'No supplier set'}
+                          />
+                        </FormControl>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -568,35 +607,36 @@ export function PurchaseForm({
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="wholesalePrice"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Wholesale Price <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <NumberInput
-                          value={field.value}
-                          onChange={value => {
-                            field.onChange(value);
-                          }}
-                          min={0}
-                          step="0.01"
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
+<FormField
+control={form.control}
+name="wholesalePrice"
+render={({ field }) => (
+  <FormItem>
+    <FormLabel>
+      Wholesale Price <span className="text-destructive">*</span>
+    </FormLabel>
+    <FormControl>
+      <NumberInput
+        value={field.value}
+        onChange={value => {
+          field.onChange(value);
+        }}
+        min={0}
+        step="0.01"
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+      />
+    </FormControl>
+    <FormMessage />
+  </FormItem>
+)}
+/>
+                            
                 <FormField
                   control={form.control}
                   name="shippingCost"
