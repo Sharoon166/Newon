@@ -193,7 +193,7 @@ export default function InvoiceDetailPage() {
           purchaseId: item.purchaseId
         })),
         taxRate: invoice.gstValue || 0,
-        discount: invoice.discountAmount,
+        discount: invoice.discountValue,
         discountType: invoice.discountType || 'fixed',
         notes: invoice.notes,
         terms: invoice.termsAndConditions,
@@ -242,7 +242,7 @@ export default function InvoiceDetailPage() {
           purchaseId: item.purchaseId
         })),
         taxRate: invoice.gstValue || 0,
-        discount: invoice.discountAmount,
+        discount: invoice.discountValue,
         discountType: invoice.discountType || 'fixed',
         notes: invoice.notes,
         terms: invoice.termsAndConditions,

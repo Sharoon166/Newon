@@ -179,6 +179,9 @@ export function QuotationConversionForm({
             }
           }
         }
+
+        // Find the purchase to get the correct cost price (originalRate)
+        const purchase = item.purchaseId ? purchases.find(p => p.purchaseId === item.purchaseId) : undefined;
         
         return {
           id: item.id,
@@ -190,10 +193,11 @@ export function QuotationConversionForm({
           variantId: item.variantId,
           variantSKU: item.variantSKU,
           // Clear purchaseId if the purchase is depleted
-          purchaseId: item.purchaseId && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0 
-            ? undefined 
-            : item.purchaseId,
-          originalRate: item.unitPrice // Store original rate to detect custom pricing
+          purchaseId:
+            item.purchaseId && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0
+              ? undefined
+              : item.purchaseId,
+          originalRate: purchase?.unitPrice || 0 // Use purchase cost price for profit calculation
         };
       }),
       taxRate: quotation.taxRate || quotation.gstValue || 0,
@@ -225,12 +229,29 @@ export function QuotationConversionForm({
 
   // Calculate profit in real-time
   const items = form.watch('items');
-  const calculatedProfit = items.reduce((sum, item) => {
-    const costPrice = item.originalRate ?? 0;
-    const sellingPrice = item.rate;
-    const profitPerUnit = sellingPrice - costPrice;
-    return sum + (profitPerUnit * item.quantity);
-  }, 0) - discountAmount;
+
+  // 1. Total selling price (revenue)
+  const totalRevenue = items.reduce((sum, item) => {
+    const price = item.rate ?? 0;
+    const quantity = item.quantity ?? 0;
+    return sum + price * quantity;
+  }, 0);
+
+  // 2. Total cost
+  const totalCost = items.reduce((sum, item) => {
+    const cost = item.originalRate ?? 0;
+    const quantity = item.quantity ?? 0;
+    return sum + cost * quantity;
+  }, 0);
+
+  // 3. Apply discount to revenue (NOT profit)
+  const netRevenue =
+    discountType === 'percentage'
+      ? totalRevenue - (totalRevenue * (discount ?? 0)) / 100
+      : totalRevenue - (discountAmount ?? 0);
+
+  // 4. Final profit
+  const calculatedProfit = netRevenue - totalCost;
 
   // Update profit field with calculated value
   useEffect(() => {
@@ -238,18 +259,18 @@ export function QuotationConversionForm({
   }, [calculatedProfit, form]);
 
   const paid = form.watch('paid') || 0;
-  
+
   // Get outstanding balance from customer (0 for OTC) - for display only
   const isOtcCustomer = customerData.customerId === 'otc';
   const outstandingBalance = isOtcCustomer ? 0 : 0; // Will be fetched from customer data if needed
-  
+
   // For OTC customers, automatically set paid amount to total
   useEffect(() => {
     if (isOtcCustomer && total > 0 && paid !== total) {
       form.setValue('paid', total);
     }
   }, [isOtcCustomer, total, paid, form]);
-  
+
   // Grand total is just invoice total - paid (outstanding balance is separate)
   const grandTotal = Math.max(0, total - paid);
 
@@ -355,11 +376,13 @@ export function QuotationConversionForm({
     }
 
     // Check if item from the SAME purchase already exists in the table
-    const existingItemIndex = form.watch('items').findIndex(
-      (formItem) =>
-        formItem.variantId === item.variantId && 
-        formItem.variantSKU === item.sku &&
-        formItem.purchaseId === item.purchaseId
+    const existingItemIndex = form
+      .watch('items')
+      .findIndex(
+        formItem =>
+          formItem.variantId === item.variantId &&
+          formItem.variantSKU === item.sku &&
+          formItem.purchaseId === item.purchaseId
       );
 
     if (existingItemIndex !== -1) {
@@ -367,7 +390,7 @@ export function QuotationConversionForm({
       const currentItems = form.getValues('items');
       const existingItem = currentItems[existingItemIndex];
       const newQuantity = existingItem.quantity + item.quantity;
-      
+
       // Update the entire items array to trigger re-render
       const updatedItems = [...currentItems];
       updatedItems[existingItemIndex] = {
@@ -375,9 +398,8 @@ export function QuotationConversionForm({
         quantity: newQuantity,
         amount: newQuantity * existingItem.rate
       };
-      
-      form.setValue('items', updatedItems, { shouldValidate: true });
 
+      form.setValue('items', updatedItems, { shouldValidate: true });
     } else {
       // Item doesn't exist or is from a different purchase, add new entry
       append({
@@ -436,9 +458,10 @@ export function QuotationConversionForm({
         const currentDiscount = form.watch('discount');
         const currentDiscountType = form.watch('discountType');
         const currentTaxAmount = (currentSubtotal * currentTaxRate) / 100;
-        const currentDiscountAmount = currentDiscountType === 'percentage' ? (currentSubtotal * currentDiscount) / 100 : currentDiscount;
+        const currentDiscountAmount =
+          currentDiscountType === 'percentage' ? (currentSubtotal * currentDiscount) / 100 : currentDiscount;
         const currentTotal = currentSubtotal + currentTaxAmount - currentDiscountAmount;
-        
+
         if (numericValue > currentTotal) {
           toast.error('Invalid paid amount', {
             description: 'Paid amount cannot exceed the invoice total'
@@ -526,112 +549,110 @@ export function QuotationConversionForm({
   };
 
   const handleSave = () => {
-    form.handleSubmit(
-      async data => {
-        if (!validateInvoiceData(data)) return;
+    form.handleSubmit(async data => {
+      if (!validateInvoiceData(data)) return;
 
-        try {
-          setIsSubmitting(true);
-          const { createInvoice } = await import('@/features/invoices/actions');
-          const { getSession } = await import('next-auth/react');
+      try {
+        setIsSubmitting(true);
+        const { createInvoice } = await import('@/features/invoices/actions');
+        const { getSession } = await import('next-auth/react');
 
-          const session = await getSession();
-          const createdBy = session?.user?.email || 'unknown';
+        const session = await getSession();
+        const createdBy = session?.user?.email || 'unknown';
 
-          // Check if invoice has custom items
-          // An item is custom if:
-          // 1. It has no productId (custom item)
-          // 2. It has productId === 'custom-item' (manually entered)
-          // 3. The rate has been modified from the original rate
-          const hasCustomItems = data.items.some(
-            item => !item.productId || 
-                    item.productId === 'custom-item' || 
-                    (item.saleRate !== undefined && item.rate !== item.saleRate)
-          );
+        // Check if invoice has custom items
+        // An item is custom if:
+        // 1. It has no productId (custom item)
+        // 2. It has productId === 'custom-item' (manually entered)
+        // 3. The rate has been modified from the original rate
+        const hasCustomItems = data.items.some(
+          item =>
+            !item.productId ||
+            item.productId === 'custom-item' ||
+            (item.saleRate !== undefined && item.rate !== item.saleRate)
+        );
 
-          // Create the invoice with modified data
-          // Note: invoiceNumber is not passed - it will be auto-generated to avoid race conditions
-          const newInvoice = await createInvoice({
-            type: 'invoice' as const,
-            date: new Date(data.date),
-            dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-            billingType: quotation.billingType || 'retail',
-            market: quotation.market || 'newon',
-            customerId: customerData.customerId ?? '',
-            customerName: customerData.customerName,
-            customerCompany: customerData.customerCompany || undefined,
-            customerEmail: customerData.customerEmail,
-            customerPhone: customerData.customerPhone,
-            customerAddress: customerData.customerAddress,
-            customerCity: customerData.customerCity ?? '',
-            customerState: customerData.customerState ?? '',
-            customerZip: customerData.customerZip ?? '',
-            items: data.items.map(item => ({
-              productId: item.productId || 'custom-item',
-              productName: item.description,
-              variantId: item.variantId,
-              variantSKU: item.variantSKU,
-              quantity: item.quantity,
-              unit: 'pcs',
-              unitPrice: item.rate,
-              discountType: 'fixed',
-              discountValue: 0,
-              discountAmount: 0,
-              totalPrice: item.amount,
-              purchaseId: item.purchaseId
-            })),
-            subtotal: data.items.reduce((sum, item) => sum + item.amount, 0),
-            discountType: data.discountType,
-            discountValue: data.discount,
-            discountAmount:
-              data.discountType === 'percentage'
-                ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
-                : data.discount,
-            gstType: 'percentage',
-            gstValue: data.taxRate,
-            gstAmount: (data.items.reduce((sum, item) => sum + item.amount, 0) * data.taxRate) / 100,
-            totalAmount:
-              data.items.reduce((sum, item) => sum + item.amount, 0) +
-              (data.items.reduce((sum, item) => sum + item.amount, 0) * data.taxRate) / 100 -
-              (data.discountType === 'percentage'
-                ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
-                : data.discount),
-            status: isOtcCustomer ? 'paid' : 'pending',
-            paidAmount: data.paid,
-            balanceAmount: grandTotal,
-            profit: data.profit || 0,
-            description: data.description,
-            notes: data.notes,
-            termsAndConditions: quotation.termsAndConditions,
-            custom: hasCustomItems,
-            createdBy
-          });
+        // Create the invoice with modified data
+        // Note: invoiceNumber is not passed - it will be auto-generated to avoid race conditions
+        const newInvoice = await createInvoice({
+          type: 'invoice' as const,
+          date: new Date(data.date),
+          dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+          billingType: quotation.billingType || 'retail',
+          market: quotation.market || 'newon',
+          customerId: customerData.customerId ?? '',
+          customerName: customerData.customerName,
+          customerCompany: customerData.customerCompany || undefined,
+          customerEmail: customerData.customerEmail,
+          customerPhone: customerData.customerPhone,
+          customerAddress: customerData.customerAddress,
+          customerCity: customerData.customerCity ?? '',
+          customerState: customerData.customerState ?? '',
+          customerZip: customerData.customerZip ?? '',
+          items: data.items.map(item => ({
+            productId: item.productId || 'custom-item',
+            productName: item.description,
+            variantId: item.variantId,
+            variantSKU: item.variantSKU,
+            quantity: item.quantity,
+            unit: 'pcs',
+            unitPrice: item.rate,
+            discountType: 'fixed',
+            discountValue: 0,
+            discountAmount: 0,
+            totalPrice: item.amount,
+            purchaseId: item.purchaseId
+          })),
+          subtotal: data.items.reduce((sum, item) => sum + item.amount, 0),
+          discountType: data.discountType,
+          discountValue: data.discount,
+          discountAmount:
+            data.discountType === 'percentage'
+              ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
+              : data.discount,
+          gstType: 'percentage',
+          gstValue: data.taxRate,
+          gstAmount: (data.items.reduce((sum, item) => sum + item.amount, 0) * data.taxRate) / 100,
+          totalAmount:
+            data.items.reduce((sum, item) => sum + item.amount, 0) +
+            (data.items.reduce((sum, item) => sum + item.amount, 0) * data.taxRate) / 100 -
+            (data.discountType === 'percentage'
+              ? (data.items.reduce((sum, item) => sum + item.amount, 0) * data.discount) / 100
+              : data.discount),
+          status: isOtcCustomer ? 'paid' : 'pending',
+          paidAmount: data.paid,
+          balanceAmount: grandTotal,
+          profit: data.profit || 0,
+          description: data.description,
+          notes: data.notes,
+          termsAndConditions: quotation.termsAndConditions,
+          custom: hasCustomItems,
+          createdBy
+        });
 
-          // Mark the original quotation as converted
-          const { updateInvoice } = await import('@/features/invoices/actions');
-          await updateInvoice(quotationId, {
-            status: 'converted',
-            convertedToInvoice: true,
-            convertedInvoiceId: newInvoice.id
-          });
+        // Mark the original quotation as converted
+        const { updateInvoice } = await import('@/features/invoices/actions');
+        await updateInvoice(quotationId, {
+          status: 'converted',
+          convertedToInvoice: true,
+          convertedInvoiceId: newInvoice.id
+        });
 
-          toast.success('Invoice created successfully', {
-            description: 'Redirecting to invoices page...'
-          });
+        toast.success('Invoice created successfully', {
+          description: 'Redirecting to invoices page...'
+        });
 
-          // Redirect to invoices page
-          window.location.href = '/invoices';
-        } catch (error) {
-          console.error('Error saving invoice:', error);
-          toast.error('Failed to save invoice', {
-            description: error instanceof Error ? error.message : 'An unexpected error occurred.'
-          });
-        } finally {
-          setIsSubmitting(false);
-        }
-      },
-      handleFormErrors
-    )();
+        // Redirect to invoices page
+        window.location.href = '/invoices';
+      } catch (error) {
+        console.error('Error saving invoice:', error);
+        toast.error('Failed to save invoice', {
+          description: error instanceof Error ? error.message : 'An unexpected error occurred.'
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    }, handleFormErrors)();
   };
 
   // Get today's date in YYYY-MM-DD format for the min attribute
@@ -640,6 +661,14 @@ export function QuotationConversionForm({
   return (
     <Form {...form}>
       <form className="space-y-8">
+        <pre>
+          {JSON.stringify(
+            {quotation,
+            items},
+            null,
+            2
+          )}
+        </pre>
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <FormField
@@ -794,13 +823,13 @@ export function QuotationConversionForm({
                   const variantId = form.watch(`items.${index}.variantId`);
                   const purchaseId = form.watch(`items.${index}.purchaseId`);
                   const availableStock = getAvailableStock(variantId);
-                  
+
                   // Get stock limit for this specific purchase
-                  const purchaseStockLimit = purchaseId 
+                  const purchaseStockLimit = purchaseId
                     ? (() => {
                         const purchase = purchases.find(p => p.purchaseId === purchaseId);
                         if (!purchase) return 0;
-                        
+
                         // The max this item can have is simply the purchase's remaining stock
                         // No need to add current quantity since 'remaining' already represents available stock
                         return purchase.remaining;
@@ -873,9 +902,15 @@ export function QuotationConversionForm({
                                       <InputGroupInput
                                         type="number"
                                         min="1"
-                                        max={purchaseId 
-                                          ? (purchaseStockLimit < Infinity ? purchaseStockLimit : undefined)
-                                          : (availableStock < Infinity ? availableStock : undefined)}
+                                        max={
+                                          purchaseId
+                                            ? purchaseStockLimit < Infinity
+                                              ? purchaseStockLimit
+                                              : undefined
+                                            : availableStock < Infinity
+                                              ? availableStock
+                                              : undefined
+                                        }
                                         step="1"
                                         {...field}
                                         className="h-8 text-sm text-center"
@@ -898,7 +933,7 @@ export function QuotationConversionForm({
                                           const maxStock = purchaseId ? purchaseStockLimit : availableStock;
                                           if (numericValue > maxStock) {
                                             toast.error('Insufficient stock', {
-                                              description: purchaseId 
+                                              description: purchaseId
                                                 ? `Only ${maxStock} units available in this purchase`
                                                 : `Only ${maxStock} units available`
                                             });
@@ -926,7 +961,7 @@ export function QuotationConversionForm({
                                 const maxStock = purchaseId ? purchaseStockLimit : availableStock;
                                 if (newQuantity > maxStock) {
                                   toast.error('Insufficient stock', {
-                                    description: purchaseId 
+                                    description: purchaseId
                                       ? `Only ${maxStock} units available in this purchase`
                                       : `Only ${maxStock} units available`
                                   });
@@ -1099,7 +1134,9 @@ export function QuotationConversionForm({
                 {/* Profit Display */}
                 <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950/20 p-2 rounded">
                   <span className="text-green-700 dark:text-green-400 font-medium">Estimated Profit:</span>
-                  <span className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <span
+                    className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                  >
                     {formatCurrency(calculatedProfit)}
                   </span>
                 </div>
@@ -1107,7 +1144,10 @@ export function QuotationConversionForm({
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground font-medium">
-                      Paid: {isOtcCustomer && <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>}
+                      Paid:{' '}
+                      {isOtcCustomer && (
+                        <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>
+                      )}
                     </span>
                     <FormField
                       control={form.control}
@@ -1187,10 +1227,10 @@ export function QuotationConversionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea 
-                        className="min-h-[100px]" 
-                        placeholder="Internal description - not visible on printed invoice..." 
-                        {...field} 
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="Internal description - not visible on printed invoice..."
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1225,7 +1265,11 @@ export function QuotationConversionForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea className="min-h-[100px]" placeholder="Notes visible on printed invoice..." {...field} />
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="Notes visible on printed invoice..."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1247,9 +1291,16 @@ export function QuotationConversionForm({
           >
             Reset Form
           </Button>
-          <Button disabled={isSubmitting} aria-disabled={isSubmitting} type="button" variant="default" className="w-full sm:w-auto" onClick={handleSave}>
-            {isSubmitting ? <Loader2 className='animate-spin' /> : <Save className="h-4 w-4 mr-2" />}
-            {isSubmitting? 'Creating' : 'Create Invoice'}
+          <Button
+            disabled={isSubmitting}
+            aria-disabled={isSubmitting}
+            type="button"
+            variant="default"
+            className="w-full sm:w-auto"
+            onClick={handleSave}
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+            {isSubmitting ? 'Creating' : 'Create Invoice'}
           </Button>
         </div>
       </form>
