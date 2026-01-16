@@ -25,9 +25,7 @@ import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import Link from 'next/link';
 import { convertToWords } from '@/features/invoices/utils';
-import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
-
-export default function InvoiceDetailPage() {
+import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -37,6 +35,7 @@ export default function InvoiceDetailPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [productImages, setProductImages] = useState<Map<string, string>>(new Map());
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,11 +49,45 @@ export default function InvoiceDetailPage() {
       setIsLoading(true);
       const data = await getInvoice(params.id as string);
       setInvoice(data);
+      
+      // Fetch product images
+      await fetchImages(data.items);
     } catch (error) {
       console.error('Error fetching invoice:', error);
       toast.error((error as Error).message || 'Failed to load invoice');
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const fetchImages = async (items: Invoice['items']) => {
+    const imageMap = new Map<string, string>();
+    
+    try {
+      const variantIds = items
+        .filter(item => item.variantId)
+        .map(item => item.variantId as string);
+      
+      if (variantIds.length === 0) return;
+      
+      // Fetch images from API
+      const response = await fetch('/api/products/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantIds })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        Object.entries(data).forEach(([variantId, imageUrl]) => {
+          if (imageUrl) {
+            imageMap.set(variantId, imageUrl as string);
+          }
+        });
+        setProductImages(imageMap);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch product images:', error);
     }
   };
 
@@ -190,7 +223,8 @@ export default function InvoiceDetailPage() {
           productId: item.productId,
           variantId: item.variantId,
           variantSKU: item.variantSKU,
-          purchaseId: item.purchaseId
+          purchaseId: item.purchaseId,
+          imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
         })),
         taxRate: invoice.gstValue || 0,
         discount: invoice.discountValue,
@@ -239,7 +273,8 @@ export default function InvoiceDetailPage() {
           productId: item.productId,
           variantId: item.variantId,
           variantSKU: item.variantSKU,
-          purchaseId: item.purchaseId
+          purchaseId: item.purchaseId,
+          imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
         })),
         taxRate: invoice.gstValue || 0,
         discount: invoice.discountValue,

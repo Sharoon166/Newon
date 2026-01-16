@@ -6,6 +6,25 @@ import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { PAYMENT_DETAILS } from '@/constants';
 import { convertToWords } from '@/features/invoices/utils';
+import dbConnect from '@/lib/dbConnect';
+import ProductModel from '@/models/Product';
+
+/**
+ * Loads an image from URL and converts it to base64
+ */
+const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const buffer = await blob.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const mimeType = blob.type || 'image/jpeg';
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.warn('Failed to load image:', error);
+    return null;
+  }
+};
 
 // Brand-specific company details
 const BRAND_DETAILS = {
@@ -167,6 +186,45 @@ export async function POST(request: NextRequest) {
 
     // Items Table
     yPos += 10;
+    
+    // Fetch product images for all items
+    await dbConnect();
+    const productImageMap = new Map<string, string | null>();
+    
+    for (const item of invoice.items) {
+      if (item.variantId) {
+        try {
+          const product = await ProductModel.findOne(
+            { 'variants.id': item.variantId },
+            { 'variants.$': 1 }
+          ).lean();
+          
+          if (product && product.variants && product.variants.length > 0) {
+            const variant = product.variants[0];
+            const imageUrl = variant.imageFile?.cloudinaryUrl || variant.image;
+            productImageMap.set(item.variantId, imageUrl || null);
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch image for variant ${item.variantId}:`, error);
+          productImageMap.set(item.variantId, null);
+        }
+      }
+    }
+    
+    // Load all images as base64
+    const loadedImages: (string | null)[] = [];
+    for (const item of invoice.items) {
+      const imageUrl = item.variantId ? productImageMap.get(item.variantId) : null;
+      if (imageUrl) {
+        const base64Image = await loadImageAsBase64(imageUrl);
+        loadedImages.push(base64Image);
+      } else {
+        loadedImages.push(null);
+      }
+    }
+    
+    const hasImages = loadedImages.some(img => img !== null);
+    
     const tableData = invoice.items.map((item, index) => [
       (index + 1).toString(),
       item.productName + (item.variantSKU ? `\n(SKU: ${item.variantSKU})` : ''),
@@ -187,16 +245,67 @@ export async function POST(request: NextRequest) {
         fontSize: 10
       },
       bodyStyles: {
-        fontSize: 9
+        fontSize: 9,
+        minCellHeight: hasImages ? 16 : undefined
       },
       columnStyles: {
         0: { cellWidth: 15 },
-        1: { cellWidth: 'auto' },
+        1: { cellWidth: hasImages ? 70 : 'auto' },
         2: { cellWidth: 20, halign: 'right' },
         3: { cellWidth: 30, halign: 'right' },
         4: { cellWidth: 35, halign: 'right' }
       },
-      margin: { left: 20, right: 20 }
+      margin: { left: 20, right: 20 },
+      willDrawCell: (data) => {
+        // Adjust text position in description column to make room for image
+        if (hasImages && data.column.index === 1 && data.section === 'body') {
+          const rowIndex = data.row.index;
+          const imageBase64 = loadedImages[rowIndex];
+          
+          if (imageBase64) {
+            // Add left padding to push text right of the image
+            data.cell.styles.cellPadding = { 
+              left: 16, // 12mm image + 4mm spacing
+              right: 2, 
+              top: 2, 
+              bottom: 2 
+            };
+          }
+        }
+      },
+      didDrawCell: (data) => {
+        // Add image thumbnails in the description column
+        if (hasImages && data.column.index === 1 && data.section === 'body') {
+          const rowIndex = data.row.index;
+          const imageBase64 = loadedImages[rowIndex];
+          
+          if (imageBase64) {
+            const cellX = data.cell.x;
+            const cellY = data.cell.y;
+            const cellHeight = data.cell.height;
+            const imgSize = 12; // 12mm thumbnail
+            const padding = 2;
+            
+            // Center image vertically in the cell
+            const imgY = cellY + (cellHeight - imgSize) / 2;
+            
+            try {
+              doc.addImage(
+                imageBase64,
+                'JPEG',
+                cellX + padding,
+                imgY,
+                imgSize,
+                imgSize,
+                undefined,
+                'FAST'
+              );
+            } catch (error) {
+              console.warn('Failed to add image to PDF:', error);
+            }
+          }
+        }
+      }
     });
 
     // Get final Y position after table

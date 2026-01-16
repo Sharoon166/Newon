@@ -142,7 +142,18 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
               {invoiceData.items.map((item, index) => (
                 <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
                   <td className="p-3 print:py-2 border">{index + 1}.</td>
-                  <td className="p-3 print:py-2 border">{item.description || 'Item description'}</td>
+                  <td className="p-3 print:py-2 border">
+                    <div className="flex items-center gap-3">
+                      {item.imageUrl && (
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.description || 'Product'} 
+                          className="w-12 h-12 object-cover rounded border flex-shrink-0"
+                        />
+                      )}
+                      <span>{item.description || 'Item description'}</span>
+                    </div>
+                  </td>
                   <td className="p-3 print:py-2 border text-right">{item.quantity}</td>
                   <td className="p-3 print:py-2 border text-right">{formatCurrency(item.rate)}</td>
                   <td className="p-3 print:py-2 border text-right font-medium">{formatCurrency(item.amount)}</td>

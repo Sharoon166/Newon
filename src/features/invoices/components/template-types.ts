@@ -11,6 +11,7 @@ export type TemplateItem = {
   variantId?: string;
   variantSKU?: string;
   purchaseId?: string;
+  imageUrl?: string;
 };
 
 export type TemplateCompanyDetails = {

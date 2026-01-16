@@ -46,8 +46,9 @@ import { formatCurrency } from '@/lib/utils';
 import { useMemo, useState } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
-import { exportToCsv, exportToPdf, prepareProductExportData } from '../utils/export-utils';
+import { exportToCsv, exportToPdf, prepareProductExportData, extractImageUrls } from '../utils/export-utils';
 import { TablePagination } from '@/components/general/table-pagination';
+import { toast } from 'sonner';
 
 // Define columns
 const columns: ColumnDef<EnhancedVariants>[] = [
@@ -330,6 +331,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
   const [supplierFilter, setSupplierFilter] = useState<string>('all');
   const [stockFilter, setStockFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Get unique suppliers for filter
   const suppliers = useMemo(() => {
@@ -351,9 +353,20 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
   };
 
   // Handle PDF export
-  const handleExportPdf = () => {
-    const data = prepareProductExportData(filteredData);
-    exportToPdf(data, `products-${new Date().toISOString().split('T')[0]}`);
+  const handleExportPdf = async () => {
+    try {
+      setIsExportingPdf(true);
+      toast.info('Preparing PDF...');
+      const data = prepareProductExportData(filteredData);
+      const imageUrls = extractImageUrls(filteredData);
+      await exportToPdf(data, `products-${new Date().toISOString().split('T')[0]}`, imageUrls);
+      toast.success('PDF exported successfully!');
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      toast.error('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   // Filter data based on search and filters
@@ -484,9 +497,9 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExportPdf}>
+                <DropdownMenuItem onClick={handleExportPdf} disabled={isExportingPdf}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export as PDF
+                  {isExportingPdf ? 'Exporting...' : 'Export as PDF'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleExportCsv}>
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
