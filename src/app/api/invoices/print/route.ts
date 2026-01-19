@@ -6,8 +6,20 @@ import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { PAYMENT_DETAILS } from '@/constants';
 import { convertToWords } from '@/features/invoices/utils';
-import dbConnect from '@/lib/dbConnect';
 import ProductModel from '@/models/Product';
+import dbConnect from '@/lib/db';
+
+interface ProductVariant {
+  id: string;
+  image?: string;
+  imageFile?: {
+    cloudinaryUrl?: string;
+  };
+}
+
+interface ProductWithVariants {
+  variants: ProductVariant[];
+}
 
 /**
  * Loads an image from URL and converts it to base64
@@ -197,9 +209,9 @@ export async function POST(request: NextRequest) {
           const product = await ProductModel.findOne(
             { 'variants.id': item.variantId },
             { 'variants.$': 1 }
-          ).lean();
+          ).lean() as ProductWithVariants | null;
           
-          if (product && product.variants && product.variants.length > 0) {
+          if (product && product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
             const variant = product.variants[0];
             const imageUrl = variant.imageFile?.cloudinaryUrl || variant.image;
             productImageMap.set(item.variantId, imageUrl || null);

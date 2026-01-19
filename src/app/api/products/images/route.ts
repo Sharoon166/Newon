@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import ProductModel from '@/models/Product';
 
+interface ProductVariant {
+  id: string;
+  image?: string;
+  imageFile?: {
+    cloudinaryUrl?: string;
+  };
+}
+
+interface ProductWithVariants {
+  variants: ProductVariant[];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { variantIds } = await request.json();
@@ -17,10 +29,10 @@ export async function POST(request: NextRequest) {
     // Fetch images for each variant
     for (const variantId of variantIds) {
       try {
-        const product: any = await ProductModel.findOne(
+        const product = await ProductModel.findOne(
           { 'variants.id': variantId },
           { 'variants.$': 1 }
-        ).lean();
+        ).lean() as ProductWithVariants | null;
 
         if (product && product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
           const variant = product.variants[0];
