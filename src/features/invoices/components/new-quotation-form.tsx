@@ -47,6 +47,15 @@ import { toast } from 'sonner';
 import { QuotationTemplate } from './quotation-template';
 import { v4 as uuidv4 } from 'uuid';
 import { CustomerForm } from '@/features/customers/components/customer-form';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList
+} from '@/components/ui/combobox';
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
 
 const quotationFormSchema = z.object({
   logo: z.string().optional(),
@@ -296,8 +305,8 @@ export function NewQuotationForm({
     }
   };
 
-  const handleCustomerSelect = (customerId: string) => {
-    const customer = customers.find(customer => customer.id === customerId);
+  const handleCustomerSelect = (customerName: string) => {
+    const customer = customers.find(customer => customer.name === customerName);
     if (customer) {
       setIsCustomCustomer(false);
       setSelectedCustomer(customer);
@@ -602,22 +611,47 @@ export function NewQuotationForm({
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
               <div className="flex max-sm:flex-col justify-between gap-2">
-                <Select onValueChange={handleCustomerSelect}>
+                <Combobox
+                  items={customers}
+                  itemToStringValue={(customer: Customer) => customer.name}
+                  onInputValueChange={handleCustomerSelect}
+                  autoHighlight
+                >
+                  <ComboboxInput placeholder="Select a customer" />
+                  <ComboboxContent>
+                    <ComboboxEmpty>No such customer exists.</ComboboxEmpty>
+                    <ComboboxList>
+                      {customer => (
+                        <ComboboxItem key={customer.id} value={customer.name}>
+                          <Item className='p-0'>
+                            <ItemContent>
+                              <ItemTitle>{customer.name}</ItemTitle>
+                              {customer.company && (
+                                <ItemDescription className='flex gap-2 items-center text-xs'>
+                                  <Building2 /> {customer.company}
+                                </ItemDescription>
+                              )}
+                            </ItemContent>
+                          </Item>
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+
+                {/* <Select onValueChange={handleCustomerSelect}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
                     {customers?.map(customer => (
-                      <SelectItem key={customer.id} value={customer.id}>
+                      <SelectItem key={customer.id} value={customer.name}>
                         {customer.name} - {customer.company || 'No Company'}
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  onClick={() => setIsCreateCustomerOpen(true)}
-                >
+                </Select> */}
+                <Button type="button" onClick={() => setIsCreateCustomerOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Customer
                 </Button>
@@ -652,12 +686,22 @@ export function NewQuotationForm({
                       )}
                     </div>
                   </div>
-                  {(selectedCustomer.address || selectedCustomer.city || selectedCustomer.state || selectedCustomer.zip) && (
+                  {(selectedCustomer.address ||
+                    selectedCustomer.city ||
+                    selectedCustomer.state ||
+                    selectedCustomer.zip) && (
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-sm flex items-start gap-2">
                         <MapPin className="h-4 w-4 mt-0.5" />
                         <span>
-                          {[selectedCustomer.address, selectedCustomer.city, selectedCustomer.state, selectedCustomer.zip].filter(Boolean).join(', ')}
+                          {[
+                            selectedCustomer.address,
+                            selectedCustomer.city,
+                            selectedCustomer.state,
+                            selectedCustomer.zip
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
                         </span>
                       </p>
                     </div>
@@ -1214,10 +1258,10 @@ export function NewQuotationForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea 
-                        className="min-h-[100px]" 
-                        placeholder="Internal description - not visible on printed quotation..." 
-                        {...field} 
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="Internal description - not visible on printed quotation..."
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1252,7 +1296,11 @@ export function NewQuotationForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea className="min-h-[100px]" placeholder="Notes visible on printed quotation..." {...field} />
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="Notes visible on printed quotation..."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

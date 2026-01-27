@@ -47,6 +47,15 @@ import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/c
 import { toast } from 'sonner';
 import { NewonInvoiceTemplate } from './invoice-template';
 import { CustomerForm } from '@/features/customers/components/customer-form';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList
+} from '@/components/ui/combobox';
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
@@ -358,25 +367,8 @@ export function NewInvoiceForm({
     }
   };
 
-  const handleCustomerSelect = (customerId: string) => {
-    // Handle OTC customer specially
-    if (customerId === 'otc') {
-      setIsOtcCustomer(true);
-      setSelectedCustomer(OTC_CUSTOMER as Customer);
-      form.setValue('customerId', OTC_CUSTOMER.id);
-      form.setValue('client.name', OTC_CUSTOMER.name);
-      form.setValue('client.company', OTC_CUSTOMER.company);
-      form.setValue('client.email', OTC_CUSTOMER.email);
-      form.setValue('client.phone', OTC_CUSTOMER.phone);
-      form.setValue('client.address', OTC_CUSTOMER.address);
-      form.setValue('client.city', OTC_CUSTOMER.city);
-      form.setValue('client.state', OTC_CUSTOMER.state);
-      form.setValue('client.zip', OTC_CUSTOMER.zip);
-      setIsToOpen(false);
-      return;
-    }
-
-    const customer = customers.find(customer => customer.id === customerId);
+  const handleCustomerSelect = (customerName: string) => {
+    const customer = customers.find(customer => customer.name === customerName);
     if (customer) {
       setIsOtcCustomer(false);
       setSelectedCustomer(customer);
@@ -702,18 +694,35 @@ export function NewInvoiceForm({
             <CollapsibleContent className="px-4 pb-4 space-y-2 sm:space-y-4">
               <div className="space-y-3">
                 <div className="flex max-sm:flex-col justify-between gap-2">
-                  <Select onValueChange={handleCustomerSelect} disabled={isOtcCustomer}>
-                    <SelectTrigger className="w-full max-w-sm">
-                      <SelectValue placeholder="Select a customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name} - {customer.company || 'No Company'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    items={customers}
+                    itemToStringValue={(customer: Customer) => customer.name}
+                    onInputValueChange={handleCustomerSelect}
+                    autoHighlight
+                    disabled={isOtcCustomer}
+                  >
+                    <ComboboxInput disabled={isOtcCustomer} placeholder="Select a customer" className="w-full max-w-sm" />
+                    <ComboboxContent>
+                      <ComboboxEmpty>No such customer exists.</ComboboxEmpty>
+                      <ComboboxList>
+                        {customer => (
+                          <ComboboxItem key={customer.id} value={customer.name}>
+                            <Item className="p-0">
+                              <ItemContent>
+                                <ItemTitle>{customer.name}</ItemTitle>
+                                {customer.company && (
+                                  <ItemDescription className="flex gap-2 items-center text-xs">
+                                    <Building2 /> {customer.company}
+                                  </ItemDescription>
+                                )}
+                              </ItemContent>
+                            </Item>
+                          </ComboboxItem>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+
                   <Button type="button" onClick={() => setIsCreateCustomerOpen(true)} disabled={isOtcCustomer}>
                     <Plus className="h-4 w-4 mr-2" />
                     New Customer
@@ -727,7 +736,18 @@ export function NewInvoiceForm({
                     className="h-4 w-4 rounded border-gray-300 cursor-pointer"
                     onChange={e => {
                       if (e.target.checked) {
-                        handleCustomerSelect('otc');
+                        setIsOtcCustomer(true);
+                        setSelectedCustomer(OTC_CUSTOMER as Customer);
+                        form.setValue('customerId', OTC_CUSTOMER.id);
+                        form.setValue('client.name', OTC_CUSTOMER.name);
+                        form.setValue('client.company', OTC_CUSTOMER.company);
+                        form.setValue('client.email', OTC_CUSTOMER.email);
+                        form.setValue('client.phone', OTC_CUSTOMER.phone);
+                        form.setValue('client.address', OTC_CUSTOMER.address);
+                        form.setValue('client.city', OTC_CUSTOMER.city);
+                        form.setValue('client.state', OTC_CUSTOMER.state);
+                        form.setValue('client.zip', OTC_CUSTOMER.zip);
+                        setIsToOpen(false);
                       } else {
                         setIsOtcCustomer(false);
                         setSelectedCustomer(null);
