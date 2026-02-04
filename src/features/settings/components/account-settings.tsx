@@ -116,7 +116,7 @@ export function AccountSettings({ currentUser }: AccountSettingsProps) {
       form.setValue('currentPassword', '');
       form.setValue('newPassword', '');
       form.setValue('confirmPassword', '');
-    } catch (error) {
+    } catch {
       toast.error('Failed to update account');
     } finally {
       setLoading(false);

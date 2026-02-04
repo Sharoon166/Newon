@@ -72,7 +72,7 @@ function ComboboxInput({
       <InputGroupAddon align="inline-end">
         {showTrigger && (
           <InputGroupButton
-            size="icon-xs"
+            size="icon-sm"
             variant="ghost"
             asChild
             data-slot="input-group-button"

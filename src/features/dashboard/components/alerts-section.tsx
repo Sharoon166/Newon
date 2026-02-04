@@ -325,7 +325,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OutOfStockAlert, OverdueInvoiceAlert, PendingPaymentAlert } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, Clock, Package, Loader2, ArrowUpRight, ChevronDown, ArchiveX, PackageX, BadgeAlert, ClockArrowUp } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Clock, Package, Loader2, ArrowUpRight, ChevronDown, PackageX, BadgeAlert, ClockArrowUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
