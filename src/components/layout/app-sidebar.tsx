@@ -9,7 +9,8 @@ import {
   Settings2,
   ShoppingCart,
   Users,
-  UserSquare
+  UserSquare,
+  PackageOpen
 } from 'lucide-react';
 
 import {
@@ -54,6 +55,11 @@ const data = {
       name: 'Inventory',
       url: '/inventory',
       icon: ShoppingCart
+    },
+    {
+      name: 'Virtual Products',
+      url: '/virtual-products',
+      icon: PackageOpen
     },
     {
       name: 'Purchases',

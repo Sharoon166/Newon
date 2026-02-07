@@ -17,6 +17,8 @@ interface IInvoiceItem {
   productName: string;
   variantId?: string;
   variantSKU?: string;
+  virtualProductId?: string; // For virtual products
+  isVirtualProduct?: boolean; // Flag to identify virtual products
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -115,6 +117,13 @@ const invoiceItemSchema = new Schema<IInvoiceItem>({
   },
   variantSKU: {
     type: String
+  },
+  virtualProductId: {
+    type: String
+  },
+  isVirtualProduct: {
+    type: Boolean,
+    default: false
   },
   quantity: {
     type: Number,

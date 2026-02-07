@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -41,8 +41,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProductSelector } from './product-selector';
+import { EnhancedProductSelector } from './enhanced-product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
+import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/constants';
 import { toast } from 'sonner';
 import { NewonInvoiceTemplate } from './invoice-template';
@@ -96,6 +98,8 @@ const invoiceFormSchema = z.object({
         productId: z.string().optional(),
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
+        virtualProductId: z.string().optional(),
+        isVirtualProduct: z.boolean().optional(),
         purchaseId: z.string().optional(),
         originalRate: z.number().optional(),
         saleRate: z.number().optional()
@@ -128,6 +132,7 @@ export function NewInvoiceForm({
   customers,
   variants = [],
   purchases = [],
+  virtualProducts = [],
   paymentDetails: initialPaymentDetails,
   invoiceTerms: initialInvoiceTerms
 }: {
@@ -137,6 +142,7 @@ export function NewInvoiceForm({
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
+  virtualProducts?: EnhancedVirtualProduct[];
   paymentDetails?: { BANK_NAME: string; ACCOUNT_NUMBER: string; IBAN: string };
   invoiceTerms?: string[];
 }) {
@@ -296,16 +302,18 @@ export function NewInvoiceForm({
   // Calculate grand total (invoice total - paid amount)
   const grandTotal = Math.max(0, total - paid);
 
-  // Update form values
-  form.setValue('remainingPayment', grandTotal, { shouldValidate: true });
+  // Update remaining payment and amount in words when grandTotal changes
+  useEffect(() => {
+    form.setValue('remainingPayment', grandTotal, { shouldValidate: true });
+    const amountInWords = `${convertToWords(Math.round(grandTotal))} Rupees Only`;
+    form.setValue('amountInWords', amountInWords, { shouldValidate: true });
+  }, [grandTotal, form]);
 
-  // Update amount in words based on grand total
-  const amountInWords = `${convertToWords(Math.round(grandTotal))} Rupees Only`;
-  form.setValue('amountInWords', amountInWords, { shouldValidate: true });
-
-  const handleAddItemFromSelector = (item: {
+  const handleAddItemFromSelector = useCallback((item: {
     productId?: string;
-    variantId: string;
+    variantId?: string;
+    virtualProductId?: string;
+    isVirtualProduct?: boolean;
     productName: string;
     sku: string;
     description: string;
@@ -317,10 +325,15 @@ export function NewInvoiceForm({
   }) => {
     // Validate item data
     if (!item.description || item.description.trim() === '') {
-      toast.error('Invalid item', {
-        description: 'Item description is required.'
-      });
-      return;
+      // For virtual products, use product name as description if description is empty
+      if (item.isVirtualProduct && item.productName) {
+        item.description = item.productName;
+      } else {
+        toast.error('Invalid item', {
+          description: 'Item description is required.'
+        });
+        return;
+      }
     }
 
     if (item.quantity <= 0) {
@@ -337,7 +350,36 @@ export function NewInvoiceForm({
       return;
     }
 
-    // Check if item from the SAME purchase already exists in the table
+    // For virtual products, check if already exists
+    if (item.isVirtualProduct && item.virtualProductId) {
+      const existingVirtualItemIndex = fields.findIndex(field => field.virtualProductId === item.virtualProductId);
+
+      if (existingVirtualItemIndex !== -1) {
+        // Virtual product exists, update its quantity
+        const existingItem = form.watch(`items.${existingVirtualItemIndex}`);
+        const newQuantity = existingItem.quantity + item.quantity;
+        form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
+        form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
+      } else {
+        // Add new virtual product
+        append({
+          id: uuidv4(),
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate,
+          productId: item.virtualProductId, // Store virtualProductId as productId
+          virtualProductId: item.virtualProductId,
+          isVirtualProduct: true,
+          variantSKU: item.sku,
+          originalRate: item.originalRate,
+          saleRate: item.saleRate
+        } as any);
+      }
+      return;
+    }
+
+    // For regular products, check if item from the SAME purchase already exists
     const existingItemIndex = fields.findIndex(
       field =>
         field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
@@ -365,7 +407,7 @@ export function NewInvoiceForm({
         saleRate: item.saleRate
       });
     }
-  };
+  }, [fields, form, append]);
 
   const handleCustomerSelect = (customerName: string) => {
     const customer = customers.find(customer => customer.name === customerName);
@@ -587,6 +629,7 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
+      <pre>{JSON.stringify(form.watch(), null, 2)}</pre>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -701,7 +744,11 @@ export function NewInvoiceForm({
                     autoHighlight
                     disabled={isOtcCustomer}
                   >
-                    <ComboboxInput disabled={isOtcCustomer} placeholder="Select a customer" className="w-full max-w-sm" />
+                    <ComboboxInput
+                      disabled={isOtcCustomer}
+                      placeholder="Select a customer"
+                      className="w-full max-w-sm"
+                    />
                     <ComboboxContent>
                       <ComboboxEmpty>No such customer exists.</ComboboxEmpty>
                       <ComboboxList>
@@ -858,10 +905,11 @@ export function NewInvoiceForm({
 
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
-            {variants.length > 0 && (
+            {(variants.length > 0 || virtualProducts.length > 0) && (
               <div className="bg-muted/30 p-4 rounded-lg">
-                <ProductSelector
+                <EnhancedProductSelector
                   variants={variants}
+                  virtualProducts={virtualProducts}
                   purchases={purchases}
                   currentItems={form.watch('items')}
                   onAddItem={handleAddItemFromSelector}
@@ -1293,7 +1341,7 @@ export function NewInvoiceForm({
 
                 <div className="mt-2 pt-2 border-t border-gray-200">
                   <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Amount in words:</span> {amountInWords}
+                    <span className="font-medium">Amount in words:</span> {form.watch('amountInWords')}
                   </p>
                 </div>
               </div>

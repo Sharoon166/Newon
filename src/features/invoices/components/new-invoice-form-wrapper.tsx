@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { NewInvoiceForm } from './new-invoice-form';
 import { NewQuotationForm } from './new-quotation-form';
@@ -10,6 +10,7 @@ import type { Customer } from '@/features/customers/types';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { PaymentDetails } from '@/features/settings/types';
+import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import { toast } from 'sonner';
 
 type DocumentType = 'invoice' | 'quotation';
@@ -37,6 +38,8 @@ interface FormData {
     description: string;
     variantId?: string;
     variantSKU?: string;
+    virtualProductId?: string;
+    isVirtualProduct?: boolean;
     quantity: number;
     rate: number;
     amount: number;
@@ -59,6 +62,7 @@ interface NewInvoiceFormWrapperProps {
   customers: Customer[];
   variants: EnhancedVariants[];
   purchases: Purchase[];
+  virtualProducts: EnhancedVirtualProduct[];
   paymentDetails: PaymentDetails;
   invoiceTerms: string[];
   initialTab?: DocumentType;
@@ -68,6 +72,7 @@ export function NewInvoiceFormWrapper({
   customers,
   variants,
   purchases,
+  virtualProducts,
   paymentDetails,
   invoiceTerms,
   initialTab = 'invoice'
@@ -81,7 +86,10 @@ export function NewInvoiceFormWrapper({
     setDocumentType(initialTab);
   }, [initialTab]);
 
-  const handleSaveInvoice = async (formData: FormData) => {
+  // Stable empty function for onPreview
+  const handlePreview = useCallback(() => {}, []);
+
+  const handleSaveInvoice = useCallback(async (formData: FormData) => {
     // Note: invoiceNumber is not included in documentData - it will be auto-generated to avoid race conditions
     const documentData: FormData = {
       ...formData
@@ -149,6 +157,8 @@ export function NewInvoiceFormWrapper({
           productName: item.description,
           variantId: item.variantId,
           variantSKU: item.variantSKU,
+          virtualProductId: item.virtualProductId,
+          isVirtualProduct: item.isVirtualProduct,
           quantity: item.quantity,
           unit: 'pcs',
           unitPrice: item.rate,
@@ -193,15 +203,15 @@ export function NewInvoiceFormWrapper({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [documentType, router]);
 
-  const handleTabChange = (value: string) => {
+  const handleTabChange = useCallback((value: string) => {
     const newType = value as DocumentType;
     setDocumentType(newType);
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', newType);
     router.push(`/invoices/new?${params.toString()}`, { scroll: false });
-  };
+  }, [searchParams, router]);
 
   return (
     <Tabs value={documentType} className="w-full" onValueChange={handleTabChange}>
@@ -213,11 +223,12 @@ export function NewInvoiceFormWrapper({
       <TabsContent value="invoice">
         <NewInvoiceForm
           isLoading={isLoading}
-          onPreview={() => {}}
+          onPreview={handlePreview}
           onSave={handleSaveInvoice}
           customers={customers}
           variants={variants}
           purchases={purchases}
+          virtualProducts={virtualProducts}
           paymentDetails={paymentDetails}
           invoiceTerms={invoiceTerms}
         />
@@ -226,11 +237,12 @@ export function NewInvoiceFormWrapper({
       <TabsContent value="quotation">
         <NewQuotationForm
           isLoading={isLoading}
-          onPreview={() => {}}
+          onPreview={handlePreview}
           onSave={handleSaveInvoice}
           customers={customers}
           variants={variants}
           purchases={purchases}
+          virtualProducts={virtualProducts}
           invoiceTerms={invoiceTerms}
         />
       </TabsContent>

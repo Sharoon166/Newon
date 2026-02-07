@@ -66,6 +66,7 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
     revalidatePath('/purchases');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
+    
   } catch (error) {
     console.error('Error creating product:', error);
     // Provide user-friendly error messages
@@ -342,6 +343,7 @@ export const deleteProduct = async (id: string) => {
   revalidatePath('/inventory');
   revalidatePath('/invoices');
   revalidatePath('/invoices/new');
+  
 };
 
 interface DeleteVariantResult {
@@ -392,6 +394,7 @@ export const toggleVariantDisabled = async (productId: string, variantId: string
     revalidatePath(`/inventory/${productId}/edit`);
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
+    
 
     return {
       success: true,
@@ -485,6 +488,7 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
     revalidatePath(`/inventory/${product._id}/edit`);
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
+    
 
     return {
       success: true,
@@ -543,6 +547,7 @@ export const deleteProductByName = async (name: string) => {
   revalidatePath('/inventory');
   revalidatePath('/invoices');
   revalidatePath('/invoices/new');
+  
 };
 
 // export const updateProduct = async (id: string, data: Product) => {
@@ -635,6 +640,7 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
     revalidatePath(`/inventory/${id}/edit`);
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
+    
 
     return updateProduct;
   } catch (error) {

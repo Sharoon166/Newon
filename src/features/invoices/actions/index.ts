@@ -375,7 +375,9 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
         const stockResult = await deductStockForInvoice(
           data.items.map(item => ({
             purchaseId: item.purchaseId,
-            quantity: item.quantity
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId
           }))
         );
 
@@ -574,7 +576,9 @@ export async function deleteInvoice(id: string): Promise<void> {
         await restoreStockForInvoice(
           invoice.items.map(item => ({
             purchaseId: item.purchaseId,
-            quantity: item.quantity
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId
           }))
         );
       } catch (stockError) {
@@ -883,7 +887,9 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
         const stockResult = await deductStockForInvoice(
           savedInvoice.items.map(item => ({
             purchaseId: item.purchaseId,
-            quantity: item.quantity
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId
           }))
         );
 
@@ -984,7 +990,9 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
         await restoreStockForInvoice(
           invoice.items.map(item => ({
             purchaseId: item.purchaseId,
-            quantity: item.quantity
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId
           }))
         );
         invoice.stockDeducted = false;
@@ -1215,7 +1223,9 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
       const stockResult = await deductStockForInvoice(
         invoice.items.map(item => ({
           purchaseId: item.purchaseId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          isVirtualProduct: item.isVirtualProduct,
+          virtualProductId: item.virtualProductId
         }))
       );
 
@@ -1264,7 +1274,9 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
       const stockResult = await restoreStockForInvoice(
         invoice.items.map(item => ({
           purchaseId: item.purchaseId,
-          quantity: item.quantity
+          quantity: item.quantity,
+          isVirtualProduct: item.isVirtualProduct,
+          virtualProductId: item.virtualProductId
         }))
       );
 

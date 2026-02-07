@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -40,8 +40,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ProductSelector } from './product-selector';
+import { EnhancedProductSelector } from './enhanced-product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
+import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import { INVOICE_TERMS_AND_CONDITIONS } from '@/constants';
 import { toast } from 'sonner';
 import { QuotationTemplate } from './quotation-template';
@@ -95,6 +97,8 @@ const quotationFormSchema = z.object({
         productId: z.string().optional(),
         variantId: z.string().optional(),
         variantSKU: z.string().optional(),
+        virtualProductId: z.string().optional(),
+        isVirtualProduct: z.boolean().optional(),
         purchaseId: z.string().optional(),
         originalRate: z.number().optional()
       })
@@ -119,6 +123,7 @@ export function NewQuotationForm({
   customers,
   variants = [],
   purchases = [],
+  virtualProducts = [],
   invoiceTerms: initialInvoiceTerms
 }: {
   isLoading: boolean;
@@ -127,6 +132,7 @@ export function NewQuotationForm({
   customers: Customer[];
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
+  virtualProducts?: EnhancedVirtualProduct[];
   invoiceTerms?: string[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -243,23 +249,31 @@ export function NewQuotationForm({
   const amountInWords = `${convertToWords(Math.round(total))} Rupees Only`;
   form.setValue('amountInWords', amountInWords, { shouldValidate: true });
 
-  const handleAddItemFromSelector = (item: {
+  const handleAddItemFromSelector = useCallback((item: {
     productId?: string;
-    variantId: string;
+    variantId?: string;
+    virtualProductId?: string;
+    isVirtualProduct?: boolean;
     productName: string;
     sku: string;
     description: string;
     quantity: number;
     rate: number;
+    saleRate?: number;
     originalRate?: number;
     purchaseId?: string;
   }) => {
     // Validate item data
     if (!item.description || item.description.trim() === '') {
-      toast.error('Invalid item', {
-        description: 'Item description is required.'
-      });
-      return;
+      // For virtual products, use product name as description if description is empty
+      if (item.isVirtualProduct && item.productName) {
+        item.description = item.productName;
+      } else {
+        toast.error('Invalid item', {
+          description: 'Item description is required.'
+        });
+        return;
+      }
     }
 
     if (item.quantity <= 0) {
@@ -276,7 +290,37 @@ export function NewQuotationForm({
       return;
     }
 
-    // Check if item from the SAME purchase already exists in the table
+    // For virtual products, check if already exists
+    if (item.isVirtualProduct && item.virtualProductId) {
+      const existingVirtualItemIndex = fields.findIndex(
+        field => field.virtualProductId === item.virtualProductId
+      );
+
+      if (existingVirtualItemIndex !== -1) {
+        // Virtual product exists, update its quantity
+        const existingItem = form.watch(`items.${existingVirtualItemIndex}`);
+        const newQuantity = existingItem.quantity + item.quantity;
+        form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
+        form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
+      } else {
+        // Add new virtual product
+        append({
+          id: uuidv4(),
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate,
+          productId: item.virtualProductId, // Store virtualProductId as productId
+          virtualProductId: item.virtualProductId,
+          isVirtualProduct: true,
+          variantSKU: item.sku,
+          originalRate: item.originalRate
+        } as any);
+      }
+      return;
+    }
+
+    // For regular products, check if item from the SAME purchase already exists
     const existingItemIndex = fields.findIndex(
       field =>
         field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
@@ -303,7 +347,7 @@ export function NewQuotationForm({
         originalRate: item.originalRate
       });
     }
-  };
+  }, [fields, form, append]);
 
   const handleCustomerSelect = (customerName: string) => {
     const customer = customers.find(customer => customer.name === customerName);
@@ -901,11 +945,12 @@ export function NewQuotationForm({
 
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
-            {variants.length > 0 && (
+            {(variants.length > 0 || virtualProducts.length > 0) && (
               <div className="bg-muted/30 sm:p-4 rounded-lg">
-                <ProductSelector
+                <EnhancedProductSelector
                   label="Add to Quotation"
                   variants={variants}
+                  virtualProducts={virtualProducts}
                   purchases={purchases}
                   currentItems={form.watch('items')}
                   onAddItem={handleAddItemFromSelector}

@@ -67,24 +67,77 @@ export async function restorePurchaseStock(purchaseId: string, quantity: number)
 
 /**
  * Deduct stock for multiple items (used when creating invoice)
- * @param items - Array of items with purchaseId and quantity
+ * Handles both regular products and virtual products
+ * @param items - Array of items with purchaseId, quantity, and virtual product info
  */
 export async function deductStockForInvoice(
-  items: Array<{ purchaseId?: string; quantity: number }>
+  items: Array<{ 
+    purchaseId?: string; 
+    quantity: number;
+    isVirtualProduct?: boolean;
+    virtualProductId?: string;
+  }>
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = [];
 
   for (const item of items) {
-    if (!item.purchaseId) {
-      // Skip items without purchase ID (manual entries)
-      continue;
-    }
+    // Handle virtual products
+    if (item.isVirtualProduct && item.virtualProductId) {
+      try {
+        // Get virtual product details with components
+        const VirtualProductModel = (await import('@/models/VirtualProduct')).default;
+        const ProductModel = (await import('@/models/Product')).default;
+        
+        await dbConnect();
+        
+        const virtualProduct = await VirtualProductModel.findById(item.virtualProductId).lean();
+        if (!virtualProduct) {
+          errors.push(`Virtual product ${item.virtualProductId} not found`);
+          continue;
+        }
 
-    try {
-      await deductPurchaseStock(item.purchaseId, item.quantity);
-    } catch (error) {
-      errors.push(`${item.purchaseId}: ${(error as Error).message}`);
+        // Deduct stock for each component
+        for (const component of (virtualProduct as any).components) {
+          const requiredQty = component.quantity * item.quantity;
+          
+          // Find purchases for this component variant
+          const purchases = await PurchaseModel.find({
+            productId: component.productId,
+            variantId: component.variantId,
+            remaining: { $gt: 0 }
+          }).sort({ date: 1 }); // FIFO
+
+          let remainingToDeduct = requiredQty;
+          
+          for (const purchase of purchases) {
+            if (remainingToDeduct <= 0) break;
+            
+            const deductQty = Math.min(purchase.remaining, remainingToDeduct);
+            purchase.remaining -= deductQty;
+            await purchase.save();
+            remainingToDeduct -= deductQty;
+          }
+
+          if (remainingToDeduct > 0) {
+            errors.push(
+              `Insufficient stock for component ${component.productId}-${component.variantId}. ` +
+              `Needed: ${requiredQty}, Short by: ${remainingToDeduct}`
+            );
+          }
+        }
+      } catch (error) {
+        errors.push(`Virtual product ${item.virtualProductId}: ${(error as Error).message}`);
+      }
     }
+    // Handle regular products
+    else if (item.purchaseId) {
+      try {
+        await deductPurchaseStock(item.purchaseId, item.quantity);
+      } catch (error) {
+        errors.push(`${item.purchaseId}: ${(error as Error).message}`);
+      }
+    }
+    // Skip items without purchase ID or virtual product ID (manual entries)
   }
 
   return {
@@ -95,24 +148,79 @@ export async function deductStockForInvoice(
 
 /**
  * Restore stock for multiple items (used when deleting/cancelling invoice)
- * @param items - Array of items with purchaseId and quantity
+ * Handles both regular products and virtual products
+ * @param items - Array of items with purchaseId, quantity, and virtual product info
  */
 export async function restoreStockForInvoice(
-  items: Array<{ purchaseId?: string; quantity: number }>
+  items: Array<{ 
+    purchaseId?: string; 
+    quantity: number;
+    isVirtualProduct?: boolean;
+    virtualProductId?: string;
+  }>
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = [];
 
   for (const item of items) {
-    if (!item.purchaseId) {
-      // Skip items without purchase ID (manual entries)
-      continue;
-    }
+    // Handle virtual products
+    if (item.isVirtualProduct && item.virtualProductId) {
+      try {
+        // Get virtual product details with components
+        const VirtualProductModel = (await import('@/models/VirtualProduct')).default;
+        
+        await dbConnect();
+        
+        const virtualProduct = await VirtualProductModel.findById(item.virtualProductId).lean();
+        if (!virtualProduct) {
+          errors.push(`Virtual product ${item.virtualProductId} not found`);
+          continue;
+        }
 
-    try {
-      await restorePurchaseStock(item.purchaseId, item.quantity);
-    } catch (error) {
-      errors.push(`${item.purchaseId}: ${(error as Error).message}`);
+        // Restore stock for each component
+        for (const component of (virtualProduct as any).components) {
+          const restoreQty = component.quantity * item.quantity;
+          
+          // Find purchases for this component variant (most recent first for restoration)
+          const purchases = await PurchaseModel.find({
+            productId: component.productId,
+            variantId: component.variantId
+          }).sort({ date: -1 }); // LIFO for restoration
+
+          let remainingToRestore = restoreQty;
+          
+          for (const purchase of purchases) {
+            if (remainingToRestore <= 0) break;
+            
+            const maxRestore = purchase.quantity - purchase.remaining;
+            const restoreAmount = Math.min(maxRestore, remainingToRestore);
+            
+            if (restoreAmount > 0) {
+              purchase.remaining += restoreAmount;
+              await purchase.save();
+              remainingToRestore -= restoreAmount;
+            }
+          }
+
+          if (remainingToRestore > 0) {
+            errors.push(
+              `Could not fully restore stock for component ${component.productId}-${component.variantId}. ` +
+              `Attempted: ${restoreQty}, Restored: ${restoreQty - remainingToRestore}`
+            );
+          }
+        }
+      } catch (error) {
+        errors.push(`Virtual product ${item.virtualProductId}: ${(error as Error).message}`);
+      }
     }
+    // Handle regular products
+    else if (item.purchaseId) {
+      try {
+        await restorePurchaseStock(item.purchaseId, item.quantity);
+      } catch (error) {
+        errors.push(`${item.purchaseId}: ${(error as Error).message}`);
+      }
+    }
+    // Skip items without purchase ID or virtual product ID (manual entries)
   }
 
   return {
