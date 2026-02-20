@@ -19,6 +19,32 @@ const virtualProductComponentSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const customExpenseSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Expense name is required'],
+      trim: true
+    },
+    amount: {
+      type: Number,
+      required: [true, 'Expense amount is required'],
+      min: [0, 'Amount cannot be negative']
+    },
+    category: {
+      type: String,
+      enum: ['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other'],
+      default: 'other'
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: ''
+    }
+  },
+  { _id: false }
+);
+
 const virtualProductSchema = new mongoose.Schema(
   {
     name: {
@@ -48,15 +74,14 @@ const virtualProductSchema = new mongoose.Schema(
         message: 'Virtual product must have at least one component'
       }
     },
-    retailPrice: {
-      type: Number,
-      required: [true, 'Retail price is required'],
-      min: [0, 'Retail price cannot be negative']
+    customExpenses: {
+      type: [customExpenseSchema],
+      default: []
     },
-    wholesalePrice: {
+    basePrice: {
       type: Number,
-      required: [true, 'Wholesale price is required'],
-      min: [0, 'Wholesale price cannot be negative']
+      required: [true, 'Base price is required'],
+      min: [0, 'Base price cannot be negative']
     },
     categories: {
       type: [String],

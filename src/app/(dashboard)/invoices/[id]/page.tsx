@@ -7,7 +7,7 @@ import { getInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info, Download } from 'lucide-react';
+import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info, Download, Eye, Layers, Coins } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -25,7 +25,8 @@ import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import Link from 'next/link';
 import { convertToWords } from '@/features/invoices/utils';
-import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export default function InvoiceDetailPage() {
+import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
+export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -36,6 +37,8 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [productImages, setProductImages] = useState<Map<string, string>>(new Map());
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
+  const [breakdownSheetOpen, setBreakdownSheetOpen] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,7 +52,7 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
       setIsLoading(true);
       const data = await getInvoice(params.id as string);
       setInvoice(data);
-      
+
       // Fetch product images
       await fetchImages(data.items);
     } catch (error) {
@@ -59,24 +62,22 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
       setIsLoading(false);
     }
   };
-  
+
   const fetchImages = async (items: Invoice['items']) => {
     const imageMap = new Map<string, string>();
-    
+
     try {
-      const variantIds = items
-        .filter(item => item.variantId)
-        .map(item => item.variantId as string);
-      
+      const variantIds = items.filter(item => item.variantId).map(item => item.variantId as string);
+
       if (variantIds.length === 0) return;
-      
+
       // Fetch images from API
       const response = await fetch('/api/products/images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ variantIds })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         Object.entries(data).forEach(([variantId, imageUrl]) => {
@@ -164,6 +165,11 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
     }
   };
 
+  const handleViewBreakdown = (index: number) => {
+    setSelectedItemIndex(index);
+    setBreakdownSheetOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">
@@ -195,97 +201,97 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
   const templateData =
     invoice.type === 'invoice'
       ? ({
-        logo: undefined,
-        company: COMPANY_DETAILS,
-        client: {
-          name: invoice.customerName,
-          company: invoice.customerCompany,
-          address: invoice.customerAddress,
-          city: invoice.customerCity || '',
-          state: invoice.customerState || '',
-          zip: invoice.customerZip || '',
-          email: invoice.customerEmail || '',
-          phone: invoice.customerPhone
-        },
-        invoiceNumber: invoice.invoiceNumber,
-        date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
-        dueDate: invoice.dueDate
-          ? typeof invoice.dueDate === 'string'
-            ? invoice.dueDate
-            : invoice.dueDate.toISOString()
-          : '',
-        items: invoice.items.map(item => ({
-          id: item.productId,
-          description: item.productName,
-          quantity: item.quantity,
-          rate: item.unitPrice,
-          amount: item.totalPrice,
-          productId: item.productId,
-          variantId: item.variantId,
-          variantSKU: item.variantSKU,
-          purchaseId: item.purchaseId,
-          imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
-        })),
-        taxRate: invoice.gstValue || 0,
-        discount: invoice.discountValue,
-        discountType: invoice.discountType || 'fixed',
-        notes: invoice.notes,
-        terms: invoice.termsAndConditions,
-        paymentDetails: {
-          bankName: PAYMENT_DETAILS.BANK_NAME,
-          accountNumber: PAYMENT_DETAILS.ACCOUNT_NUMBER,
-          iban: PAYMENT_DETAILS.IBAN
-        },
-        previousBalance: 0,
-        paid: invoice.paidAmount,
-        remainingPayment: invoice.balanceAmount,
-        amountInWords: `${convertToWords(Math.round(invoice.balanceAmount + (invoice.balanceAmount > 0 ? 0 : 0)))} Rupees Only`,
-        billingType: invoice.billingType,
-        market: invoice.market,
-        customerId: invoice.customerId
-      } as InvoiceTemplateData)
+          logo: undefined,
+          company: COMPANY_DETAILS,
+          client: {
+            name: invoice.customerName,
+            company: invoice.customerCompany,
+            address: invoice.customerAddress,
+            city: invoice.customerCity || '',
+            state: invoice.customerState || '',
+            zip: invoice.customerZip || '',
+            email: invoice.customerEmail || '',
+            phone: invoice.customerPhone
+          },
+          invoiceNumber: invoice.invoiceNumber,
+          date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+          dueDate: invoice.dueDate
+            ? typeof invoice.dueDate === 'string'
+              ? invoice.dueDate
+              : invoice.dueDate.toISOString()
+            : '',
+          items: invoice.items.map(item => ({
+            id: item.productId,
+            description: item.productName,
+            quantity: item.quantity,
+            rate: item.unitPrice,
+            amount: item.totalPrice,
+            productId: item.productId,
+            variantId: item.variantId,
+            variantSKU: item.variantSKU,
+            purchaseId: item.purchaseId,
+            imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
+          })),
+          taxRate: invoice.gstValue || 0,
+          discount: invoice.discountValue,
+          discountType: invoice.discountType || 'fixed',
+          notes: invoice.notes,
+          terms: invoice.termsAndConditions,
+          paymentDetails: {
+            bankName: PAYMENT_DETAILS.BANK_NAME,
+            accountNumber: PAYMENT_DETAILS.ACCOUNT_NUMBER,
+            iban: PAYMENT_DETAILS.IBAN
+          },
+          previousBalance: 0,
+          paid: invoice.paidAmount,
+          remainingPayment: invoice.balanceAmount,
+          amountInWords: `${convertToWords(Math.round(invoice.balanceAmount + (invoice.balanceAmount > 0 ? 0 : 0)))} Rupees Only`,
+          billingType: invoice.billingType,
+          market: invoice.market,
+          customerId: invoice.customerId
+        } as InvoiceTemplateData)
       : ({
-        logo: undefined,
-        company: COMPANY_DETAILS,
-        client: {
-          name: invoice.customerName,
-          company: invoice.customerCompany,
-          address: invoice.customerAddress,
-          city: invoice.customerCity || '',
-          state: invoice.customerState || '',
-          zip: invoice.customerZip || '',
-          email: invoice.customerEmail || '',
-          phone: invoice.customerPhone
-        },
-        quotationNumber: invoice.invoiceNumber,
-        date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
-        validUntil: invoice.validUntil
-          ? typeof invoice.validUntil === 'string'
-            ? invoice.validUntil
-            : invoice.validUntil.toISOString()
-          : '',
-        items: invoice.items.map(item => ({
-          id: item.productId,
-          description: item.productName,
-          quantity: item.quantity,
-          rate: item.unitPrice,
-          amount: item.totalPrice,
-          productId: item.productId,
-          variantId: item.variantId,
-          variantSKU: item.variantSKU,
-          purchaseId: item.purchaseId,
-          imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
-        })),
-        taxRate: invoice.gstValue || 0,
-        discount: invoice.discountValue,
-        discountType: invoice.discountType || 'fixed',
-        notes: invoice.notes,
-        terms: invoice.termsAndConditions,
-        amountInWords: `${convertToWords(Math.round(invoice.totalAmount))} Rupees Only`,
-        billingType: invoice.billingType,
-        market: invoice.market,
-        customerId: invoice.customerId
-      } as QuotationTemplateData);
+          logo: undefined,
+          company: COMPANY_DETAILS,
+          client: {
+            name: invoice.customerName,
+            company: invoice.customerCompany,
+            address: invoice.customerAddress,
+            city: invoice.customerCity || '',
+            state: invoice.customerState || '',
+            zip: invoice.customerZip || '',
+            email: invoice.customerEmail || '',
+            phone: invoice.customerPhone
+          },
+          quotationNumber: invoice.invoiceNumber,
+          date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+          validUntil: invoice.validUntil
+            ? typeof invoice.validUntil === 'string'
+              ? invoice.validUntil
+              : invoice.validUntil.toISOString()
+            : '',
+          items: invoice.items.map(item => ({
+            id: item.productId,
+            description: item.productName,
+            quantity: item.quantity,
+            rate: item.unitPrice,
+            amount: item.totalPrice,
+            productId: item.productId,
+            variantId: item.variantId,
+            variantSKU: item.variantSKU,
+            purchaseId: item.purchaseId,
+            imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
+          })),
+          taxRate: invoice.gstValue || 0,
+          discount: invoice.discountValue,
+          discountType: invoice.discountType || 'fixed',
+          notes: invoice.notes,
+          terms: invoice.termsAndConditions,
+          amountInWords: `${convertToWords(Math.round(invoice.totalAmount))} Rupees Only`,
+          billingType: invoice.billingType,
+          market: invoice.market,
+          customerId: invoice.customerId
+        } as QuotationTemplateData);
 
   return (
     <div className="container mx-auto py-10">
@@ -350,7 +356,8 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
                     This {invoice.type === 'invoice' ? 'invoice' : 'quotation'} has been cancelled
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Editing, status updates, and payments are disabled for cancelled {invoice.type === 'invoice' ? 'invoices' : 'quotations'}.
+                    Editing, status updates, and payments are disabled for cancelled{' '}
+                    {invoice.type === 'invoice' ? 'invoices' : 'quotations'}.
                   </p>
                 </div>
               </CardContent>
@@ -426,8 +433,8 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
 
           {/* Customer Info */}
           {invoice.customerId === 'otc' ? (
-            <Card className='text-blue-500 bg-blue-50 border-blue-500'>
-              <CardContent className='flex gap-2'>
+            <Card className="text-blue-500 bg-blue-50 border-blue-500">
+              <CardContent className="flex gap-2">
                 <Info />
                 This is an Over the Counter(OTC) Customer
               </CardContent>
@@ -446,9 +453,14 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
                   <div className="text-sm">
                     {invoice.customerEmail && <p>{invoice.customerEmail}</p>}
                     {invoice.customerPhone && <p>{invoice.customerPhone}</p>}
-                    {(invoice.customerAddress || invoice.customerCity || invoice.customerState || invoice.customerZip) && (
+                    {(invoice.customerAddress ||
+                      invoice.customerCity ||
+                      invoice.customerState ||
+                      invoice.customerZip) && (
                       <p className="mt-2">
-                        {[invoice.customerAddress, invoice.customerCity, invoice.customerState, invoice.customerZip].filter(Boolean).join(', ')}
+                        {[invoice.customerAddress, invoice.customerCity, invoice.customerState, invoice.customerZip]
+                          .filter(Boolean)
+                          .join(', ')}
                       </p>
                     )}
                   </div>
@@ -471,16 +483,22 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
                     <TableHead>Qty</TableHead>
                     <TableHead>Rate</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {invoice.items.map((item, index) => (
                     <TableRow key={index}>
-                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>{index + 1}. </TableCell>
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.productName}</p>
                           {item.variantSKU && <p className="text-sm text-muted-foreground">SKU: {item.variantSKU}</p>}
+                          {/* {item.isVirtualProduct && (
+                            <Badge variant="secondary" className="mt-1">
+                              Virtual Product
+                            </Badge>
+                          )} */}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -488,6 +506,14 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
                       </TableCell>
                       <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(item.totalPrice)}</TableCell>
+                      <TableCell className="text-right">
+                        {item.isVirtualProduct && (
+                          <Button variant="ghost" size="sm" onClick={() => handleViewBreakdown(index)}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Breakdown
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -626,7 +652,7 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
       {/* Print Preview Sheet */}
       <Sheet open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
         <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
-          <SheetHeader className='pt-12 lg:pl-12'>
+          <SheetHeader className="pt-12 lg:pl-12">
             <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
               <Printer /> Print Preview
             </SheetTitle>
@@ -648,6 +674,120 @@ import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';export
               />
             )}
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Virtual Product Breakdown Sheet */}
+      <Sheet open={breakdownSheetOpen} onOpenChange={setBreakdownSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl px-8 pb-12 overflow-y-auto">
+          <SheetHeader className="px-0">
+            <SheetTitle className='text-primary'>Virtual Product Breakdown</SheetTitle>
+          </SheetHeader>
+
+          {selectedItemIndex !== null &&
+            invoice.items[selectedItemIndex] &&
+            (() => {
+              const item = invoice.items[selectedItemIndex];
+              const componentCost = item.totalComponentCost || 0;
+              const customCost = item.totalCustomExpenses || 0;
+              const totalCost = componentCost + customCost;
+              const profit = item.totalPrice - totalCost;
+              const margin = item.totalPrice > 0 ? ((profit / item.totalPrice) * 100).toFixed(1) : '0.0';
+
+              return (
+                <div className="mt-6 space-y-6">
+                  {/* Product Header */}
+                  <div className="pt-6 pb-4 border-b">
+                    <h2 className="text-2xl font-semibold tracking-tight">{item.productName}</h2>
+                    <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
+                      {item.variantSKU && <span>SKU: {item.variantSKU}</span>}
+                      <span>
+                        {item.quantity} {item.unit}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* KPI Bar */}
+                  <div className="py-6 border-b">
+                    <div className="flex justify-between flex-wrap gap-6">
+                      <div>
+                        <p className="text-xs uppercase text-muted-foreground tracking-wide">Selling Price</p>
+                        <p className="mt-1 text-2xl font-semibold">{formatCurrency(item.totalPrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase text-muted-foreground tracking-wide">Total Cost</p>
+                        <p className="mt-1 text-2xl font-semibold">{formatCurrency(totalCost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase text-muted-foreground tracking-wide">Profit</p>
+                        <p className={`mt-1 text-3xl font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {formatCurrency(profit)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{margin}% margin</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cost Breakdown Section */}
+                  <div className="py-6 space-y-8">
+                    <h3 className="text-lg font-semibold tracking-tight text-primary">Cost Breakdown</h3>
+
+                    {/* Component Breakdown */}
+                    {item.componentBreakdown && item.componentBreakdown.length > 0 && (
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className="font-medium text-primary inline-flex items-center gap-2">
+                            <Layers className='size-6' />
+                            Components
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{formatCurrency(componentCost)}</p>
+                        </div>
+                        <div className="divide-y">
+                          {item.componentBreakdown.map((c, idx) => (
+                            <div key={idx} className="flex justify-between items-center py-3">
+                              <div>
+                                <p className="font-medium">{c.productName}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {c.sku} @ {c.purchaseId}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {c.quantity} × {formatCurrency(c.unitCost)}
+                                </p>
+                              </div>
+                              <p className="font-medium">{formatCurrency(c.totalCost)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Custom Expenses */}
+                    {item.customExpenses && item.customExpenses.length > 0 && (
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                           <h3 className="font-medium text-primary inline-flex items-center gap-2">
+                            <Coins className='size-6'/>
+                            Custom Expenses</h3>
+                          <p className="text-sm text-muted-foreground">{formatCurrency(customCost)}</p>
+                        </div>
+                        <div className="divide-y">
+                          {item.customExpenses.map((e, idx) => (
+                            <div key={idx} className="flex justify-between items-center py-3">
+                              <div>
+                                <p className="font-medium">{e.name}</p>
+                                <p className="text-xs text-muted-foreground capitalize">{e.category}</p>
+                                {e.description && <p className="text-xs text-muted-foreground">{e.description}</p>}
+                              </div>
+                              <p className="font-medium">{formatCurrency(e.amount)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
         </SheetContent>
       </Sheet>
     </div>

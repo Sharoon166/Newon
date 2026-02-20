@@ -10,7 +10,8 @@ import {
   ShoppingCart,
   Users,
   UserSquare,
-  PackageOpen
+  PackageOpen,
+  FolderKanban
 } from 'lucide-react';
 
 import {
@@ -81,6 +82,11 @@ const data = {
       name: 'Ledger',
       url: '/ledger',
       icon: Coins
+    },
+    {
+      name: 'Projects',
+      url: '/projects',
+      icon: FolderKanban
     }
   ]
 };
@@ -98,6 +104,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       name: 'Inventory',
       url: '/inventory/staff',
       icon: ShoppingCart
+    },
+    {
+      name: 'Projects',
+      url: '/projects',
+      icon: FolderKanban
     }
   ];
 

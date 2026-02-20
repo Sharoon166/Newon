@@ -11,12 +11,34 @@ export interface Payment {
   notes?: string;
 }
 
+// Component breakdown for virtual products
+export interface ComponentBreakdown {
+  productId: string;
+  variantId: string;
+  productName: string;
+  sku: string;
+  quantity: number;
+  purchaseId: string;
+  unitCost: number;
+  totalCost: number;
+}
+
+// Custom expense for virtual products
+export interface CustomExpense {
+  name: string;
+  amount: number;
+  category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+  description?: string;
+}
+
 // Invoice item interface
 export interface InvoiceItem {
   productId: string;
   productName: string;
   variantId?: string;
   variantSKU?: string;
+  virtualProductId?: string;
+  isVirtualProduct?: boolean;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -27,6 +49,10 @@ export interface InvoiceItem {
   stockLocation?: string;
   purchaseId?: string;
   originalRate?: number;
+  componentBreakdown?: ComponentBreakdown[];
+  customExpenses?: CustomExpense[];
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
 }
 
 // Main Invoice interface

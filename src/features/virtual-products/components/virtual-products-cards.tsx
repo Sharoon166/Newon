@@ -54,7 +54,7 @@ export function VirtualProductsCards({ data }: VirtualProductsCardsProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {data.map(product => (
           <Card key={product.id} className="p-4 hover:shadow-lg transition-shadow">
             <div className="flex flex-col h-full">
@@ -175,12 +175,18 @@ export function VirtualProductsCards({ data }: VirtualProductsCardsProps) {
               {/* Pricing */}
               <div className="mt-auto pt-3 border-t space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Retail:</span>
-                  <span className="font-semibold">{formatCurrency(product.retailPrice)}</span>
+                  <span className="text-muted-foreground">Base Price:</span>
+                  <span className="font-semibold">{formatCurrency(product.basePrice)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Wholesale:</span>
-                  <span className="font-semibold">{formatCurrency(product.wholesalePrice)}</span>
+                  <span className="text-muted-foreground">Est. Cost:</span>
+                  <span className="font-semibold">{formatCurrency(product.estimatedTotalCost || 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Est. Profit:</span>
+                  <span className={`font-semibold ${(product.estimatedProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(product.estimatedProfit || 0)}
+                  </span>
                 </div>
               </div>
             </div>

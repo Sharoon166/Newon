@@ -46,6 +46,24 @@ interface FormData {
     purchaseId?: string;
     originalRate?: number;
     saleRate?: number;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount: number;
+      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
   }>;
   discountType?: string;
   discount: number;
@@ -157,8 +175,14 @@ export function NewInvoiceFormWrapper({
           productName: item.description,
           variantId: item.variantId,
           variantSKU: item.variantSKU,
-          virtualProductId: item.virtualProductId,
-          isVirtualProduct: item.isVirtualProduct,
+          ...(item.isVirtualProduct && {
+            virtualProductId: item.virtualProductId,
+            isVirtualProduct: true,
+            componentBreakdown: item.componentBreakdown,
+            customExpenses: item.customExpenses,
+            totalComponentCost: item.totalComponentCost,
+            totalCustomExpenses: item.totalCustomExpenses
+          }),
           quantity: item.quantity,
           unit: 'pcs',
           unitPrice: item.rate,

@@ -20,6 +20,8 @@ interface LeanInvoiceItem {
   productName: string;
   variantId?: string;
   variantSKU?: string;
+  virtualProductId?: string;
+  isVirtualProduct?: boolean;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -29,6 +31,25 @@ interface LeanInvoiceItem {
   totalPrice: number;
   stockLocation?: string;
   purchaseId?: string;
+  originalRate?: number;
+  componentBreakdown?: Array<{
+    productId: string;
+    variantId: string;
+    productName: string;
+    sku: string;
+    quantity: number;
+    purchaseId: string;
+    unitCost: number;
+    totalCost: number;
+  }>;
+  customExpenses?: Array<{
+    name: string;
+    amount: number;
+    category: string;
+    description?: string;
+  }>;
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
 }
 
 interface LeanPayment {
@@ -104,6 +125,8 @@ function transformInvoice(doc: LeanInvoice): Invoice {
       productName: item.productName,
       variantId: item.variantId,
       variantSKU: item.variantSKU,
+      virtualProductId: item.virtualProductId,
+      isVirtualProduct: item.isVirtualProduct,
       quantity: item.quantity,
       unit: item.unit,
       unitPrice: item.unitPrice,
@@ -112,7 +135,12 @@ function transformInvoice(doc: LeanInvoice): Invoice {
       discountAmount: item.discountAmount,
       totalPrice: item.totalPrice,
       stockLocation: item.stockLocation,
-      purchaseId: item.purchaseId
+      purchaseId: item.purchaseId,
+      originalRate: item.originalRate,
+      componentBreakdown: item.componentBreakdown,
+      customExpenses: item.customExpenses,
+      totalComponentCost: item.totalComponentCost,
+      totalCustomExpenses: item.totalCustomExpenses
     })) || [];
 
   // Serialize payments - remove _id and convert dates

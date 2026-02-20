@@ -19,6 +19,16 @@ interface EnhancedProductSelectorProps {
     virtualProductId?: string;
     quantity: number;
     purchaseId?: string;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
   }>;
   onAddItem: (item: {
     productId?: string;
@@ -33,6 +43,24 @@ interface EnhancedProductSelectorProps {
     saleRate: number;
     originalRate?: number;
     purchaseId?: string;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount: number;
+      category: string;
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
   }) => void;
   skipStockValidation?: boolean;
 }
@@ -76,7 +104,7 @@ export function EnhancedProductSelector({
         <VirtualProductSelector
           label={label}
           virtualProducts={virtualProducts}
-          currentItems={currentItems.filter(item => item.virtualProductId)}
+          currentItems={currentItems}
           onAddItem={onAddItem}
           skipStockValidation={skipStockValidation}
         />

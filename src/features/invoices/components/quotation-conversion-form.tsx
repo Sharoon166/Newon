@@ -661,14 +661,6 @@ export function QuotationConversionForm({
   return (
     <Form {...form}>
       <form className="space-y-8">
-        <pre>
-          {JSON.stringify(
-            {quotation,
-            items},
-            null,
-            2
-          )}
-        </pre>
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <FormField

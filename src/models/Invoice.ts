@@ -11,6 +11,26 @@ interface IPayment {
   notes?: string;
 }
 
+// Component breakdown for virtual products
+interface IComponentBreakdown {
+  productId: string;
+  variantId: string;
+  productName: string;
+  sku: string;
+  quantity: number;
+  purchaseId: string;
+  unitCost: number;
+  totalCost: number;
+}
+
+// Custom expense for virtual products
+interface ICustomExpense {
+  name: string;
+  amount: number;
+  category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+  description?: string;
+}
+
 // Invoice item subdocument interface
 interface IInvoiceItem {
   productId: string;
@@ -29,6 +49,11 @@ interface IInvoiceItem {
   stockLocation?: string;
   purchaseId?: string;
   originalRate?: number;
+  // Virtual product breakdown
+  componentBreakdown?: IComponentBreakdown[];
+  customExpenses?: ICustomExpense[];
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
 }
 
 // Main Invoice document interface
@@ -102,6 +127,69 @@ const paymentSchema = new Schema<IPayment>({
   }
 });
 
+// Component breakdown subdocument schema
+const componentBreakdownSchema = new Schema({
+  productId: {
+    type: String,
+    required: true
+  },
+  variantId: {
+    type: String,
+    required: true
+  },
+  productName: {
+    type: String,
+    required: true
+  },
+  sku: {
+    type: String,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    min: 1
+  },
+  purchaseId: {
+    type: String,
+    required: true
+  },
+  unitCost: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  totalCost: {
+    type: Number,
+    required: true,
+    min: 0
+  }
+}, { _id: false });
+
+// Custom expense subdocument schema
+const customExpenseSchema = new Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  amount: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  category: {
+    type: String,
+    enum: ['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other'],
+    default: 'other'
+  },
+  description: {
+    type: String,
+    trim: true,
+    default: ''
+  }
+}, { _id: false });
+
 // Invoice item subdocument schema
 const invoiceItemSchema = new Schema<IInvoiceItem>({
   productId: {
@@ -167,6 +255,24 @@ const invoiceItemSchema = new Schema<IInvoiceItem>({
   originalRate: {
     type: Number,
     min: 0
+  },
+  componentBreakdown: {
+    type: [componentBreakdownSchema],
+    default: []
+  },
+  customExpenses: {
+    type: [customExpenseSchema],
+    default: []
+  },
+  totalComponentCost: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  totalCustomExpenses: {
+    type: Number,
+    min: 0,
+    default: 0
   }
 });
 

@@ -102,7 +102,25 @@ const invoiceFormSchema = z.object({
         isVirtualProduct: z.boolean().optional(),
         purchaseId: z.string().optional(),
         originalRate: z.number().optional(),
-        saleRate: z.number().optional()
+        saleRate: z.number().optional(),
+        componentBreakdown: z.array(z.object({
+          productId: z.string(),
+          variantId: z.string(),
+          productName: z.string(),
+          sku: z.string(),
+          quantity: z.number(),
+          purchaseId: z.string(),
+          unitCost: z.number(),
+          totalCost: z.number()
+        })).optional(),
+        customExpenses: z.array(z.object({
+          name: z.string(),
+          amount: z.number(),
+          category: z.enum(['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other']),
+          description: z.string().optional()
+        })).optional(),
+        totalComponentCost: z.number().optional(),
+        totalCustomExpenses: z.number().optional()
       })
     )
     .min(1, 'At least one item is required'),
@@ -322,6 +340,24 @@ export function NewInvoiceForm({
     saleRate: number;
     originalRate?: number;
     purchaseId?: string;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount: number;
+      category: string;
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
   }) => {
     // Validate item data
     if (!item.description || item.description.trim() === '') {
@@ -373,7 +409,11 @@ export function NewInvoiceForm({
           isVirtualProduct: true,
           variantSKU: item.sku,
           originalRate: item.originalRate,
-          saleRate: item.saleRate
+          saleRate: item.saleRate,
+          componentBreakdown: item.componentBreakdown,
+          customExpenses: item.customExpenses,
+          totalComponentCost: item.totalComponentCost,
+          totalCustomExpenses: item.totalCustomExpenses
         } as any);
       }
       return;
@@ -629,7 +669,6 @@ export function NewInvoiceForm({
 
   return (
     <Form {...form}>
-      <pre>{JSON.stringify(form.watch(), null, 2)}</pre>
       <form onSubmit={form.handleSubmit(onSubmit, handleFormErrors)} className="space-y-8">
         <div className="flex flex-wrap-reverse gap-y-6 justify-between items-center gap-2 p-4">
           <div className="flex flex-col sm:flex-row gap-4">

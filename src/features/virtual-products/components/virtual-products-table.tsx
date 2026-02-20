@@ -148,14 +148,33 @@ export function VirtualProductsTable({ data }: VirtualProductsTableProps) {
       )
     },
     {
-      accessorKey: 'retailPrice',
-      header: 'Retail Price',
-      cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.retailPrice)}</div>
+      accessorKey: 'basePrice',
+      header: 'Base Price',
+      cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.basePrice)}</div>
     },
     {
-      accessorKey: 'wholesalePrice',
-      header: 'Wholesale Price',
-      cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.wholesalePrice)}</div>
+      accessorKey: 'estimatedTotalCost',
+      header: 'Est. Cost',
+      cell: ({ row }) => (
+        <div className="text-sm">
+          <div className="font-medium">{formatCurrency(row.original.estimatedTotalCost || 0)}</div>
+          <div className="text-xs text-muted-foreground">
+            Components: {formatCurrency(row.original.estimatedComponentCost || 0)}
+          </div>
+        </div>
+      )
+    },
+    {
+      accessorKey: 'estimatedProfit',
+      header: 'Est. Profit',
+      cell: ({ row }) => {
+        const profit = row.original.estimatedProfit || 0;
+        return (
+          <div className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {formatCurrency(profit)}
+          </div>
+        );
+      }
     },
     {
       accessorKey: 'categories',
