@@ -63,22 +63,20 @@ export function ProductSelector({
 
   // Filter variants
   const filteredVariants = useMemo(() => {
-  return variants.filter(variant => {
-    const matchesSearch =
-      searchQuery === '' ||
-      variant.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      variant.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    return variants.filter(variant => {
+      const matchesSearch =
+        searchQuery === '' ||
+        variant.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        variant.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      selectedCategory === 'all' ||
-      (variant.categories?.includes(selectedCategory)) ||
-      (selectedCategory === 'uncategorized' &&
-        (!variant.categories || variant.categories.length === 0));
+      const matchesCategory =
+        selectedCategory === 'all' ||
+        variant.categories?.includes(selectedCategory) ||
+        (selectedCategory === 'uncategorized' && (!variant.categories || variant.categories.length === 0));
 
-    return matchesSearch && matchesCategory && !variant.disabled;
-  });
-}, [variants, searchQuery, selectedCategory]);
-
+      return matchesSearch && matchesCategory && !variant.disabled;
+    });
+  }, [variants, searchQuery, selectedCategory]);
 
   const getVariantQuantity = (variantId: string) => quantities[variantId] || 1;
 
@@ -90,7 +88,9 @@ export function ProductSelector({
     // Get all purchases for this variant, sorted by FIFO
     // For quotations (skipStockValidation), include all purchases even if out of stock
     const allVariantPurchases = purchases
-      .filter(p => p.productId === variant.productId && p.variantId === variant.id && (skipStockValidation || p.remaining > 0))
+      .filter(
+        p => p.productId === variant.productId && p.variantId === variant.id && (skipStockValidation || p.remaining > 0)
+      )
       .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
 
     // Calculate effective remaining for each purchase based on items in invoice
@@ -105,8 +105,8 @@ export function ProductSelector({
     });
 
     // Filter to only purchases with effective remaining > 0 (or all purchases for quotations)
-    const variantPurchases = skipStockValidation 
-      ? purchasesWithEffectiveRemaining 
+    const variantPurchases = skipStockValidation
+      ? purchasesWithEffectiveRemaining
       : purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
 
     const firstPurchase = variantPurchases[0];
@@ -182,7 +182,7 @@ export function ProductSelector({
 
     // Check if this purchase will be fully used up
     const willBeFullyUsed = quantity === remainingAvailable;
-    
+
     // If purchase is fully used and there's a next purchase available
     if (willBeFullyUsed && variantPurchases.length > 1) {
       const nextPurchase = variantPurchases[1];
@@ -205,7 +205,7 @@ export function ProductSelector({
     <div className="space-y-2">
       {/* Search and Filter */}
       <div className="flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[200px] relative">
+        <div className="flex-1 min-w-[200px] relative bg-background">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search products by name or SKU..."
@@ -216,7 +216,7 @@ export function ProductSelector({
         </div>
 
         <Select value={priceType} onValueChange={(value: 'wholesale' | 'retail') => setPriceType(value)}>
-          <SelectTrigger className="w-full max-w-[150px] truncate">
+          <SelectTrigger className="w-full max-w-[200px] truncate bg-background">
             <SelectValue placeholder="Price Type" />
           </SelectTrigger>
           <SelectContent>
@@ -264,257 +264,253 @@ export function ProductSelector({
       </div>
 
       {/* Product Grid with Scroll Area */}
-      <div
-        ref={gridRef}
-        className="@container grid grid-flow-dense sm:grid-cols-2 @md:grid-cols-3 @lg:grid-cols-4 @xl:grid-cols-5 gap-3 md:p-3 max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
-      >
-        {filteredVariants.map(variant => {
-          // Get all purchases for this variant, sorted by FIFO
-          const allVariantPurchases = purchases
-            .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
-            .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
-
-          // Calculate effective remaining for each purchase based on items in invoice
-          const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
-            const quantityUsedInInvoice = currentItems
-              .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
+      <div className="@container">
+        <div
+          ref={gridRef}
+          className="grid grid-flow-dense @md:grid-cols-2 lg:@xl:grid-cols-3 xl:@xl:grid-cols-4 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+        >
+          {filteredVariants.map(variant => {
+            // Get all purchases for this variant, sorted by FIFO
+            const allVariantPurchases = purchases
+              .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
+              .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+            // Calculate effective remaining for each purchase based on items in invoice
+            const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
+              const quantityUsedInInvoice = currentItems
+                .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
+                .reduce((sum, item) => sum + item.quantity, 0);
+              return {
+                ...purchase,
+                effectiveRemaining: purchase.remaining - quantityUsedInInvoice
+              };
+            });
+            // Filter to only purchases with effective remaining > 0
+            const variantPurchasesForCard = purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
+            const firstPurchase = variantPurchasesForCard[0];
+            // FIFO: Only show stock from the first purchase with available stock
+            const available = firstPurchase?.remaining || 0;
+            // Only count items from the SAME purchase when calculating remaining stock
+            const quantityInInvoice = currentItems
+              .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
               .reduce((sum, item) => sum + item.quantity, 0);
-            return {
-              ...purchase,
-              effectiveRemaining: purchase.remaining - quantityUsedInInvoice
-            };
-          });
-
-          // Filter to only purchases with effective remaining > 0
-          const variantPurchasesForCard = purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
-
-          const firstPurchase = variantPurchasesForCard[0];
-          // FIFO: Only show stock from the first purchase with available stock
-          const available = firstPurchase?.remaining || 0;
-          // Only count items from the SAME purchase when calculating remaining stock
-          const quantityInInvoice = currentItems
-            .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
-            .reduce((sum, item) => sum + item.quantity, 0);
-          const remainingAvailable = firstPurchase?.effectiveRemaining || 0;
-          const quantity = getVariantQuantity(variant.id);
-
-          return (
-            <Card key={`${variant.productId}-${variant.id}`} className="p-3 transition-all hover:shadow-md">
-              <div className="flex flex-col gap-3">
-                {/* Product Card Content */}
-                <div className="flex flex-col gap-2">
-                  {/* Product Image */}
-                  {variant.image || variant.imageFile?.cloudinaryUrl ? (
-                    <div
-                      className="w-full h-32 overflow-clip rounded-md flex justify-center bg-cover bg-no-repeat max-sm:bg-center"
-                      style={{
-                        backgroundImage: `url(${variant.imageFile?.cloudinaryUrl || variant.image})`
-                      }}
-                    >
-                      {/* <img
-                          src={variant.imageFile?.cloudinaryUrl || variant.image}
-                          alt={variant.productName}
-                          className="object-contain object-center rounded transition group-hover:scale-125"
-                        /> */}
-                    </div>
-                  ) : (
-                    <div className="w-full h-24 bg-muted rounded flex items-center justify-center">
-                      <Package className="h-10 w-10 text-muted-foreground" />
-                    </div>
-                  )}
-
-                  {/* Product Info */}
-                  <div className="space-y-1">
-                    <div className="flex items-start justify-between gap-1">
-                      <h4 className="font-medium text-xs leading-tight line-clamp-2 flex-1">{variant.productName}</h4>
-                      {firstPurchase && (
-                        <Popover>
-                          <PopoverTrigger asChild onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
-                              <Info className="h-3 w-3" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80" align="end">
-                            <div className="space-y-3">
-                              <div>
-                                <h4 className="font-semibold text-sm mb-1">FIFO - Next Purchase to Use</h4>
-                                <p className="text-xs text-muted-foreground">
-                                  This Purchase: {firstPurchase.remaining} units
-                                  {variantPurchasesForCard.length > 1 && (
-                                    <>
-                                      {' '}
-                                      | Total Across All:{' '}
-                                      {variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0)} units
-                                    </>
-                                  )}
-                                </p>
-                              </div>
-                              <div className="space-y-2 text-xs">
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Purchase ID:</span>
-                                  <span className="font-mono">{firstPurchase.purchaseId}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Date:</span>
-                                  <span>{formatDate(new Date(firstPurchase.purchaseDate))}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Remaining:</span>
-                                  <span className="font-semibold">{firstPurchase.remaining} units</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Unit Price:</span>
-                                  <span>{formatCurrency(firstPurchase.unitPrice)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Retail Price:</span>
-                                  <span className="font-semibold">{formatCurrency(firstPurchase.retailPrice)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Wholesale Price:</span>
-                                  <span className="font-semibold">{formatCurrency(firstPurchase.wholesalePrice)}</span>
-                                </div>
-                                <div className="flex justify-between pt-2 border-t">
-                                  <span className="text-muted-foreground font-medium">Selected Price:</span>
-                                  <span className="font-bold text-primary">
-                                    {formatCurrency(
-                                      priceType === 'retail' ? firstPurchase.retailPrice : firstPurchase.wholesalePrice
-                                    )}
-                                    <span className="text-xs ml-1">
-                                      ({priceType === 'retail' ? 'Retail' : 'Wholesale'})
-                                    </span>
-                                  </span>
-                                </div>
-                              </div>
-                              {variantPurchasesForCard.length > 1 && (
-                                <p className="text-xs text-muted-foreground">
-                                  + {variantPurchasesForCard.length - 1} more purchase(s) available
-                                </p>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground font-mono">{variant.sku}</p>
-                    {Object.keys(variant.attributes || {}).length > 0 && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {Object.values(variant.attributes).join(', ')}
-                      </p>
+            const remainingAvailable = firstPurchase?.effectiveRemaining || 0;
+            const quantity = getVariantQuantity(variant.id);
+            return (
+              <Card key={`${variant.productId}-${variant.id}`} className="p-3 transition-all hover:shadow-md">
+                <div className="flex flex-col gap-3">
+                  {/* Product Card Content */}
+                  <div className="flex flex-col gap-2">
+                    {/* Product Image */}
+                    {variant.image || variant.imageFile?.cloudinaryUrl ? (
+                      <div
+                        className="w-full h-32 overflow-clip rounded-md flex justify-center bg-cover bg-center bg-no-repeat max-sm:bg-center"
+                        style={{
+                          backgroundImage: `url(${variant.imageFile?.cloudinaryUrl || variant.image})`
+                        }}
+                      >
+                        {/* <img src={variant.imageFile?.cloudinaryUrl || variant.image} alt="" className='border-2 border-red-500' /> */}
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 bg-muted rounded flex items-center justify-center">
+                        <Package className="h-10 w-10 text-muted-foreground" />
+                      </div>
                     )}
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="flex flex-col gap-0.5">
-                        <Badge
-                          variant={remainingAvailable > 0 ? 'default' : 'destructive'}
-                          className="text-xs px-1.5 py-0"
-                        >
-                          {remainingAvailable} left
-                        </Badge>
-                        {quantityInInvoice > 0 && (
-                          <span className="text-[10px] text-muted-foreground">({quantityInInvoice} in invoice)</span>
+                    {/* Product Info */}
+                    <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <h4 className="font-medium text-xs leading-tight line-clamp-2 flex-1">{variant.productName}</h4>
+                        {firstPurchase && (
+                          <Popover>
+                            <PopoverTrigger asChild onClick={e => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0">
+                                <Info className="h-3 w-3" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80" align="end">
+                              <div className="space-y-3">
+                                <div>
+                                  <h4 className="font-semibold text-sm mb-1">FIFO - Next Purchase to Use</h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    This Purchase: {firstPurchase.remaining} units
+                                    {variantPurchasesForCard.length > 1 && (
+                                      <>
+                                        {' '}
+                                        | Total Across All:{' '}
+                                        {variantPurchasesForCard.reduce((sum, p) => sum + p.remaining, 0)} units
+                                      </>
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="space-y-2 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Purchase ID:</span>
+                                    <span className="font-mono">{firstPurchase.purchaseId}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Date:</span>
+                                    <span>{formatDate(new Date(firstPurchase.purchaseDate))}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Remaining:</span>
+                                    <span className="font-semibold">{firstPurchase.remaining} units</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Unit Price:</span>
+                                    <span>{formatCurrency(firstPurchase.unitPrice)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Retail Price:</span>
+                                    <span className="font-semibold">{formatCurrency(firstPurchase.retailPrice)}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Wholesale Price:</span>
+                                    <span className="font-semibold">
+                                      {formatCurrency(firstPurchase.wholesalePrice)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between pt-2 border-t">
+                                    <span className="text-muted-foreground font-medium">Selected Price:</span>
+                                    <span className="font-bold text-primary">
+                                      {formatCurrency(
+                                        priceType === 'retail'
+                                          ? firstPurchase.retailPrice
+                                          : firstPurchase.wholesalePrice
+                                      )}
+                                      <span className="text-xs ml-1">
+                                        ({priceType === 'retail' ? 'Retail' : 'Wholesale'})
+                                      </span>
+                                    </span>
+                                  </div>
+                                </div>
+                                {variantPurchasesForCard.length > 1 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    + {variantPurchasesForCard.length - 1} more purchase(s) available
+                                  </p>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         )}
                       </div>
-                      <span className="text-sm font-bold">
-                        {formatCurrency(
-                          priceType === 'retail'
-                            ? firstPurchase?.retailPrice || variant.retailPrice || 0
-                            : firstPurchase?.wholesalePrice || variant.wholesalePrice || 0
+                      <p className="text-xs text-muted-foreground font-mono line-clamp-1">
+                        {variant.sku}
+                        {variant.attributes && Object.keys(variant.attributes).length > 0 && (
+                          <span> – {Object.values(variant.attributes).join(', ')}</span>
                         )}
-                      </span>
+                      </p>
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex flex-col gap-0.5">
+                          <Badge
+                            variant={remainingAvailable > 0 ? 'default' : 'destructive'}
+                            className="text-xs px-1.5 py-0"
+                          >
+                            {remainingAvailable} left
+                          </Badge>
+                          {quantityInInvoice > 0 ? (
+                            <span className="text-[10px] text-muted-foreground">({quantityInInvoice} in invoice)</span>
+                          ) : <div className='h-4'/>}
+                        </div>
+                        <span className="text-sm font-bold">
+                          {formatCurrency(
+                            priceType === 'retail'
+                              ? firstPurchase?.retailPrice || variant.retailPrice || 0
+                              : firstPurchase?.wholesalePrice || variant.wholesalePrice || 0
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Controls - Below Card */}
-                <div className="flex flex-col gap-2 border-t pt-3">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={e => {
-                        e.stopPropagation();
-                        setVariantQuantity(variant.id, Math.max(1, quantity - 1));
-                      }}
-                      disabled={quantity <= 1 || remainingAvailable === 0}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <Input
-                      type="number"
-                      min={remainingAvailable > 0 ? 1 : 0}
-                      max={remainingAvailable > 0 ? remainingAvailable : 0}
-                      value={remainingAvailable === 0 ? 0 : quantity}
-                      onChange={e => {
-                        e.stopPropagation();
-                        const newQuantity = parseInt(e.target.value) || 1;
-                        if (newQuantity > remainingAvailable) {
-                          toast.error('Exceeds available stock', {
-                            description: `Only ${remainingAvailable} more units available${quantityInInvoice > 0 ? ` (${quantityInInvoice} already in invoice)` : ''}.`
-                          });
-                          setVariantQuantity(variant.id, Math.max(1, remainingAvailable));
-                        } else if (newQuantity < 1) {
-                          toast.error('Invalid quantity', {
-                            description: 'Quantity must be at least 1.'
-                          });
-                          setVariantQuantity(variant.id, 1);
-                        } else {
+                  {/* Controls - Below Card */}
+                  <div className="flex flex-col gap-2 border-t pt-3">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setVariantQuantity(variant.id, Math.max(1, quantity - 1));
+                        }}
+                        disabled={quantity <= 1 || remainingAvailable === 0}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <Input
+                        type="number"
+                        min={remainingAvailable > 0 ? 1 : 0}
+                        max={remainingAvailable > 0 ? remainingAvailable : 0}
+                        value={remainingAvailable === 0 ? 0 : quantity}
+                        onChange={e => {
+                          e.stopPropagation();
+                          const newQuantity = parseInt(e.target.value) || 1;
+                          if (newQuantity > remainingAvailable) {
+                            toast.error('Exceeds available stock', {
+                              description: `Only ${remainingAvailable} more units available${quantityInInvoice > 0 ? ` (${quantityInInvoice} already in invoice)` : ''}.`
+                            });
+                            setVariantQuantity(variant.id, Math.max(1, remainingAvailable));
+                          } else if (newQuantity < 1) {
+                            toast.error('Invalid quantity', {
+                              description: 'Quantity must be at least 1.'
+                            });
+                            setVariantQuantity(variant.id, 1);
+                          } else {
+                            setVariantQuantity(variant.id, newQuantity);
+                          }
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        className="text-center h-8"
+                        disabled={remainingAvailable === 0}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={e => {
+                          e.stopPropagation();
+                          const newQuantity = quantity + 1;
+                          if (newQuantity > remainingAvailable) {
+                            toast.error('Exceeds available stock', {
+                              description: `Only ${remainingAvailable} more units available${quantityInInvoice > 0 ? ` (${quantityInInvoice} already in invoice)` : ''}.`
+                            });
+                            return;
+                          }
                           setVariantQuantity(variant.id, newQuantity);
-                        }
-                      }}
-                      onClick={e => e.stopPropagation()}
-                      className="text-center h-8"
-                      disabled={remainingAvailable === 0}
-                    />
+                        }}
+                        disabled={quantity >= remainingAvailable || remainingAvailable === 0}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <Button
                       type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
                       onClick={e => {
                         e.stopPropagation();
-                        const newQuantity = quantity + 1;
-                        if (newQuantity > remainingAvailable) {
-                          toast.error('Exceeds available stock', {
-                            description: `Only ${remainingAvailable} more units available${quantityInInvoice > 0 ? ` (${quantityInInvoice} already in invoice)` : ''}.`
-                          });
-                          return;
-                        }
-                        setVariantQuantity(variant.id, newQuantity);
+                        handleAddToInvoice(variant);
                       }}
-                      disabled={quantity >= remainingAvailable || remainingAvailable === 0}
+                      disabled={remainingAvailable === 0 || quantity > remainingAvailable}
+                      className="w-full h-9"
+                      size="sm"
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-4 w-4 mr-1" />
+                      {label}
                     </Button>
+                    {quantity > remainingAvailable && (
+                      <p className="text-xs text-destructive text-center">Stock was used up</p>
+                    )}
                   </div>
-                  <Button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      handleAddToInvoice(variant);
-                    }}
-                    disabled={remainingAvailable === 0 || quantity > remainingAvailable}
-                    className="w-full h-9"
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    {label}
-                  </Button>
-                  {quantity > remainingAvailable && (
-                    <p className="text-xs text-destructive text-center">Stock was used up</p>
-                  )}
                 </div>
-              </div>
-            </Card>
-          );
-        })}
-        {filteredVariants.length === 0 && (
-          <div className="col-span-full text-center py-8 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No products found</p>
-          </div>
-        )}
+              </Card>
+            );
+          })}
+          {filteredVariants.length === 0 && (
+            <div className="col-span-full text-center py-8 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No products found</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

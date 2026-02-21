@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/general/page-header';
 import { FolderKanban } from 'lucide-react';
 import { userHasPermission } from '@/lib/rbac';
 import { getStaffMembers } from '@/features/staff/actions';
+import { getCustomers } from '@/features/customers/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -21,7 +22,10 @@ async function AddProjectContent() {
     redirect('/not-allowed');
   }
 
+  const canViewBudget = userHasPermission(session, 'view:budget');
   const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
+  const customersResult = await getCustomers({ limit: 1000 }); // Get all customers
+  const customers = customersResult.docs;
 
   return (
     <div className="space-y-6">
@@ -29,7 +33,12 @@ async function AddProjectContent() {
 
       <Card>
         <CardContent className="pt-6">
-          <ProjectForm staffMembers={staffMembers} currentUserId={session.user.id!} />
+          <ProjectForm 
+            customers={customers} 
+            staffMembers={staffMembers} 
+            currentUserId={session.user.id!}
+            canViewBudget={canViewBudget}
+          />
         </CardContent>
       </Card>
     </div>

@@ -25,7 +25,14 @@ export type Permission =
   | 'edit:projects'
   | 'delete:projects'
   | 'add:expenses'
-  | 'view:budget';
+  | 'view:budget'
+  | 'view:project-inventory'
+  | 'add:project-inventory'
+  | 'edit:project-inventory'
+  | 'delete:project-inventory'
+  | 'view:audit-logs'
+  | 'view:client-financials'
+  | 'view:project-invoices';
 
 // Define permissions for each role
 const rolePermissions: Record<Role, Permission[]> = {
@@ -52,7 +59,14 @@ const rolePermissions: Record<Role, Permission[]> = {
     'edit:projects',
     'delete:projects',
     'add:expenses',
-    'view:budget'
+    'view:budget',
+    'view:project-inventory',
+    'add:project-inventory',
+    'edit:project-inventory',
+    'delete:project-inventory',
+    'view:audit-logs',
+    'view:client-financials',
+    'view:project-invoices'
   ],
   staff: [
     'view:inventory',

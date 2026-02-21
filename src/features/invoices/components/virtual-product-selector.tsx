@@ -292,7 +292,7 @@ export function VirtualProductSelector({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
+        <div className="relative flex-1 bg-background">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search virtual products..."
@@ -302,7 +302,7 @@ export function VirtualProductSelector({
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px] bg-background">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -317,195 +317,189 @@ export function VirtualProductSelector({
         </Select>
       </div>
 
-      <div className="grid gap-4">
-        {filteredProducts.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No virtual products found</p>
-          </div>
-        ) : (
-          filteredProducts.map(product => {
-            const quantity = getProductQuantity(product.id!);
-            const available = getAdjustedAvailableQuantity(product);
-            const isLowStock = available < 5;
-            const isOutOfStock = available === 0;
-            const inInvoice = currentItems.find(item => item.virtualProductId === product.id);
-            const quantityInInvoice = inInvoice?.quantity || 0;
-
-            return (
-              <Card key={product.id} className="p-4 hover:shadow-md transition-shadow">
-                <div className="flex gap-4">
-                  {/* Left side - Product info */}
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-base truncate">{product.name}</h4>
-                        <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
-                        {quantityInInvoice > 0 && (
-                          <Badge variant="outline" className="mt-1 text-xs text-blue-600 border-blue-600">
-                            {quantityInInvoice} in invoice
-                          </Badge>
-                        )}
+      <div className="@container">
+        <div className="grid lg:@xl:grid-cols-2 xl:@xl:grid-cols-3 gap-4">
+          {filteredProducts.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>No virtual products found</p>
+            </div>
+          ) : (
+            filteredProducts.map(product => {
+              const quantity = getProductQuantity(product.id!);
+              const available = getAdjustedAvailableQuantity(product);
+              const isLowStock = available < 5;
+              const isOutOfStock = available === 0;
+              const inInvoice = currentItems.find(item => item.virtualProductId === product.id);
+              const quantityInInvoice = inInvoice?.quantity || 0;
+              return (
+                <Card key={product.id} className="p-4 hover:shadow-md transition-shadow">
+                  <div className="flex gap-4">
+                    {/* Left side - Product info */}
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-base truncate">{product.name}</h4>
+                          <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
+                          {quantityInInvoice > 0 && (
+                            <Badge variant="outline" className="mt-1 text-xs text-blue-600 border-blue-600">
+                              {quantityInInvoice} in invoice
+                            </Badge>
+                          )}
+                        </div>
                       </div>
+                      {product.categories && product.categories.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {product.categories.slice(0, 3).map(cat => (
+                            <Badge key={cat} variant="outline" className="text-xs">
+                              {cat}
+                            </Badge>
+                          ))}
+                          {product.categories.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{product.categories.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    {product.categories && product.categories.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {product.categories.slice(0, 3).map(cat => (
-                          <Badge key={cat} variant="outline" className="text-xs">
-                            {cat}
-                          </Badge>
-                        ))}
-                        {product.categories.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{product.categories.length - 3}
-                          </Badge>
-                        )}
+                    {/* Right side - Price, stock, and actions */}
+                    <div className="flex gap-2">
+                      <div className="text-right">
+                        <div className="text-2xl font-bold">{formatCurrency(product.basePrice)}</div>
+                        <Badge
+                          variant={isOutOfStock ? 'destructive' : isLowStock ? 'secondary' : 'default'}
+                          className="mt-1"
+                        >
+                          {available} available
+                        </Badge>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Right side - Price, stock, and actions */}
-                  <div className="flex gap-2">
-                    <div className="text-right">
-                      <div className="text-2xl font-bold">{formatCurrency(product.basePrice)}</div>
-                      <Badge
-                        variant={isOutOfStock ? 'destructive' : isLowStock ? 'secondary' : 'default'}
-                        className="mt-1"
-                      >
-                        {available} available
-                      </Badge>
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
-                          <Info className="h-4 w-4" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80" align="end">
-                        <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Components</h4>
-                          {product.components.map((comp, idx) => {
-                            // Calculate component usage in current invoice
-                            const componentUsage = currentItems.reduce((total, item) => {
-                              if (item.variantId === comp.variantId) {
-                                return total + (item.quantity || 0);
-                              }
-                              if (item.virtualProductId && (item as any).componentBreakdown) {
-                                const breakdown = (item as any).componentBreakdown as Array<{
-                                  variantId: string;
-                                  quantity: number;
-                                }>;
-                                const matchingComponent = breakdown.find(b => b.variantId === comp.variantId);
-                                if (matchingComponent) {
-                                  return total + matchingComponent.quantity;
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="icon-sm">
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="end">
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-sm">Components</h4>
+                            {product.components.map((comp, idx) => {
+                              // Calculate component usage in current invoice
+                              const componentUsage = currentItems.reduce((total, item) => {
+                                if (item.variantId === comp.variantId) {
+                                  return total + (item.quantity || 0);
                                 }
-                              }
-                              return total;
-                            }, 0);
-                            const remainingStock = comp.availableStock - componentUsage;
-
-                            // Check if this virtual product itself is in the invoice
-                            const thisVPInInvoice = currentItems.find(item => item.virtualProductId === product.id);
-                            const thisVPUsage = thisVPInInvoice ? (thisVPInInvoice.quantity || 0) * comp.quantity : 0;
-
-                            return (
-                              <div key={idx} className="text-xs border-b pb-2 last:border-0">
-                                <div className="font-medium">{comp.productName}</div>
-                                <div className="text-muted-foreground">SKU: {comp.sku}</div>
-                                <div className="flex justify-between mt-1">
-                                  <span>Qty per unit: {comp.quantity}</span>
-                                  <span>
-                                    Stock: {remainingStock}
-                                    {componentUsage > 0 && (
-                                      <span className="text-orange-600">
-                                        {' '}
-                                        ({componentUsage} in invoice
-                                        {thisVPUsage > 0 && `, ${thisVPUsage} from this VP`})
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          {product.customExpenses && product.customExpenses.length > 0 && (
-                            <>
-                              <h4 className="font-semibold text-sm mt-3">Custom Expenses</h4>
-                              {product.customExpenses.map((exp, idx) => (
+                                if (item.virtualProductId && (item as any).componentBreakdown) {
+                                  const breakdown = (item as any).componentBreakdown as Array<{
+                                    variantId: string;
+                                    quantity: number;
+                                  }>;
+                                  const matchingComponent = breakdown.find(b => b.variantId === comp.variantId);
+                                  if (matchingComponent) {
+                                    return total + matchingComponent.quantity;
+                                  }
+                                }
+                                return total;
+                              }, 0);
+                              const remainingStock = comp.availableStock - componentUsage;
+                              // Check if this virtual product itself is in the invoice
+                              const thisVPInInvoice = currentItems.find(item => item.virtualProductId === product.id);
+                              const thisVPUsage = thisVPInInvoice ? (thisVPInInvoice.quantity || 0) * comp.quantity : 0;
+                              return (
                                 <div key={idx} className="text-xs border-b pb-2 last:border-0">
-                                  <div className="font-medium">{exp.name}</div>
+                                  <div className="font-medium">{comp.productName}</div>
+                                  <div className="text-muted-foreground">SKU: {comp.sku}</div>
                                   <div className="flex justify-between mt-1">
-                                    <span className="text-muted-foreground capitalize">{exp.category}</span>
-                                    <span>{formatCurrency(exp.amount)}</span>
+                                    <span>Qty per unit: {comp.quantity}</span>
+                                    <span>
+                                      Stock: {remainingStock}
+                                      {componentUsage > 0 && (
+                                        <span className="text-orange-600">
+                                          {' '}
+                                          ({componentUsage} in invoice
+                                          {thisVPUsage > 0 && `, ${thisVPUsage} from this VP`})
+                                        </span>
+                                      )}
+                                    </span>
                                   </div>
                                 </div>
-                              ))}
-                            </>
-                          )}
-
-                          <div className="pt-2 border-t space-y-1">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Est. Component Cost:</span>
-                              <span>{formatCurrency(product.estimatedComponentCost || 0)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Custom Expenses:</span>
-                              <span>{formatCurrency(product.totalCustomExpenses || 0)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs font-semibold">
-                              <span>Est. Total Cost:</span>
-                              <span>{formatCurrency(product.estimatedTotalCost || 0)}</span>
-                            </div>
-                            <div className="flex justify-between text-xs font-semibold text-green-600">
-                              <span>Est. Profit:</span>
-                              <span>{formatCurrency(product.estimatedProfit || 0)}</span>
+                              );
+                            })}
+                            {product.customExpenses && product.customExpenses.length > 0 && (
+                              <>
+                                <h4 className="font-semibold text-sm mt-3">Custom Expenses</h4>
+                                {product.customExpenses.map((exp, idx) => (
+                                  <div key={idx} className="text-xs border-b pb-2 last:border-0">
+                                    <div className="font-medium">{exp.name}</div>
+                                    <div className="flex justify-between mt-1">
+                                      <span className="text-muted-foreground capitalize">{exp.category}</span>
+                                      <span>{formatCurrency(exp.amount)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                            <div className="pt-2 border-t space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Est. Component Cost:</span>
+                                <span>{formatCurrency(product.estimatedComponentCost || 0)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Custom Expenses:</span>
+                                <span>{formatCurrency(product.totalCustomExpenses || 0)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs font-semibold">
+                                <span>Est. Total Cost:</span>
+                                <span>{formatCurrency(product.estimatedTotalCost || 0)}</span>
+                              </div>
+                              <div className="flex justify-between text-xs font-semibold text-green-600">
+                                <span>Est. Profit:</span>
+                                <span>{formatCurrency(product.estimatedProfit || 0)}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 w-full">
-                  <div className="flex items-center border rounded-md">
+                  <div className="flex items-center gap-2 w-full">
+                    <div className="flex items-center border rounded-md">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setProductQuantity(product.id!, Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="px-3 text-sm font-medium min-w-8 text-center">{quantity}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setProductQuantity(product.id!, quantity + 1)}
+                        disabled={!skipStockValidation && quantity >= available}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <Button
                       type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setProductQuantity(product.id!, Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
+                      onClick={() => handleOpenDialog(product)}
+                      disabled={isOutOfStock && !skipStockValidation}
+                      className="grow"
+                      size="sm"
                     >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="px-3 text-sm font-medium min-w-8 text-center">{quantity}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setProductQuantity(product.id!, quantity + 1)}
-                      disabled={!skipStockValidation && quantity >= available}
-                    >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-4 w-4 mr-1" />
+                      {label}
                     </Button>
                   </div>
-
-                  <Button
-                    type="button"
-                    onClick={() => handleOpenDialog(product)}
-                    disabled={isOutOfStock && !skipStockValidation}
-                    className="grow"
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    {label}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })
-        )}
+                </Card>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Dialog for adding virtual product with editable expenses */}

@@ -8,17 +8,19 @@ import { PageHeader } from '@/components/general/page-header';
 import { FolderKanban } from 'lucide-react';
 import { userHasPermission } from '@/lib/rbac';
 import { getStaffMembers } from '@/features/staff/actions';
+import { getCustomers } from '@/features/customers/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface EditProjectPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 async function EditProjectContent({ params }: EditProjectPageProps) {
   const session = await getServerSession(authOptions);
+  const { id } = await params;
 
   if (!session?.user) {
     redirect('/auth/signin');
@@ -28,9 +30,13 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
     redirect('/not-allowed');
   }
 
+  const canViewBudget = userHasPermission(session, 'view:budget');
+
   try {
-    const project = await getProject(params.id, session.user.id, session.user.role);
+    const project = await getProject(id, session.user.id, session.user.role);
     const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
+    const customersResult = await getCustomers({ limit: 1000 }); // Get all customers
+    const customers = customersResult.docs;
 
     return (
       <div className="space-y-6">
@@ -42,7 +48,13 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
 
         <Card>
           <CardContent className="pt-6">
-            <ProjectForm project={project} staffMembers={staffMembers} currentUserId={session.user.id!} />
+            <ProjectForm 
+              project={project} 
+              customers={customers}
+              staffMembers={staffMembers} 
+              currentUserId={session.user.id!}
+              canViewBudget={canViewBudget}
+            />
           </CardContent>
         </Card>
       </div>

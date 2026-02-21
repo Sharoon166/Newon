@@ -20,8 +20,8 @@ interface FormData {
   date: string;
   dueDate?: string;
   validUntil?: string;
-  billingType?: string;
-  market?: string;
+  billingType?: 'retail' | 'wholesale';
+  market?: 'newon' | 'waymor';
   customerId?: string;
   client: {
     name: string;
@@ -34,6 +34,7 @@ interface FormData {
     zip?: string;
   };
   items: Array<{
+    id: string;
     productId?: string;
     description: string;
     variantId?: string;
@@ -65,7 +66,7 @@ interface FormData {
     totalComponentCost?: number;
     totalCustomExpenses?: number;
   }>;
-  discountType?: string;
+  discountType?: 'percentage' | 'fixed';
   discount: number;
   taxRate: number;
   description?: string;
@@ -84,6 +85,9 @@ interface NewInvoiceFormWrapperProps {
   paymentDetails: PaymentDetails;
   invoiceTerms: string[];
   initialTab?: DocumentType;
+  initialData?: Partial<FormData>;
+  fromProject?: boolean;
+  projectId?: string;
 }
 
 export function NewInvoiceFormWrapper({
@@ -93,7 +97,10 @@ export function NewInvoiceFormWrapper({
   virtualProducts,
   paymentDetails,
   invoiceTerms,
-  initialTab = 'invoice'
+  initialTab = 'invoice',
+  initialData,
+  fromProject = false,
+  projectId
 }: NewInvoiceFormWrapperProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -210,7 +217,12 @@ export function NewInvoiceFormWrapper({
         amountInWords: documentData.amountInWords,
         profit: documentData.profit || 0,
         custom: hasCustomItems,
-        createdBy: 'system-user'
+        createdBy: 'system-user',
+        // Project-specific fields
+        ...(fromProject && {
+          stockDeducted: false, // Stock already deducted in project
+          projectId: projectId
+        })
       };
 
       const result = await createInvoice(createData);
@@ -227,7 +239,7 @@ export function NewInvoiceFormWrapper({
     } finally {
       setIsLoading(false);
     }
-  }, [documentType, router]);
+  }, [documentType, router, fromProject, projectId]);
 
   const handleTabChange = useCallback((value: string) => {
     const newType = value as DocumentType;
@@ -255,6 +267,9 @@ export function NewInvoiceFormWrapper({
           virtualProducts={virtualProducts}
           paymentDetails={paymentDetails}
           invoiceTerms={invoiceTerms}
+          initialData={initialData}
+          fromProject={fromProject}
+          projectId={projectId}
         />
       </TabsContent>
 
@@ -268,6 +283,9 @@ export function NewInvoiceFormWrapper({
           purchases={purchases}
           virtualProducts={virtualProducts}
           invoiceTerms={invoiceTerms}
+          initialData={initialData}
+          fromProject={fromProject}
+          projectId={projectId}
         />
       </TabsContent>
     </Tabs>

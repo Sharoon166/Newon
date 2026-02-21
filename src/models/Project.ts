@@ -16,9 +16,49 @@ interface IExpense {
   createdAt: Date;
 }
 
+// Inventory subdocument interface
+interface IInventoryItem {
+  inventoryId?: string;
+  productId?: string;
+  variantId?: string;
+  virtualProductId?: string;
+  isVirtualProduct: boolean;
+  productName: string;
+  sku: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  totalCost: number;
+  purchaseId?: string; // For regular products
+  componentBreakdown?: Array<{
+    productId: string;
+    variantId: string;
+    productName: string;
+    sku: string;
+    quantity: number;
+    purchaseId: string;
+    unitCost: number;
+    totalCost: number;
+  }>;
+  customExpenses?: Array<{
+    name: string;
+    amount: number;
+    category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+    description?: string;
+  }>;
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
+  addedBy: string;
+  addedByName?: string;
+  addedAt: Date;
+  notes?: string;
+}
+
 // Main Project document interface
 interface IProject extends Document {
   projectId?: string;
+  customerId: string;
+  customerName: string;
   title: string;
   description: string;
   budget: number;
@@ -26,8 +66,11 @@ interface IProject extends Document {
   startDate: Date;
   endDate?: Date;
   assignedStaff: string[];
+  inventory: IInventoryItem[];
   expenses: IExpense[];
+  totalInventoryCost: number;
   totalExpenses: number;
+  totalProjectCost: number;
   remainingBudget: number;
   createdBy: string;
   createdByName?: string;
@@ -84,6 +127,117 @@ const expenseSchema = new Schema<IExpense>(
   { _id: true }
 );
 
+// Inventory subdocument schema
+const inventoryItemSchema = new Schema<IInventoryItem>(
+  {
+    inventoryId: {
+      type: String,
+      required: false
+    },
+    productId: {
+      type: String
+    },
+    variantId: {
+      type: String
+    },
+    virtualProductId: {
+      type: String
+    },
+    isVirtualProduct: {
+      type: Boolean,
+      required: true,
+      default: false
+    },
+    productName: {
+      type: String,
+      required: [true, 'Product name is required'],
+      trim: true
+    },
+    sku: {
+      type: String,
+      required: [true, 'SKU is required'],
+      trim: true
+    },
+    description: {
+      type: String,
+      required: [true, 'Description is required'],
+      trim: true
+    },
+    quantity: {
+      type: Number,
+      required: [true, 'Quantity is required'],
+      min: [1, 'Quantity must be at least 1']
+    },
+    rate: {
+      type: Number,
+      required: [true, 'Rate is required'],
+      min: [0, 'Rate must be non-negative']
+    },
+    totalCost: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    purchaseId: {
+      type: String
+    },
+    componentBreakdown: {
+      type: [
+        {
+          productId: String,
+          variantId: String,
+          productName: String,
+          sku: String,
+          quantity: Number,
+          purchaseId: String,
+          unitCost: Number,
+          totalCost: Number
+        }
+      ],
+      default: undefined
+    },
+    customExpenses: {
+      type: [
+        {
+          name: String,
+          amount: Number,
+          category: {
+            type: String,
+            enum: ['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other']
+          },
+          description: String
+        }
+      ],
+      default: undefined
+    },
+    totalComponentCost: {
+      type: Number,
+      min: 0
+    },
+    totalCustomExpenses: {
+      type: Number,
+      min: 0
+    },
+    addedBy: {
+      type: String,
+      required: [true, 'Added by is required']
+    },
+    addedByName: {
+      type: String
+    },
+    addedAt: {
+      type: Date,
+      required: true,
+      default: Date.now
+    },
+    notes: {
+      type: String,
+      trim: true
+    }
+  },
+  { _id: true }
+);
+
 // Main Project schema
 const projectSchema = new Schema<IProject>(
   {
@@ -93,6 +247,15 @@ const projectSchema = new Schema<IProject>(
       unique: true,
       sparse: true,
       index: true
+    },
+    customerId: {
+      type: String,
+      required: [true, 'Customer ID is required'],
+    },
+    customerName: {
+      type: String,
+      required: [true, 'Customer name is required'],
+      trim: true
     },
     title: {
       type: String,
@@ -128,20 +291,14 @@ const projectSchema = new Schema<IProject>(
     assignedStaff: {
       type: [String],
       default: [],
-      index: true
+    },
+    inventory: {
+      type: [inventoryItemSchema],
+      default: []
     },
     expenses: {
       type: [expenseSchema],
       default: []
-    },
-    totalExpenses: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    remainingBudget: {
-      type: Number,
-      default: 0
     },
     createdBy: {
       type: String,
@@ -152,19 +309,39 @@ const projectSchema = new Schema<IProject>(
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
 
 // Indexes for better query performance
 projectSchema.index({ status: 1, startDate: -1 });
 projectSchema.index({ assignedStaff: 1 });
+projectSchema.index({ customerId: 1 });
 projectSchema.index({ createdAt: -1 });
 
 // Add pagination plugin
 projectSchema.plugin(mongoosePaginate);
 
-// Pre-save hook to generate projectId and calculate totals
+// Virtual properties for calculated fields
+projectSchema.virtual('totalInventoryCost').get(function () {
+  return this.inventory.reduce((sum, item) => sum + (item.totalCost || 0), 0);
+});
+
+projectSchema.virtual('totalExpenses').get(function () {
+  return this.expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+});
+
+projectSchema.virtual('totalProjectCost').get(function () {
+  return this.totalInventoryCost + this.totalExpenses;
+});
+
+projectSchema.virtual('remainingBudget').get(function () {
+  return this.budget - this.totalProjectCost;
+});
+
+// Pre-save hook to generate projectId
 projectSchema.pre('save', async function (next) {
   // Generate project ID for new documents
   if (this.isNew && !this.projectId) {
@@ -176,10 +353,6 @@ projectSchema.pre('save', async function (next) {
       return next(error as Error);
     }
   }
-
-  // Calculate total expenses and remaining budget
-  this.totalExpenses = this.expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  this.remainingBudget = this.budget - this.totalExpenses;
 
   next();
 });

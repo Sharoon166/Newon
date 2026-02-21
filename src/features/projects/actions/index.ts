@@ -8,16 +8,23 @@ import type {
   ProjectFilters,
   PaginatedProjects,
   AddExpenseDto,
-  UpdateExpenseDto
+  UpdateExpenseDto,
+  AddInventoryDto,
+  UpdateInventoryDto
 } from '../types';
+import type { Invoice } from '@/features/invoices/types';
 import dbConnect from '@/lib/db';
 import ProjectModel from '@/models/Project';
+import InvoiceModel from '@/models/Invoice';
 import Staff from '@/models/Staff';
+import Customer from '@/models/Customer';
 
 // Type for lean Mongoose document
 interface LeanProject {
   _id: Record<string, unknown>;
   projectId?: string;
+  customerId: string;
+  customerName: string;
   title: string;
   description: string;
   budget: number;
@@ -25,6 +32,43 @@ interface LeanProject {
   startDate: Date | string;
   endDate?: Date | string;
   assignedStaff: string[];
+  inventory: Array<{
+    _id: Record<string, unknown>;
+    inventoryId?: string;
+    productId?: string;
+    variantId?: string;
+    virtualProductId?: string;
+    isVirtualProduct: boolean;
+    productName: string;
+    sku: string;
+    description: string;
+    quantity: number;
+    rate: number;
+    totalCost: number;
+    purchaseId?: string;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount: number;
+      category: string;
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
+    addedBy: string;
+    addedByName?: string;
+    addedAt: Date | string;
+    notes?: string;
+  }>;
   expenses: Array<{
     _id: Record<string, unknown>;
     expenseId?: string;
@@ -38,7 +82,9 @@ interface LeanProject {
     notes?: string;
     createdAt: Date | string;
   }>;
+  totalInventoryCost: number;
   totalExpenses: number;
+  totalProjectCost: number;
   remainingBudget: number;
   createdBy: string;
   createdByName?: string;
@@ -59,6 +105,14 @@ function transformLeanProject(leanDoc: LeanProject): Project {
   return {
     ...rest,
     id: String(_id),
+    inventory: leanDoc?.inventory?.map(item => {
+      const { _id: itemId, ...itemRest } = item;
+      return {
+        ...itemRest,
+        id: String(itemId),
+        addedAt: toISOString(item.addedAt) as string
+      };
+    }),
     expenses: leanDoc.expenses.map(expense => {
       const { _id: expenseId, ...expenseRest } = expense;
       return {
@@ -73,6 +127,22 @@ function transformLeanProject(leanDoc: LeanProject): Project {
     createdAt: toISOString(leanDoc.createdAt) as string,
     updatedAt: toISOString(leanDoc.updatedAt) as string
   } as Project;
+}
+
+// Helper function to calculate virtual fields for lean documents
+function calculateVirtuals(leanDoc: LeanProject): LeanProject {
+  const totalInventoryCost = leanDoc.inventory?.reduce((sum, item) => sum + (item.totalCost || 0), 0) || 0;
+  const totalExpenses = leanDoc.expenses?.reduce((sum, expense) => sum + (expense.amount || 0), 0) || 0;
+  const totalProjectCost = totalInventoryCost + totalExpenses;
+  const remainingBudget = leanDoc.budget - totalProjectCost;
+  
+  return {
+    ...leanDoc,
+    totalInventoryCost,
+    totalExpenses,
+    totalProjectCost,
+    remainingBudget
+  };
 }
 
 export async function getProjects(
@@ -106,6 +176,10 @@ export async function getProjects(
       query.assignedStaff = filters.assignedStaff;
     }
 
+    if (filters?.customerId) {
+      query.customerId = filters.customerId;
+    }
+
     if (filters?.dateFrom || filters?.dateTo) {
       const dateQuery: Record<string, Date> = {};
       if (filters.dateFrom) {
@@ -124,11 +198,13 @@ export async function getProjects(
       page,
       limit,
       sort: { createdAt: -1 },
-      lean: true
+      lean: true,
+      leanWithId: false
     });
 
-    const transformedProjects = result.docs.map((project: unknown) =>
-      transformLeanProject(project as LeanProject)
+    // Manually calculate virtuals for each project
+    const transformedProjects = result.docs.map((project: unknown) => 
+      transformLeanProject(calculateVirtuals(project as LeanProject))
     );
 
     // Populate staff details
@@ -185,7 +261,9 @@ export async function getProject(id: string, userId?: string, userRole?: string)
       throw new Error('You do not have permission to view this project');
     }
 
-    const transformedProject = transformLeanProject(project as unknown as LeanProject);
+    const transformedProject = transformLeanProject(
+      calculateVirtuals(project as unknown as LeanProject)
+    );
 
     // Populate staff details
     if (transformedProject.assignedStaff.length > 0) {
@@ -212,6 +290,22 @@ export async function createProject(data: CreateProjectDto): Promise<Project> {
   try {
     await dbConnect();
 
+    // Validate customer exists
+    const customer = await Customer.findOne({ 
+      $or: [
+        { customerId: data.customerId },
+        { _id: data.customerId }
+      ]
+    }).lean();
+
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    if (customer.disabled) {
+      throw new Error('Cannot create project for disabled customer');
+    }
+
     const newProject = new ProjectModel(data);
     const savedProject = await newProject.save();
 
@@ -227,6 +321,29 @@ export async function createProject(data: CreateProjectDto): Promise<Project> {
 export async function updateProject(id: string, data: UpdateProjectDto): Promise<Project> {
   try {
     await dbConnect();
+
+    // If updating customer, validate it exists
+    if (data.customerId) {
+      const customer = await Customer.findOne({ 
+        $or: [
+          { customerId: data.customerId },
+          { _id: data.customerId }
+        ]
+      }).lean();
+
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      if (customer.disabled) {
+        throw new Error('Cannot assign project to disabled customer');
+      }
+
+      // Update customer name if customer changed
+      if (!data.customerName) {
+        data.customerName = customer.name;
+      }
+    }
 
     const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 
@@ -247,7 +364,7 @@ export async function updateProject(id: string, data: UpdateProjectDto): Promise
     return transformLeanProject(updatedProject as unknown as LeanProject);
   } catch (error) {
     console.error(`Error updating project ${id}:`, error);
-    throw new Error('Failed to update project');
+    throw new Error((error as Error).message || 'Failed to update project');
   }
 }
 
@@ -294,21 +411,27 @@ export async function addExpense(projectId: string, data: AddExpenseDto): Promis
       throw new Error('Project not found');
     }
 
-    // Recalculate totals
-    await ProjectModel.findOneAndUpdate(
-      { projectId },
-      {
-        $set: {
-          totalExpenses: updatedProject.expenses.reduce((sum, exp) => sum + exp.amount, 0),
-          remainingBudget: updatedProject.budget - updatedProject.expenses.reduce((sum, exp) => sum + exp.amount, 0)
-        }
+    // Create audit log
+    const { createAuditLog } = await import('./audit');
+    const { formatCurrency } = await import('@/lib/utils');
+    await createAuditLog({
+      projectId,
+      action: 'expense_added',
+      userId: data.addedBy,
+      userName: addedByName,
+      userRole: staff ? 'staff' : 'admin',
+      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)}`,
+      metadata: {
+        amount: data.amount,
+        category: data.category,
+        description: data.description
       }
-    );
+    });
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
 
-    return transformLeanProject(updatedProject as unknown as LeanProject);
+    return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
     console.error(`Error adding expense to project ${projectId}:`, error);
     throw new Error('Failed to add expense');
@@ -337,31 +460,46 @@ export async function updateExpense(
       throw new Error('Project or expense not found');
     }
 
-    // Recalculate totals
-    await ProjectModel.findOneAndUpdate(
-      { projectId },
-      {
-        $set: {
-          totalExpenses: updatedProject.expenses.reduce((sum, exp) => sum + exp.amount, 0),
-          remainingBudget: updatedProject.budget - updatedProject.expenses.reduce((sum, exp) => sum + exp.amount, 0)
-        }
-      }
-    );
-
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
 
-    return transformLeanProject(updatedProject as unknown as LeanProject);
+    return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
     console.error(`Error updating expense ${expenseId}:`, error);
     throw new Error('Failed to update expense');
   }
 }
 
-export async function deleteExpense(projectId: string, expenseId: string): Promise<Project> {
+export async function deleteExpense(
+  projectId: string, 
+  expenseId: string, 
+  userId: string, 
+  userRole: string
+): Promise<Project> {
   try {
     await dbConnect();
 
+    // First, get the project and expense to check ownership
+    const project = await ProjectModel.findOne({ projectId }).lean();
+    
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const expense = (project.expenses as unknown as Array<{ _id: unknown; description: string; category: string; amount: number; addedBy: string }>).find((exp) => 
+      String(exp._id) === expenseId
+    );
+    
+    if (!expense) {
+      throw new Error('Expense not found');
+    }
+
+    // Check ownership: staff can only delete their own expenses, admin can delete any
+    if (userRole === 'staff' && expense.addedBy !== userId) {
+      throw new Error('You can only delete your own expenses');
+    }
+
+    // Delete the expense
     const updatedProject = await ProjectModel.findOneAndUpdate(
       { projectId },
       { $pull: { expenses: { _id: expenseId } } },
@@ -372,23 +510,261 @@ export async function deleteExpense(projectId: string, expenseId: string): Promi
       throw new Error('Project not found');
     }
 
-    // Recalculate totals
-    await ProjectModel.findOneAndUpdate(
-      { projectId },
-      {
-        $set: {
-          totalExpenses: updatedProject.expenses.reduce((sum, exp) => sum + exp.amount, 0),
-          remainingBudget: updatedProject.budget - updatedProject.expenses.reduce((sum, exp) => sum + exp.amount, 0)
-        }
+    // Create audit log
+    const { createAuditLog } = await import('./audit');
+    const { formatCurrency } = await import('@/lib/utils');
+    const staff = await Staff.findById(userId).select('firstName lastName').lean() as { firstName: string; lastName: string } | null;
+    const userName = staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown';
+
+    await createAuditLog({
+      projectId,
+      action: 'expense_deleted',
+      userId,
+      userName,
+      userRole,
+      description: `Deleted expense: ${expense.description} (${expense.category}) - ${formatCurrency(expense.amount)}`,
+      metadata: {
+        expenseId,
+        amount: expense.amount,
+        category: expense.category,
+        description: expense.description
       }
-    );
+    });
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
 
-    return transformLeanProject(updatedProject as unknown as LeanProject);
+    return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
     console.error(`Error deleting expense ${expenseId}:`, error);
-    throw new Error('Failed to delete expense');
+    throw error instanceof Error ? error : new Error('Failed to delete expense');
+  }
+}
+
+// ============================================
+// INVENTORY ACTIONS
+// ============================================
+
+export async function addInventoryItem(projectId: string, data: AddInventoryDto): Promise<Project> {
+  try {
+    await dbConnect();
+
+    // Get staff name
+    const staff = await Staff.findById(data.addedBy).select('firstName lastName').lean() as { firstName: string; lastName: string } | null;
+    const addedByName = staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown';
+
+    // Calculate total cost
+    const totalCost = data.quantity * data.rate;
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+      { projectId },
+      {
+        $push: {
+          inventory: {
+            ...data,
+            addedByName,
+            totalCost,
+            addedAt: new Date()
+          }
+        }
+      },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updatedProject) {
+      throw new Error('Project not found');
+    }
+
+    // Create audit log
+    const { createAuditLog } = await import('./audit');
+    const { formatCurrency } = await import('@/lib/utils');
+    await createAuditLog({
+      projectId,
+      action: 'inventory_added',
+      userId: data.addedBy,
+      userName: addedByName,
+      userRole: 'admin', // Only admins can add inventory
+      description: `Added inventory: ${data.productName} (Qty: ${data.quantity}) - ${formatCurrency(totalCost)}`,
+      metadata: {
+        productName: data.productName,
+        sku: data.sku,
+        quantity: data.quantity,
+        rate: data.rate,
+        totalCost
+      }
+    });
+
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${projectId}`);
+
+    return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
+  } catch (error) {
+    console.error(`Error adding inventory to project ${projectId}:`, error);
+    throw new Error((error as Error).message || 'Failed to add inventory item');
+  }
+}
+
+export async function updateInventoryItem(
+  projectId: string,
+  inventoryItemId: string,
+  data: UpdateInventoryDto
+): Promise<Project> {
+  try {
+    await dbConnect();
+
+    // First, get the project to find the inventory item
+    const project = await ProjectModel.findOne({ projectId });
+    
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    // Find the inventory item - use type assertion for Mongoose subdocument
+    const inventoryItem = (project.inventory as unknown as Array<{ _id: unknown; quantity: number; rate: number }>)
+      .find((item) => String(item._id) === inventoryItemId);
+    
+    if (!inventoryItem) {
+      throw new Error('Inventory item not found');
+    }
+
+    // Calculate new total cost if quantity or rate changed
+    const newQuantity = data.quantity ?? inventoryItem.quantity;
+    const newRate = data.rate ?? inventoryItem.rate;
+    const newTotalCost = newQuantity * newRate;
+
+    const updateFields: Record<string, unknown> = {};
+    if (data.quantity !== undefined) updateFields['inventory.$.quantity'] = data.quantity;
+    if (data.rate !== undefined) updateFields['inventory.$.rate'] = data.rate;
+    if (data.notes !== undefined) updateFields['inventory.$.notes'] = data.notes;
+    updateFields['inventory.$.totalCost'] = newTotalCost;
+
+    // Update the inventory item
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+      { projectId, 'inventory._id': inventoryItemId },
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updatedProject) {
+      throw new Error('Failed to update inventory item');
+    }
+
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${projectId}`);
+
+    return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
+  } catch (error) {
+    console.error(`Error updating inventory item ${inventoryItemId}:`, error);
+    throw new Error((error as Error).message || 'Failed to update inventory item');
+  }
+}
+
+export async function deleteInventoryItem(
+  projectId: string, 
+  inventoryItemId: string,
+  userId: string,
+  userName: string
+): Promise<Project> {
+  try {
+    await dbConnect();
+
+    // Get the inventory item before deleting for audit log
+    const project = await ProjectModel.findOne({ projectId }).lean();
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const inventoryItem = (project.inventory as unknown as Array<{ _id: unknown; productName: string; sku: string; quantity: number; totalCost: number }>).find((item) => 
+      String(item._id) === inventoryItemId
+    );
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+      { projectId },
+      { $pull: { inventory: { _id: inventoryItemId } } },
+      { new: true }
+    ).lean();
+
+    if (!updatedProject) {
+      throw new Error('Project not found');
+    }
+
+    // Create audit log
+    if (inventoryItem) {
+      const { createAuditLog } = await import('./audit');
+      const { formatCurrency } = await import('@/lib/utils');
+      await createAuditLog({
+        projectId,
+        action: 'inventory_deleted',
+        userId,
+        userName,
+        userRole: 'admin',
+        description: `Deleted inventory: ${inventoryItem.productName} (Qty: ${inventoryItem.quantity}) - ${formatCurrency(inventoryItem.totalCost)}`,
+        metadata: {
+          inventoryItemId,
+          productName: inventoryItem.productName,
+          sku: inventoryItem.sku,
+          quantity: inventoryItem.quantity,
+          totalCost: inventoryItem.totalCost
+        }
+      });
+    }
+
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${projectId}`);
+
+    return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
+  } catch (error) {
+    console.error(`Error deleting inventory item ${inventoryItemId}:`, error);
+    throw new Error('Failed to delete inventory item');
+  }
+}
+
+// ============================================
+// PROJECT INVOICES
+// ============================================
+
+export async function getProjectInvoices(projectId: string): Promise<Invoice[]> {
+  try {
+    await dbConnect();
+
+    const invoices = await InvoiceModel.find({ projectId })
+      .sort({ date: -1 })
+      .lean();
+
+    if (!invoices || invoices.length === 0) {
+      return [];
+    }
+
+    // Transform invoices to match Invoice type
+    return invoices.map(invoice => {
+      const { _id, __v, ...rest } = invoice as any;
+      return {
+        ...rest,
+        id: String(_id),
+        date: invoice.date instanceof Date ? invoice.date.toISOString() : invoice.date,
+        dueDate: invoice.dueDate ? (invoice.dueDate instanceof Date ? invoice.dueDate.toISOString() : invoice.dueDate) : undefined,
+        validUntil: invoice.validUntil ? (invoice.validUntil instanceof Date ? invoice.validUntil.toISOString() : invoice.validUntil) : undefined,
+        createdAt: invoice.createdAt instanceof Date ? invoice.createdAt.toISOString() : invoice.createdAt,
+        updatedAt: invoice.updatedAt instanceof Date ? invoice.updatedAt.toISOString() : invoice.updatedAt,
+        items: invoice.items.map((item: any) => {
+          const { _id: itemId, ...itemRest } = item;
+          return {
+            ...itemRest,
+            id: String(itemId)
+          };
+        }),
+        payments: invoice.payments?.map((payment: any) => {
+          const { _id: paymentId, ...paymentRest } = payment;
+          return {
+            ...paymentRest,
+            id: String(paymentId),
+            date: payment.date instanceof Date ? payment.date.toISOString() : payment.date
+          };
+        }) || []
+      } as Invoice;
+    });
+  } catch (error) {
+    console.error(`Error fetching invoices for project ${projectId}:`, error);
+    return [];
   }
 }

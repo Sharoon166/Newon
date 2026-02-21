@@ -602,7 +602,7 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
           ...v,
           // Ensure inventory is an array of valid objects
           inventory: Array.isArray(v.inventory)
-            ? v.inventory.map(i => ({
+            ? v.inventory?.map(i => ({
                 locationId: i.locationId,
                 availableStock: Number(i.availableStock) || 0,
                 backorderStock: Number(i.backorderStock) || 0

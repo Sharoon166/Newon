@@ -15,16 +15,20 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { createProject, updateProject } from '../actions';
 import { CreateProjectDto, UpdateProjectDto, Project, ProjectStatus } from '../types';
+import { ProjectCustomerSelector } from './project-customer-selector';
+import type { Customer } from '@/features/customers/types';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface ProjectFormProps {
   project?: Project;
+  customers: Customer[];
   staffMembers: Array<{ id: string; firstName: string; lastName: string; email: string }>;
   currentUserId: string;
+  canViewBudget?: boolean;
 }
 
-export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFormProps) {
+export function ProjectForm({ project, customers, staffMembers, currentUserId, canViewBudget = true }: ProjectFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(
@@ -34,6 +38,13 @@ export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFor
     project?.endDate ? new Date(project.endDate) : undefined
   );
   const [selectedStaff, setSelectedStaff] = useState<string[]>(project?.assignedStaff || []);
+  
+  // Find initial customer if editing
+  const initialCustomer = project 
+    ? customers.find(c => c.customerId === project.customerId || c.id === project.customerId)
+    : null;
+  
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(initialCustomer || null);
 
   const {
     register,
@@ -58,6 +69,11 @@ export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFor
     budget: number;
     status: ProjectStatus;
   }) => {
+    if (!selectedCustomer) {
+      toast.error('Please select a customer');
+      return;
+    }
+
     if (!startDate) {
       toast.error('Please select a start date');
       return;
@@ -69,6 +85,8 @@ export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFor
       if (project) {
         // Update existing project
         const updateData: UpdateProjectDto = {
+          customerId: selectedCustomer.customerId || selectedCustomer.id,
+          customerName: selectedCustomer.name,
           title: data.title,
           description: data.description,
           budget: Number(data.budget),
@@ -84,6 +102,8 @@ export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFor
       } else {
         // Create new project
         const createData: CreateProjectDto = {
+          customerId: selectedCustomer.customerId || selectedCustomer.id,
+          customerName: selectedCustomer.name,
           title: data.title,
           description: data.description,
           budget: Number(data.budget),
@@ -99,7 +119,7 @@ export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFor
         router.push(`/projects/${newProject.projectId}`);
       }
     } catch (error) {
-      toast.error(project ? 'Failed to update project' : 'Failed to create project');
+      toast.error((error as Error).message || (project ? 'Failed to update project' : 'Failed to create project'));
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -112,6 +132,21 @@ export function ProjectForm({ project, staffMembers, currentUserId }: ProjectFor
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Customer Selection */}
+      <ProjectCustomerSelector
+        customers={customers}
+        selectedCustomer={selectedCustomer}
+        onCustomerSelect={setSelectedCustomer}
+        disabled={project !== undefined && (project.inventory.length > 0 || project.expenses.length > 0)}
+        showFinancials={canViewBudget}
+      />
+
+      {project && (project.inventory.length > 0 || project.expenses.length > 0) && (
+        <p className="text-sm text-muted-foreground">
+          Customer cannot be changed because this project has inventory or expenses.
+        </p>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="title">

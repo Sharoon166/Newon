@@ -152,7 +152,10 @@ export function NewInvoiceForm({
   purchases = [],
   virtualProducts = [],
   paymentDetails: initialPaymentDetails,
-  invoiceTerms: initialInvoiceTerms
+  invoiceTerms: initialInvoiceTerms,
+  initialData,
+  fromProject = false,
+  projectId
 }: {
   isLoading: boolean;
   onPreview: (data: InvoiceFormValues) => void;
@@ -163,6 +166,9 @@ export function NewInvoiceForm({
   virtualProducts?: EnhancedVirtualProduct[];
   paymentDetails?: { BANK_NAME: string; ACCOUNT_NUMBER: string; IBAN: string };
   invoiceTerms?: string[];
+  initialData?: Partial<InvoiceFormValues>;
+  fromProject?: boolean;
+  projectId?: string;
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isOtcCustomer, setIsOtcCustomer] = useState(false);
@@ -180,8 +186,8 @@ export function NewInvoiceForm({
     resolver: zodResolver(invoiceFormSchema) as any,
     defaultValues: {
       logo: '',
-      billingType: 'retail',
-      market: currentBrandId === 'waymor' ? 'waymor' : 'newon',
+      billingType: initialData?.billingType || 'retail',
+      market: initialData?.market || (currentBrandId === 'waymor' ? 'waymor' : 'newon'),
       company: {
         name: brand.displayName,
         address: brand.address,
@@ -192,7 +198,7 @@ export function NewInvoiceForm({
         email: brand.email,
         website: brand.website
       },
-      client: {
+      client: initialData?.client || {
         name: '',
         company: '',
         address: '',
@@ -202,20 +208,21 @@ export function NewInvoiceForm({
         email: '',
         phone: ''
       },
+      customerId: initialData?.customerId,
       invoiceNumber: '', // Will be auto-generated on save
-      date: getToday(),
-      dueDate: getToday(),
-      items: [],
-      taxRate: 0,
-      discount: 0,
-      discountType: 'fixed',
+      date: initialData?.date || getToday(),
+      dueDate: initialData?.dueDate || getToday(),
+      items: initialData?.items || [],
+      taxRate: initialData?.taxRate ?? 0,
+      discount: initialData?.discount ?? 0,
+      discountType: initialData?.discountType || 'fixed',
       amountInWords: 'Zero Rupees Only',
-      paid: 0,
+      paid: initialData?.paid ?? 0,
       remainingPayment: 0,
       profit: 0,
-      description: '',
-      notes: '',
-      terms: initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n'),
+      description: initialData?.description || '',
+      notes: initialData?.notes || '',
+      terms: initialData?.terms || (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')),
       paymentDetails: {
         bankName: initialPaymentDetails?.BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
         accountNumber: initialPaymentDetails?.ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
@@ -266,6 +273,17 @@ export function NewInvoiceForm({
     form.setValue('company.website', brand.website);
     form.setValue('market', currentBrandId === 'waymor' ? 'waymor' : 'newon');
   }, [brand, currentBrandId, form]);
+
+  // Set selected customer from initialData
+  useEffect(() => {
+    if (initialData?.customerId && customers.length > 0) {
+      const customer = customers.find(c => c.customerId === initialData.customerId || c.id === initialData.customerId);
+      if (customer) {
+        setSelectedCustomer(customer);
+        setIsToOpen(false); // Close the customer selector since we have a customer
+      }
+    }
+  }, [initialData?.customerId, customers]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -943,8 +961,8 @@ export function NewInvoiceForm({
           </div>
 
           <div className="gap-6 grid lg:grid-cols-2">
-            {/* Product Selector */}
-            {(variants.length > 0 || virtualProducts.length > 0) && (
+            {/* Product Selector - Hidden when from project */}
+            {!fromProject && (variants.length > 0 || virtualProducts.length > 0) && (
               <div className="bg-muted/30 p-4 rounded-lg">
                 <EnhancedProductSelector
                   variants={variants}
@@ -957,16 +975,29 @@ export function NewInvoiceForm({
             )}
 
             {/* Invoice Items Table with Container Query */}
-            <div className="border rounded-lg overflow-auto shadow-sm @container max-h-[665px]">
+            <div className={cn(
+              "border rounded-lg overflow-auto shadow-sm @container max-h-[665px]",
+              fromProject && "lg:col-span-2" // Full width when product selector is hidden
+            )}>
               <div className="bg-primary text-white px-4 py-3">
-                <h3 className="text-sm font-semibold">Invoice Items</h3>
+                <h3 className="text-sm font-semibold">
+                  Invoice Items
+                  {fromProject && projectId && (
+                    <span className="ml-2 text-xs opacity-80">
+                      (From Project: {projectId})
+                    </span>
+                  )}
+                </h3>
               </div>
 
               {fields.length === 0 && (
                 <div className="text-center text-muted-foreground py-20">
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm max-w-sm mx-auto">
-                    No items added yet. Use the product selector above to add items.
+                    {fromProject 
+                      ? "No items from project. Please go back and add inventory to the project first."
+                      : "No items added yet. Use the product selector above to add items."
+                    }
                   </p>
                 </div>
               )}

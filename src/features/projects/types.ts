@@ -2,6 +2,8 @@ export type ProjectStatus = 'planning' | 'active' | 'on-hold' | 'completed' | 'c
 
 export type ExpenseCategory = 'materials' | 'labor' | 'equipment' | 'transport' | 'other';
 
+export type InventoryExpenseCategory = 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+
 export interface Expense {
   id?: string;
   expenseId?: string;
@@ -16,9 +18,49 @@ export interface Expense {
   createdAt?: Date | string;
 }
 
+export interface InventoryItem {
+  id?: string;
+  inventoryId?: string;
+  productId?: string;
+  variantId?: string;
+  virtualProductId?: string;
+  isVirtualProduct: boolean;
+  productName: string;
+  sku: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  totalCost: number;
+  purchaseId?: string; // For regular products
+  componentBreakdown?: Array<{
+    productId: string;
+    variantId: string;
+    productName: string;
+    sku: string;
+    quantity: number;
+    purchaseId: string;
+    unitCost: number;
+    totalCost: number;
+  }>;
+  customExpenses?: Array<{
+    name: string;
+    amount: number;
+    category: InventoryExpenseCategory;
+    description?: string;
+  }>;
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
+  addedBy: string;
+  addedByName?: string;
+  addedAt: Date | string;
+  notes?: string;
+}
+
 export interface Project {
   id: string;
   projectId?: string;
+  customerId: string;
+  customerName: string;
   title: string;
   description: string;
   budget: number;
@@ -32,8 +74,11 @@ export interface Project {
     lastName: string;
     email: string;
   }>;
+  inventory: InventoryItem[];
   expenses: Expense[];
+  totalInventoryCost: number;
   totalExpenses: number;
+  totalProjectCost: number;
   remainingBudget: number;
   createdBy: string;
   createdByName?: string;
@@ -42,6 +87,8 @@ export interface Project {
 }
 
 export interface CreateProjectDto {
+  customerId: string;
+  customerName: string;
   title: string;
   description: string;
   budget: number;
@@ -53,6 +100,8 @@ export interface CreateProjectDto {
 }
 
 export interface UpdateProjectDto {
+  customerId?: string;
+  customerName?: string;
   title?: string;
   description?: string;
   budget?: number;
@@ -60,6 +109,45 @@ export interface UpdateProjectDto {
   startDate?: Date;
   endDate?: Date;
   assignedStaff?: string[];
+}
+
+export interface AddInventoryDto {
+  productId?: string;
+  variantId?: string;
+  virtualProductId?: string;
+  isVirtualProduct: boolean;
+  productName: string;
+  sku: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  purchaseId?: string; // For regular products
+  componentBreakdown?: Array<{
+    productId: string;
+    variantId: string;
+    productName: string;
+    sku: string;
+    quantity: number;
+    purchaseId: string;
+    unitCost: number;
+    totalCost: number;
+  }>;
+  customExpenses?: Array<{
+    name: string;
+    amount: number;
+    category: InventoryExpenseCategory;
+    description?: string;
+  }>;
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
+  addedBy: string;
+  notes?: string;
+}
+
+export interface UpdateInventoryDto {
+  quantity?: number;
+  rate?: number;
+  notes?: string;
 }
 
 export interface AddExpenseDto {
@@ -85,6 +173,7 @@ export interface ProjectFilters {
   search?: string;
   status?: ProjectStatus;
   assignedStaff?: string;
+  customerId?: string;
   dateFrom?: Date;
   dateTo?: Date;
   page?: number;
@@ -97,6 +186,13 @@ export interface ExpenseFilters {
   dateFrom?: Date;
   dateTo?: Date;
   search?: string;
+}
+
+export interface InventoryFilters {
+  category?: InventoryExpenseCategory;
+  addedBy?: string;
+  search?: string;
+  isVirtualProduct?: boolean;
 }
 
 export interface PaginatedProjects {

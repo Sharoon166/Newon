@@ -7,7 +7,19 @@ import { getInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info, Download, Eye, Layers, Coins } from 'lucide-react';
+import {
+  ArrowLeft,
+  Printer,
+  Plus,
+  Edit,
+  RefreshCw,
+  ArrowUpRight,
+  Info,
+  Download,
+  Eye,
+  Layers,
+  Coins
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -493,12 +505,9 @@ export default function InvoiceDetailPage() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.productName}</p>
-                          {item.variantSKU && <p className="text-sm text-muted-foreground">SKU: {item.variantSKU}</p>}
-                          {/* {item.isVirtualProduct && (
-                            <Badge variant="secondary" className="mt-1">
-                              Virtual Product
-                            </Badge>
-                          )} */}
+                          {item.variantSKU && item.variantId?.startsWith('var') && (
+                            <p className="text-sm text-muted-foreground">SKU: {item.variantSKU}</p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -681,7 +690,7 @@ export default function InvoiceDetailPage() {
       <Sheet open={breakdownSheetOpen} onOpenChange={setBreakdownSheetOpen}>
         <SheetContent side="right" className="w-full sm:max-w-2xl px-8 pb-12 overflow-y-auto">
           <SheetHeader className="px-0">
-            <SheetTitle className='text-primary'>Virtual Product Breakdown</SheetTitle>
+            <SheetTitle className="text-primary">Virtual Product Breakdown</SheetTitle>
           </SheetHeader>
 
           {selectedItemIndex !== null &&
@@ -737,7 +746,7 @@ export default function InvoiceDetailPage() {
                       <div>
                         <div className="flex justify-between items-center mb-3">
                           <h3 className="font-medium text-primary inline-flex items-center gap-2">
-                            <Layers className='size-6' />
+                            <Layers className="size-6" />
                             Components
                           </h3>
                           <p className="text-sm text-muted-foreground">{formatCurrency(componentCost)}</p>
@@ -765,9 +774,10 @@ export default function InvoiceDetailPage() {
                     {item.customExpenses && item.customExpenses.length > 0 && (
                       <div>
                         <div className="flex justify-between items-center mb-3">
-                           <h3 className="font-medium text-primary inline-flex items-center gap-2">
-                            <Coins className='size-6'/>
-                            Custom Expenses</h3>
+                          <h3 className="font-medium text-primary inline-flex items-center gap-2">
+                            <Coins className="size-6" />
+                            Custom Expenses
+                          </h3>
                           <p className="text-sm text-muted-foreground">{formatCurrency(customCost)}</p>
                         </div>
                         <div className="divide-y">

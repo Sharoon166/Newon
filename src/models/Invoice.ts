@@ -98,6 +98,7 @@ interface IInvoice extends Document {
   profit?: number;
   custom: boolean;
   createdBy: string;
+  projectId?: string; // Link to project if invoice was generated from project
   createdAt: Date;
   updatedAt: Date;
 }
@@ -452,6 +453,10 @@ const invoiceSchema = new Schema<IInvoice>(
     createdBy: {
       type: String,
       required: true
+    },
+    projectId: {
+      type: String,
+      index: true
     }
   },
   {

@@ -98,6 +98,7 @@ export interface Invoice {
   profit?: number;
   custom: boolean;
   createdBy: string;
+  projectId?: string; // Link to project if invoice was generated from project
   createdAt: string | Date;
   updatedAt: string | Date;
 }

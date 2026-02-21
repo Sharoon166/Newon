@@ -28,11 +28,13 @@ import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 interface ExpensesTableProps {
   data: Expense[];
   projectId: string;
+  userId: string;
+  userRole: string;
   canDelete?: boolean;
   onRefresh?: () => void;
 }
 
-export function ExpensesTable({ data, projectId, canDelete, onRefresh }: ExpensesTableProps) {
+export function ExpensesTable({ data, projectId, userId, userRole, canDelete, onRefresh }: ExpensesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -62,14 +64,15 @@ export function ExpensesTable({ data, projectId, canDelete, onRefresh }: Expense
 
     try {
       setIsDeleting(true);
-      await deleteExpense(projectId, selectedExpense.id!);
+      await deleteExpense(projectId, selectedExpense.id!, userId, userRole);
       toast.success('Expense deleted successfully');
       setDeleteDialogOpen(false);
       if (onRefresh) {
         onRefresh();
       }
     } catch (error) {
-      toast.error('Failed to delete expense');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete expense';
+      toast.error(errorMessage);
       console.error(error);
     } finally {
       setIsDeleting(false);
@@ -132,7 +135,10 @@ export function ExpensesTable({ data, projectId, canDelete, onRefresh }: Expense
         enableHiding: false,
         cell: ({ row }) => {
           const expense = row.original;
-          return canDelete ? (
+          // Staff can only delete their own expenses, admin can delete any
+          const canDeleteExpense = canDelete && (userRole === 'admin' || expense.addedBy === userId);
+          
+          return canDeleteExpense ? (
             <Button
               variant="ghost"
               size="icon"
