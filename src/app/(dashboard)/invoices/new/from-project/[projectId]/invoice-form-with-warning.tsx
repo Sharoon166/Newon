@@ -9,6 +9,68 @@ import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { PaymentDetails } from '@/features/settings/types';
 import { toast } from 'sonner';
 
+interface FormData {
+  invoiceNumber?: string;
+  date: string;
+  dueDate?: string;
+  validUntil?: string;
+  billingType?: 'retail' | 'wholesale';
+  market?: 'newon' | 'waymor';
+  customerId?: string;
+  client: {
+    name: string;
+    company?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+  items: Array<{
+    id: string;
+    productId?: string;
+    description: string;
+    variantId?: string;
+    variantSKU?: string;
+    virtualProductId?: string;
+    isVirtualProduct?: boolean;
+    quantity: number;
+    rate: number;
+    amount: number;
+    purchaseId?: string;
+    originalRate?: number;
+    saleRate?: number;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount: number;
+      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
+  }>;
+  discountType?: 'percentage' | 'fixed';
+  discount: number;
+  taxRate: number;
+  description?: string;
+  notes?: string;
+  terms?: string;
+  paid?: number;
+  profit?: number;
+  amountInWords?: string;
+}
+
 interface InvoiceFormWithWarningProps {
   customers: Customer[];
   variants: EnhancedVariants[];
@@ -16,7 +78,7 @@ interface InvoiceFormWithWarningProps {
   virtualProducts: EnhancedVirtualProduct[];
   paymentDetails: PaymentDetails;
   invoiceTerms: string[];
-  initialData: any;
+  initialData: Partial<FormData>;
   projectId: string;
   existingInvoicesCount: number;
   existingInvoiceNumbers: string[];

@@ -30,7 +30,7 @@ export interface IProjectAuditLog extends Document {
     oldValue?: string;
     newValue?: string;
     invoiceNumber?: string;
-    [key: string]: any;
+    [key: string]: string | number | boolean | undefined;
   };
   createdAt: Date;
 }

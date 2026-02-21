@@ -56,7 +56,7 @@ interface EnhancedProductSelectorProps {
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: string;
+      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
       description?: string;
     }>;
     totalComponentCost?: number;

@@ -15,9 +15,9 @@ export const metadata = {
 };
 
 async function VirtualProductsContent() {
-  const [virtualProducts, products] = await Promise.all([
+  const [virtualProducts, ] = await Promise.all([
     getVirtualProducts(),
-    getProducts()
+    // getProducts()
   ]);
 
   return (

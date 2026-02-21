@@ -20,6 +20,7 @@ import {
   Layers,
   Coins
 } from 'lucide-react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -35,7 +36,6 @@ import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/
 import { toast } from 'sonner';
 import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
-import Link from 'next/link';
 import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
 export default function InvoiceDetailPage() {
@@ -312,10 +312,24 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setEditDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
+          {/* Edit button - Navigate to edit page for quotations and pending invoices, use dialog for paid/partial */}
+          {invoice.type === 'quotation' || invoice.status === 'pending' ? (
+            <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Link>
+            </Button>
+          ) : (
+            <Button 
+              variant="outline" 
+              onClick={() => setEditDialogOpen(true)} 
+              disabled={invoice.status === 'cancelled'}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Update Status

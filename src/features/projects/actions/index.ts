@@ -10,7 +10,8 @@ import type {
   AddExpenseDto,
   UpdateExpenseDto,
   AddInventoryDto,
-  UpdateInventoryDto
+  UpdateInventoryDto,
+  LeanProject
 } from '../types';
 import type { Invoice } from '@/features/invoices/types';
 import dbConnect from '@/lib/db';
@@ -18,80 +19,6 @@ import ProjectModel from '@/models/Project';
 import InvoiceModel from '@/models/Invoice';
 import Staff from '@/models/Staff';
 import Customer from '@/models/Customer';
-
-// Type for lean Mongoose document
-interface LeanProject {
-  _id: Record<string, unknown>;
-  projectId?: string;
-  customerId: string;
-  customerName: string;
-  title: string;
-  description: string;
-  budget: number;
-  status: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
-  startDate: Date | string;
-  endDate?: Date | string;
-  assignedStaff: string[];
-  inventory: Array<{
-    _id: Record<string, unknown>;
-    inventoryId?: string;
-    productId?: string;
-    variantId?: string;
-    virtualProductId?: string;
-    isVirtualProduct: boolean;
-    productName: string;
-    sku: string;
-    description: string;
-    quantity: number;
-    rate: number;
-    totalCost: number;
-    purchaseId?: string;
-    componentBreakdown?: Array<{
-      productId: string;
-      variantId: string;
-      productName: string;
-      sku: string;
-      quantity: number;
-      purchaseId: string;
-      unitCost: number;
-      totalCost: number;
-    }>;
-    customExpenses?: Array<{
-      name: string;
-      amount: number;
-      category: string;
-      description?: string;
-    }>;
-    totalComponentCost?: number;
-    totalCustomExpenses?: number;
-    addedBy: string;
-    addedByName?: string;
-    addedAt: Date | string;
-    notes?: string;
-  }>;
-  expenses: Array<{
-    _id: Record<string, unknown>;
-    expenseId?: string;
-    description: string;
-    amount: number;
-    category: string;
-    date: Date | string;
-    addedBy: string;
-    addedByName?: string;
-    receipt?: string;
-    notes?: string;
-    createdAt: Date | string;
-  }>;
-  totalInventoryCost: number;
-  totalExpenses: number;
-  totalProjectCost: number;
-  remainingBudget: number;
-  createdBy: string;
-  createdByName?: string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-  __v?: number;
-}
 
 // Helper function to transform lean project to Project type
 function transformLeanProject(leanDoc: LeanProject): Project {
@@ -737,23 +664,36 @@ export async function getProjectInvoices(projectId: string): Promise<Invoice[]> 
 
     // Transform invoices to match Invoice type
     return invoices.map(invoice => {
-      const { _id, __v, ...rest } = invoice as any;
+      const inv = invoice as unknown as {
+        _id: unknown;
+        __v?: number;
+        date: Date | string;
+        dueDate?: Date | string;
+        validUntil?: Date | string;
+        createdAt: Date | string;
+        updatedAt: Date | string;
+        items: Array<{ _id: unknown; [key: string]: unknown }>;
+        payments?: Array<{ _id: unknown; date: Date | string; [key: string]: unknown }>;
+        [key: string]: unknown;
+      };
+      
+      const { _id, __v, ...rest } = inv;
       return {
         ...rest,
         id: String(_id),
-        date: invoice.date instanceof Date ? invoice.date.toISOString() : invoice.date,
-        dueDate: invoice.dueDate ? (invoice.dueDate instanceof Date ? invoice.dueDate.toISOString() : invoice.dueDate) : undefined,
-        validUntil: invoice.validUntil ? (invoice.validUntil instanceof Date ? invoice.validUntil.toISOString() : invoice.validUntil) : undefined,
-        createdAt: invoice.createdAt instanceof Date ? invoice.createdAt.toISOString() : invoice.createdAt,
-        updatedAt: invoice.updatedAt instanceof Date ? invoice.updatedAt.toISOString() : invoice.updatedAt,
-        items: invoice.items.map((item: any) => {
+        date: inv.date instanceof Date ? inv.date.toISOString() : inv.date,
+        dueDate: inv.dueDate ? (inv.dueDate instanceof Date ? inv.dueDate.toISOString() : inv.dueDate) : undefined,
+        validUntil: inv.validUntil ? (inv.validUntil instanceof Date ? inv.validUntil.toISOString() : inv.validUntil) : undefined,
+        createdAt: inv.createdAt instanceof Date ? inv.createdAt.toISOString() : inv.createdAt,
+        updatedAt: inv.updatedAt instanceof Date ? inv.updatedAt.toISOString() : inv.updatedAt,
+        items: inv.items.map((item) => {
           const { _id: itemId, ...itemRest } = item;
           return {
             ...itemRest,
             id: String(itemId)
           };
         }),
-        payments: invoice.payments?.map((payment: any) => {
+        payments: inv.payments?.map((payment) => {
           const { _id: paymentId, ...paymentRest } = payment;
           return {
             ...paymentRest,
@@ -761,7 +701,7 @@ export async function getProjectInvoices(projectId: string): Promise<Invoice[]> 
             date: payment.date instanceof Date ? payment.date.toISOString() : payment.date
           };
         }) || []
-      } as Invoice;
+      } as unknown as Invoice;
     });
   } catch (error) {
     console.error(`Error fetching invoices for project ${projectId}:`, error);

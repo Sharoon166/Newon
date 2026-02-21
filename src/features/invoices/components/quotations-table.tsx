@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -59,6 +60,7 @@ interface QuotationsTableProps {
 }
 
 export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -304,8 +306,8 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    setSelectedQuotation(quotation);
-                    setEditDialogOpen(true);
+                    // Quotations always navigate to edit page
+                    router.push(`/invoices/${quotation.id}/edit`);
                   }}
                 >
                   <Edit className="h-4 w-4 mr-2" />

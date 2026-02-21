@@ -1,10 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import InvoiceModel from '@/models/Invoice';
 import { getProject } from './index';
-import type { Invoice } from '@/features/invoices/types';
 
 export interface GenerateInvoiceFromProjectDto {
   projectId: string;
@@ -167,7 +167,7 @@ export async function generateInvoiceFromProject(
 
     return {
       success: true,
-      invoiceId: invoice._id.toString(),
+      invoiceId: (invoice._id as mongoose.Types.ObjectId).toString(),
       invoiceNumber: invoice.invoiceNumber
     };
   } catch (error) {

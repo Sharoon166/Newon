@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, User, DollarSign } from 'lucide-react';
+import { Building2, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {

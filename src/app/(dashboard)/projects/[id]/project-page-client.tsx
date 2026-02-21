@@ -24,6 +24,7 @@ import type { Purchase } from '@/features/purchases/types';
 import { EnhancedProductSelector } from '@/features/invoices/components/enhanced-product-selector';
 import { addInventoryItem } from '@/features/projects/actions';
 import { toast } from 'sonner';
+import useBrandStore from '@/stores/useBrandStore';
 
 interface ProjectPageClientProps {
   project: Project;
@@ -50,10 +51,9 @@ interface ProjectPageClientProps {
     userName: string;
     userRole: string;
     description: string;
-    metadata?: Record<string, unknown>;
+    metadata?: Record<string, string | number | boolean | undefined>;
     createdAt: string;
   }>;
-  market: 'newon' | 'waymor';
   variants?: EnhancedVariants[];
   virtualProducts?: EnhancedVirtualProduct[];
   purchases?: Purchase[];
@@ -77,12 +77,13 @@ export function ProjectPageClient({
   canViewProjectInvoices,
   projectInvoices,
   auditLogs,
-  market,
   variants = [],
   virtualProducts = [],
   purchases = []
 }: ProjectPageClientProps) {
   const router = useRouter();
+  const currentBrandId = useBrandStore(state => state.currentBrandId);
+  const market = currentBrandId === 'waymor' ? 'waymor' : 'newon';
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [isAddingInventory, setIsAddingInventory] = useState(false);
   const [pendingInventory, setPendingInventory] = useState<InventoryItem[]>([]);

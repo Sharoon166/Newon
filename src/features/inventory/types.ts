@@ -87,3 +87,15 @@ export interface EnhancedVariants extends ProductVariant {
   wholesalePrice?: number;
   shippingCost?: number;
 }
+
+// Lean type for MongoDB product documents (used in server actions)
+export interface LeanProduct {
+  _id: { toString: () => string };
+  name: string;
+  variants?: Array<{
+    id: string;
+    sku: string;
+    image?: string;
+    imageFile?: ProductVariantImage;
+  }>;
+}

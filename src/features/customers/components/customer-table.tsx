@@ -162,7 +162,6 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
       enableHiding: false,
       cell: ({ row }) => {
         const customer = row.original;
-        const allowDeletion = row.original.totalInvoiced === 0 || row.original.totalPaid === 0;
         return row.original.id === 'otc' ? null : (
           <div className="flex justify-end">
             {onEdit && (

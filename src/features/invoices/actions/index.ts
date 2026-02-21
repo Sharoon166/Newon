@@ -1328,3 +1328,198 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
     throw new Error((error as Error).message || 'Failed to restore stock');
   }
 }
+
+/**
+ * Check if an invoice can be edited
+ */
+export async function canEditInvoice(invoiceId: string): Promise<{
+  allowed: boolean;
+  reason?: string;
+  requiresStockRestore: boolean;
+  warning?: string;
+}> {
+  try {
+    await dbConnect();
+    const invoice = await InvoiceModel.findById(invoiceId).lean();
+
+    if (!invoice) {
+      return { allowed: false, reason: 'Invoice not found', requiresStockRestore: false };
+    }
+
+    // Cannot edit cancelled invoices
+    if (invoice.status === 'cancelled') {
+      return { allowed: false, reason: 'Cannot edit cancelled invoices', requiresStockRestore: false };
+    }
+
+    // Cannot edit paid invoices (financial records finalized)
+    if (invoice.status === 'paid') {
+      return { allowed: false, reason: 'Cannot edit paid invoices', requiresStockRestore: false };
+    }
+
+    // Quotations can always be edited (unless cancelled)
+    if (invoice.type === 'quotation') {
+      return { allowed: true, requiresStockRestore: false };
+    }
+
+    // Pending invoices
+    if (invoice.status === 'pending') {
+      // If stock not deducted - safe to edit
+      if (!invoice.stockDeducted) {
+        return { allowed: true, requiresStockRestore: false };
+      }
+
+      // If stock deducted - can edit but needs restore/re-deduct
+      return {
+        allowed: true,
+        requiresStockRestore: true,
+        warning: 'Stock will be restored and re-deducted after editing'
+      };
+    }
+
+    return { allowed: false, reason: 'Invoice cannot be edited in current status', requiresStockRestore: false };
+  } catch (error) {
+    console.error(`Error checking edit permission for invoice ${invoiceId}:`, error);
+    return { allowed: false, reason: 'Error checking permissions', requiresStockRestore: false };
+  }
+}
+
+/**
+ * Update invoice with full edit capability (items, quantities, etc.)
+ * Handles stock restoration and re-deduction automatically
+ */
+export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Promise<Invoice> {
+  try {
+    await dbConnect();
+
+    // Check if editing is allowed
+    const editCheck = await canEditInvoice(id);
+    if (!editCheck.allowed) {
+      throw new Error(editCheck.reason || 'Invoice cannot be edited');
+    }
+
+    // Get the original invoice
+    const originalInvoice = await InvoiceModel.findById(id);
+    if (!originalInvoice) {
+      throw new Error('Invoice not found');
+    }
+
+    const wasStockDeducted = originalInvoice.stockDeducted;
+
+    // Step 1: Restore stock if it was deducted
+    if (wasStockDeducted && editCheck.requiresStockRestore) {
+      await restoreInvoiceStock(id);
+    }
+
+    try {
+      // Step 2: Update the invoice with new data
+      // Convert date strings to UTC Date objects
+      const { dateStringToUTC } = await import('@/lib/utils');
+      const processedData = { ...data };
+      if (processedData.date && typeof processedData.date === 'string') {
+        processedData.date = dateStringToUTC(processedData.date);
+      }
+      if (processedData.dueDate && typeof processedData.dueDate === 'string') {
+        processedData.dueDate = dateStringToUTC(processedData.dueDate);
+      }
+      if (processedData.validUntil && typeof processedData.validUntil === 'string') {
+        processedData.validUntil = dateStringToUTC(processedData.validUntil);
+      }
+
+      // Recalculate profit if items or discount changed
+      if (data.items || data.discountAmount !== undefined) {
+        const items = data.items || originalInvoice.items;
+        const discountAmount = data.discountAmount !== undefined ? data.discountAmount : originalInvoice.discountAmount;
+
+        processedData.profit = calculateInvoiceProfit(
+          items.map(item => ({
+            rate: item.unitPrice,
+            originalRate: item.originalRate,
+            quantity: item.quantity
+          })),
+          discountAmount
+        );
+      }
+
+      const updateData = Object.fromEntries(
+        Object.entries(processedData).filter(([, value]) => value !== undefined)
+      );
+
+      // Reset stockDeducted to false since we restored it
+      if (wasStockDeducted) {
+        updateData.stockDeducted = false;
+      }
+
+      const updatedInvoice = await InvoiceModel.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
+
+      if (!updatedInvoice) {
+        throw new Error('Failed to update invoice');
+      }
+
+      // Step 3: Re-deduct stock if it was originally deducted
+      if (wasStockDeducted && updatedInvoice.type === 'invoice') {
+        try {
+          await deductInvoiceStock(id);
+        } catch (stockError) {
+          // If re-deduction fails, we need to handle it gracefully
+          console.error('Failed to re-deduct stock after update:', stockError);
+          throw new Error(
+            `Invoice updated but stock re-deduction failed: ${(stockError as Error).message}. Please manually deduct stock.`
+          );
+        }
+      }
+
+      // Update ledger entry if this is an invoice and total amount changed
+      if (updatedInvoice.type === 'invoice' && data.totalAmount !== undefined) {
+        try {
+          const { updateLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+          await updateLedgerEntryFromInvoice({
+            id: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+            invoiceNumber: updatedInvoice.invoiceNumber,
+            totalAmount: updatedInvoice.totalAmount
+          });
+        } catch (ledgerError) {
+          console.error('Error updating ledger entry:', ledgerError);
+        }
+
+        // Update customer financials if amounts changed
+        if (data.totalAmount !== undefined || data.paidAmount !== undefined) {
+          try {
+            const { updateCustomerFinancialsOnInvoiceUpdate } = await import('@/features/customers/actions');
+            await updateCustomerFinancialsOnInvoiceUpdate(
+              updatedInvoice.customerId,
+              originalInvoice.totalAmount,
+              updatedInvoice.totalAmount,
+              originalInvoice.paidAmount,
+              updatedInvoice.paidAmount
+            );
+          } catch (customerError) {
+            console.error('Error updating customer financials:', customerError);
+          }
+        }
+      }
+
+      revalidatePath('/invoices');
+      revalidatePath(`/invoices/${id}`);
+      revalidatePath('/dashboard');
+      revalidatePath('/ledger', 'layout');
+      revalidatePath('/customers');
+      revalidatePath('/purchases');
+      revalidatePath('/inventory');
+
+      return transformInvoice(updatedInvoice.toObject() as unknown as LeanInvoice);
+    } catch (updateError) {
+      // If update failed and we restored stock, try to re-deduct the original stock
+      if (wasStockDeducted && editCheck.requiresStockRestore) {
+        try {
+          await deductInvoiceStock(id);
+        } catch (redeductError) {
+          console.error('Failed to restore original stock state after update failure:', redeductError);
+        }
+      }
+      throw updateError;
+    }
+  } catch (error) {
+    console.error(`Error in full invoice update ${id}:`, error);
+    throw new Error((error as Error).message || 'Failed to update invoice');
+  }
+}

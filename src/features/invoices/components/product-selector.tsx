@@ -287,8 +287,10 @@ export function ProductSelector({
             // Filter to only purchases with effective remaining > 0
             const variantPurchasesForCard = purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
             const firstPurchase = variantPurchasesForCard[0];
+
             // FIFO: Only show stock from the first purchase with available stock
-            const available = firstPurchase?.remaining || 0;
+            // const available = firstPurchase?.remaining || 0;
+
             // Only count items from the SAME purchase when calculating remaining stock
             const quantityInInvoice = currentItems
               .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)

@@ -55,7 +55,7 @@ interface VirtualProductSelectorProps {
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: string;
+      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
       description?: string;
     }>;
     totalComponentCost?: number;
@@ -107,11 +107,8 @@ export function VirtualProductSelector({
             return total + (item.quantity || 0);
           }
           // Check if this is a virtual product item that contains this component
-          if (item.virtualProductId && (item as any).componentBreakdown) {
-            const breakdown = (item as any).componentBreakdown as Array<{
-              variantId: string;
-              quantity: number;
-            }>;
+          if (item.virtualProductId && item.componentBreakdown) {
+            const breakdown = item.componentBreakdown
             const matchingComponent = breakdown.find(b => b.variantId === component.variantId);
             if (matchingComponent) {
               return total + matchingComponent.quantity;
@@ -389,11 +386,8 @@ export function VirtualProductSelector({
                                 if (item.variantId === comp.variantId) {
                                   return total + (item.quantity || 0);
                                 }
-                                if (item.virtualProductId && (item as any).componentBreakdown) {
-                                  const breakdown = (item as any).componentBreakdown as Array<{
-                                    variantId: string;
-                                    quantity: number;
-                                  }>;
+                                if (item.virtualProductId && item.componentBreakdown) {
+                                  const breakdown = item.componentBreakdown;
                                   const matchingComponent = breakdown.find(b => b.variantId === comp.variantId);
                                   if (matchingComponent) {
                                     return total + matchingComponent.quantity;
@@ -591,7 +585,10 @@ export function VirtualProductSelector({
                       <Label htmlFor="expenseCategory" className="text-xs">
                         Category
                       </Label>
-                      <Select value={newExpenseCategory} onValueChange={value => setNewExpenseCategory(value as any)}>
+                      <Select 
+                        value={newExpenseCategory} 
+                        onValueChange={(value) => setNewExpenseCategory(value as 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other')}
+                      >
                         <SelectTrigger className="h-8 w-full">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>

@@ -418,8 +418,14 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                   <>
                     <DropdownMenuItem
                       onClick={() => {
-                        setSelectedInvoice(invoice);
-                        setEditDialogOpen(true);
+                        // For quotations and pending invoices, navigate to edit page
+                        if (invoice.type === 'quotation' || invoice.status === 'pending') {
+                          router.push(`/invoices/${invoice.id}/edit`);
+                        } else {
+                          // For paid/partial invoices, use dialog
+                          setSelectedInvoice(invoice);
+                          setEditDialogOpen(true);
+                        }
                       }}
                     >
                       <Edit className="h-4 w-4 mr-2" />

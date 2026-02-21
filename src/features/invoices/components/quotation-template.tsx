@@ -125,7 +125,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                         <img 
                           src={item.imageUrl} 
                           alt={item.description || 'Product'} 
-                          className="w-12 h-12 object-cover rounded border flex-shrink-0"
+                          className="w-12 h-12 object-cover rounded border shrink-0"
                         />
                       )}
                       <span>{item.description || 'Item description'}</span>

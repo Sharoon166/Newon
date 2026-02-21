@@ -30,7 +30,7 @@ import {
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn, formatCurrency, formatDate, getToday } from '@/lib/utils';
+import { cn, formatCurrency, getToday } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import useBrandStore from '@/stores/useBrandStore';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -40,7 +40,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ProductSelector } from './product-selector';
 import { EnhancedProductSelector } from './enhanced-product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
@@ -155,7 +154,8 @@ export function NewInvoiceForm({
   invoiceTerms: initialInvoiceTerms,
   initialData,
   fromProject = false,
-  projectId
+  projectId,
+  isEditMode = false
 }: {
   isLoading: boolean;
   onPreview: (data: InvoiceFormValues) => void;
@@ -169,6 +169,7 @@ export function NewInvoiceForm({
   initialData?: Partial<InvoiceFormValues>;
   fromProject?: boolean;
   projectId?: string;
+  isEditMode?: boolean;
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isOtcCustomer, setIsOtcCustomer] = useState(false);
@@ -231,8 +232,13 @@ export function NewInvoiceForm({
     }
   });
 
-  // Fetch next invoice number on mount
+  // Fetch next invoice number on mount (only for new invoices)
   useEffect(() => {
+    if (isEditMode && initialData?.invoiceNumber) {
+      setNextInvoiceNumber(initialData.invoiceNumber);
+      return;
+    }
+
     const fetchNextInvoiceNumber = async () => {
       try {
         const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
@@ -245,7 +251,7 @@ export function NewInvoiceForm({
     };
 
     fetchNextInvoiceNumber();
-  }, []);
+  }, [isEditMode, initialData?.invoiceNumber]);
 
   // Show toast errors on mount if no customers or products
   useEffect(() => {
@@ -371,7 +377,7 @@ export function NewInvoiceForm({
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: string;
+      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
       description?: string;
     }>;
     totalComponentCost?: number;
@@ -432,7 +438,7 @@ export function NewInvoiceForm({
           customExpenses: item.customExpenses,
           totalComponentCost: item.totalComponentCost,
           totalCustomExpenses: item.totalCustomExpenses
-        } as any);
+        });
       }
       return;
     }

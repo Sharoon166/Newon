@@ -61,6 +61,7 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/i
 
 const quotationFormSchema = z.object({
   logo: z.string().optional(),
+  quotationNumber: z.string().optional(), // Auto-generated on save or existing in edit mode
   billingType: z.enum(['wholesale', 'retail']).default('retail'),
   market: z.enum(['newon', 'waymor']).default('newon'),
   customerId: z.string().optional(),
@@ -127,7 +128,8 @@ export function NewQuotationForm({
   invoiceTerms: initialInvoiceTerms,
   initialData,
   fromProject = false,
-  projectId
+  projectId,
+  isEditMode = false
 }: {
   isLoading: boolean;
   onPreview: (data: QuotationFormValues) => void;
@@ -140,6 +142,7 @@ export function NewQuotationForm({
   initialData?: Partial<QuotationFormValues>;
   fromProject?: boolean;
   projectId?: string;
+  isEditMode?: boolean;
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
@@ -200,8 +203,13 @@ export function NewQuotationForm({
     name: 'items'
   });
 
-  // Fetch next quotation number on mount
+  // Fetch next quotation number on mount (only for new quotations)
   useEffect(() => {
+    if (isEditMode && initialData?.quotationNumber) {
+      setNextQuotationNumber(initialData.quotationNumber);
+      return;
+    }
+
     const fetchNextQuotationNumber = async () => {
       try {
         const { getNextInvoiceNumber } = await import('@/features/invoices/actions');
@@ -214,7 +222,7 @@ export function NewQuotationForm({
     };
 
     fetchNextQuotationNumber();
-  }, [form]);
+  }, [isEditMode, initialData?.quotationNumber, form]);
 
   // Show toast errors on mount if no customers or products
   useEffect(() => {
@@ -332,7 +340,7 @@ export function NewQuotationForm({
           isVirtualProduct: true,
           variantSKU: item.sku,
           originalRate: item.originalRate
-        } as any);
+        });
       }
       return;
     }

@@ -287,7 +287,7 @@ export function ProjectInventoryTable({ data, projectId, userId, userName, canDe
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Inventory Item</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{itemToDelete?.productName}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{itemToDelete?.productName}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -448,7 +448,10 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
               </div>
               <div className="space-y-2">
                 <Label htmlFor="expenseCategory">Category</Label>
-                <Select value={expenseCategory} onValueChange={(value) => setExpenseCategory(value as any)}>
+                <Select 
+                  value={expenseCategory} 
+                  onValueChange={(value) => setExpenseCategory(value as 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other')}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>

@@ -44,3 +44,22 @@ export interface EnhancedVirtualProduct extends VirtualProduct {
     availableStock: number;
   })[];
 }
+
+// Lean types for MongoDB documents (used in server actions)
+export interface LeanVirtualProduct {
+  _id: { toString: () => string };
+  name: string;
+  sku: string;
+  description?: string;
+  basePrice: number;
+  categories?: string[];
+  disabled?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  components: Array<{
+    productId: string;
+    variantId: string;
+    quantity: number;
+  }>;
+  customExpenses?: CustomExpense[];
+}

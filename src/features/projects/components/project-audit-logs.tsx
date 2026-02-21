@@ -11,9 +11,8 @@ import {
   FileText, 
   Users, 
   TrendingUp,
-  Package,
-  Receipt,
-  AlertCircle
+  AlertCircle,
+  LucideIcon
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { AuditAction } from '@/models/ProjectAuditLog';
@@ -26,7 +25,7 @@ interface AuditLog {
   userName: string;
   userRole: string;
   description: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | undefined>;
   createdAt: string;
 }
 
@@ -35,7 +34,7 @@ interface ProjectAuditLogsProps {
   users: Array<{ id: string; name: string }>;
 }
 
-const actionConfig: Record<AuditAction, { icon: any; color: string; bgColor: string; label: string }> = {
+const actionConfig: Record<AuditAction, { icon: LucideIcon; color: string; bgColor: string; label: string }> = {
   project_created: { icon: Plus, color: 'text-blue-600', bgColor: 'bg-blue-50', label: 'Created' },
   project_updated: { icon: Edit, color: 'text-blue-600', bgColor: 'bg-blue-50', label: 'Updated' },
   project_status_changed: { icon: TrendingUp, color: 'text-purple-600', bgColor: 'bg-purple-50', label: 'Status Changed' },

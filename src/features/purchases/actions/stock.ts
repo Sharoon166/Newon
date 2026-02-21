@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import dbConnect from '@/lib/db';
 import PurchaseModel from '@/models/Purchase';
+import { VirtualProduct } from '@/features/virtual-products/types';
 
 /**
  * Deduct stock from a purchase
@@ -86,7 +87,6 @@ export async function deductStockForInvoice(
       try {
         // Get virtual product details with components
         const VirtualProductModel = (await import('@/models/VirtualProduct')).default;
-        const ProductModel = (await import('@/models/Product')).default;
         
         await dbConnect();
         
@@ -97,7 +97,7 @@ export async function deductStockForInvoice(
         }
 
         // Deduct stock for each component
-        for (const component of (virtualProduct as any).components) {
+        for (const component of (virtualProduct as unknown as VirtualProduct).components) {
           const requiredQty = component.quantity * item.quantity;
           
           // Find purchases for this component variant
@@ -177,7 +177,7 @@ export async function restoreStockForInvoice(
         }
 
         // Restore stock for each component
-        for (const component of (virtualProduct as any).components) {
+        for (const component of (virtualProduct as unknown as VirtualProduct).components) {
           const restoreQty = component.quantity * item.quantity;
           
           // Find purchases for this component variant (most recent first for restoration)

@@ -1,11 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Project } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { User, TrendingUp, TrendingDown, TriangleAlert, ArrowUpRight } from 'lucide-react';
 import type { Customer } from '@/features/customers/types';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, Legend } from 'recharts';
 import { Item, ItemContent, ItemMedia } from '@/components/ui/item';
 import Link from 'next/link';
@@ -101,7 +100,7 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
                   {project.assignedStaffDetails && project.assignedStaffDetails.length > 0 ? (
                     <div className="flex items-center gap-2">
                       <div className="flex -space-x-2">
-                        {project.assignedStaffDetails.slice(0, 4).map((staff, idx) => (
+                        {project.assignedStaffDetails.slice(0, 4).map((staff) => (
                           <div
                             key={staff.id}
                             className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center"

@@ -11,6 +11,8 @@ import { getAllPurchases } from '@/features/purchases/actions';
 import { userHasPermission } from '@/lib/rbac';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProjectPageClient } from './project-page-client';
+import { EnhancedVariants } from '@/features/inventory/types';
+import { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 
 interface ProjectPageProps {
   params: Promise<{
@@ -56,8 +58,8 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
     const auditLogs = auditLogsResult.logs || [];
 
     // Fetch virtual products for inventory (admin only)
-    let variants = [];
-    let virtualProducts = [];
+    let variants: EnhancedVariants[] = [];
+    let virtualProducts: EnhancedVirtualProduct[] = [];
     let purchases = [];
     
     if (canViewInventory) {
@@ -85,7 +87,6 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
         canViewProjectInvoices={canViewProjectInvoices}
         projectInvoices={projectInvoices}
         auditLogs={auditLogs}
-        market={session.user.market || 'newon'}
         variants={variants}
         virtualProducts={virtualProducts}
         purchases={purchases}

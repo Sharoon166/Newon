@@ -507,7 +507,7 @@ async function getCustomerBalanceBeforeDate(customerId: string, date: Date, crea
 }
 
 // Helper function to get customer balance (all entries)
-async function getCustomerBalance(customerId: string): Promise<number> {
+export async function getCustomerBalance(customerId: string): Promise<number> {
   // Get cancelled invoice IDs to exclude
   const InvoiceModel = (await import('@/models/Invoice')).default;
   const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();

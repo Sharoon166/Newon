@@ -206,3 +206,77 @@ export interface PaginatedProjects {
   nextPage: number | null;
   prevPage: number | null;
 }
+
+// Lean type for MongoDB project documents (used in server actions)
+export interface LeanProject {
+  _id: Record<string, unknown>;
+  projectId?: string;
+  customerId: string;
+  customerName: string;
+  title: string;
+  description: string;
+  budget: number;
+  status: ProjectStatus;
+  startDate: Date | string;
+  endDate?: Date | string;
+  assignedStaff: string[];
+  inventory: Array<{
+    _id: Record<string, unknown>;
+    inventoryId?: string;
+    productId?: string;
+    variantId?: string;
+    virtualProductId?: string;
+    isVirtualProduct: boolean;
+    productName: string;
+    sku: string;
+    description: string;
+    quantity: number;
+    rate: number;
+    totalCost: number;
+    purchaseId?: string;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount: number;
+      category: InventoryExpenseCategory;
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
+    addedBy: string;
+    addedByName?: string;
+    addedAt: Date | string;
+    notes?: string;
+  }>;
+  expenses: Array<{
+    _id: Record<string, unknown>;
+    expenseId?: string;
+    description: string;
+    amount: number;
+    category: ExpenseCategory;
+    date: Date | string;
+    addedBy: string;
+    addedByName?: string;
+    receipt?: string;
+    notes?: string;
+    createdAt: Date | string;
+  }>;
+  totalInventoryCost: number;
+  totalExpenses: number;
+  totalProjectCost: number;
+  remainingBudget: number;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  __v?: number;
+}

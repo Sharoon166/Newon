@@ -51,7 +51,19 @@ export async function calculateVirtualProductFIFOCost(
       throw new Error('Virtual product not found');
     }
 
-    const vp = virtualProduct as any;
+    const vp = virtualProduct as unknown as {
+      components: Array<{
+        productId: string;
+        variantId: string;
+        quantity: number;
+      }>;
+      customExpenses?: Array<{
+        name: string;
+        amount: number;
+        category: string;
+        description?: string;
+      }>;
+    };
     const componentBreakdown: ComponentBreakdown[] = [];
     const errors: string[] = [];
     let canFulfill = true;
@@ -70,16 +82,21 @@ export async function calculateVirtualProductFIFOCost(
         .lean();
 
       // Calculate effective remaining for each purchase (accounting for items in current invoice)
-      const purchasesWithEffectiveRemaining = purchases.map((purchase: any) => {
+      const purchasesWithEffectiveRemaining = purchases.map((purchase: Record<string, unknown>) => {
+        const purchaseObj = purchase as {
+          purchaseId: string;
+          remaining: number;
+          unitPrice: number;
+        };
         const usedInInvoice = currentInvoiceItems
-          .filter(item => item.variantId === component.variantId && item.purchaseId === purchase.purchaseId)
+          .filter(item => item.variantId === component.variantId && item.purchaseId === purchaseObj.purchaseId)
           .reduce((sum, item) => sum + item.quantity, 0);
         
         return {
           ...purchase,
-          effectiveRemaining: purchase.remaining - usedInInvoice
+          effectiveRemaining: purchaseObj.remaining - usedInInvoice
         };
-      }).filter((p: any) => p.effectiveRemaining > 0);
+      }).filter((p: Record<string, unknown>) => (p.effectiveRemaining as number) > 0);
 
       if (purchasesWithEffectiveRemaining.length === 0) {
         errors.push(`No stock available for component ${component.productId}-${component.variantId}`);
@@ -88,8 +105,11 @@ export async function calculateVirtualProductFIFOCost(
       }
 
       // Use FIFO to allocate stock
-      let remainingToAllocate = requiredQty;
-      const firstPurchase = purchasesWithEffectiveRemaining[0] as any;
+      const firstPurchase = purchasesWithEffectiveRemaining[0] as Record<string, unknown> & {
+        effectiveRemaining: number;
+        purchaseId: string;
+        unitPrice: number;
+      };
 
       if (firstPurchase.effectiveRemaining < requiredQty) {
         errors.push(
@@ -116,11 +136,11 @@ export async function calculateVirtualProductFIFOCost(
 
     // Calculate totals
     const totalComponentCost = componentBreakdown.reduce((sum, comp) => sum + comp.totalCost, 0);
-    const totalCustomExpenses = (vp.customExpenses || []).reduce((sum: number, exp: any) => sum + exp.amount, 0) * quantity;
+    const totalCustomExpenses = (vp.customExpenses || []).reduce((sum: number, exp) => sum + exp.amount, 0) * quantity;
 
     return {
       componentBreakdown,
-      customExpenses: (vp.customExpenses || []).map((exp: any) => ({
+      customExpenses: (vp.customExpenses || []).map((exp) => ({
         name: exp.name,
         amount: exp.amount * quantity, // Multiply by quantity
         category: exp.category,
