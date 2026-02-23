@@ -1,9 +1,5 @@
 'use server';
 
-/**
- * Dashboard Actions
- * Server actions for fetching dashboard data
- */
 
 import { startOfDay, endOfDay, startOfMonth, subDays, differenceInDays, addDays, format } from 'date-fns';
 import dbConnect from '@/lib/db';
@@ -11,6 +7,7 @@ import InvoiceModel from '@/models/Invoice';
 import PurchaseModel from '@/models/Purchase';
 import CustomerModel from '@/models/Customer';
 import ProductModel from '@/models/Product';
+import ExpenseModel from '@/models/Expense';
 import type {
   DashboardMetrics,
   SalesTrendData,
@@ -128,6 +125,25 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       }
     ]);
 
+    // Get monthly expenses
+    const monthlyExpensesData = await ExpenseModel.aggregate([
+      {
+        $match: {
+          date: { $gte: monthStart }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: '$amount' }
+        }
+      }
+    ]);
+
+    const monthlyProfit = monthlyProfitData[0]?.total || 0;
+    const monthlyExpenses = monthlyExpensesData[0]?.total || 0;
+    const netProfit = monthlyProfit - monthlyExpenses;
+
     // Get total customers
     const totalCustomers = await CustomerModel.countDocuments();
 
@@ -137,7 +153,9 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       dailySales: dailySalesData[0]?.total || 0,
       monthlySales: monthlySalesData[0]?.total || 0,
       totalRevenue: totalRevenueData[0]?.total || 0,
-      monthlyProfit: monthlyProfitData[0]?.total || 0,
+      monthlyProfit,
+      monthlyExpenses,
+      netProfit,
       pendingPayments: pendingPaymentsData[0]?.total || 0,
       pendingPaymentsCount: pendingPaymentsData[0]?.count || 0,
       totalCustomers
@@ -152,6 +170,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       monthlySales: 0,
       totalRevenue: 0,
       monthlyProfit: 0,
+      monthlyExpenses: 0,
+      netProfit: 0,
       pendingPayments: 0,
       pendingPaymentsCount: 0,
       totalCustomers: 0
@@ -395,13 +415,38 @@ export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[
       }
     ]);
 
-    // Create a map of existing data
-    const dataMap = new Map<string, { profit: number; invoices: number }>();
+    // Get expenses data grouped by date
+    const expensesData = await ExpenseModel.aggregate([
+      {
+        $match: {
+          date: { $gte: startDate, $lte: todayEnd }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
+          },
+          expenses: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create maps of existing data
+    const profitMap = new Map<string, { profit: number; invoices: number }>();
     profitData.forEach((item: { _id: string; profit: number; invoices: number }) => {
-      dataMap.set(item._id, {
+      profitMap.set(item._id, {
         profit: item.profit,
         invoices: item.invoices
       });
+    });
+
+    const expensesMap = new Map<string, number>();
+    expensesData.forEach((item: { _id: string; expenses: number }) => {
+      expensesMap.set(item._id, item.expenses);
     });
 
     // Fill in missing dates with zero values
@@ -410,11 +455,16 @@ export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[
       const date = subDays(now, i);
       const dateStr = format(date, 'yyyy-MM-dd');
 
-      const existing = dataMap.get(dateStr);
+      const profit = profitMap.get(dateStr);
+      const expenses = expensesMap.get(dateStr) || 0;
+      const profitAmount = profit?.profit || 0;
+
       data.push({
         date: dateStr,
-        profit: existing?.profit || 0,
-        invoices: existing?.invoices || 0
+        profit: profitAmount,
+        expenses,
+        netProfit: profitAmount - expenses,
+        invoices: profit?.invoices || 0
       });
     }
 
@@ -459,13 +509,38 @@ export async function getProfitTrendByDateRange(startDate: Date, endDate: Date):
       }
     ]);
 
-    // Create a map of existing data
-    const dataMap = new Map<string, { profit: number; invoices: number }>();
+    // Get expenses data grouped by date
+    const expensesData = await ExpenseModel.aggregate([
+      {
+        $match: {
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
+          },
+          expenses: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create maps of existing data
+    const profitMap = new Map<string, { profit: number; invoices: number }>();
     profitData.forEach((item: { _id: string; profit: number; invoices: number }) => {
-      dataMap.set(item._id, {
+      profitMap.set(item._id, {
         profit: item.profit,
         invoices: item.invoices
       });
+    });
+
+    const expensesMap = new Map<string, number>();
+    expensesData.forEach((item: { _id: string; expenses: number }) => {
+      expensesMap.set(item._id, item.expenses);
     });
 
     // Fill in missing dates with zero values
@@ -476,11 +551,16 @@ export async function getProfitTrendByDateRange(startDate: Date, endDate: Date):
       const date = addDays(start, i);
       const dateStr = format(date, 'yyyy-MM-dd');
 
-      const existing = dataMap.get(dateStr);
+      const profit = profitMap.get(dateStr);
+      const expenses = expensesMap.get(dateStr) || 0;
+      const profitAmount = profit?.profit || 0;
+
       data.push({
         date: dateStr,
-        profit: existing?.profit || 0,
-        invoices: existing?.invoices || 0
+        profit: profitAmount,
+        expenses,
+        netProfit: profitAmount - expenses,
+        invoices: profit?.invoices || 0
       });
     }
 
@@ -525,13 +605,38 @@ export async function getMonthlyProfitTrend(): Promise<ProfitTrendData[]> {
       }
     ]);
 
-    // Create a map of existing data
-    const dataMap = new Map<string, { profit: number; invoices: number }>();
+    // Get expenses data grouped by month
+    const expensesData = await ExpenseModel.aggregate([
+      {
+        $match: {
+          date: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-01', date: '$date', timezone: 'UTC' }
+          },
+          expenses: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Create maps of existing data
+    const profitMap = new Map<string, { profit: number; invoices: number }>();
     profitData.forEach((item: { _id: string; profit: number; invoices: number }) => {
-      dataMap.set(item._id, {
+      profitMap.set(item._id, {
         profit: item.profit,
         invoices: item.invoices
       });
+    });
+
+    const expensesMap = new Map<string, number>();
+    expensesData.forEach((item: { _id: string; expenses: number }) => {
+      expensesMap.set(item._id, item.expenses);
     });
 
     // Fill in missing months with zero values
@@ -540,11 +645,16 @@ export async function getMonthlyProfitTrend(): Promise<ProfitTrendData[]> {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const dateStr = format(date, 'yyyy-MM-01');
 
-      const existing = dataMap.get(dateStr);
+      const profit = profitMap.get(dateStr);
+      const expenses = expensesMap.get(dateStr) || 0;
+      const profitAmount = profit?.profit || 0;
+
       data.push({
         date: dateStr,
-        profit: existing?.profit || 0,
-        invoices: existing?.invoices || 0
+        profit: profitAmount,
+        expenses,
+        netProfit: profitAmount - expenses,
+        invoices: profit?.invoices || 0
       });
     }
 

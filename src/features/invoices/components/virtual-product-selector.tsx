@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/utils';
 import type { EnhancedVirtualProduct, CustomExpense } from '@/features/virtual-products/types';
+import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/features/expenses/types';
 import { toast } from 'sonner';
 
 interface VirtualProductSelectorProps {
@@ -55,7 +56,7 @@ interface VirtualProductSelectorProps {
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      category: ExpenseCategory;
       description?: string;
     }>;
     totalComponentCost?: number;
@@ -80,9 +81,7 @@ export function VirtualProductSelector({
   const [editableExpenses, setEditableExpenses] = useState<CustomExpense[]>([]);
   const [newExpenseName, setNewExpenseName] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
-  const [newExpenseCategory, setNewExpenseCategory] = useState<
-    'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other'
-  >('other');
+  const [newExpenseCategory, setNewExpenseCategory] = useState<ExpenseCategory>('other');
   const [newExpenseDescription, setNewExpenseDescription] = useState('');
 
   // Calculate adjusted available quantity for virtual products
@@ -587,18 +586,17 @@ export function VirtualProductSelector({
                       </Label>
                       <Select 
                         value={newExpenseCategory} 
-                        onValueChange={(value) => setNewExpenseCategory(value as 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other')}
+                        onValueChange={(value) => setNewExpenseCategory(value as ExpenseCategory)}
                       >
                         <SelectTrigger className="h-8 w-full">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="labor">Labor</SelectItem>
-                          <SelectItem value="materials">Materials</SelectItem>
-                          <SelectItem value="overhead">Overhead</SelectItem>
-                          <SelectItem value="packaging">Packaging</SelectItem>
-                          <SelectItem value="shipping">Shipping</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          {EXPENSE_CATEGORIES.map((category) => (
+                            <SelectItem key={category.value} value={category.value}>
+                              {category.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

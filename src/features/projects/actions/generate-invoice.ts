@@ -1,9 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
-import InvoiceModel from '@/models/Invoice';
 import { getProject } from './index';
 
 export interface GenerateInvoiceFromProjectDto {
@@ -71,6 +69,16 @@ export async function generateInvoiceFromProject(
         unitPrice = item.rate * (1 + data.markupPercentage / 100);
       }
 
+      // Map custom expenses to invoice format
+      const mappedCustomExpenses = item.customExpenses?.map(expense => ({
+        name: expense.name,
+        amount: expense.amount,
+        actualCost: expense.amount,
+        clientCost: expense.amount,
+        category: expense.category,
+        description: expense.description
+      }));
+
       return {
         productId: item.productId || item.virtualProductId || 'manual',
         productName: item.productName,
@@ -88,14 +96,41 @@ export async function generateInvoiceFromProject(
         purchaseId: item.purchaseId,
         originalRate: item.rate,
         componentBreakdown: item.componentBreakdown,
-        customExpenses: item.customExpenses,
+        customExpenses: mappedCustomExpenses,
         totalComponentCost: item.totalComponentCost,
         totalCustomExpenses: item.totalCustomExpenses
       };
     });
 
+    // Convert project expenses to invoice items as manual line items
+    const expenseItems = project.expenses.map(expense => {
+      // Apply markup to expenses if specified
+      let expensePrice = expense.amount;
+      if (data.markupPercentage) {
+        expensePrice = expense.amount * (1 + data.markupPercentage / 100);
+      }
+
+      return {
+        productId: 'manual',
+        productName: `${expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}: ${expense.description}`,
+        variantSKU: `EXP-${expense.id}`,
+        isVirtualProduct: false,
+        quantity: 1,
+        unit: 'item',
+        unitPrice: expensePrice,
+        discountType: undefined,
+        discountValue: 0,
+        discountAmount: 0,
+        totalPrice: expensePrice,
+        originalRate: expense.amount
+      };
+    });
+
+    // Combine inventory and expense items
+    const allInvoiceItems = [...invoiceItems, ...expenseItems];
+
     // Calculate subtotal
-    const subtotal = invoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const subtotal = allInvoiceItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
     // Calculate discount
     let discountAmount = 0;
@@ -136,7 +171,7 @@ export async function generateInvoiceFromProject(
       customerEmail: '',
       customerPhone: '',
       customerAddress: '',
-      items: invoiceItems,
+      items: allInvoiceItems,
       subtotal,
       discountType: data.discountType,
       discountValue: data.discountValue,
@@ -145,7 +180,7 @@ export async function generateInvoiceFromProject(
       gstValue: data.gstValue,
       gstAmount,
       totalAmount,
-      status: data.type === 'invoice' ? 'pending' : 'draft',
+      status: (data.type === 'invoice' ? 'pending' : 'draft') as 'pending' | 'draft',
       paymentMethod: data.paymentMethod,
       paidAmount: 0,
       balanceAmount: totalAmount,
@@ -158,16 +193,16 @@ export async function generateInvoiceFromProject(
       projectId: project.projectId // Link back to project
     };
 
-    // Create invoice
-    const invoice = new InvoiceModel(invoiceData);
-    await invoice.save();
+    // Create invoice using the createInvoice action to ensure all side effects (expenses, ledger, etc.)
+    const { createInvoice } = await import('@/features/invoices/actions');
+    const invoice = await createInvoice(invoiceData);
 
     revalidatePath('/invoices');
     revalidatePath(`/projects/${data.projectId}`);
 
     return {
       success: true,
-      invoiceId: (invoice._id as mongoose.Types.ObjectId).toString(),
+      invoiceId: invoice.id,
       invoiceNumber: invoice.invoiceNumber
     };
   } catch (error) {

@@ -92,7 +92,7 @@ export function ProjectPageClient({
 
   const handleGenerateInvoice = () => {
     // Navigate to invoice form with project data
-    router.push(`/invoices/new/from-project/${project.projectId}?markup=5`);
+    router.push(`/invoices/new/from-project/${project.projectId}`);
   };
 
   const handleRefresh = () => {

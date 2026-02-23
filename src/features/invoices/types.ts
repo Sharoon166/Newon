@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from '@/features/expenses/types';
+
 // Invoice status type
 export type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
 
@@ -27,8 +29,11 @@ export interface ComponentBreakdown {
 export interface CustomExpense {
   name: string;
   amount: number;
-  category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+  actualCost: number;
+  clientCost: number;
+  category: ExpenseCategory;
   description?: string;
+  expenseId?: string;
 }
 
 // Invoice item interface

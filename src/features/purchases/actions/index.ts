@@ -240,9 +240,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
           // Update existing inventory entry
           const oldStock = inventory[locationInventoryIndex].availableStock;
           inventory[locationInventoryIndex].availableStock += data.quantity;
-          console.log(
-            `Updated inventory for location ${data.locationId}: ${oldStock} + ${data.quantity} = ${inventory[locationInventoryIndex].availableStock}`
-          );
         } else {
           // Add new inventory entry for this location
           inventory.push({
@@ -257,9 +254,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
           const firstLocation = inventory[0];
           const oldStock = firstLocation.availableStock;
           firstLocation.availableStock += data.quantity;
-          console.log(
-            `No location specified, added to first location: ${oldStock} + ${data.quantity} = ${firstLocation.availableStock}`
-          );
         } else {
           // Create a default inventory entry
           inventory.push({

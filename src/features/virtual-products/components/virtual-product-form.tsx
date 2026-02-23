@@ -28,6 +28,8 @@ import {
   ComboboxEmpty,
 } from '@/components/ui/combobox';
 import { formatCurrency } from '@/lib/utils';
+import { EXPENSE_CATEGORIES } from '@/features/expenses/types';
+import type { ExpenseCategory } from '@/features/expenses/types';
 
 const virtualProductSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
@@ -45,7 +47,7 @@ const virtualProductSchema = z.object({
   customExpenses: z.array(z.object({
     name: z.string().min(1, 'Expense name is required'),
     amount: z.number().min(0.01, 'Amount must be greater than 0'),
-    category: z.enum(['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other']),
+    category: z.enum(['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other']),
     description: z.string().optional()
   })),
   basePrice: z.number().min(0.01, 'Base price must be greater than 0'),
@@ -67,7 +69,7 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
   const [categoryInput, setCategoryInput] = useState('');
   const [expenseName, setExpenseName] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
-  const [expenseCategory, setExpenseCategory] = useState<'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other'>('other');
+  const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>('other');
   const [expenseDescription, setExpenseDescription] = useState('');
 
   const form = useForm<VirtualProductFormValues>({
@@ -450,18 +452,17 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
                 <Label htmlFor="expenseCategory">Category</Label>
                 <Select 
                   value={expenseCategory} 
-                  onValueChange={(value) => setExpenseCategory(value as 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other')}
+                  onValueChange={(value) => setExpenseCategory(value as ExpenseCategory)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="labor">Labor</SelectItem>
-                    <SelectItem value="materials">Materials</SelectItem>
-                    <SelectItem value="overhead">Overhead</SelectItem>
-                    <SelectItem value="packaging">Packaging</SelectItem>
-                    <SelectItem value="shipping">Shipping</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                    {EXPENSE_CATEGORIES.map(cat => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

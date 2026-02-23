@@ -396,6 +396,43 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
       }
     }
 
+    // Create expense records for custom items (only for invoices, not quotations)
+    if (data.type === 'invoice' && data.items.length > 0) {
+      try {
+        const customExpenses = data.items
+          .filter(item => item.customExpenses && item.customExpenses.length > 0)
+          .flatMap(item => item.customExpenses || []);
+
+        if (customExpenses.length > 0) {
+          const { createInvoiceExpenses } = await import('@/features/expenses/actions');
+          const expenseResult = await createInvoiceExpenses(
+            (savedInvoice._id as mongoose.Types.ObjectId).toString(),
+            savedInvoice.invoiceNumber,
+            savedInvoice.date,
+            customExpenses,
+            savedInvoice.createdBy,
+            savedInvoice.projectId
+          );
+
+          if (expenseResult.success && expenseResult.data.length > 0) {
+            let expenseIndex = 0;
+            for (const item of savedInvoice.items) {
+              if (item.customExpenses && item.customExpenses.length > 0) {
+                for (let i = 0; i < item.customExpenses.length; i++) {
+                  item.customExpenses[i].expenseId = expenseResult.data[expenseIndex];
+                  expenseIndex++;
+                }
+              }
+            }
+            await savedInvoice.save();
+          }
+        }
+      } catch (expenseError) {
+        console.error('Error creating invoice expenses:', expenseError);
+        // Continue - invoice is created but expense records failed
+      }
+    }
+
     // Deduct stock from purchases if this is an invoice (not quotation) and stockDeducted is true
     if (data.type === 'invoice' && data.items.length > 0) {
       try {
@@ -585,6 +622,15 @@ export async function deleteInvoice(id: string): Promise<void> {
       } catch (ledgerError) {
         console.error('Error deleting ledger entry:', ledgerError);
         // Continue with deletion even if ledger entry deletion fails
+      }
+
+      // Delete associated expense records
+      try {
+        const { deleteInvoiceExpenses } = await import('@/features/expenses/actions');
+        await deleteInvoiceExpenses(id);
+      } catch (expenseError) {
+        console.error('Error deleting invoice expenses:', expenseError);
+        // Continue with deletion even if expense deletion fails
       }
 
       // Reverse customer financial updates
@@ -959,6 +1005,43 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
       // Continue - invoice is created but customer update failed
     }
 
+    // Create expense records for custom items
+    if (savedInvoice.items.length > 0) {
+      try {
+        const customExpenses = savedInvoice.items
+          .filter(item => item.customExpenses && item.customExpenses.length > 0)
+          .flatMap(item => item.customExpenses || []);
+
+        if (customExpenses.length > 0) {
+          const { createInvoiceExpenses } = await import('@/features/expenses/actions');
+          const expenseResult = await createInvoiceExpenses(
+            (savedInvoice._id as mongoose.Types.ObjectId).toString(),
+            savedInvoice.invoiceNumber,
+            savedInvoice.date,
+            customExpenses,
+            createdBy,
+            savedInvoice.projectId
+          );
+
+          if (expenseResult.success && expenseResult.data.length > 0) {
+            let expenseIndex = 0;
+            for (const item of savedInvoice.items) {
+              if (item.customExpenses && item.customExpenses.length > 0) {
+                for (let i = 0; i < item.customExpenses.length; i++) {
+                  item.customExpenses[i].expenseId = expenseResult.data[expenseIndex];
+                  expenseIndex++;
+                }
+              }
+            }
+            await savedInvoice.save();
+          }
+        }
+      } catch (expenseError) {
+        console.error('Error creating invoice expenses:', expenseError);
+        // Continue - invoice is created but expense records failed
+      }
+    }
+
     // Update quotation to mark as converted
     quotation.convertedToInvoice = true;
     quotation.convertedInvoiceId = (savedInvoice._id as mongoose.Types.ObjectId).toString();
@@ -1034,6 +1117,17 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     // Note: We don't delete ledger entries for cancelled invoices
     // They remain in the ledger with cancelled status for audit trail
     // The ledger queries already exclude cancelled invoices from calculations
+
+    // Delete associated expense records for cancelled invoices
+    if (invoice.type === 'invoice') {
+      try {
+        const { deleteInvoiceExpenses } = await import('@/features/expenses/actions');
+        await deleteInvoiceExpenses(id);
+      } catch (expenseError) {
+        console.error('Error deleting invoice expenses:', expenseError);
+        // Continue - invoice is cancelled but expense deletion failed
+      }
+    }
 
     // Reverse customer financial updates
     if (invoice.type === 'invoice') {
@@ -1495,6 +1589,41 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
           } catch (customerError) {
             console.error('Error updating customer financials:', customerError);
           }
+        }
+      }
+
+      // Sync expense records if items changed (only for invoices)
+      if (updatedInvoice.type === 'invoice' && data.items) {
+        try {
+          const customExpenses = data.items
+            .filter(item => item.customExpenses && item.customExpenses.length > 0)
+            .flatMap(item => item.customExpenses || []);
+
+          const { syncInvoiceExpenses } = await import('@/features/expenses/actions');
+          const expenseResult = await syncInvoiceExpenses(
+            (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+            updatedInvoice.invoiceNumber,
+            updatedInvoice.date,
+            customExpenses,
+            updatedInvoice.createdBy,
+            updatedInvoice.projectId
+          );
+
+          if (expenseResult.success && expenseResult.data.length > 0) {
+            let expenseIndex = 0;
+            for (const item of updatedInvoice.items) {
+              if (item.customExpenses && item.customExpenses.length > 0) {
+                for (let i = 0; i < item.customExpenses.length; i++) {
+                  item.customExpenses[i].expenseId = expenseResult.data[expenseIndex];
+                  expenseIndex++;
+                }
+              }
+            }
+            await updatedInvoice.save();
+          }
+        } catch (expenseError) {
+          console.error('Error syncing invoice expenses:', expenseError);
+          // Continue - invoice is updated but expense sync failed
         }
       }
 

@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from '@/features/expenses/types';
+
 export interface VirtualProductComponent {
   productId: string;
   variantId: string;
@@ -12,7 +14,7 @@ export interface VirtualProductComponent {
 export interface CustomExpense {
   name: string;
   amount: number;
-  category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+  category: ExpenseCategory;
   description?: string;
 }
 

@@ -14,8 +14,9 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { addExpense } from '../actions';
-import { AddExpenseDto, ExpenseCategory } from '../types';
+import { AddExpenseDto } from '../types';
 import { toast } from 'sonner';
+import { ExpenseCategory } from '@/features/expenses/types';
 
 interface AddExpenseDialogProps {
   open: boolean;
@@ -130,7 +131,7 @@ export function AddExpenseDialog({ open, onOpenChange, projectId, userId, onSucc
                 Category <span className="text-destructive">*</span>
               </Label>
               <Select value={category} onValueChange={value => setValue('category', value as ExpenseCategory)}>
-                <SelectTrigger>
+                <SelectTrigger className='w-full'>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -138,6 +139,15 @@ export function AddExpenseDialog({ open, onOpenChange, projectId, userId, onSucc
                   <SelectItem value="labor">Labor</SelectItem>
                   <SelectItem value="equipment">Equipment</SelectItem>
                   <SelectItem value="transport">Transport</SelectItem>
+                  <SelectItem value="rent">Rent</SelectItem>
+                  <SelectItem value="utilities">Utilities</SelectItem>
+                  <SelectItem value="fuel">Fuel</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="marketing">Marketing</SelectItem>
+                  <SelectItem value="office-supplies">Office Supplies</SelectItem>
+                  <SelectItem value="professional-services">Professional Services</SelectItem>
+                  <SelectItem value="insurance">Insurance</SelectItem>
+                  <SelectItem value="taxes">Taxes</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>

@@ -7,7 +7,7 @@ interface IExpense {
   expenseId?: string;
   description: string;
   amount: number;
-  category: 'materials' | 'labor' | 'equipment' | 'transport' | 'other';
+  category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
   date: Date;
   addedBy: string;
   addedByName?: string;
@@ -43,7 +43,7 @@ interface IInventoryItem {
   customExpenses?: Array<{
     name: string;
     amount: number;
-    category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+    category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
     description?: string;
   }>;
   totalComponentCost?: number;
@@ -97,7 +97,7 @@ const expenseSchema = new Schema<IExpense>(
     },
     category: {
       type: String,
-      enum: ['materials', 'labor', 'equipment', 'transport', 'other'],
+      enum: ['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other'],
       required: [true, 'Expense category is required']
     },
     date: {
@@ -203,7 +203,7 @@ const inventoryItemSchema = new Schema<IInventoryItem>(
           amount: Number,
           category: {
             type: String,
-            enum: ['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other']
+            enum: ['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other']
           },
           description: String
         }

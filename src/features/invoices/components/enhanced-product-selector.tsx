@@ -8,6 +8,7 @@ import { VirtualProductSelector } from './virtual-product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { Purchase } from '@/features/purchases/types';
+import type { ExpenseCategory } from '@/features/expenses/types';
 
 interface EnhancedProductSelectorProps {
   label?: string;
@@ -56,7 +57,7 @@ interface EnhancedProductSelectorProps {
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      category: ExpenseCategory;
       description?: string;
     }>;
     totalComponentCost?: number;

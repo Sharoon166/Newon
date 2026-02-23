@@ -12,6 +12,8 @@ export interface DashboardMetrics {
   monthlySales: number;
   totalRevenue: number;
   monthlyProfit: number;
+  monthlyExpenses: number;
+  netProfit: number;
   pendingPayments: number;
   pendingPaymentsCount: number;
   totalCustomers: number;
@@ -33,6 +35,8 @@ export interface SalesTrendData {
 export interface ProfitTrendData {
   date: string;
   profit: number;
+  expenses: number;
+  netProfit: number;
   invoices: number;
 }
 

@@ -47,11 +47,11 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       color: 'text-emerald-600'
     },
     {
-      title: 'Monthly Profit',
-      value: formatCurrency(metrics.monthlyProfit),
-      subtitle: 'This month\'s profit',
+      title: 'Net Profit',
+      value: formatCurrency(metrics.netProfit),
+      subtitle: `Profit: ${formatCurrency(metrics.monthlyProfit)} - Expenses: ${formatCurrency(metrics.monthlyExpenses)}`,
       icon: TrendingUp,
-      color: 'text-indigo-600'
+      color: metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
     },
     {
       title: 'Pending Payments',

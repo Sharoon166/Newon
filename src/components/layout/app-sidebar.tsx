@@ -11,7 +11,8 @@ import {
   Users,
   UserSquare,
   PackageOpen,
-  FolderKanban
+  FolderKanban,
+  Receipt
 } from 'lucide-react';
 
 import {
@@ -25,7 +26,7 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { NavUser } from './nav-user';
-import { NavLinks } from './nav-projects';
+import { NavCategories } from './nav-projects';
 import { NavSecondary } from './nav-secondary';
 import useBrandStore, { brands } from '@/stores/useBrandStore';
 import { ChevronsUpDown } from 'lucide-react';
@@ -44,6 +45,83 @@ const data = {
       title: 'Setting',
       url: '/settings',
       icon: Settings2
+    }
+  ],
+  categories: [
+    {
+      title: 'Overview',
+      items: [
+        {
+          name: 'Dashboard',
+          url: '/dashboard',
+          icon: LayoutDashboard
+        }
+      ]
+    },
+    {
+      title: 'Inventory',
+      items: [
+        {
+          name: 'Inventory',
+          url: '/inventory',
+          icon: ShoppingCart
+        },
+        {
+          name: 'Virtual Products',
+          url: '/virtual-products',
+          icon: PackageOpen
+        },
+        {
+          name: 'Purchases',
+          url: '/purchases',
+          icon: Package
+        }
+      ]
+    },
+    {
+      title: 'Sales',
+      items: [
+        {
+          name: 'Customers',
+          url: '/customers',
+          icon: UserSquare
+        },
+        {
+          name: 'Invoices & Quotations',
+          url: '/invoices',
+          icon: ScrollTextIcon
+        },
+        {
+          name: 'Ledger',
+          url: '/ledger',
+          icon: Coins
+        }
+      ]
+    },
+    {
+      title: 'Operations',
+      items: [
+        {
+          name: 'Projects',
+          url: '/projects',
+          icon: FolderKanban
+        },
+        {
+          name: 'Expenses',
+          url: '/expenses',
+          icon: Receipt
+        }
+      ]
+    },
+    {
+      title: 'Management',
+      items: [
+        {
+          name: 'Staff Management',
+          url: '/staff',
+          icon: Users
+        }
+      ]
     }
   ],
   projects: [
@@ -87,6 +165,11 @@ const data = {
       name: 'Projects',
       url: '/projects',
       icon: FolderKanban
+    },
+    {
+      name: 'Expenses',
+      url: '/expenses',
+      icon: Receipt
     }
   ]
 };
@@ -99,20 +182,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isStaff = session?.user?.role === 'staff' || status == 'loading';
 
   // Filter links based on user role
-  const staffLinks = [
+  const staffCategories = [
     {
-      name: 'Inventory',
-      url: '/inventory/staff',
-      icon: ShoppingCart
-    },
-    {
-      name: 'Projects',
-      url: '/projects',
-      icon: FolderKanban
+      title: 'Operations',
+      items: [
+        {
+          name: 'Inventory',
+          url: '/inventory/staff',
+          icon: ShoppingCart
+        },
+        {
+          name: 'Projects',
+          url: '/projects',
+          icon: FolderKanban
+        }
+      ]
     }
   ];
 
-  const visibleLinks = isStaff ? staffLinks : data.projects;
+  const visibleCategories = isStaff ? staffCategories : data.categories;
   const visibleSecondary = isStaff ? [] : data.navSecondary;
 
   return (
@@ -216,7 +304,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavLinks links={visibleLinks} />
+        <NavCategories categories={visibleCategories} />
         {visibleSecondary.length > 0 && <NavSecondary items={visibleSecondary} className="mt-auto" />}
       </SidebarContent>
       <SidebarFooter>

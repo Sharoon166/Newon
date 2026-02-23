@@ -1,8 +1,8 @@
+import type { ExpenseCategory } from '@/features/expenses/types';
+
 export type ProjectStatus = 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
 
-export type ExpenseCategory = 'materials' | 'labor' | 'equipment' | 'transport' | 'other';
-
-export type InventoryExpenseCategory = 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+export type InventoryExpenseCategory = ExpenseCategory;
 
 export interface Expense {
   id?: string;

@@ -795,16 +795,48 @@ export default function InvoiceDetailPage() {
                           <p className="text-sm text-muted-foreground">{formatCurrency(customCost)}</p>
                         </div>
                         <div className="divide-y">
-                          {item.customExpenses.map((e, idx) => (
-                            <div key={idx} className="flex justify-between items-center py-3">
-                              <div>
-                                <p className="font-medium">{e.name}</p>
-                                <p className="text-xs text-muted-foreground capitalize">{e.category}</p>
-                                {e.description && <p className="text-xs text-muted-foreground">{e.description}</p>}
+                          {item.customExpenses.map((e, idx) => {
+                            const actualCost = e.actualCost ?? 0;
+                            const clientCost = e.clientCost ?? 0;
+                            const expenseProfit = clientCost - actualCost;
+                            const expenseMargin = actualCost > 0 ? ((expenseProfit / actualCost) * 100).toFixed(1) : '0.0';
+                            
+                            return (
+                              <div key={idx} className="py-3 space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium">{e.name}</p>
+                                    <p className="text-xs text-muted-foreground capitalize">{e.category}</p>
+                                    {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-medium">{formatCurrency(clientCost)}</p>
+                                    <p className="text-xs text-muted-foreground">Client Cost</p>
+                                  </div>
+                                </div>
+                                <div className="flex justify-between items-center text-sm bg-muted/50 rounded p-2">
+                                  <div className="flex gap-4">
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Actual Cost</p>
+                                      <p className="font-medium">{formatCurrency(actualCost)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs text-muted-foreground">Profit</p>
+                                      <p className={`font-medium ${expenseProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {formatCurrency(expenseProfit)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs text-muted-foreground">Margin</p>
+                                    <p className={`font-medium ${parseFloat(expenseMargin) >= 20 ? 'text-green-600' : parseFloat(expenseMargin) >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                      {expenseMargin}%
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
-                              <p className="font-medium">{formatCurrency(e.amount)}</p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}

@@ -6,6 +6,7 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { InventoryItem } from '../types';
+import type { ExpenseCategory } from '@/features/expenses/types';
 import { addInventoryItem } from '../actions';
 import { toast } from 'sonner';
 
@@ -67,7 +68,7 @@ export function AddInventoryDialog({
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      category: ExpenseCategory;
       description?: string;
     }>;
     totalComponentCost?: number;

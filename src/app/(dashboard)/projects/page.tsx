@@ -13,16 +13,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 async function ProjectsContent() {
   const session = await getServerSession(authOptions);
-  console.log({ session });
 
   if (!session?.user) {
     redirect('/auth/signin');
   }
-
-  // Debug: Log session info
-  console.log('Projects Page - User Role:', session.user.role);
-  console.log('Projects Page - User ID:', session.user.id);
-  console.log('Projects Page - Has view:projects permission:', userHasPermission(session, 'view:projects'));
 
   // Allow both admin and staff to access
   if (session.user.role !== 'admin' && session.user.role !== 'staff') {

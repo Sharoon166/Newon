@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowUpDown, Search, Trash2, Filter } from 'lucide-react';
-import { Expense, ExpenseCategory } from '../types';
+import { Expense } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { deleteExpense } from '../actions';
 import { toast } from 'sonner';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+import { ExpenseCategory } from '@/features/expenses/types';
 
 interface ExpensesTableProps {
   data: Expense[];
@@ -52,6 +53,15 @@ export function ExpensesTable({ data, projectId, userId, userRole, canDelete, on
       labor: { variant: 'secondary', label: 'Labor' },
       equipment: { variant: 'outline', label: 'Equipment' },
       transport: { variant: 'default', label: 'Transport' },
+      rent: { variant: 'secondary', label: 'Rent' },
+      utilities: { variant: 'outline', label: 'Utilities' },
+      fuel: { variant: 'default', label: 'Fuel' },
+      maintenance: { variant: 'secondary', label: 'Maintenance' },
+      marketing: { variant: 'outline', label: 'Marketing' },
+      'office-supplies': { variant: 'default', label: 'Office Supplies' },
+      'professional-services': { variant: 'secondary', label: 'Professional Services' },
+      insurance: { variant: 'outline', label: 'Insurance' },
+      taxes: { variant: 'default', label: 'Taxes' },
       other: { variant: 'secondary', label: 'Other' }
     };
 

@@ -7,6 +7,7 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { PaymentDetails } from '@/features/settings/types';
+import type { ExpenseCategory } from '@/features/expenses/types';
 import { toast } from 'sonner';
 
 interface FormData {
@@ -54,7 +55,9 @@ interface FormData {
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      actualCost: number;
+      clientCost: number;
+      category: ExpenseCategory;
       description?: string;
     }>;
     totalComponentCost?: number;

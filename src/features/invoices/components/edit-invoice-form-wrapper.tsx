@@ -11,6 +11,7 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { PaymentDetails } from '@/features/settings/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
+import type { ExpenseCategory } from '@/features/expenses/types';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
@@ -60,8 +61,11 @@ interface FormData {
     customExpenses?: Array<{
       name: string;
       amount: number;
-      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      actualCost: number;
+      clientCost: number;
+      category: ExpenseCategory;
       description?: string;
+      expenseId?: string;
     }>;
     totalComponentCost?: number;
     totalCustomExpenses?: number;

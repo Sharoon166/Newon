@@ -61,9 +61,7 @@ export default function VirtualProductsPage() {
         </Link>
       </PageHeader>
 
-      <Suspense fallback={<div className="text-center py-8">Loading virtual products...</div>}>
         <VirtualProductsContent />
-      </Suspense>
     </div>
   );
 }

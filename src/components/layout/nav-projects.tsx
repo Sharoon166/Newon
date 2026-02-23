@@ -7,43 +7,44 @@ import {
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-  // useSidebar
+  SidebarMenuItem
 } from '@/components/ui/sidebar';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
-export function NavLinks({
-  links
-}: {
-  links: {
-    name: string;
-    url: string;
-    icon: LucideIcon;
-  }[];
-}) {
-  // const { isMobile } = useSidebar();
-  // console.log(isMobile); 
+interface NavLink {
+  name: string;
+  url: string;
+  icon: LucideIcon;
+}
+
+interface NavCategory {
+  title: string;
+  items: NavLink[];
+}
+
+export function NavCategories({ categories }: { categories: NavCategory[] }) {
   const pathname = usePathname();
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-      <SidebarMenu>
-        {links.map(item => (
-          <SidebarMenuItem key={item.name}>
-            <SidebarMenuButton asChild>
-              <Link
-                href={item.url}
-                className={pathname.includes(item.url) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
-              >
-                <item.icon className="size-6" />
-                <span>{item.name}</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    </SidebarGroup>
+    <>
+      {categories.map(category => (
+        <SidebarGroup key={category.title} className="group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel>{category.title}</SidebarGroupLabel>
+          <SidebarMenu>
+            {category.items.map(item => (
+              <SidebarMenuItem key={item.name}>
+                <SidebarMenuButton asChild isActive={pathname.includes(item.url)}>
+                  <Link href={item.url}>
+                    <item.icon className="size-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroup>
+      ))}
+    </>
   );
 }

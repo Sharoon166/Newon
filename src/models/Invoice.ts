@@ -27,8 +27,11 @@ interface IComponentBreakdown {
 interface ICustomExpense {
   name: string;
   amount: number;
-  category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+  actualCost: number;
+  clientCost: number;
+  category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
   description?: string;
+  expenseId?: string;
 }
 
 // Invoice item subdocument interface
@@ -179,15 +182,28 @@ const customExpenseSchema = new Schema({
     required: true,
     min: 0
   },
+  actualCost: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  clientCost: {
+    type: Number,
+    required: true,
+    min: 0
+  },
   category: {
     type: String,
-    enum: ['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other'],
+    enum: ['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other'],
     default: 'other'
   },
   description: {
     type: String,
     trim: true,
     default: ''
+  },
+  expenseId: {
+    type: String
   }
 }, { _id: false });
 

@@ -1,14 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
+import React, { useState, useMemo } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +38,16 @@ interface ProjectInventoryTableProps {
   onRemovePending?: (itemId: string) => void;
 }
 
-export function ProjectInventoryTable({ data, projectId, userId, userName, canDelete, onRefresh, pendingItems = [], onRemovePending }: ProjectInventoryTableProps) {
+export function ProjectInventoryTable({
+  data,
+  projectId,
+  userId,
+  userName,
+  canDelete,
+  onRefresh,
+  pendingItems = [],
+  onRemovePending
+}: ProjectInventoryTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
@@ -146,16 +148,11 @@ export function ProjectInventoryTable({ data, projectId, userId, userName, canDe
               </TableRow>
             ) : (
               filteredData.map(item => (
-                <>
-                  <TableRow key={item.id} className={pendingItems.includes(item.id!) ? 'bg-yellow-50' : ''}>
+                <React.Fragment key={item.id}>
+                  <TableRow className={pendingItems.includes(item.id!) ? 'bg-yellow-50' : ''}>
                     <TableCell>
                       {item.isVirtualProduct && item.componentBreakdown && item.componentBreakdown.length > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => toggleRow(item.id!)}
-                          className="h-6 w-6"
-                        >
+                        <Button variant="ghost" size="icon-sm" onClick={() => toggleRow(item.id!)} className="h-6 w-6">
                           {expandedRows.has(item.id!) ? (
                             <ChevronUp className="h-3 w-3" />
                           ) : (
@@ -240,7 +237,8 @@ export function ProjectInventoryTable({ data, projectId, userId, userName, canDe
                                   <div className="text-right">
                                     <div>Qty: {comp.quantity}</div>
                                     <div className="text-muted-foreground">
-                                      {formatCurrency(comp.unitCost)} × {comp.quantity} = {formatCurrency(comp.totalCost)}
+                                      {formatCurrency(comp.unitCost)} × {comp.quantity} ={' '}
+                                      {formatCurrency(comp.totalCost)}
                                     </div>
                                   </div>
                                 </div>
@@ -274,7 +272,7 @@ export function ProjectInventoryTable({ data, projectId, userId, userName, canDe
                         </TableCell>
                       </TableRow>
                     )}
-                </>
+                </React.Fragment>
               ))
             )}
           </TableBody>

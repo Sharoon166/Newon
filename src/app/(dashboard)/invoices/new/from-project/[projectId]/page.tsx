@@ -86,26 +86,27 @@ async function NewInvoiceFromProjectContent({ params }: NewInvoiceFromProjectPag
       originalRate: item.rate,
       saleRate: item.rate,
       componentBreakdown: item.componentBreakdown,
-      customExpenses: item.customExpenses,
       totalComponentCost: item.totalComponentCost,
       totalCustomExpenses: item.totalCustomExpenses
+      // Note: customExpenses are NOT included in initialData - they're already factored into the rate
+      // The form will handle them internally if the user edits the item
     }));
 
-    // Transform project expenses to invoice items (no markup - client decides pricing)
+    // Transform project expenses to invoice items with customExpenses (matching manual expense format)
     const expenseItems = project.expenses.map(expense => ({
       id: expense.id || `exp-${Math.random().toString(36).substring(2, 11)}`,
-      productId: 'expense',
-      description: `${expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}: ${expense.description}`,
-      variantId: undefined,
-      variantSKU: `EXP-${expense.id}`,
-      virtualProductId: undefined,
-      isVirtualProduct: false,
+      description: expense.description,
       quantity: 1,
       rate: expense.amount,
       amount: expense.amount,
-      purchaseId: undefined,
-      originalRate: expense.amount,
-      saleRate: expense.amount
+      customExpenses: [{
+        name: expense.description,
+        amount: expense.amount,
+        actualCost: expense.amount,
+        clientCost: expense.amount,
+        category: expense.category,
+        description: expense.notes || ''
+      }]
     }));
 
     // Combine all items

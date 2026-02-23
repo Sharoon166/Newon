@@ -57,6 +57,7 @@ import {
   ComboboxList
 } from '@/components/ui/combobox';
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
+import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
@@ -115,8 +116,11 @@ const invoiceFormSchema = z.object({
         customExpenses: z.array(z.object({
           name: z.string(),
           amount: z.number(),
-          category: z.enum(['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other']),
-          description: z.string().optional()
+          actualCost: z.number(),
+          clientCost: z.number(),
+          category: z.enum(['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other']),
+          description: z.string().optional(),
+          expenseId: z.string().optional()
         })).optional(),
         totalComponentCost: z.number().optional(),
         totalCustomExpenses: z.number().optional()
@@ -179,6 +183,7 @@ export function NewInvoiceForm({
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
+  const [isCustomExpenseDialogOpen, setIsCustomExpenseDialogOpen] = useState(false);
   const [refreshCustomers, setRefreshCustomers] = useState(0);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
@@ -317,10 +322,32 @@ export function NewInvoiceForm({
   const items = form.watch('items');
   const calculatedProfit =
     items.reduce((sum, item) => {
-      const costPrice = item.originalRate ?? 0;
-      const sellingPrice = item.rate;
-      const profitPerUnit = sellingPrice - costPrice;
-      return sum + profitPerUnit * item.quantity;
+      const revenue = item.rate * item.quantity;
+      
+      // Calculate total cost based on what's available
+      let totalCost = 0;
+      
+      // For items with component breakdown (virtual products from projects)
+      if (item.totalComponentCost !== undefined) {
+        totalCost += item.totalComponentCost;
+      } else if (item.originalRate !== undefined) {
+        // Regular products with original rate
+        totalCost += item.originalRate * item.quantity;
+      }
+      
+      // Add custom expenses actual cost
+      if (item.customExpenses && item.customExpenses.length > 0) {
+        const expensesCost = item.customExpenses.reduce((expenseSum, expense) => {
+          return expenseSum + (expense.actualCost ?? 0);
+        }, 0);
+        totalCost += expensesCost;
+      } else if (item.totalCustomExpenses !== undefined) {
+        // Use pre-calculated total if available
+        totalCost += item.totalCustomExpenses;
+      }
+      
+      const itemProfit = revenue - totalCost;
+      return sum + itemProfit;
     }, 0) - discountAmount;
 
   // Update profit field with calculated value
@@ -376,13 +403,51 @@ export function NewInvoiceForm({
     }>;
     customExpenses?: Array<{
       name: string;
-      amount: number;
-      category: 'labor' | 'materials' | 'overhead' | 'packaging' | 'shipping' | 'other';
+      amount?: number; // Old format
+      actualCost?: number; // New format
+      clientCost?: number; // New format
+      category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other' | 'overhead' | 'packaging' | 'shipping';
       description?: string;
     }>;
     totalComponentCost?: number;
     totalCustomExpenses?: number;
   }) => {
+    // Convert old format customExpenses to new format if needed
+    const convertedCustomExpenses = item.customExpenses?.map(expense => {
+      // If old format (has amount but not actualCost/clientCost), convert it
+      if (expense.amount !== undefined && expense.actualCost === undefined && expense.clientCost === undefined) {
+        // Map old categories to new ones
+        let newCategory: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other' = 'other';
+        
+        if (expense.category === 'overhead') {
+          newCategory = 'other';
+        } else if (expense.category === 'packaging') {
+          newCategory = 'materials';
+        } else if (expense.category === 'shipping') {
+          newCategory = 'transport';
+        } else if (['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other'].includes(expense.category)) {
+          newCategory = expense.category as typeof newCategory;
+        }
+        
+        return {
+          name: expense.name,
+          amount: expense.amount,
+          actualCost: expense.amount,
+          clientCost: expense.amount,
+          category: newCategory,
+          description: expense.description
+        };
+      }
+      // Already in new format
+      return {
+        name: expense.name,
+        amount: expense.clientCost ?? 0,
+        actualCost: expense.actualCost ?? 0,
+        clientCost: expense.clientCost ?? 0,
+        category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+        description: expense.description
+      };
+    });
     // Validate item data
     if (!item.description || item.description.trim() === '') {
       // For virtual products, use product name as description if description is empty
@@ -435,7 +500,7 @@ export function NewInvoiceForm({
           originalRate: item.originalRate,
           saleRate: item.saleRate,
           componentBreakdown: item.componentBreakdown,
-          customExpenses: item.customExpenses,
+          customExpenses: convertedCustomExpenses,
           totalComponentCost: item.totalComponentCost,
           totalCustomExpenses: item.totalCustomExpenses
         });
@@ -950,21 +1015,35 @@ export function NewInvoiceForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  append({
-                    id: uuidv4(),
-                    description: '',
-                    quantity: 1,
-                    rate: 0,
-                    amount: 0
-                  });
-                }}
+                onClick={() => setIsCustomExpenseDialogOpen(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Custom Item
               </Button>
             </div>
           </div>
+
+          <AddCustomExpenseDialog
+            open={isCustomExpenseDialogOpen}
+            onOpenChange={setIsCustomExpenseDialogOpen}
+            onAdd={(expense) => {
+              append({
+                id: uuidv4(),
+                description: expense.name,
+                quantity: 1,
+                rate: expense.clientCost,
+                amount: expense.clientCost,
+                customExpenses: [{
+                  name: expense.name,
+                  amount: expense.clientCost,
+                  actualCost: expense.actualCost,
+                  clientCost: expense.clientCost,
+                  category: expense.category,
+                  description: expense.description
+                }]
+              });
+            }}
+          />
 
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector - Hidden when from project */}
