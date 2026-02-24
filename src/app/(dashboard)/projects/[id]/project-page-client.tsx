@@ -370,7 +370,7 @@ export function ProjectPageClient({
                   </Link>
                 </Button>
               )}
-              {canGenerateInvoice && project.inventory.length > 0 && (
+              {canGenerateInvoice && (
                 <Button variant="outline" onClick={handleGenerateInvoice}>
                   <FileText className="h-4 w-4 mr-2" />
                   Generate Invoice
