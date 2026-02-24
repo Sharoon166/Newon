@@ -33,7 +33,22 @@ const customExpenseSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['labor', 'materials', 'overhead', 'packaging', 'shipping', 'other'],
+      enum: [
+        'materials',
+        'labor',
+        'equipment',
+        'transport',
+        'rent',
+        'utilities',
+        'fuel',
+        'maintenance',
+        'marketing',
+        'office-supplies',
+        'professional-services',
+        'insurance',
+        'taxes',
+        'other'
+      ],
       default: 'other'
     },
     description: {
@@ -68,7 +83,7 @@ const virtualProductSchema = new mongoose.Schema(
     components: {
       type: [virtualProductComponentSchema],
       validate: {
-        validator: function (components: typeof virtualProductComponentSchema[]) {
+        validator: function (components: (typeof virtualProductComponentSchema)[]) {
           return components && components.length > 0;
         },
         message: 'Virtual product must have at least one component'

@@ -157,7 +157,6 @@ export async function generateInvoiceFromProject(
     const totalAmount = amountAfterDiscount + gstAmount;
 
     // Get customer details from project
-    // Note: You might want to fetch full customer details from Customer model
     const invoiceData = {
       type: data.type,
       date: new Date(),
@@ -185,7 +184,7 @@ export async function generateInvoiceFromProject(
       paidAmount: 0,
       balanceAmount: totalAmount,
       payments: [],
-      stockDeducted: false, // Important: stock already deducted in project
+      stockDeducted: false,
       notes: data.notes || `Generated from Project: ${project.title} (${project.projectId})`,
       termsAndConditions: data.termsAndConditions,
       custom: false,

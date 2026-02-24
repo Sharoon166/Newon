@@ -114,7 +114,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
           type: 'invoice',
           status: { $ne: 'cancelled' },
           date: { $gte: monthStart },
-          profit: { $exists: true, $gt: 0 }
+          profit: { $exists: true }
         }
       },
       {

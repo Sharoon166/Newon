@@ -19,7 +19,7 @@ export const createVirtualProduct = async (data: Omit<VirtualProduct, '_id' | 'c
       if (!product) {
         throw new Error(`Product with ID ${component.productId} not found`);
       }
-      
+
       const variant = product.variants.find((v: { id: string }) => v.id === component.variantId);
       if (!variant) {
         throw new Error(`Variant with ID ${component.variantId} not found`);
@@ -27,7 +27,7 @@ export const createVirtualProduct = async (data: Omit<VirtualProduct, '_id' | 'c
     }
 
     await VirtualProductModel.create(data);
-    
+
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
@@ -48,21 +48,24 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
     await dbConnect();
 
     const virtualProducts = await VirtualProductModel.find({}).lean();
-    
+
     // Get all products and purchases for stock calculation
     const products = await ProductModel.find({}).lean();
-    const purchases = await PurchaseModel.find({}).lean() as unknown as PurchaseType[];
+    const purchases = (await PurchaseModel.find({}).lean()) as unknown as PurchaseType[];
 
     // Create a map for quick product/variant lookup
-    const productMap = new Map<string, {
-      productName: string;
-      sku: string;
-      image?: string;
-      variant: Record<string, unknown>;
-    }>();
-    products.forEach((product) => {
+    const productMap = new Map<
+      string,
+      {
+        productName: string;
+        sku: string;
+        image?: string;
+        variant: Record<string, unknown>;
+      }
+    >();
+    products.forEach(product => {
       const p = product as unknown as LeanProduct;
-      p.variants?.forEach((variant) => {
+      p.variants?.forEach(variant => {
         productMap.set(`${p._id.toString()}-${variant.id}`, {
           productName: p.name,
           sku: variant.sku,
@@ -75,16 +78,19 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
     // Create a map for stock calculation from purchases
     const stockMap = new Map<string, number>();
     const fifoCostMap = new Map<string, number>(); // FIFO cost per component (oldest purchase)
-    
+
     // Group purchases by variant and sort by date (FIFO)
-    const purchasesByVariant = new Map<string, Array<{
-      productId: { toString: () => string };
-      variantId: string;
-      purchaseDate: Date;
-      remaining: number;
-      unitPrice: number;
-    }>>();
-    purchases.forEach((purchase) => {
+    const purchasesByVariant = new Map<
+      string,
+      Array<{
+        productId: { toString: () => string };
+        variantId: string;
+        purchaseDate: Date;
+        remaining: number;
+        unitPrice: number;
+      }>
+    >();
+    purchases.forEach(purchase => {
       const purchaseObj = purchase as {
         productId: { toString: () => string };
         variantId: string;
@@ -98,16 +104,16 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
       }
       purchasesByVariant.get(key)!.push(purchaseObj);
     });
-    
+
     // For each variant, sort by purchase date and get FIFO cost
     purchasesByVariant.forEach((variantPurchases, key) => {
       // Sort by purchase date (oldest first)
       variantPurchases.sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
-      
+
       // Calculate total stock
       const totalStock = variantPurchases.reduce((sum, p) => sum + (p.remaining || 0), 0);
       stockMap.set(key, totalStock);
-      
+
       // Get FIFO cost (from oldest purchase with stock)
       const oldestPurchaseWithStock = variantPurchases.find(p => p.remaining > 0);
       if (oldestPurchaseWithStock) {
@@ -116,9 +122,9 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
     });
 
     // Enhance virtual products with component details and calculate available quantity
-    const enhanced: EnhancedVirtualProduct[] = virtualProducts.map((vp) => {
+    const enhanced: EnhancedVirtualProduct[] = virtualProducts.map(vp => {
       const vpObj = vp as unknown as LeanVirtualProduct;
-      const enhancedComponents = vpObj.components.map((comp) => {
+      const enhancedComponents = vpObj.components.map(comp => {
         const key = `${comp.productId}-${comp.variantId}`;
         const productData = productMap.get(key);
         const availableStock = stockMap.get(key) || 0;
@@ -136,16 +142,19 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
 
       // Calculate how many virtual products can be made
       // Based on minimum available quantity considering component requirements
-      const availableQuantity = enhancedComponents.reduce((min: number, comp: { availableStock: number; quantity: number }) => {
-        const possibleQty = Math.floor(comp.availableStock / comp.quantity);
-        return Math.min(min, possibleQty);
-      }, Infinity);
+      const availableQuantity = enhancedComponents.reduce(
+        (min: number, comp: { availableStock: number; quantity: number }) => {
+          const possibleQty = Math.floor(comp.availableStock / comp.quantity);
+          return Math.min(min, possibleQty);
+        },
+        Infinity
+      );
 
       // Calculate estimated component cost using FIFO purchase prices
       const estimatedComponentCost = vpObj.components.reduce((sum: number, comp) => {
         const key = `${comp.productId}-${comp.variantId}`;
         const fifoCost = fifoCostMap.get(key) || 0;
-        return sum + (fifoCost * comp.quantity);
+        return sum + fifoCost * comp.quantity;
       }, 0);
 
       // Calculate total custom expenses
@@ -197,14 +206,17 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
     const purchases = await PurchaseModel.find({}).lean();
 
     // Create maps
-    const productMap = new Map<string, {
-      productName: string;
-      sku: string;
-      image?: string;
-    }>();
-    products.forEach((product) => {
+    const productMap = new Map<
+      string,
+      {
+        productName: string;
+        sku: string;
+        image?: string;
+      }
+    >();
+    products.forEach(product => {
       const p = product as unknown as LeanProduct;
-      p.variants?.forEach((variant) => {
+      p.variants?.forEach(variant => {
         productMap.set(`${p._id.toString()}-${variant.id}`, {
           productName: p.name,
           sku: variant.sku,
@@ -215,10 +227,10 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
 
     const stockMap = new Map<string, number>();
     const fifoCostMap = new Map<string, number>();
-    
+
     // Group purchases by variant and sort by date (FIFO)
     const purchasesByVariant = new Map<string, PurchaseType[]>();
-    purchases.forEach((purchase) => {
+    purchases.forEach(purchase => {
       const p = purchase as unknown as PurchaseType;
       const key = `${p.productId}-${p.variantId}`;
       if (!purchasesByVariant.has(key)) {
@@ -226,16 +238,16 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
       }
       purchasesByVariant.get(key)!.push(p);
     });
-    
+
     // For each variant, sort by purchase date and get FIFO cost
     purchasesByVariant.forEach((variantPurchases, key) => {
       // Sort by purchase date (oldest first)
       variantPurchases.sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
-      
+
       // Calculate total stock
       const totalStock = variantPurchases.reduce((sum, p) => sum + (p.remaining || 0), 0);
       stockMap.set(key, totalStock);
-      
+
       // Get FIFO cost (from oldest purchase with stock)
       const oldestPurchaseWithStock = variantPurchases.find(p => p.remaining > 0);
       if (oldestPurchaseWithStock) {
@@ -245,7 +257,7 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
 
     // Enhance components
     const vpObj = vp as unknown as LeanVirtualProduct;
-    const enhancedComponents = vpObj.components.map((comp) => {
+    const enhancedComponents = vpObj.components.map(comp => {
       const key = `${comp.productId}-${comp.variantId}`;
       const productData = productMap.get(key);
       const availableStock = stockMap.get(key) || 0;
@@ -261,16 +273,19 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
       };
     });
 
-    const availableQuantity = enhancedComponents.reduce((min: number, comp: { availableStock: number; quantity: number }) => {
-      const possibleQty = Math.floor(comp.availableStock / comp.quantity);
-      return Math.min(min, possibleQty);
-    }, Infinity);
+    const availableQuantity = enhancedComponents.reduce(
+      (min: number, comp: { availableStock: number; quantity: number }) => {
+        const possibleQty = Math.floor(comp.availableStock / comp.quantity);
+        return Math.min(min, possibleQty);
+      },
+      Infinity
+    );
 
     // Calculate estimated costs using FIFO
     const estimatedComponentCost = vpObj.components.reduce((sum: number, comp) => {
       const key = `${comp.productId}-${comp.variantId}`;
       const fifoCost = fifoCostMap.get(key) || 0;
-      return sum + (fifoCost * comp.quantity);
+      return sum + fifoCost * comp.quantity;
     }, 0);
 
     const totalCustomExpenses = (vpObj.customExpenses || []).reduce((sum: number, exp) => sum + exp.amount, 0);
@@ -317,7 +332,7 @@ export const updateVirtualProduct = async (
       if (!product) {
         throw new Error(`Product with ID ${component.productId} not found`);
       }
-      
+
       const variant = product.variants.find((v: { id: string }) => v.id === component.variantId);
       if (!variant) {
         throw new Error(`Variant with ID ${component.variantId} not found`);
@@ -325,7 +340,7 @@ export const updateVirtualProduct = async (
     }
 
     const updated = await VirtualProductModel.findByIdAndUpdate(id, data, { new: true });
-    
+
     if (!updated) {
       throw new Error('Virtual product not found');
     }
@@ -351,18 +366,31 @@ export const deleteVirtualProduct = async (id: string) => {
 
     // Check if used in any invoices
     const InvoiceModel = (await import('@/models/Invoice')).default;
-    const usedInInvoice = await InvoiceModel.findOne({
-      'items.virtualProductId': id,
-      type: 'invoice',
-      status: { $nin: ['cancelled', 'draft'] }
-    });
+    const ProjectModel = (await import('@/models/Project')).default;
 
-    if (usedInInvoice) {
-      throw new Error('Cannot delete virtual product that has been used in invoices. Please disable it instead.');
+    const [usedInInvoice, usedInQuotation, usedInProject] = await Promise.all([
+      InvoiceModel.findOne({
+        'items.virtualProductId': id,
+        type: 'invoice',
+        status: { $nin: ['cancelled', 'draft'] }
+      }),
+      InvoiceModel.findOne({
+        'items.virtualProductId': id,
+        type: 'quotation',
+        status: { $nin: ['cancelled', 'draft', 'rejected', 'expired', 'converted'] }
+      }),
+      ProjectModel.findOne({
+        'inventory.virtualProductId': id,
+        status: { $nin: ['cancelled', 'completed'] }
+      })
+    ]);
+
+    if (usedInInvoice || usedInQuotation || usedInProject) {
+      throw new Error('Cannot delete virtual product that has been used. Please disable it instead.');
     }
 
     await VirtualProductModel.findByIdAndDelete(id);
-    
+
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
@@ -390,7 +418,7 @@ export const toggleVirtualProductDisabled = async (id: string) => {
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
-    
+
     return { disabled: virtualProduct.disabled };
   } catch (error) {
     console.error('Error toggling virtual product:', error);

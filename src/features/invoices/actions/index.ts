@@ -1293,7 +1293,7 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
       ]),
       InvoiceModel.aggregate([
-        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: monthStart }, profit: { $exists: true, $gt: 0 } } },
+        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: monthStart }, profit: { $exists: true } } },
         { $group: { _id: null, total: { $sum: '$profit' } } }
       ]),
       InvoiceModel.countDocuments({ ...query, status: 'cancelled' }),

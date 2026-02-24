@@ -245,7 +245,7 @@ export function NewInvoiceFormWrapper({
         createdBy: 'system-user',
         // Project-specific fields
         ...(fromProject && {
-          stockDeducted: false, // Stock already deducted in project
+          stockDeducted: false,
           projectId: projectId
         })
       };
