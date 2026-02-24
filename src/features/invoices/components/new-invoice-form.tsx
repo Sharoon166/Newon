@@ -310,6 +310,51 @@ export function NewInvoiceForm({
     return variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
   };
 
+  // Helper function to get available quantity for virtual products
+  const getVirtualProductAvailableQuantity = (virtualProductId?: string) => {
+    if (!virtualProductId) return Infinity;
+
+    const virtualProduct = virtualProducts.find(vp => vp.id === virtualProductId);
+    if (!virtualProduct) return 0;
+
+    let minAvailable = virtualProduct.availableQuantity;
+
+    // Check if this virtual product is already in the invoice
+    const currentItems = form.watch('items');
+    const virtualProductInInvoice = currentItems.find(item => item.virtualProductId === virtualProductId);
+    if (virtualProductInInvoice) {
+      // Reduce available quantity by the amount already in invoice
+      minAvailable = Math.max(0, minAvailable - (virtualProductInInvoice.quantity || 0));
+    }
+
+    // Check each component to see if it's been used in the invoice
+    virtualProduct.components.forEach(component => {
+      // Find all invoice items that use this component
+      const componentUsage = currentItems.reduce((total, item) => {
+        // Check if this is a regular product item matching the component
+        if (item.variantId === component.variantId) {
+          return total + (item.quantity || 0);
+        }
+        // Check if this is a virtual product item that contains this component
+        if (item.virtualProductId && item.componentBreakdown) {
+          const breakdown = item.componentBreakdown;
+          const matchingComponent = breakdown.find(b => b.variantId === component.variantId);
+          if (matchingComponent) {
+            return total + matchingComponent.quantity;
+          }
+        }
+        return total;
+      }, 0);
+
+      // Calculate how many virtual products can be made with remaining component stock
+      const remainingComponentStock = component.availableStock - componentUsage;
+      const possibleUnits = Math.floor(remainingComponentStock / component.quantity);
+      minAvailable = Math.min(minAvailable, possibleUnits);
+    });
+
+    return Math.max(0, minAvailable);
+  };
+
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
@@ -1095,7 +1140,13 @@ export function NewInvoiceForm({
                   const originalRate = form.watch(`items.${index}.originalRate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
                   const purchaseId = form.watch(`items.${index}.purchaseId`);
-                  const availableStock = getAvailableStock(variantId);
+                  const virtualProductId = form.watch(`items.${index}.virtualProductId`);
+                  const isVirtualProduct = form.watch(`items.${index}.isVirtualProduct`);
+                  
+                  // Get available stock based on product type
+                  const availableStock = isVirtualProduct && virtualProductId
+                    ? getVirtualProductAvailableQuantity(virtualProductId)
+                    : getAvailableStock(variantId);
 
                   // Get stock limit for this specific purchase (including current item's quantity)
                   const purchaseStockLimit = purchaseId
@@ -1201,12 +1252,14 @@ export function NewInvoiceForm({
                                             form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
-                                          const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                          const maxStock = isVirtualProduct ? availableStock : (purchaseId ? purchaseStockLimit : availableStock);
                                           if (numericValue > maxStock) {
                                             toast.error('Insufficient stock', {
-                                              description: purchaseId
-                                                ? `Only ${maxStock} units available in this purchase`
-                                                : `Only ${maxStock} units available`
+                                              description: isVirtualProduct
+                                                ? `Only ${maxStock} units available`
+                                                : purchaseId
+                                                  ? `Only ${maxStock} units available in this purchase`
+                                                  : `Only ${maxStock} units available`
                                             });
                                             field.onChange(maxStock);
                                             form.setValue(`items.${index}.amount`, maxStock * currentRate);
@@ -1229,19 +1282,21 @@ export function NewInvoiceForm({
                               className="h-8 w-8"
                               onClick={() => {
                                 const newQuantity = currentQuantity + 1;
-                                const maxStock = purchaseId ? purchaseStockLimit : availableStock;
+                                const maxStock = isVirtualProduct ? availableStock : (purchaseId ? purchaseStockLimit : availableStock);
                                 if (newQuantity > maxStock) {
                                   toast.error('Insufficient stock', {
-                                    description: purchaseId
-                                      ? `Only ${maxStock} units available in this purchase`
-                                      : `Only ${maxStock} units available`
+                                    description: isVirtualProduct
+                                      ? `Only ${maxStock} units available`
+                                      : purchaseId
+                                        ? `Only ${maxStock} units available in this purchase`
+                                        : `Only ${maxStock} units available`
                                   });
                                   return;
                                 }
                                 form.setValue(`items.${index}.quantity`, newQuantity);
                                 form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                               }}
-                              disabled={currentQuantity >= (purchaseId ? purchaseStockLimit : availableStock)}
+                              disabled={currentQuantity >= (isVirtualProduct ? availableStock : (purchaseId ? purchaseStockLimit : availableStock))}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>

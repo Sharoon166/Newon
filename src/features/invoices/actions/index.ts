@@ -451,6 +451,61 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
           // Continue anyway - invoice is created but stock might not be fully deducted
         }
 
+        // Update invoice items with actual deduction data
+        if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+          for (let i = 0; i < savedInvoice.items.length; i++) {
+            const item = savedInvoice.items[i];
+            const deductionData = stockResult.actualDeductions[i];
+
+            if (!deductionData) {
+              continue;
+            }
+
+            // Update component breakdown with actual purchases used for virtual products
+            if (item.isVirtualProduct && deductionData.componentBreakdown) {
+              // Flatten all component purchases into invoice component breakdown
+              const allComponentPurchases: Array<{
+                productId: string;
+                variantId: string;
+                productName: string;
+                sku: string;
+                quantity: number;
+                purchaseId: string;
+                unitCost: number;
+                totalCost: number;
+              }> = [];
+
+              for (const component of deductionData.componentBreakdown) {
+                for (const purchase of component.purchases) {
+                  allComponentPurchases.push({
+                    productId: component.productId,
+                    variantId: component.variantId,
+                    productName: component.productName,
+                    sku: component.sku,
+                    quantity: purchase.quantity,
+                    purchaseId: purchase.purchaseId,
+                    unitCost: purchase.unitCost,
+                    totalCost: purchase.totalCost
+                  });
+                }
+              }
+
+              item.componentBreakdown = allComponentPurchases;
+
+              // Calculate total component cost
+              item.totalComponentCost = allComponentPurchases.reduce(
+                (sum, p) => sum + p.totalCost,
+                0
+              );
+            } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
+              // For regular products, store the first purchase info
+              const firstPurchase = deductionData.regularPurchases[0];
+              item.purchaseId = firstPurchase.purchaseId;
+              item.originalRate = firstPurchase.unitCost;
+            }
+          }
+        }
+
         // Mark stock as deducted
         savedInvoice.stockDeducted = true;
 
@@ -652,7 +707,8 @@ export async function deleteInvoice(id: string): Promise<void> {
             purchaseId: item.purchaseId,
             quantity: item.quantity,
             isVirtualProduct: item.isVirtualProduct,
-            virtualProductId: item.virtualProductId
+            virtualProductId: item.virtualProductId,
+            componentBreakdown: item.componentBreakdown
           }))
         );
       } catch (stockError) {
@@ -967,12 +1023,67 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
           }))
         );
 
-        if (stockResult.success) {
-          savedInvoice.stockDeducted = true;
-          await savedInvoice.save();
-        } else {
+        if (!stockResult.success) {
           console.warn('Some stock deductions failed:', stockResult.errors);
         }
+
+        // Update invoice items with actual deduction data
+        if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+          for (let i = 0; i < savedInvoice.items.length; i++) {
+            const item = savedInvoice.items[i];
+            const deductionData = stockResult.actualDeductions[i];
+
+            if (!deductionData) {
+              continue;
+            }
+
+            // Update component breakdown with actual purchases used for virtual products
+            if (item.isVirtualProduct && deductionData.componentBreakdown) {
+              // Flatten all component purchases into invoice component breakdown
+              const allComponentPurchases: Array<{
+                productId: string;
+                variantId: string;
+                productName: string;
+                sku: string;
+                quantity: number;
+                purchaseId: string;
+                unitCost: number;
+                totalCost: number;
+              }> = [];
+
+              for (const component of deductionData.componentBreakdown) {
+                for (const purchase of component.purchases) {
+                  allComponentPurchases.push({
+                    productId: component.productId,
+                    variantId: component.variantId,
+                    productName: component.productName,
+                    sku: component.sku,
+                    quantity: purchase.quantity,
+                    purchaseId: purchase.purchaseId,
+                    unitCost: purchase.unitCost,
+                    totalCost: purchase.totalCost
+                  });
+                }
+              }
+
+              item.componentBreakdown = allComponentPurchases;
+
+              // Calculate total component cost
+              item.totalComponentCost = allComponentPurchases.reduce(
+                (sum, p) => sum + p.totalCost,
+                0
+              );
+            } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
+              // For regular products, store the first purchase info
+              const firstPurchase = deductionData.regularPurchases[0];
+              item.purchaseId = firstPurchase.purchaseId;
+              item.originalRate = firstPurchase.unitCost;
+            }
+          }
+        }
+
+        savedInvoice.stockDeducted = true;
+        await savedInvoice.save();
       } catch (stockError) {
         console.error('Error deducting stock:', stockError);
       }
@@ -1103,7 +1214,8 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
             purchaseId: item.purchaseId,
             quantity: item.quantity,
             isVirtualProduct: item.isVirtualProduct,
-            virtualProductId: item.virtualProductId
+            virtualProductId: item.virtualProductId,
+            componentBreakdown: item.componentBreakdown
           }))
         );
         invoice.stockDeducted = false;
@@ -1355,6 +1467,61 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
         throw new Error(`Stock deduction failed: ${stockResult.errors.join(', ')}`);
       }
 
+      // Update invoice items with actual deduction data
+      if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+        for (let i = 0; i < invoice.items.length; i++) {
+          const item = invoice.items[i];
+          const deductionData = stockResult.actualDeductions[i];
+
+          if (!deductionData) {
+            continue;
+          }
+
+          // Update component breakdown with actual purchases used for virtual products
+          if (item.isVirtualProduct && deductionData.componentBreakdown) {
+            // Flatten all component purchases into invoice component breakdown
+            const allComponentPurchases: Array<{
+              productId: string;
+              variantId: string;
+              productName: string;
+              sku: string;
+              quantity: number;
+              purchaseId: string;
+              unitCost: number;
+              totalCost: number;
+            }> = [];
+
+            for (const component of deductionData.componentBreakdown) {
+              for (const purchase of component.purchases) {
+                allComponentPurchases.push({
+                  productId: component.productId,
+                  variantId: component.variantId,
+                  productName: component.productName,
+                  sku: component.sku,
+                  quantity: purchase.quantity,
+                  purchaseId: purchase.purchaseId,
+                  unitCost: purchase.unitCost,
+                  totalCost: purchase.totalCost
+                });
+              }
+            }
+
+            item.componentBreakdown = allComponentPurchases;
+
+            // Calculate total component cost
+            item.totalComponentCost = allComponentPurchases.reduce(
+              (sum, p) => sum + p.totalCost,
+              0
+            );
+          } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
+            // For regular products, store the first purchase info
+            const firstPurchase = deductionData.regularPurchases[0];
+            item.purchaseId = firstPurchase.purchaseId;
+            item.originalRate = firstPurchase.unitCost;
+          }
+        }
+      }
+
       invoice.stockDeducted = true;
       await invoice.save();
     }
@@ -1398,7 +1565,8 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
           purchaseId: item.purchaseId,
           quantity: item.quantity,
           isVirtualProduct: item.isVirtualProduct,
-          virtualProductId: item.virtualProductId
+          virtualProductId: item.virtualProductId,
+          componentBreakdown: item.componentBreakdown
         }))
       );
 

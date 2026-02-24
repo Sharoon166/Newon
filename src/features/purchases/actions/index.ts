@@ -293,6 +293,7 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   revalidatePath(`/inventory/${data.productId}`);
   revalidatePath('/inventory');
   revalidatePath('/purchases');
+  revalidatePath('/virtual-products');
   
 
   const purchaseObj = newPurchase.toObject();
@@ -444,6 +445,7 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   revalidatePath(`/inventory/${productId}`);
   revalidatePath('/inventory');
   revalidatePath('/purchases');
+  revalidatePath('/virtual-products');
   
 
   return {
@@ -524,6 +526,7 @@ export const deletePurchase = async (id: string) => {
   revalidatePath(`/inventory/${productId}/edit`);
   revalidatePath(`/inventory/${productId}`);
   revalidatePath('/inventory');
+  revalidatePath('/virtual-products');
   
 };
 

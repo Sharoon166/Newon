@@ -104,34 +104,62 @@ export async function calculateVirtualProductFIFOCost(
         continue;
       }
 
-      // Use FIFO to allocate stock
-      const firstPurchase = purchasesWithEffectiveRemaining[0] as Record<string, unknown> & {
-        effectiveRemaining: number;
+      // Use FIFO to allocate stock across multiple purchases if needed
+      let remainingToAllocate = requiredQty;
+      const allocatedPurchases: Array<{
         purchaseId: string;
-        unitPrice: number;
-      };
+        quantity: number;
+        unitCost: number;
+        totalCost: number;
+      }> = [];
 
-      if (firstPurchase.effectiveRemaining < requiredQty) {
+      for (const purchase of purchasesWithEffectiveRemaining) {
+        if (remainingToAllocate <= 0) break;
+
+        const purchaseTyped = purchase as Record<string, unknown> & {
+          effectiveRemaining: number;
+          purchaseId: string;
+          unitPrice: number;
+        };
+
+        const allocateQty = Math.min(purchaseTyped.effectiveRemaining, remainingToAllocate);
+        
+        allocatedPurchases.push({
+          purchaseId: purchaseTyped.purchaseId,
+          quantity: allocateQty,
+          unitCost: purchaseTyped.unitPrice,
+          totalCost: allocateQty * purchaseTyped.unitPrice
+        });
+
+        remainingToAllocate -= allocateQty;
+      }
+
+      if (remainingToAllocate > 0) {
+        const totalAvailable = purchasesWithEffectiveRemaining.reduce(
+          (sum, p) => sum + ((p as Record<string, unknown>).effectiveRemaining as number),
+          0
+        );
         errors.push(
           `Insufficient stock for component ${component.productId}-${component.variantId}. ` +
-          `Need: ${requiredQty}, Available: ${firstPurchase.effectiveRemaining}`
+          `Need: ${requiredQty}, Available: ${totalAvailable}`
         );
         canFulfill = false;
         continue;
       }
 
-      // For simplicity, we'll use the first purchase (FIFO)
-      // In a more complex scenario, you might need to split across multiple purchases
-      componentBreakdown.push({
-        productId: component.productId,
-        variantId: component.variantId,
-        productName: 'Component', // Will be populated by caller
-        sku: 'SKU', // Will be populated by caller
-        quantity: requiredQty,
-        purchaseId: firstPurchase.purchaseId,
-        unitCost: firstPurchase.unitPrice,
-        totalCost: firstPurchase.unitPrice * requiredQty
-      });
+      // Add each allocated purchase as a separate component breakdown entry
+      for (const allocated of allocatedPurchases) {
+        componentBreakdown.push({
+          productId: component.productId,
+          variantId: component.variantId,
+          productName: 'Component', // Will be populated by caller
+          sku: 'SKU', // Will be populated by caller
+          quantity: allocated.quantity,
+          purchaseId: allocated.purchaseId,
+          unitCost: allocated.unitCost,
+          totalCost: allocated.totalCost
+        });
+      }
     }
 
     // Calculate totals

@@ -595,7 +595,7 @@ export function PurchaseForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Retail Price <span className="text-destructive">*</span>
+                        Retail Price
                       </FormLabel>
                       <FormControl>
                         <NumberInput
@@ -625,7 +625,7 @@ name="wholesalePrice"
 render={({ field }) => (
   <FormItem>
     <FormLabel>
-      Wholesale Price <span className="text-destructive">*</span>
+      Wholesale Price
     </FormLabel>
     <FormControl>
       <NumberInput

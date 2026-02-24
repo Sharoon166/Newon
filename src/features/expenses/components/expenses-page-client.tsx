@@ -7,7 +7,7 @@ import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExpenseTable } from './expense-table';
 import { ExpenseFormDialog } from './expense-form-dialog';
-import { ExpenseDateFilter } from './expense-date-filter';
+import { ExpenseFilter } from './expense-filter';
 import { deleteExpense, getExpense } from '../actions';
 import type { Expense } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -89,7 +89,7 @@ export function ExpensesPageClient({
             <TabsTrigger value="invoice-expenses">Invoice Expenses</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
-            <ExpenseDateFilter />
+            <ExpenseFilter />
             <Button onClick={() => setIsFormOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Expense
