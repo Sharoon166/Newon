@@ -414,7 +414,7 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                   <Download className="h-4 w-4 mr-2" />
                   {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
                 </DropdownMenuItem>
-                {invoice.status !== 'cancelled' && (
+                {invoice.status !== 'cancelled' && !invoice.projectId && (
                   <>
                     <DropdownMenuItem
                       onClick={() => {

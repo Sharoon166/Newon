@@ -67,8 +67,11 @@ async function NewInvoiceFromProjectContent({ params }: NewInvoiceFromProjectPag
 
     // Check for existing non-cancelled invoices
     const activeInvoices = projectInvoices.filter(inv => inv.status !== 'cancelled');
-    const existingInvoicesCount = activeInvoices.length;
-    const existingInvoiceNumbers = activeInvoices.map(inv => inv.invoiceNumber);
+
+    // Prevent creating new invoice if active invoices exist
+    if (activeInvoices.length > 0) {
+      redirect(`/projects/${projectId}?error=active-invoices-exist`);
+    }
 
     // Transform project inventory to invoice items (no markup - client decides pricing)
     const inventoryItems = project.inventory.map(item => ({
@@ -167,8 +170,8 @@ async function NewInvoiceFromProjectContent({ params }: NewInvoiceFromProjectPag
           invoiceTerms={invoiceTerms}
           initialData={initialData}
           projectId={project.projectId!}
-          existingInvoicesCount={existingInvoicesCount}
-          existingInvoiceNumbers={existingInvoiceNumbers}
+          existingInvoicesCount={0}
+          existingInvoiceNumbers={[]}
         />
       </div>
     );

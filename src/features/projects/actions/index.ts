@@ -295,6 +295,31 @@ export async function updateProject(id: string, data: UpdateProjectDto): Promise
   }
 }
 
+export async function updateProjectStatus(
+  id: string,
+  status: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled'
+): Promise<void> {
+  try {
+    await dbConnect();
+
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+      { projectId: id },
+      { $set: { status } },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProject) {
+      throw new Error('Project not found');
+    }
+
+    revalidatePath('/projects');
+    revalidatePath(`/projects/${id}`);
+  } catch (error) {
+    console.error(`Error updating project status ${id}:`, error);
+    throw new Error((error as Error).message || 'Failed to update project status');
+  }
+}
+
 export async function deleteProject(id: string): Promise<void> {
   try {
     await dbConnect();

@@ -88,43 +88,11 @@ export function VirtualProductSelector({
   // considering components used in current invoice items
   const getAdjustedAvailableQuantity = useCallback(
     (product: EnhancedVirtualProduct) => {
-      let minAvailable = product.availableQuantity;
-
-      // First, check if this virtual product itself is already in the invoice
-      const virtualProductInInvoice = currentItems.find(item => item.virtualProductId === product.id);
-      if (virtualProductInInvoice) {
-        // Reduce available quantity by the amount already in invoice
-        minAvailable = Math.max(0, minAvailable - (virtualProductInInvoice.quantity || 0));
-      }
-
-      // Check each component to see if it's been used in the invoice
-      product.components.forEach(component => {
-        // Find all invoice items that use this component
-        const componentUsage = currentItems.reduce((total, item) => {
-          // Check if this is a regular product item matching the component
-          if (item.variantId === component.variantId) {
-            return total + (item.quantity || 0);
-          }
-          // Check if this is a virtual product item that contains this component
-          if (item.virtualProductId && item.componentBreakdown) {
-            const breakdown = item.componentBreakdown
-            const matchingComponent = breakdown.find(b => b.variantId === component.variantId);
-            if (matchingComponent) {
-              return total + matchingComponent.quantity;
-            }
-          }
-          return total;
-        }, 0);
-
-        // Calculate how many virtual products can be made with remaining component stock
-        const remainingComponentStock = component.availableStock - componentUsage;
-        const possibleUnits = Math.floor(remainingComponentStock / component.quantity);
-        minAvailable = Math.min(minAvailable, possibleUnits);
-      });
-
-      return Math.max(0, minAvailable);
+      // Server already calculated availableQuantity correctly
+      // No need for client-side adjustment
+      return product.availableQuantity;
     },
-    [currentItems]
+    []
   );
 
   // Get unique categories

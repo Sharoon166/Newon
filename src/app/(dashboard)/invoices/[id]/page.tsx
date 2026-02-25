@@ -312,8 +312,13 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-          {/* Edit button - Navigate to edit page for quotations and pending invoices, use dialog for paid/partial */}
-          {invoice.type === 'quotation' || invoice.status === 'pending' ? (
+          {/* Edit button - Disabled for project invoices, navigate to edit page for quotations and pending invoices, use dialog for paid/partial */}
+          {invoice.projectId ? (
+            <Button variant="outline" disabled title="Project invoices cannot be edited from here">
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          ) : invoice.type === 'quotation' || invoice.status === 'pending' ? (
             <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
               <Link href={`/invoices/${invoice.id}/edit`}>
                 <Edit className="h-4 w-4 mr-2" />
@@ -420,6 +425,13 @@ export default function InvoiceDetailPage() {
                     <Badge>{invoice.status}</Badge>
                     <Badge variant="outline">{invoice.market}</Badge>
                     <Badge variant="outline">{invoice.billingType}</Badge>
+                    {invoice.projectId && (
+                      <Link href={`/projects/${invoice.projectId}`}>
+                        <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80">
+                          Project Invoice
+                        </Badge>
+                      </Link>
+                    )}
                     {invoice.type === 'invoice' && (
                       <Badge variant={invoice.stockDeducted ? 'default' : 'secondary'}>
                         {invoice.stockDeducted ? 'Stock Deducted' : 'Stock Not Deducted'}

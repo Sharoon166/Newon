@@ -148,6 +148,7 @@ export interface CreateInvoiceDto {
   profit?: number;
   custom?: boolean;
   createdBy: string;
+  projectId?: string; // Link to project if invoice was generated from project
 }
 
 // Update Invoice DTO

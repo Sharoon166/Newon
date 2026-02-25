@@ -7,6 +7,7 @@ import { ExpensesTable } from '@/features/projects/components/expenses-table';
 import { AddExpenseDialog } from '@/features/projects/components/add-expense-dialog';
 import { ProjectInventoryTable } from '@/features/projects/components/project-inventory-table';
 import { ProjectInvoicesList } from '@/features/projects/components/project-invoices-list';
+import { UpdateStatusDialog } from '@/features/projects/components/update-status-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -85,13 +86,25 @@ export function ProjectPageClient({
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const market = currentBrandId === 'waymor' ? 'waymor' : 'newon';
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [isAddingInventory, setIsAddingInventory] = useState(false);
   const [pendingInventory, setPendingInventory] = useState<InventoryItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
   const handleGenerateInvoice = () => {
-    // Navigate to invoice form with project data
+    if (project.status !== 'completed') {
+      toast.error('Only completed projects can generate invoices');
+      return;
+    }
+
+    // Check for existing non-cancelled invoices
+    const activeInvoices = projectInvoices.filter(inv => inv.status !== 'cancelled');
+    if (activeInvoices.length > 0) {
+      toast.error(`Project already has ${activeInvoices.length} active invoice(s). Please cancel existing invoices before creating a new one.`);
+      return;
+    }
+
     router.push(`/invoices/new/from-project/${project.projectId}`);
   };
 
@@ -354,7 +367,10 @@ export function ProjectPageClient({
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-bold">{project.title}</h1>
-                <Badge className={`${statusConfig.bg} ${statusConfig.text} border-0 px-3 py-1`}>
+                <Badge 
+                  className={`${statusConfig.bg} ${statusConfig.text} border-0 px-3 py-1 cursor-pointer hover:opacity-80`}
+                  onClick={() => canEdit && setStatusDialogOpen(true)}
+                >
                   {statusConfig.label}
                 </Badge>
               </div>
@@ -370,8 +386,17 @@ export function ProjectPageClient({
                   </Link>
                 </Button>
               )}
+              {canEdit && userRole === 'admin' && (
+                <Button variant="outline" onClick={() => setStatusDialogOpen(true)}>
+                  Update Status
+                </Button>
+              )}
               {canGenerateInvoice && (
-                <Button variant="outline" onClick={handleGenerateInvoice}>
+                <Button 
+                  variant="outline" 
+                  onClick={handleGenerateInvoice}
+                  disabled={project.status !== 'completed'}
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   Generate Invoice
                 </Button>
@@ -557,6 +582,15 @@ export function ProjectPageClient({
           projectId={projectId}
           userId={userId}
           onSuccess={handleRefresh}
+        />
+      )}
+
+      {canEdit && (
+        <UpdateStatusDialog
+          open={statusDialogOpen}
+          onOpenChange={setStatusDialogOpen}
+          projectId={projectId}
+          currentStatus={project.status}
         />
       )}
 
