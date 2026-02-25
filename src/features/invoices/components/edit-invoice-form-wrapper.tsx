@@ -209,9 +209,18 @@ export function EditInvoiceFormWrapper({
               virtualProductId: item.virtualProductId,
               isVirtualProduct: true,
               componentBreakdown: item.componentBreakdown,
-              customExpenses: item.customExpenses,
               totalComponentCost: item.totalComponentCost,
               totalCustomExpenses: item.totalCustomExpenses
+            }),
+            ...(item.customExpenses && item.customExpenses.length > 0 && {
+              customExpenses: item.customExpenses.map(expense => ({
+                name: expense.name,
+                amount: expense.clientCost,
+                actualCost: expense.actualCost,
+                clientCost: expense.clientCost,
+                category: expense.category,
+                description: expense.description
+              }))
             }),
             quantity: item.quantity,
             unit: 'pcs',

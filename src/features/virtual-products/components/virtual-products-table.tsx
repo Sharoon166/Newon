@@ -217,12 +217,13 @@ export function VirtualProductsTable({ data }: VirtualProductsTableProps) {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={async () => {
-                    try {
-                      const result = await toggleVirtualProductDisabled(product.id!);
-                      toast.success(result.disabled ? 'Product disabled' : 'Product enabled');
+                    const result = await toggleVirtualProductDisabled(product.id!);
+                    
+                    if (result.success) {
+                      toast.success(result.data.disabled ? 'Product disabled' : 'Product enabled');
                       router.refresh();
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Failed to toggle status');
+                    } else {
+                      toast.error(result.error);
                     }
                   }}
                 >
@@ -287,16 +288,17 @@ export function VirtualProductsTable({ data }: VirtualProductsTableProps) {
   const handleDelete = async () => {
     if (!selectedProduct) return;
 
-    try {
-      await deleteVirtualProduct(selectedProduct.id!);
+    const result = await deleteVirtualProduct(selectedProduct.id!);
+    
+    if (result.success) {
       toast.success('Virtual product deleted successfully');
       router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete virtual product');
-    } finally {
-      setDeleteDialogOpen(false);
-      setSelectedProduct(null);
+    } else {
+      toast.error(result.error);
     }
+    
+    setDeleteDialogOpen(false);
+    setSelectedProduct(null);
   };
 
   return (

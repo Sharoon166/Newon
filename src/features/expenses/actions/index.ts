@@ -185,6 +185,16 @@ export async function updateExpense(
   try {
     await dbConnect();
 
+    const existingExpense = await ExpenseModel.findOne({ expenseId: id }).lean();
+
+    if (!existingExpense) {
+      return { success: false, error: 'Expense not found' };
+    }
+
+    if (existingExpense.source === 'invoice') {
+      return { success: false, error: 'Cannot edit expense from invoice. Please edit the invoice instead.' };
+    }
+
     const validated = updateExpenseSchema.parse(data);
 
     const updateData = Object.fromEntries(
@@ -216,6 +226,16 @@ export async function updateExpense(
 export async function deleteExpense(id: string): Promise<ActionResult<void>> {
   try {
     await dbConnect();
+
+    const existingExpense = await ExpenseModel.findOne({ expenseId: id }).lean();
+
+    if (!existingExpense) {
+      return { success: false, error: 'Expense not found' };
+    }
+
+    if (existingExpense.source === 'invoice') {
+      return { success: false, error: 'Cannot delete expense from invoice. Please cancel or edit the invoice instead.' };
+    }
 
     const result = await ExpenseModel.deleteOne({ expenseId: id });
 

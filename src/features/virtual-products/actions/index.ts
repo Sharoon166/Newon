@@ -360,33 +360,30 @@ export const updateVirtualProduct = async (
   }
 };
 
-export const deleteVirtualProduct = async (id: string) => {
+type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+
+export const deleteVirtualProduct = async (id: string): Promise<ActionResult<void>> => {
   try {
     await dbConnect();
 
-    // Check if used in any invoices
+    // Check if used in ANY invoice or project (regardless of status)
     const InvoiceModel = (await import('@/models/Invoice')).default;
     const ProjectModel = (await import('@/models/Project')).default;
 
-    const [usedInInvoice, usedInQuotation, usedInProject] = await Promise.all([
+    const [usedInInvoice, usedInProject] = await Promise.all([
       InvoiceModel.findOne({
-        'items.virtualProductId': id,
-        type: 'invoice',
-        status: { $nin: ['cancelled', 'draft'] }
-      }),
-      InvoiceModel.findOne({
-        'items.virtualProductId': id,
-        type: 'quotation',
-        status: { $nin: ['cancelled', 'draft', 'rejected', 'expired', 'converted'] }
+        'items.virtualProductId': id
       }),
       ProjectModel.findOne({
-        'inventory.virtualProductId': id,
-        status: { $nin: ['cancelled', 'completed'] }
+        'inventory.virtualProductId': id
       })
     ]);
 
-    if (usedInInvoice || usedInQuotation || usedInProject) {
-      throw new Error('Cannot delete virtual product that has been used. Please disable it instead.');
+    if (usedInInvoice || usedInProject) {
+      return { 
+        success: false, 
+        error: 'Cannot delete virtual product that has been used in any invoice or project. Please disable it instead.' 
+      };
     }
 
     await VirtualProductModel.findByIdAndDelete(id);
@@ -394,22 +391,24 @@ export const deleteVirtualProduct = async (id: string) => {
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
+
+    return { success: true, data: undefined };
   } catch (error) {
     console.error('Error deleting virtual product:', error);
-    if (error instanceof Error) {
-      throw new Error(error.message);
-    }
-    throw new Error('Failed to delete virtual product');
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to delete virtual product' 
+    };
   }
 };
 
-export const toggleVirtualProductDisabled = async (id: string) => {
+export const toggleVirtualProductDisabled = async (id: string): Promise<ActionResult<{ disabled: boolean }>> => {
   try {
     await dbConnect();
 
     const virtualProduct = await VirtualProductModel.findById(id);
     if (!virtualProduct) {
-      throw new Error('Virtual product not found');
+      return { success: false, error: 'Virtual product not found' };
     }
 
     virtualProduct.disabled = !virtualProduct.disabled;
@@ -419,12 +418,12 @@ export const toggleVirtualProductDisabled = async (id: string) => {
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
 
-    return { disabled: virtualProduct.disabled };
+    return { success: true, data: { disabled: virtualProduct.disabled } };
   } catch (error) {
     console.error('Error toggling virtual product:', error);
-    if (error instanceof Error) {
-      throw new Error(error.message);
-    }
-    throw new Error('Failed to toggle virtual product status');
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to toggle virtual product status' 
+    };
   }
 };

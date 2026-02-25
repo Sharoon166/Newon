@@ -483,6 +483,93 @@ export async function addInventoryItem(projectId: string, data: AddInventoryDto)
     // Calculate total cost
     const totalCost = data.quantity * data.rate;
 
+    // Deduct stock for virtual products
+    if (data.isVirtualProduct && data.virtualProductId) {
+      try {
+        const { deductStockForInvoice } = await import('@/features/purchases/actions/stock');
+        const stockResult = await deductStockForInvoice([
+          {
+            quantity: data.quantity,
+            isVirtualProduct: true,
+            virtualProductId: data.virtualProductId
+          }
+        ]);
+
+        if (!stockResult.success) {
+          throw new Error(`Stock deduction failed: ${stockResult.errors.join(', ')}`);
+        }
+
+        // Update component breakdown with actual deductions
+        if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+          const deductionData = stockResult.actualDeductions[0];
+          
+          if (deductionData.componentBreakdown) {
+            const allComponentPurchases: Array<{
+              productId: string;
+              variantId: string;
+              productName: string;
+              sku: string;
+              quantity: number;
+              purchaseId: string;
+              unitCost: number;
+              totalCost: number;
+            }> = [];
+
+            for (const component of deductionData.componentBreakdown) {
+              for (const purchase of component.purchases) {
+                allComponentPurchases.push({
+                  productId: component.productId,
+                  variantId: component.variantId,
+                  productName: component.productName,
+                  sku: component.sku,
+                  quantity: purchase.quantity,
+                  purchaseId: purchase.purchaseId,
+                  unitCost: purchase.unitCost,
+                  totalCost: purchase.totalCost
+                });
+              }
+            }
+
+            data.componentBreakdown = allComponentPurchases;
+            data.totalComponentCost = allComponentPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+          }
+        }
+      } catch (stockError) {
+        console.error('Error deducting stock for virtual product:', stockError);
+        throw new Error(
+          stockError instanceof Error 
+            ? stockError.message 
+            : 'Failed to deduct stock for virtual product'
+        );
+      }
+    }
+    // Deduct stock for regular products
+    else if (!data.isVirtualProduct && data.purchaseId) {
+      try {
+        const { deductStockForInvoice } = await import('@/features/purchases/actions/stock');
+        const stockResult = await deductStockForInvoice([
+          {
+            purchaseId: data.purchaseId,
+            quantity: data.quantity,
+            isVirtualProduct: false,
+            productId: data.productId,
+            variantId: data.variantId
+          }
+        ]);
+
+        if (!stockResult.success) {
+          throw new Error(`Stock deduction failed: ${stockResult.errors.join(', ')}`);
+        }
+      } catch (stockError) {
+        console.error('Error deducting stock for regular product:', stockError);
+        throw new Error(
+          stockError instanceof Error 
+            ? stockError.message 
+            : 'Failed to deduct stock for product'
+        );
+      }
+    }
+
     const updatedProject = await ProjectModel.findOneAndUpdate(
       { projectId },
       {
@@ -510,19 +597,22 @@ export async function addInventoryItem(projectId: string, data: AddInventoryDto)
       action: 'inventory_added',
       userId: data.addedBy,
       userName: addedByName,
-      userRole: 'admin', // Only admins can add inventory
+      userRole: 'admin',
       description: `Added inventory: ${data.productName} (Qty: ${data.quantity}) - ${formatCurrency(totalCost)}`,
       metadata: {
         productName: data.productName,
         sku: data.sku,
         quantity: data.quantity,
         rate: data.rate,
-        totalCost
+        totalCost,
+        isVirtualProduct: data.isVirtualProduct
       }
     });
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/purchases');
+    revalidatePath('/inventory');
 
     return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
@@ -595,15 +685,55 @@ export async function deleteInventoryItem(
   try {
     await dbConnect();
 
-    // Get the inventory item before deleting for audit log
+    // Get the inventory item before deleting for audit log and stock restoration
     const project = await ProjectModel.findOne({ projectId }).lean();
     if (!project) {
       throw new Error('Project not found');
     }
 
-    const inventoryItem = (project.inventory as unknown as Array<{ _id: unknown; productName: string; sku: string; quantity: number; totalCost: number }>).find((item) => 
+    const inventoryItem = (project.inventory as unknown as Array<{ 
+      _id: unknown; 
+      productName: string; 
+      sku: string; 
+      quantity: number; 
+      totalCost: number;
+      isVirtualProduct: boolean;
+      virtualProductId?: string;
+      purchaseId?: string;
+      componentBreakdown?: Array<{
+        productId: string;
+        variantId: string;
+        productName: string;
+        sku: string;
+        quantity: number;
+        purchaseId: string;
+        unitCost: number;
+        totalCost: number;
+      }>;
+    }>).find((item) => 
       String(item._id) === inventoryItemId
     );
+
+    if (!inventoryItem) {
+      throw new Error('Inventory item not found');
+    }
+
+    // Restore stock before deleting
+    try {
+      const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
+      await restoreStockForInvoice([
+        {
+          purchaseId: inventoryItem.purchaseId,
+          quantity: inventoryItem.quantity,
+          isVirtualProduct: inventoryItem.isVirtualProduct,
+          virtualProductId: inventoryItem.virtualProductId,
+          componentBreakdown: inventoryItem.componentBreakdown
+        }
+      ]);
+    } catch (stockError) {
+      console.error('Error restoring stock:', stockError);
+      // Continue with deletion even if stock restoration fails
+    }
 
     const updatedProject = await ProjectModel.findOneAndUpdate(
       { projectId },
@@ -616,28 +746,29 @@ export async function deleteInventoryItem(
     }
 
     // Create audit log
-    if (inventoryItem) {
-      const { createAuditLog } = await import('./audit');
-      const { formatCurrency } = await import('@/lib/utils');
-      await createAuditLog({
-        projectId,
-        action: 'inventory_deleted',
-        userId,
-        userName,
-        userRole: 'admin',
-        description: `Deleted inventory: ${inventoryItem.productName} (Qty: ${inventoryItem.quantity}) - ${formatCurrency(inventoryItem.totalCost)}`,
-        metadata: {
-          inventoryItemId,
-          productName: inventoryItem.productName,
-          sku: inventoryItem.sku,
-          quantity: inventoryItem.quantity,
-          totalCost: inventoryItem.totalCost
-        }
-      });
-    }
+    const { createAuditLog } = await import('./audit');
+    const { formatCurrency } = await import('@/lib/utils');
+    await createAuditLog({
+      projectId,
+      action: 'inventory_deleted',
+      userId,
+      userName,
+      userRole: 'admin',
+      description: `Deleted inventory: ${inventoryItem.productName} (Qty: ${inventoryItem.quantity}) - ${formatCurrency(inventoryItem.totalCost)}`,
+      metadata: {
+        inventoryItemId,
+        productName: inventoryItem.productName,
+        sku: inventoryItem.sku,
+        quantity: inventoryItem.quantity,
+        totalCost: inventoryItem.totalCost,
+        isVirtualProduct: inventoryItem.isVirtualProduct
+      }
+    });
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/purchases');
+    revalidatePath('/inventory');
 
     return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {

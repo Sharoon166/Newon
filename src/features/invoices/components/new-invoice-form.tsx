@@ -1302,57 +1302,162 @@ export function NewInvoiceForm({
                             </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">Rate</div>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.rate`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        {...field}
-                                        className="h-8 text-sm"
-                                        onChange={e => {
-                                          const value = e.target.value;
-                                          if (value === '') {
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          const numericValue = parseFloat(value);
-                                          if (isNaN(numericValue) || numericValue < 0) {
-                                            toast.error('Invalid rate', {
-                                              description: 'Rate must be 0 or greater'
-                                            });
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          field.onChange(numericValue);
-                                          form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                        }}
-                                        value={field.value || ''}
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground mb-1">Amount</div>
-                            <div className="font-semibold">
-                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                        {item.customExpenses && item.customExpenses.length > 0 ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Actual Cost</div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.customExpenses.0.actualCost`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <InputGroup>
+                                          <InputGroupInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            {...field}
+                                            className="h-8 text-sm"
+                                            onChange={e => {
+                                              const value = e.target.value;
+                                              if (value === '') {
+                                                field.onChange(0);
+                                                return;
+                                              }
+                                              const numericValue = parseFloat(value);
+                                              if (isNaN(numericValue) || numericValue < 0) {
+                                                toast.error('Invalid cost', {
+                                                  description: 'Actual cost must be 0 or greater'
+                                                });
+                                                field.onChange(0);
+                                                return;
+                                              }
+                                              field.onChange(numericValue);
+                                            }}
+                                            value={field.value || ''}
+                                          />
+                                        </InputGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Client Cost</div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.rate`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <InputGroup>
+                                          <InputGroupInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            {...field}
+                                            className="h-8 text-sm"
+                                            onChange={e => {
+                                              const value = e.target.value;
+                                              if (value === '') {
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                if (item.customExpenses && item.customExpenses.length > 0) {
+                                                  form.setValue(`items.${index}.customExpenses.0.clientCost`, 0);
+                                                }
+                                                return;
+                                              }
+                                              const numericValue = parseFloat(value);
+                                              if (isNaN(numericValue) || numericValue < 0) {
+                                                toast.error('Invalid cost', {
+                                                  description: 'Client cost must be 0 or greater'
+                                                });
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                if (item.customExpenses && item.customExpenses.length > 0) {
+                                                  form.setValue(`items.${index}.customExpenses.0.clientCost`, 0);
+                                                }
+                                                return;
+                                              }
+                                              field.onChange(numericValue);
+                                              form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                              if (item.customExpenses && item.customExpenses.length > 0) {
+                                                form.setValue(`items.${index}.customExpenses.0.clientCost`, numericValue);
+                                              }
+                                            }}
+                                            value={field.value || ''}
+                                          />
+                                        </InputGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
+                              <div className="font-semibold">
+                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1">Rate</div>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.rate`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <InputGroup>
+                                        <InputGroupInput
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          {...field}
+                                          className="h-8 text-sm"
+                                          onChange={e => {
+                                            const value = e.target.value;
+                                            if (value === '') {
+                                              field.onChange(0);
+                                              form.setValue(`items.${index}.amount`, 0);
+                                              return;
+                                            }
+                                            const numericValue = parseFloat(value);
+                                            if (isNaN(numericValue) || numericValue < 0) {
+                                              toast.error('Invalid rate', {
+                                                description: 'Rate must be 0 or greater'
+                                              });
+                                              field.onChange(0);
+                                              form.setValue(`items.${index}.amount`, 0);
+                                              return;
+                                            }
+                                            field.onChange(numericValue);
+                                            form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                          }}
+                                          value={field.value || ''}
+                                        />
+                                      </InputGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground mb-1">Amount</div>
+                              <div className="font-semibold">
+                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

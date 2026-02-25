@@ -273,7 +273,7 @@ export function StaffTable({ staff }: StaffTableProps) {
               table.getColumn('role')?.setFilterValue(value === 'all' ? undefined : [value]);
             }}
           >
-            <SelectTrigger className="">
+            <SelectTrigger>
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>

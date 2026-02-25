@@ -527,7 +527,16 @@ export default function InvoiceDetailPage() {
                       <TableCell>
                         {item.quantity} {item.unit}
                       </TableCell>
-                      <TableCell>{formatCurrency(item.unitPrice)}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p>{formatCurrency(item.unitPrice)}</p>
+                          {item.customExpenses && item.customExpenses.length > 0 && item.customExpenses[0].actualCost !== undefined && (
+                            <p className="text-xs text-muted-foreground">
+                              Actual: {formatCurrency(item.customExpenses[0].actualCost)}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(item.totalPrice)}</TableCell>
                       <TableCell className="text-right">
                         {item.isVirtualProduct && (

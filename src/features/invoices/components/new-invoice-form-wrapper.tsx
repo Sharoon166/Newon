@@ -207,9 +207,9 @@ export function NewInvoiceFormWrapper({
               
               return {
                 name: expense.name,
-                amount: expense.amount,
-                actualCost: expense.amount,
-                clientCost: expense.amount,
+                amount: expense.clientCost,
+                actualCost: expense.actualCost,
+                clientCost: expense.clientCost,
                 category: categoryMap[expense.category] || 'other',
                 description: expense.description
               };

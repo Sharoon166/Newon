@@ -403,6 +403,7 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
           .filter(item => item.customExpenses && item.customExpenses.length > 0)
           .flatMap(item => item.customExpenses || []);
 
+
         if (customExpenses.length > 0) {
           const { createInvoiceExpenses } = await import('@/features/expenses/actions');
           const expenseResult = await createInvoiceExpenses(
@@ -556,7 +557,8 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
         items.map(item => ({
           rate: item.unitPrice,
           originalRate: item.originalRate,
-          quantity: item.quantity
+          quantity: item.quantity,
+          customExpenses: item.customExpenses
         })),
         discountAmount
       );

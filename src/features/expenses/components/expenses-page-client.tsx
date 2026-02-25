@@ -42,6 +42,10 @@ export function ExpensesPageClient({
   const handleEdit = async (expenseId: string): Promise<void> => {
     const result = await getExpense(expenseId);
     if (result.success) {
+      if (result.data.source === 'invoice') {
+        toast.error('Cannot edit expense from invoice. Please edit the invoice instead.');
+        return;
+      }
       setSelectedExpense(result.data);
       setIsFormOpen(true);
     } else {
