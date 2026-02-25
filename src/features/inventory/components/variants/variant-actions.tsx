@@ -46,7 +46,7 @@ export function VariantActions({ productId, variantId, disabled, variantSku }: V
   return (
     <>
       <Button
-        variant={disabled ? 'success' : 'destructive'}
+        variant={disabled ? 'default' : 'destructive'}
         size="sm"
         onClick={() => setShowConfirmDialog(true)}
         disabled={isLoading}
