@@ -452,7 +452,7 @@ export function ProjectPageClient({
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold">Project Inventory</h3>
-                      {canAddInventory && !isAddingInventory && (
+                      {canAddInventory && !isAddingInventory && project.status !== "completed" && (
                         <Button onClick={() => setIsAddingInventory(true)}>
                           <Plus className="h-4 w-4 mr-2" />
                           Add Inventory
