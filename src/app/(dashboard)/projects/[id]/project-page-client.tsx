@@ -363,7 +363,7 @@ export function ProjectPageClient({
       <div className="space-y-8">
         {/* Executive Header */}
         <div className="bg-white pb-6">
-          <div className="flex items-start justify-between">
+          <div className="flex max-lg:flex-col items-start justify-between gap-8">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-bold">{project.title}</h1>
@@ -377,7 +377,7 @@ export function ProjectPageClient({
               <p className="text-sm text-muted-foreground">Project ID: {project.projectId}</p>
               <p className="text-base text-gray-600 max-w-3xl">{project.description}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center flex-wrap gap-3">
               {customer && (
                 <Button variant="outline" asChild>
                   <Link href={`/ledger/${customer.customerId || customer.id}`}>
@@ -423,7 +423,7 @@ export function ProjectPageClient({
 
         {/* Inventory & Expenses & Activity Section */}
         <Tabs defaultValue={canViewInventory ? 'inventory' : 'expenses'} className="space-y-4">
-          <TabsList>
+          <TabsList className='max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full'>
             {canViewInventory && (
               <TabsTrigger value="inventory" className="gap-2">
                 <Package className="h-4 w-4" />
@@ -448,7 +448,7 @@ export function ProjectPageClient({
           {canViewInventory && (
             <TabsContent value="inventory">
               <Card>
-                <CardContent className="p-6">
+                <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold">Project Inventory</h3>
@@ -517,7 +517,7 @@ export function ProjectPageClient({
 
           <TabsContent value="expenses">
             <Card>
-              <CardContent className="p-6">
+              <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Project Expenses</h3>

@@ -17,8 +17,6 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
-  CalendarIcon,
-  X,
   Search,
   Hash,
   Copyright,
@@ -414,23 +412,25 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
                   <Download className="h-4 w-4 mr-2" />
                   {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
                 </DropdownMenuItem>
-                {invoice.status !== 'cancelled' && !invoice.projectId && (
+                {invoice.status !== 'cancelled' && (
                   <>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        // For quotations and pending invoices, navigate to edit page
-                        if (invoice.type === 'quotation' || invoice.status === 'pending') {
-                          router.push(`/invoices/${invoice.id}/edit`);
-                        } else {
-                          // For paid/partial invoices, use dialog
-                          setSelectedInvoice(invoice);
-                          setEditDialogOpen(true);
-                        }
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
+                    {!invoice.projectId && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          // For quotations and pending invoices, navigate to edit page
+                          if (invoice.type === 'quotation' || invoice.status === 'pending') {
+                            router.push(`/invoices/${invoice.id}/edit`);
+                          } else {
+                            // For paid/partial invoices, use dialog
+                            setSelectedInvoice(invoice);
+                            setEditDialogOpen(true);
+                          }
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
                     {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
                       <DropdownMenuItem
                         onClick={() => {
@@ -559,55 +559,6 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Filters Row 2 - Date Range */}
-        <div className="flex flex-wrap items-center gap-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <div className="flex gap-2 items-center font-semibold">
-                <div>Date Range:</div>
-                <Button
-                  variant="outline"
-                  className={cn('justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
-                      </>
-                    ) : (
-                      format(dateRange.from, 'LLL dd, y')
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
-                </Button>
-              </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={handleDateRangeChange}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-          {dateRange && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => handleDateRangeChange(undefined)}
-              className="h-8 px-2"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear dates
-            </Button>
-          )}
         </div>
 
         {/* Table */}

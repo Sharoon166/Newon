@@ -14,7 +14,7 @@ import type { DateRange } from 'react-day-picker';
 
 type FilterMode = 'range' | 'month';
 
-export function ExpenseFilter() {
+export function InvoiceFilter() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -63,8 +63,7 @@ export function ExpenseFilter() {
       }
     }
     
-    params.set('page', '1');
-    router.push(`/expenses?${params.toString()}`);
+    router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
   const clearFilter = (): void => {
@@ -73,8 +72,7 @@ export function ExpenseFilter() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete('dateFrom');
     params.delete('dateTo');
-    params.set('page', '1');
-    router.push(`/expenses?${params.toString()}`);
+    router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
   const hasFilter = mode === 'month' ? selectedMonth !== undefined : (dateRange?.from || dateRange?.to);
@@ -138,7 +136,6 @@ export function ExpenseFilter() {
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
-              initialFocus
               mode="range"
               defaultMonth={dateRange?.from}
               selected={dateRange}

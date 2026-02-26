@@ -1,9 +1,9 @@
 import { Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/general/page-header';
 import { getExpenses, getExpenseKPIs, getInvoiceExpenses } from '@/features/expenses/actions';
-import { ExpenseKPIsComponent } from '@/features/expenses/components/expense-kpis';
 import { ExpensesPageClient } from '@/features/expenses/components/expenses-page-client';
 import { requireAuth } from '@/lib/auth-utils';
+import { ExpenseKPIsComponent } from '@/features/expenses/components/expense-kpis';
 
 export default async function ExpensesPage({
   searchParams
@@ -27,7 +27,7 @@ export default async function ExpensesPage({
   const [expensesResult, invoiceExpensesResult, kpis] = await Promise.all([
     getExpenses({ page, limit, dateFrom, dateTo }),
     getInvoiceExpenses({ page, limit, dateFrom, dateTo }),
-    getExpenseKPIs()
+    getExpenseKPIs({ dateFrom, dateTo })
   ]);
 
   return (

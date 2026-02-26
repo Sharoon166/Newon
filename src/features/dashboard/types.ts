@@ -9,11 +9,14 @@ export interface DashboardMetrics {
   totalStock: number;
   totalStockValue: number;
   dailySales: number;
+  dailySalesTrend: number;
   monthlySales: number;
+  monthlySalesTrend: number;
   totalRevenue: number;
   monthlyProfit: number;
   monthlyExpenses: number;
   netProfit: number;
+  netProfitTrend: number;
   pendingPayments: number;
   pendingPaymentsCount: number;
   totalCustomers: number;

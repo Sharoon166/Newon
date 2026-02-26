@@ -87,14 +87,14 @@ export function ExpensesPageClient({
   return (
     <>
       <Tabs defaultValue="expenses" className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap gap-y-4 justify-between items-center">
           <TabsList>
             <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="invoice-expenses">Invoice Expenses</TabsTrigger>
           </TabsList>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <ExpenseFilter />
-            <Button onClick={() => setIsFormOpen(true)}>
+            <Button className="grow" onClick={() => setIsFormOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Expense
             </Button>

@@ -24,10 +24,17 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   try {
     await dbConnect();
 
+    const { subMonths } = await import('date-fns');
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
     const monthStart = startOfMonth(now);
+    
+    // Previous periods for trends
+    const yesterdayStart = startOfDay(subDays(now, 1));
+    const yesterdayEnd = endOfDay(subDays(now, 1));
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
+    const lastMonthEnd = endOfDay(subDays(monthStart, 1));
 
     // Get total stock and value from purchases
     const stockData = await PurchaseModel.aggregate([
@@ -140,9 +147,85 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       }
     ]);
 
+    // Previous period data for trends
+    const [yesterdaySalesData, lastMonthSalesData, lastMonthProfitData, lastMonthExpensesData] = await Promise.all([
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' },
+            date: { $gte: yesterdayStart, $lte: yesterdayEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$totalAmount' }
+          }
+        }
+      ]),
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' },
+            date: { $gte: lastMonthStart, $lte: lastMonthEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$totalAmount' }
+          }
+        }
+      ]),
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' },
+            date: { $gte: lastMonthStart, $lte: lastMonthEnd },
+            profit: { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$profit' }
+          }
+        }
+      ]),
+      ExpenseModel.aggregate([
+        {
+          $match: {
+            date: { $gte: lastMonthStart, $lte: lastMonthEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$amount' }
+          }
+        }
+      ])
+    ]);
+
+    const dailySales = dailySalesData[0]?.total || 0;
+    const yesterdaySales = yesterdaySalesData[0]?.total || 0;
+    const monthlySales = monthlySalesData[0]?.total || 0;
+    const lastMonthSales = lastMonthSalesData[0]?.total || 0;
     const monthlyProfit = monthlyProfitData[0]?.total || 0;
+    const lastMonthProfit = lastMonthProfitData[0]?.total || 0;
     const monthlyExpenses = monthlyExpensesData[0]?.total || 0;
+    const lastMonthExpenses = lastMonthExpensesData[0]?.total || 0;
     const netProfit = monthlyProfit - monthlyExpenses;
+    const lastMonthNetProfit = lastMonthProfit - lastMonthExpenses;
+
+    // Calculate trends
+    const calculateTrend = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
 
     // Get total customers
     const totalCustomers = await CustomerModel.countDocuments();
@@ -150,12 +233,15 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     return {
       totalStock: stockData[0]?.totalStock || 0,
       totalStockValue: stockData[0]?.totalStockValue || 0,
-      dailySales: dailySalesData[0]?.total || 0,
-      monthlySales: monthlySalesData[0]?.total || 0,
+      dailySales,
+      dailySalesTrend: calculateTrend(dailySales, yesterdaySales),
+      monthlySales,
+      monthlySalesTrend: calculateTrend(monthlySales, lastMonthSales),
       totalRevenue: totalRevenueData[0]?.total || 0,
       monthlyProfit,
       monthlyExpenses,
       netProfit,
+      netProfitTrend: calculateTrend(netProfit, lastMonthNetProfit),
       pendingPayments: pendingPaymentsData[0]?.total || 0,
       pendingPaymentsCount: pendingPaymentsData[0]?.count || 0,
       totalCustomers
@@ -167,11 +253,14 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       totalStock: 0,
       totalStockValue: 0,
       dailySales: 0,
+      dailySalesTrend: 0,
       monthlySales: 0,
+      monthlySalesTrend: 0,
       totalRevenue: 0,
       monthlyProfit: 0,
       monthlyExpenses: 0,
       netProfit: 0,
+      netProfitTrend: 0,
       pendingPayments: 0,
       pendingPaymentsCount: 0,
       totalCustomers: 0

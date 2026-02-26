@@ -252,45 +252,69 @@ export async function deleteExpense(id: string): Promise<ActionResult<void>> {
   }
 }
 
-export async function getExpenseKPIs(): Promise<ExpenseKPIs> {
+export async function getExpenseKPIs(filters?: { dateFrom?: Date; dateTo?: Date }): Promise<ExpenseKPIs> {
   try {
     await dbConnect();
 
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    // Yesterday for trend
+    const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
 
-    const [totalResult, dailyResult, weeklyResult, monthlyResult, categoryResult, countResult] =
+    // Build date filter if provided
+    const dateFilter: Record<string, unknown> = {};
+    if (filters?.dateFrom || filters?.dateTo) {
+      const dateQuery: Record<string, Date> = {};
+      if (filters.dateFrom) {
+        dateQuery.$gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        dateQuery.$lte = filters.dateTo;
+      }
+      dateFilter.date = dateQuery;
+    }
+
+    const [totalResult, dailyResult, yesterdayResult, categoryResult, countResult] =
       await Promise.all([
-        ExpenseModel.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]),
         ExpenseModel.aggregate([
-          { $match: { date: { $gte: startOfDay } } },
+          ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
           { $group: { _id: null, total: { $sum: '$amount' } } }
         ]),
         ExpenseModel.aggregate([
-          { $match: { date: { $gte: startOfWeek } } },
+          { $match: { date: { $gte: startOfDay, $lte: endOfDay }, ...dateFilter } },
           { $group: { _id: null, total: { $sum: '$amount' } } }
         ]),
         ExpenseModel.aggregate([
-          { $match: { date: { $gte: startOfMonth } } },
+          { $match: { date: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
           { $group: { _id: null, total: { $sum: '$amount' } } }
         ]),
         ExpenseModel.aggregate([
+          ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
           { $group: { _id: '$category', total: { $sum: '$amount' } } },
           { $sort: { total: -1 } },
           { $limit: 1 }
         ]),
-        ExpenseModel.countDocuments()
+        Object.keys(dateFilter).length > 0 
+          ? ExpenseModel.countDocuments(dateFilter)
+          : ExpenseModel.countDocuments()
       ]);
+
+    const dailyExpenses = dailyResult[0]?.total || 0;
+    const yesterdayExpenses = yesterdayResult[0]?.total || 0;
+
+    // Calculate trend
+    const calculateTrend = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
 
     return {
       totalExpenses: totalResult[0]?.total || 0,
-      dailyExpenses: dailyResult[0]?.total || 0,
-      weeklyExpenses: weeklyResult[0]?.total || 0,
-      monthlyExpenses: monthlyResult[0]?.total || 0,
+      dailyExpenses,
+      dailyExpensesTrend: calculateTrend(dailyExpenses, yesterdayExpenses),
       topCategory: categoryResult[0]
         ? {
             category: categoryResult[0]._id,

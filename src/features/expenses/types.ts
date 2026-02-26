@@ -101,8 +101,7 @@ export interface PaginatedExpenses {
 export interface ExpenseKPIs {
   totalExpenses: number;
   dailyExpenses: number;
-  weeklyExpenses: number;
-  monthlyExpenses: number;
+  dailyExpensesTrend: number;
   topCategory: {
     category: ExpenseCategory;
     amount: number;

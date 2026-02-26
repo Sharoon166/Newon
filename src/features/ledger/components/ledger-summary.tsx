@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LedgerSummary } from '../types';
 import { formatCurrency } from '@/lib/utils';
-import { Users, TrendingUp, AlertCircle, Coins, Receipt, Calendar, Wallet } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown, AlertCircle, Coins, Receipt, Calendar, Wallet } from 'lucide-react';
 
 interface LedgerSummaryProps {
   summary: LedgerSummary;
@@ -33,6 +33,16 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(summary.monthlyInvoiced)}</div>
           <p className="text-xs text-muted-foreground">This month&apos;s invoices</p>
+          {summary.monthlyInvoicedTrend !== 0 && (
+            <div className={`flex items-center gap-1 mt-1 text-xs ${summary.monthlyInvoicedTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {summary.monthlyInvoicedTrend > 0 ? (
+                <TrendingUp className="h-3 w-3" />
+              ) : (
+                <TrendingDown className="h-3 w-3" />
+              )}
+              <span>{Math.abs(summary.monthlyInvoicedTrend).toFixed(1)}% vs last month</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -44,6 +54,16 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
         <CardContent>
           <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.monthlyReceived)}</div>
           <p className="text-xs text-muted-foreground">This month&apos;s payments</p>
+          {summary.monthlyReceivedTrend !== 0 && (
+            <div className={`flex items-center gap-1 mt-1 text-xs ${summary.monthlyReceivedTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {summary.monthlyReceivedTrend > 0 ? (
+                <TrendingUp className="h-3 w-3" />
+              ) : (
+                <TrendingDown className="h-3 w-3" />
+              )}
+              <span>{Math.abs(summary.monthlyReceivedTrend).toFixed(1)}% vs last month</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

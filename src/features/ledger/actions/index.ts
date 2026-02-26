@@ -266,9 +266,16 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
   try {
     await dbConnect();
 
+    const { subMonths } = await import('date-fns');
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     monthStart.setHours(0, 0, 0, 0);
+
+    // Previous month for trends
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    lastMonthStart.setHours(0, 0, 0, 0);
+    const lastMonthEnd = new Date(monthStart);
+    lastMonthEnd.setMilliseconds(-1);
 
     // Get cancelled invoice IDs to exclude from ledger calculations
     const InvoiceModel = (await import('@/models/Invoice')).default;
@@ -336,6 +343,31 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       }
     ]);
 
+    // Get last month data for trends
+    const lastMonthSummary = await LedgerEntryModel.aggregate([
+      {
+        $match: {
+          date: { $gte: lastMonthStart, $lte: lastMonthEnd },
+          $or: [
+            { transactionType: { $nin: ['invoice', 'payment'] } },
+            {
+              $and: [
+                { transactionType: { $in: ['invoice', 'payment'] } },
+                { transactionId: { $nin: cancelledInvoiceIds } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          lastMonthDebit: { $sum: '$debit' },
+          lastMonthCredit: { $sum: '$credit' }
+        }
+      }
+    ]);
+
     // Count customers with balance - exclude cancelled invoice entries and their payments
     const customersWithBalance = await LedgerEntryModel.aggregate([
       {
@@ -395,6 +427,17 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       monthlyCredit: 0
     };
 
+    const lastMonthResult = lastMonthSummary[0] || {
+      lastMonthDebit: 0,
+      lastMonthCredit: 0
+    };
+
+    // Calculate trends
+    const calculateTrend = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
     return {
       totalCustomers: result.totalCustomers,
       totalOutstanding: result.totalOutstanding,
@@ -403,7 +446,9 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
       customersWithBalance: customersWithBalance[0]?.count || 0,
       overdueAmount: overdueInvoices[0]?.totalOverdue || 0,
       monthlyInvoiced: monthlyResult.monthlyDebit,
-      monthlyReceived: monthlyResult.monthlyCredit
+      monthlyInvoicedTrend: calculateTrend(monthlyResult.monthlyDebit, lastMonthResult.lastMonthDebit),
+      monthlyReceived: monthlyResult.monthlyCredit,
+      monthlyReceivedTrend: calculateTrend(monthlyResult.monthlyCredit, lastMonthResult.lastMonthCredit)
     };
   } catch (error) {
     console.error('Error fetching ledger summary:', error);

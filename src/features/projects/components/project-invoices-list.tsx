@@ -56,11 +56,8 @@ export function ProjectInvoicesList({ invoices }: ProjectInvoicesListProps) {
                     <Badge className={`${statusConfig.bg} ${statusConfig.text} border-0 text-xs`}>
                       {invoice.status}
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {invoice.type === 'invoice' ? 'Invoice' : 'Quotation'}
-                    </Badge>
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center flex-wrap gap-2 md:gap-4 text-xs text-muted-foreground ">
                     <span>Date: {formatDate(new Date(invoice.date))}</span>
                     <span>Total: {formatCurrency(invoice.totalAmount)}</span>
                     {invoice.type === 'invoice' && (

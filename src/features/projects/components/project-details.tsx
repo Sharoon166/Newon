@@ -85,9 +85,12 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
                   <p className="text-sm text-muted-foreground mb-1.5">Client</p>
                   <p className="text-base font-semibold">{project.customerName}</p>
                   {customer && (
-                    <Link href={`/ledger/${customer.customerId || customer.id}`} className='text-xs inline-flex items-center gap-1 text-primary hover:underline'>
-                        View Ledger
-                        <ArrowUpRight className="h-4 w-4 mr-2" />
+                    <Link
+                      href={`/ledger/${customer.customerId || customer.id}`}
+                      className="text-xs inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      View Ledger
+                      <ArrowUpRight className="h-4 w-4 mr-2" />
                     </Link>
                   )}
                 </div>
@@ -100,7 +103,7 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
                   {project.assignedStaffDetails && project.assignedStaffDetails.length > 0 ? (
                     <div className="flex items-center gap-2">
                       <div className="flex -space-x-2">
-                        {project.assignedStaffDetails.slice(0, 4).map((staff) => (
+                        {project.assignedStaffDetails.slice(0, 4).map(staff => (
                           <div
                             key={staff.id}
                             className="w-8 h-8 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center"
@@ -163,32 +166,29 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 items-center gap-6">
+              <div className="flex max-md:flex-col justify-between items-center gap-6">
                 {/* Left: Budget Overview */}
-                <div className="space-y-6">
-                  {/* Budget Numbers */}
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1.5">Total Budget</p>
-                      <p className="text-2xl font-bold">{formatCurrency(budget)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1.5">Spent ({budgetUsedPercentage.toFixed(1)}%)</p>
-                      <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalProjectCost)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1.5">
-                        Remaining ({(100 - budgetUsedPercentage)?.toFixed(1)}%)
-                      </p>
-                      <p className={`text-2xl font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatCurrency(remaining)}
-                      </p>
-                    </div>
+                <div className="flex md:flex-col flex-wrap justify-center gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1.5">Total Budget</p>
+                    <p className="text-lg sm:text-2xl font-bold">{formatCurrency(budget)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1.5">Spent ({budgetUsedPercentage.toFixed(1)}%)</p>
+                    <p className="text-lg sm:text-2xl font-bold text-orange-600">{formatCurrency(totalProjectCost)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1.5">
+                      Remaining ({(100 - budgetUsedPercentage)?.toFixed(1)}%)
+                    </p>
+                    <p className={`text-lg sm:text-2xl font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
+                      {formatCurrency(remaining)}
+                    </p>
                   </div>
                 </div>
 
                 {/* Right: Pie Chart */}
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center md:w-1/2 max-w-full">
                   {chartData.length > 0 && (
                     <ChartContainer config={chartConfig} className="h-[280px] w-full mb-4">
                       <PieChart>

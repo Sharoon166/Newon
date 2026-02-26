@@ -1422,11 +1422,17 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
   try {
     await dbConnect();
 
-    const { startOfDay, endOfDay, startOfMonth } = await import('date-fns');
+    const { startOfDay, endOfDay, startOfMonth, subDays, subMonths } = await import('date-fns');
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
     const monthStart = startOfMonth(now);
+    
+    // Previous periods for trend calculation
+    const yesterdayStart = startOfDay(subDays(now, 1));
+    const yesterdayEnd = endOfDay(subDays(now, 1));
+    const lastMonthStart = startOfMonth(subMonths(now, 1));
+    const lastMonthEnd = endOfDay(subDays(monthStart, 1));
 
     const query: Record<string, unknown> = { type: 'invoice' };
 
@@ -1455,7 +1461,10 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       monthlySales,
       monthlyProfit,
       cancelledInvoices,
-      cancelledRevenue
+      cancelledRevenue,
+      yesterdaySales,
+      lastMonthSales,
+      lastMonthProfit
     ] = await Promise.all([
       InvoiceModel.countDocuments({ ...query, status: { $ne: 'cancelled' } }),
       InvoiceModel.countDocuments({ ...query, status: 'paid' }),
@@ -1484,8 +1493,34 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       InvoiceModel.aggregate([
         { $match: { ...query, status: 'cancelled' } },
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      // Previous period data for trends
+      InvoiceModel.aggregate([
+        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      InvoiceModel.aggregate([
+        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: lastMonthStart, $lte: lastMonthEnd } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+      ]),
+      InvoiceModel.aggregate([
+        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: lastMonthStart, $lte: lastMonthEnd }, profit: { $exists: true } } },
+        { $group: { _id: null, total: { $sum: '$profit' } } }
       ])
     ]);
+
+    const dailySalesValue = dailySales[0]?.total || 0;
+    const yesterdaySalesValue = yesterdaySales[0]?.total || 0;
+    const monthlySalesValue = monthlySales[0]?.total || 0;
+    const lastMonthSalesValue = lastMonthSales[0]?.total || 0;
+    const monthlyProfitValue = monthlyProfit[0]?.total || 0;
+    const lastMonthProfitValue = lastMonthProfit[0]?.total || 0;
+
+    // Calculate percentage changes
+    const calculateTrend = (current: number, previous: number): number => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
 
     return {
       totalInvoices,
@@ -1493,9 +1528,12 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
       pendingInvoices,
       totalRevenue: totalRevenue[0]?.total || 0,
       totalOutstanding: totalOutstanding[0]?.total || 0,
-      dailySales: dailySales[0]?.total || 0,
-      monthlySales: monthlySales[0]?.total || 0,
-      monthlyProfit: monthlyProfit[0]?.total || 0,
+      dailySales: dailySalesValue,
+      dailySalesTrend: calculateTrend(dailySalesValue, yesterdaySalesValue),
+      monthlySales: monthlySalesValue,
+      monthlySalesTrend: calculateTrend(monthlySalesValue, lastMonthSalesValue),
+      monthlyProfit: monthlyProfitValue,
+      monthlyProfitTrend: calculateTrend(monthlyProfitValue, lastMonthProfitValue),
       cancelledInvoices,
       cancelledRevenue: cancelledRevenue[0]?.total || 0
     };

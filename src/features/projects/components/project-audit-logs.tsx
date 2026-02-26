@@ -73,7 +73,7 @@ export function ProjectAuditLogs({ logs, users }: ProjectAuditLogsProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap gap-6 items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-orange-500" />
             Activity Log
