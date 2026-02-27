@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
+import Image from 'next/image';
 
 const data = {
   navSecondary: [
@@ -204,7 +205,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const visibleSecondary = isStaff ? [] : data.navSecondary;
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -215,15 +216,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <DropdownMenuTrigger asChild>
                       <div className="bg-white p-2 -m-2 truncate">
                         <div className="flex items-center gap-3 cursor-pointer group">
-                          <div
-                            className={cn(
-                              'flex aspect-square size-10 items-center justify-center rounded-md',
-                              currentBrand.id === 'newon'
-                                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                                : 'bg-blue-600 text-white'
-                            )}
-                          >
-                            {currentBrand.icon && <currentBrand.icon className="size-5" />}
+                          <div className={cn('flex aspect-square size-10 p-1 items-center justify-center')}>
+                            <img
+                              height={100}
+                              width={100}
+                              src={currentBrand.logo ?? '/logo.png'}
+                              alt={`${currentBrand.displayName}`}
+                            />
                           </div>
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-xs">
@@ -250,9 +249,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           currentBrand.id === 'newon' ? 'bg-accent' : 'hover:bg-accent'
                         )}
                       >
-                        <div className="bg-sidebar-primary text-sidebar-primary-foreground flex shrink-0 aspect-square size-8 items-center justify-center rounded-md">
-                          <span className="text-sm font-medium">N</span>
-                        </div>
+                        <img
+                          height={50}
+                          width={50}
+                          src={brands[0].logo ?? '/logo.png'}
+                          alt={`${brands[0].displayName}`}
+                        />
                         <div className="grid flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span
@@ -276,9 +278,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           currentBrand.id === 'waymor' ? 'bg-accent' : 'hover:bg-accent'
                         )}
                       >
-                        <div className="bg-blue-600 text-white flex shrink-0 aspect-square size-8 items-center justify-center rounded-md">
-                          <span className="text-sm font-medium">W</span>
-                        </div>
+                        <img
+                          height={50}
+                          width={50}
+                          src={brands[1].logo ?? '/logo.png'}
+                          alt={`${brands[1].displayName}`}
+                          className='rounded-md'
+                        />
                         <div className="grid flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span

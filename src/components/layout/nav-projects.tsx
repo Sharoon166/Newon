@@ -29,12 +29,12 @@ export function NavCategories({ categories }: { categories: NavCategory[] }) {
   return (
     <>
       {categories.map(category => (
-        <SidebarGroup key={category.title} className="group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel>{category.title}</SidebarGroupLabel>
+        <SidebarGroup key={category.title} >
+          <SidebarGroupLabel className='uppercase'>{category.title}</SidebarGroupLabel>
           <SidebarMenu>
             {category.items.map(item => (
               <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname.includes(item.url)}>
+                <SidebarMenuButton asChild isActive={pathname.includes(item.url)} className="">
                   <Link href={item.url}>
                     <item.icon className="size-4" />
                     <span>{item.name}</span>
