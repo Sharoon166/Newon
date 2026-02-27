@@ -7,6 +7,7 @@ import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { InvoiceTemplateData } from './template-types';
 import { brands } from '@/stores/useBrandStore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type InvoiceTemplateProps = {
   invoiceData: InvoiceTemplateData;
@@ -128,39 +129,39 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
 
         {/* Items Table */}
         <div className={`${isMobileView ? 'mb-3' : 'mb-4 print:mb-2'} invoice-table-container`}>
-          <table className={`w-full border-collapse ${isMobileView ? '' : 'rounded-xl'} invoice-table`}>
-            <thead>
-              <tr className="bg-muted/50 text-left text-sm font-medium">
-                <th className="p-3 print:py-2 border">#</th>
-                <th className="p-3 print:py-2 border">Description</th>
-                <th className="p-3 print:py-2 border text-right">Qty</th>
-                <th className="p-3 print:py-2 border text-right">Rate</th>
-                <th className="p-3 print:py-2 border text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className={`w-full border-collapse ${isMobileView ? '' : 'rounded-xl'} invoice-table`}>
+            <TableHeader>
+              <TableRow className="bg-muted/50 text-left text-sm font-medium">
+                <TableHead className="p-3 print:py-2 border">#</TableHead>
+                <TableHead className="p-3 print:py-2 border">Description</TableHead>
+                <TableHead className="p-3 print:py-2 border text-right">Qty</TableHead>
+                <TableHead className="p-3 print:py-2 border text-right">Rate</TableHead>
+                <TableHead className="p-3 print:py-2 border text-right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {invoiceData.items.map((item, index) => (
-                <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
-                  <td className="p-3 print:py-2 border">{index + 1}.</td>
-                  <td className="p-3 print:py-2 border">
+                <TableRow key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
+                  <TableCell className="p-3 print:py-2 border">{index + 1}.</TableCell>
+                  <TableCell className="p-3 print:py-2 border">
                     <div className="flex items-center gap-3">
                       {item.imageUrl && (
                         <img 
                           src={item.imageUrl} 
                           alt={item.description || 'Product'} 
-                          className="w-12 h-12 object-cover rounded border flex-shrink-0"
+                          className="w-12 h-12 object-cover rounded border shrink-0"
                         />
                       )}
                       <span>{item.description || 'Item description'}</span>
                     </div>
-                  </td>
-                  <td className="p-3 print:py-2 border text-right">{item.quantity}</td>
-                  <td className="p-3 print:py-2 border text-right">{formatCurrency(item.rate)}</td>
-                  <td className="p-3 print:py-2 border text-right font-medium">{formatCurrency(item.amount)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="p-3 print:py-2 border text-right">{item.quantity}</TableCell>
+                  <TableCell className="p-3 print:py-2 border text-right">{formatCurrency(item.rate)}</TableCell>
+                  <TableCell className="p-3 print:py-2 border text-right font-medium">{formatCurrency(item.amount)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Payment Details and Totals Section */}

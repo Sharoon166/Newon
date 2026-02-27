@@ -73,7 +73,7 @@ export function UpdateStatusDialog({
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-              <SelectTrigger id="status">
+              <SelectTrigger id="status" className='w-full'>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

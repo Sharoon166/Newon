@@ -68,7 +68,7 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
         {/* Project Info Card */}
         <Card>
           <CardContent>
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid xs:grid-cols-2 gap-8">
               {/* Left side */}
               <div className="space-y-5">
                 <div>

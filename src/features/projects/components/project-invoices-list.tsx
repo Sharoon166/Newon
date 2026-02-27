@@ -35,7 +35,7 @@ export function ProjectInvoicesList({ invoices }: ProjectInvoicesListProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 max-sm:text-sm">
           <FileText className="h-5 w-5" />
           Generated Invoices ({invoices.length})
         </CardTitle>
@@ -44,11 +44,11 @@ export function ProjectInvoicesList({ invoices }: ProjectInvoicesListProps) {
         <div className="space-y-3">
           {invoices.map(invoice => {
             const statusConfig = getStatusConfig(invoice.status);
-            
+
             return (
               <div
                 key={invoice.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex max-xs:flex-col gap-y-4  items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
@@ -70,12 +70,12 @@ export function ProjectInvoicesList({ invoices }: ProjectInvoicesListProps) {
                     )}
                   </div>
                 </div>
-                <Link href={`/invoices/${invoice.id}`}>
-                  <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" asChild className='max-xs:w-full'>
+                  <Link href={`/invoices/${invoice.id}`}>
                     <ExternalLink className="h-4 w-4 mr-2" />
                     View
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             );
           })}

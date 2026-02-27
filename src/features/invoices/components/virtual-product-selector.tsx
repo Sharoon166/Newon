@@ -282,7 +282,7 @@ export function VirtualProductSelector({
       </div>
 
       <div className="@container">
-        <div className="grid lg:@xl:grid-cols-2 xl:@xl:grid-cols-3 gap-4">
+        <div className="grid lg:@xl:grid-cols-2 xl:@xl:grid-cols-2 gap-4">
           {filteredProducts.length === 0 ? (
             <div className="col-span-full text-center py-12 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -297,11 +297,11 @@ export function VirtualProductSelector({
               const inInvoice = currentItems.find(item => item.virtualProductId === product.id);
               const quantityInInvoice = inInvoice?.quantity || 0;
               return (
-                <Card key={product.id} className="p-4 hover:shadow-md transition-shadow">
+                <Card key={product.id} className="p-4 hover:shadow-md transition-shadow justify-between">
                   <div className="flex gap-4">
                     {/* Left side - Product info */}
                     <div className="flex-1 space-y-3">
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex  items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <h4 className="font-semibold text-base truncate">{product.name}</h4>
                           <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
@@ -330,7 +330,7 @@ export function VirtualProductSelector({
                     {/* Right side - Price, stock, and actions */}
                     <div className="flex gap-2">
                       <div className="text-right">
-                        <div className="text-2xl font-bold">{formatCurrency(product.basePrice)}</div>
+                        <div className=" sm:text-lg font-bold">{formatCurrency(product.basePrice)}</div>
                         <Badge
                           variant={isOutOfStock ? 'destructive' : isLowStock ? 'secondary' : 'default'}
                           className="mt-1"

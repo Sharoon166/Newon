@@ -7,6 +7,8 @@ import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { QuotationTemplateData } from './template-types';
 import { brands } from '@/stores/useBrandStore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 
 type QuotationTemplateProps = {
   quotationData: QuotationTemplateData;
@@ -35,7 +37,14 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
         <div className="flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center mb-8 print:mb-2 pb-8 print:pb-2 border-b print-no-break">
           <div className="mb-6 md:mb-0 print:mb-0">
             {quotationBrand?.logo ? (
-              <Image src={quotationBrand.logo} unoptimized alt="Company Logo" width={200} height={100} className="w-24 mb-4" />
+              <Image
+                src={quotationBrand.logo}
+                unoptimized
+                alt="Company Logo"
+                width={200}
+                height={100}
+                className="w-24 mb-4"
+              />
             ) : (
               <h1 className="text-3xl font-bold text-primary">{quotationData.company.name || 'Company Name'}</h1>
             )}
@@ -105,39 +114,39 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
 
         {/* Items Table */}
         <div className="mb-4 print:mb-2 quotation-table-container">
-          <table className="w-full border-collapse rounded-xl quotation-table">
-            <thead>
-              <tr className="bg-muted/50 text-left text-sm font-medium">
-                <th className="p-3 print:py-2 border">#</th>
-                <th className="p-3 print:py-2 border">Description</th>
-                <th className="p-3 print:py-2 border text-right">Qty</th>
-                <th className="p-3 print:py-2 border text-right">Rate</th>
-                <th className="p-3 print:py-2 border text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="p-3 print:py-2">#</TableHead>
+                <TableHead className="p-3 print:py-2">Description</TableHead>
+                <TableHead className="p-3 print:py-2 text-right">Qty</TableHead>
+                <TableHead className="p-3 print:py-2 text-right">Rate</TableHead>
+                <TableHead className="p-3 print:py-2 text-right">Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {quotationData.items.map((item, index) => (
-                <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
-                  <td className="p-3 print:py-2 border">{index + 1}.</td>
-                  <td className="p-3 print:py-2 border">
+                <TableRow key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/10'}>
+                  <TableCell className="p-3 print:py-2">{index + 1}.</TableCell>
+                  <TableCell className="p-3 print:py-2">
                     <div className="flex items-center gap-3">
                       {item.imageUrl && (
-                        <img 
-                          src={item.imageUrl} 
-                          alt={item.description || 'Product'} 
+                        <img
+                          src={item.imageUrl}
+                          alt={item.description || 'Product'}
                           className="w-12 h-12 object-cover rounded border shrink-0"
                         />
                       )}
                       <span>{item.description || 'Item description'}</span>
                     </div>
-                  </td>
-                  <td className="p-3 print:py-2 border text-right">{item.quantity}</td>
-                  <td className="p-3 print:py-2 border text-right">{formatCurrency(item.rate)}</td>
-                  <td className="p-3 print:py-2 border text-right font-medium">{formatCurrency(item.amount)}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="p-3 print:py-2 text-right">{item.quantity}</TableCell>
+                  <TableCell className="p-3 print:py-2 text-right">{formatCurrency(item.rate)}</TableCell>
+                  <TableCell className="p-3 print:py-2 text-right font-medium">{formatCurrency(item.amount)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Totals Section */}
@@ -166,8 +175,6 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
               <span>{formatCurrency(total)}</span>
             </div>
 
-
-
             <div className="pt-2 mt-2 border-t">
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium">Amount in words:</span>{' '}
@@ -179,7 +186,7 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
 
         {/* Flexible spacer */}
         <div className="flex-1 print-flexible-spacer" />
-      
+
         {/* Bottom content group - delivery notes, terms, and footer */}
         <div className="print-bottom-content">
           {/* Delivery Notes Section */}
@@ -228,33 +235,33 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
 
           {/* Footer */}
           <div className="pt-4 print:pt-2 border-t print-footer-section">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-center md:text-left mb-4 print:mb-0 md:mb-0">
-              <p className="text-sm print:text-xs text-muted-foreground">Thank you for your interest!</p>
-            </div>
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="text-center md:text-left mb-4 print:mb-0 md:mb-0">
+                <p className="text-sm print:text-xs text-muted-foreground">Thank you for your interest!</p>
+              </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
-              {onBack && (
-                <Button variant="outline" onClick={onBack} className="print:hidden">
-                  <ArrowLeft />
-                  Back to Edit
-                </Button>
-              )}
-              {onPrint && (
-                <Button variant="outline" onClick={onPrint} className="print:hidden">
-                  <Download />
-                  Print Quotation
-                </Button>
-              )}
-              {onSave && (
-                <Button onClick={onSave} className="print:hidden">
-                  <Save />
-                  Save Quotation
-                </Button>
-              )}
+              <div className="flex flex-col sm:flex-row gap-2">
+                {onBack && (
+                  <Button variant="outline" onClick={onBack} className="print:hidden">
+                    <ArrowLeft />
+                    Back to Edit
+                  </Button>
+                )}
+                {onPrint && (
+                  <Button variant="outline" onClick={onPrint} className="print:hidden">
+                    <Download />
+                    Print Quotation
+                  </Button>
+                )}
+                {onSave && (
+                  <Button onClick={onSave} className="print:hidden">
+                    <Save />
+                    Save Quotation
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
         </div>
       </div>
     );

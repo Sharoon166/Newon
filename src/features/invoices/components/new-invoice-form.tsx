@@ -990,7 +990,7 @@ export function NewInvoiceForm({
                   'mb-4': isToOpen
                 })}
               >
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-lg font-semibold flex items-center gap-2 truncate">
                   <User className="h-5 w-5" />
                   To {form.watch('client.name') && `- ${form.watch('client.name')}`}
                 </h2>

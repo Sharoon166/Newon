@@ -450,7 +450,7 @@ export function ProjectPageClient({
               <Card>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex max-xs:flex-col gap-y-2 xs:items-center justify-between">
                       <h3 className="text-lg font-semibold">Project Inventory</h3>
                       {canAddInventory && !isAddingInventory && project.status !== "completed" && (
                         <Button onClick={() => setIsAddingInventory(true)}>
