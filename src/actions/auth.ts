@@ -64,6 +64,7 @@ export async function updateStaffStatus(staffId: string, isActive: boolean) {
     }
 
     revalidatePath('/staff');
+    revalidatePath(`/staff/${staffId}`);
 
     return { success: true };
   } catch (error) {

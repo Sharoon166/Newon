@@ -167,6 +167,7 @@ export async function createExpense(data: CreateExpenseDto): Promise<ActionResul
     const savedExpense = await newExpense.save();
 
     revalidatePath('/expenses');
+    revalidatePath('/dashboard');
 
     return { success: true, data: transformLeanExpense(savedExpense.toObject() as LeanExpense) };
   } catch (error) {
@@ -212,6 +213,7 @@ export async function updateExpense(
     }
 
     revalidatePath('/expenses');
+    revalidatePath('/dashboard');
 
     return { success: true, data: transformLeanExpense(updatedExpense as unknown as LeanExpense) };
   } catch (error) {
@@ -244,6 +246,7 @@ export async function deleteExpense(id: string): Promise<ActionResult<void>> {
     }
 
     revalidatePath('/expenses');
+    revalidatePath('/dashboard');
 
     return { success: true, data: undefined };
   } catch (error) {

@@ -626,6 +626,7 @@ export async function createLedgerEntry(
     }
 
     revalidatePath('/ledger');
+    revalidatePath('/dashboard');
     revalidatePath(`/customers/${data.customerId}`);
 
     return transformLeanEntry(entry.toObject() as LeanLedgerEntry);
@@ -773,7 +774,8 @@ export async function updateLedgerEntryFromInvoice(
       );
     }
 
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
+    revalidatePath('/dashboard');
   } catch (error) {
     console.error('Error updating ledger entry from invoice:', error);
     throw new Error('Failed to update ledger entry from invoice');
@@ -822,7 +824,8 @@ export async function deleteLedgerEntryFromInvoice(invoiceId: string): Promise<v
       }
     );
 
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
+    revalidatePath('/dashboard');
   } catch (error) {
     console.error('Error deleting ledger entry from invoice:', error);
     throw new Error('Failed to delete ledger entry from invoice');
@@ -897,7 +900,8 @@ export async function updateLedgerEntryFromPayment(
       );
     }
 
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
+    revalidatePath('/dashboard');
   } catch (error) {
     console.error('Error updating ledger entry from payment:', error);
     throw new Error('Failed to update ledger entry from payment');
@@ -952,7 +956,8 @@ export async function deleteLedgerEntryFromPayment(
       }
     );
 
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
+    revalidatePath('/dashboard');
   } catch (error) {
     console.error('Error deleting ledger entry from payment:', error);
     throw new Error('Failed to delete ledger entry from payment');

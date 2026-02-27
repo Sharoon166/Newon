@@ -375,44 +375,46 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
               <div className="space-y-3">
                 {components.map((component, index) => (
                   <Card key={`${component.productId}-${component.variantId}`} className="p-4">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12 rounded-md">
-                        <AvatarImage src={component.image} alt={component.productName} className="object-contain" />
-                        <AvatarFallback className="rounded-md">
-                          {component.productName?.charAt(0) || 'P'}
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{component.productName}</div>
-                        <div className="text-sm text-muted-foreground">SKU: {component.sku}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Available: {component.availableStock || 0}
+                    <div className="flex max-xs:flex-col justify-between gap-4">
+                      <div className="flex gap-2">
+                        <Avatar className="h-12 w-12 rounded-md">
+                          <AvatarImage src={component.image} alt={component.productName} className="object-contain" />
+                          <AvatarFallback className="rounded-md">
+                            {component.productName?.charAt(0) || 'P'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{component.productName}</div>
+                          <div className="text-sm text-muted-foreground">SKU: {component.sku}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Available: {component.availableStock || 0}
+                          </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Label htmlFor={`qty-${index}`} className="text-sm whitespace-nowrap">
-                          Qty:
-                        </Label>
-                        <Input
-                          id={`qty-${index}`}
-                          type="number"
-                          min="1"
-                          value={component.quantity}
-                          onChange={e => handleComponentQuantityChange(index, parseInt(e.target.value) || 1)}
-                          className="w-20"
-                        />
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor={`qty-${index}`} className="text-sm whitespace-nowrap">
+                            Qty:
+                          </Label>
+                          <Input
+                            id={`qty-${index}`}
+                            type="number"
+                            min="1"
+                            value={component.quantity}
+                            onChange={e => handleComponentQuantityChange(index, parseInt(e.target.value) || 1)}
+                            className="w-20"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveComponent(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveComponent(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
                     </div>
                   </Card>
                 ))}

@@ -287,6 +287,8 @@ export async function updateProject(id: string, data: UpdateProjectDto): Promise
     revalidatePath('/projects');
     revalidatePath(`/projects/${id}`);
     revalidatePath(`/projects/${id}/edit`);
+    revalidatePath('/dashboard');
+    revalidatePath('/invoices');
 
     return transformLeanProject(updatedProject as unknown as LeanProject);
   } catch (error) {
@@ -314,6 +316,7 @@ export async function updateProjectStatus(
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${id}`);
+    revalidatePath('/dashboard');
   } catch (error) {
     console.error(`Error updating project status ${id}:`, error);
     throw new Error((error as Error).message || 'Failed to update project status');
@@ -331,6 +334,8 @@ export async function deleteProject(id: string): Promise<void> {
     }
 
     revalidatePath('/projects');
+    revalidatePath('/dashboard');
+    revalidatePath('/invoices');
   } catch (error) {
     console.error(`Error deleting project ${id}:`, error);
     throw new Error('Failed to delete project');
@@ -382,6 +387,8 @@ export async function addExpense(projectId: string, data: AddExpenseDto): Promis
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/expenses');
 
     return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
@@ -414,6 +421,8 @@ export async function updateExpense(
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/expenses');
 
     return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
@@ -485,6 +494,8 @@ export async function deleteExpense(
 
     revalidatePath('/projects');
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/expenses');
 
     return transformLeanProject(calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {

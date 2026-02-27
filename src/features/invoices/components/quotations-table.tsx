@@ -367,19 +367,6 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
     }
   });
 
-  if (quotations.length === 0) {
-    return (
-      <div className="border rounded-lg p-12 text-center">
-        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No quotations found</h3>
-        <p className="text-muted-foreground mb-4">Create your first quotation to get started</p>
-        <Link href="/invoices/new?tab=quotation">
-          <Button>Create Quotation</Button>
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Filters */}

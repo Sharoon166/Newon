@@ -570,7 +570,7 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
     
     // Revalidate project page if invoice was created from a project
@@ -681,7 +681,7 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
     revalidatePath('/dashboard');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
 
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
@@ -789,7 +789,7 @@ export async function deleteInvoice(id: string): Promise<void> {
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
   } catch (error) {
     console.error(`Error deleting invoice ${id}:`, error);
@@ -869,7 +869,7 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
@@ -954,7 +954,7 @@ export async function updatePayment(
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
@@ -1026,7 +1026,7 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/dashboard');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
@@ -1226,7 +1226,7 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
 
     return transformInvoice(savedInvoice.toObject() as unknown as LeanInvoice);
@@ -1329,7 +1329,7 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     revalidatePath('/dashboard');
     revalidatePath('/purchases');
     revalidatePath('/inventory');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/customers');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
@@ -1383,7 +1383,7 @@ export async function updateInvoiceStatus(
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
     revalidatePath('/dashboard');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1639,7 +1639,7 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/purchases');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
     revalidatePath('/inventory');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
@@ -1699,7 +1699,7 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
     revalidatePath(`/invoices/${invoiceId}`);
     revalidatePath('/purchases');
     revalidatePath('/inventory');
-    revalidatePath('/ledger', 'layout');
+    revalidatePath('/ledger');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1915,7 +1915,7 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
       revalidatePath('/invoices');
       revalidatePath(`/invoices/${id}`);
       revalidatePath('/dashboard');
-      revalidatePath('/ledger', 'layout');
+      revalidatePath('/ledger');
       revalidatePath('/customers');
       revalidatePath('/purchases');
       revalidatePath('/inventory');

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Invoice } from '../types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -46,7 +46,6 @@ import { EditInvoiceDialog } from './edit-invoice-dialog';
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   getFilteredRowModel,
   ColumnDef,
@@ -55,18 +54,20 @@ import {
   ColumnFiltersState
 } from '@tanstack/react-table';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { TablePagination } from '@/components/general/table-pagination';
 import { printInvoicePDF } from '../utils/print-invoice';
+import type { PaginatedInvoices } from '../types';
+import { ServerPagination } from '@/components/general/server-pagination';
 
 interface InvoicesTableProps {
-  invoices: Invoice[];
+  invoicesData: PaginatedInvoices;
   onRefresh?: () => void;
   initialDateFrom?: string;
   initialDateTo?: string;
 }
 
-export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDateTo }: InvoicesTableProps) {
+export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initialDateTo }: InvoicesTableProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -75,7 +76,25 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [searchValue, setSearchValue] = useState(searchParams.get('search') || '');
+
+  const invoices = invoicesData.docs;
+
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (searchValue) {
+        params.set('search', searchValue);
+        params.set('page', '1'); // Reset to first page on search
+      } else {
+        params.delete('search');
+      }
+      router.push(`?${params.toString()}`, { scroll: false });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchValue, router, searchParams]);
 
   // Initialize date range from URL params
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -471,42 +490,18 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
     data: invoices,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
     state: {
       sorting,
-      columnFilters,
-      globalFilter
-    },
-    initialState: {
-      pagination: {
-        pageSize: 10
-      }
+      columnFilters
     }
   });
 
   const uniqueStatuses = Array.from(new Set(invoices.map(inv => inv.status)));
   const uniqueMarkets = Array.from(new Set(invoices.map(inv => inv.market)));
-
-  // Check if we have no invoices at all (not just filtered out)
-  const hasNoInvoicesAtAll = invoices.length === 0 && !dateRange;
-
-  if (hasNoInvoicesAtAll) {
-    return (
-      <div className="border rounded-lg p-12 text-center">
-        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No Invoices found</h3>
-        <p className="text-muted-foreground mb-4">Create your first invoice to get started</p>
-        <Link href="/invoices/new">
-          <Button>Create Invoice</Button>
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -519,8 +514,8 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
             </InputGroupAddon>
             <InputGroupInput
               placeholder="Search all columns..."
-              value={globalFilter ?? ''}
-              onChange={e => setGlobalFilter(e.target.value)}
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
             />
           </InputGroup>
           <Select
@@ -595,7 +590,15 @@ export function InvoicesTable({ invoices, onRefresh, initialDateFrom, initialDat
           </Table>
         </div>
 
-        <TablePagination table={table} itemName="Invoices" />
+        <ServerPagination 
+          currentPage={invoicesData.page || 1}
+          totalPages={invoicesData.totalPages}
+          totalDocs={invoicesData.totalDocs}
+          hasNextPage={invoicesData.hasNextPage}
+          hasPrevPage={invoicesData.hasPrevPage}
+          pageSize={invoicesData.limit}
+          itemName="invoices"
+        />
       </div>
 
       <ConfirmationDialog

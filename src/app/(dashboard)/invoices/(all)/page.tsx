@@ -6,6 +6,9 @@ interface InvoicesPageProps {
     dateFrom?: string;
     dateTo?: string;
     tab?: string;
+    page?: string;
+    limit?: string;
+    search?: string;
   }>;
 }
 
@@ -13,20 +16,20 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   const params = await searchParams;
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
   const dateTo = params.dateTo ? new Date(params.dateTo) : undefined;
+  const page = params.page ? parseInt(params.page) : 1;
+  const limit = params.limit ? parseInt(params.limit) : 10;
+  const search = params.search;
 
   const [invoicesData, quotationsData, stats] = await Promise.all([
-    getInvoices({ type: 'invoice', limit: 1000, dateFrom, dateTo }),
+    getInvoices({ type: 'invoice', page, limit, dateFrom, dateTo, search }),
     getInvoices({ type: 'quotation', limit: 1000 }),
     getInvoiceStats({ dateFrom, dateTo })
   ]);
 
-  const invoices = invoicesData.docs;
-  const quotations = quotationsData.docs;
-
   return (
       <InvoicesPageClient
-        invoices={invoices}
-        quotations={quotations}
+        invoicesData={invoicesData}
+        quotations={quotationsData.docs}
         initialStats={stats}
         initialDateFrom={params.dateFrom}
         initialDateTo={params.dateTo}

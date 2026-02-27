@@ -33,9 +33,12 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
   const canViewBudget = userHasPermission(session, 'view:budget');
 
   try {
-    const project = await getProject(id, session.user.id, session.user.role);
-    const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
-    const customersResult = await getCustomers({ limit: 1000 }); // Get all customers
+    const [project, staffMembers, customersResult] = await Promise.all([
+      getProject(id, session.user.id, session.user.role),
+      getStaffMembers({ isActive: true, role: "staff" }),
+      getCustomers({ limit: 1000 })
+    ])
+
     const customers = customersResult.docs;
 
     return (

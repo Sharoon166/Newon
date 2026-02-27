@@ -433,6 +433,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <div className="text-destructive">Maybe REMOVE THIS</div>
                 <div className="text-sm font-medium mb-1">Total Available Stock</div>
                 <div className={`text-2xl font-bold ${totalStock < 10 ? 'text-amber-500' : ''}`}>{totalStock}</div>
               </div>

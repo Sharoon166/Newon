@@ -79,7 +79,7 @@ export function EnhancedProductSelector({
 
   return (
     <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'regular' | 'virtual')}>
-      <TabsList className="grid w-full max-w-md grid-cols-2">
+      <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
         <TabsTrigger value="regular">
           <Package className="h-4 w-4 mr-2" />
           Regular Products

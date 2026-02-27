@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getProject, getProjectInvoices } from '@/features/projects/actions';
 import { getProjectAuditLogs } from '@/features/projects/actions/audit';
-import { getCustomers } from '@/features/customers/actions';
+import { getCustomer } from '@/features/customers/actions';
 import { getVirtualProducts } from '@/features/virtual-products/actions';
 import { getProducts } from '@/features/inventory/actions';
 import { getAllPurchases } from '@/features/purchases/actions';
@@ -22,51 +22,40 @@ interface ProjectPageProps {
 
 async function ProjectPageContent({ params }: ProjectPageProps) {
   const session = await getServerSession(authOptions);
-  const {id: projectId} = await params;
+  const { id: projectId } = await params;
 
-  if (!session?.user) {
-    redirect('/auth/signin');
-  }
+  if (!session?.user) redirect('/auth/signin');
 
   if (!userHasPermission(session, 'view:projects')) {
     redirect('/not-allowed');
   }
 
-  const canEdit = userHasPermission(session, 'edit:projects');
-  const canAddExpense = userHasPermission(session, 'add:expenses');
-  const canViewBudget = userHasPermission(session, 'view:budget');
-  const canViewInventory = userHasPermission(session, 'view:project-inventory');
-  const canAddInventory = userHasPermission(session, 'add:project-inventory');
-  const canGenerateInvoice = userHasPermission(session, 'create:invoices');
-  const canViewAuditLogs = userHasPermission(session, 'view:audit-logs');
-  const canViewClientFinancials = userHasPermission(session, 'view:client-financials');
-  const canViewProjectInvoices = userHasPermission(session, 'view:project-invoices');
+  const permissions = {
+    canEdit: userHasPermission(session, 'edit:projects'),
+    canAddExpense: userHasPermission(session, 'add:expenses'),
+    canViewBudget: userHasPermission(session, 'view:budget'),
+    canViewInventory: userHasPermission(session, 'view:project-inventory'),
+    canAddInventory: userHasPermission(session, 'add:project-inventory'),
+    canGenerateInvoice: userHasPermission(session, 'create:invoices'),
+    canViewAuditLogs: userHasPermission(session, 'view:audit-logs'),
+    canViewClientFinancials: userHasPermission(session, 'view:client-financials'),
+    canViewProjectInvoices: userHasPermission(session, 'view:project-invoices')
+  };
 
   try {
     const project = await getProject(projectId, session.user.id, session.user.role);
     
-    // Fetch customer data
-    const customersResult = await getCustomers({ limit: 1000 }); // Get all customers
-    const customers = customersResult.docs;
-    const customer = customers.find(c => c.customerId === project.customerId || c.id === project.customerId);
+    const [customer, projectInvoices, auditLogsResult, inventoryResults] = await Promise.all([
+      getCustomer(project.customerId),
+      permissions.canViewProjectInvoices ? getProjectInvoices(project.projectId!) : Promise.resolve([]),
+      permissions.canViewAuditLogs ? getProjectAuditLogs(project.projectId!) : Promise.resolve({ logs: [] }),
+      permissions.canViewInventory
+        ? Promise.all([getProducts(), getVirtualProducts(), getAllPurchases()])
+        : Promise.resolve([[], [], []])
+    ]);
 
-    // Fetch project invoices (admin only)
-    const projectInvoices = canViewProjectInvoices ? await getProjectInvoices(project.projectId!) : [];
-
-    // Fetch audit logs (admin only)
-    const auditLogsResult = canViewAuditLogs ? await getProjectAuditLogs(project.projectId!) : { logs: [] };
-    const auditLogs = auditLogsResult.logs || [];
-
-    // Fetch virtual products for inventory (admin only)
-    let variants: EnhancedVariants[] = [];
-    let virtualProducts: EnhancedVirtualProduct[] = [];
-    let purchases = [];
-    
-    if (canViewInventory) {
-      variants = await getProducts();
-      virtualProducts = await getVirtualProducts();
-      purchases = await getAllPurchases();
-    }
+    const [variants, virtualProducts, purchases] = inventoryResults;
+    const auditLogs = auditLogsResult.logs ?? [];
 
     return (
       <ProjectPageClient
@@ -76,15 +65,7 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
         userId={session.user.id!}
         userName={session.user.name || 'Unknown'}
         userRole={session.user.role}
-        canEdit={canEdit}
-        canAddExpense={canAddExpense}
-        canViewBudget={canViewBudget}
-        canViewInventory={canViewInventory}
-        canAddInventory={canAddInventory}
-        canGenerateInvoice={canGenerateInvoice}
-        canViewAuditLogs={canViewAuditLogs}
-        canViewClientFinancials={canViewClientFinancials}
-        canViewProjectInvoices={canViewProjectInvoices}
+        {...permissions}
         projectInvoices={projectInvoices}
         auditLogs={auditLogs}
         variants={variants}

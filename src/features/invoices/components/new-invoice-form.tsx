@@ -103,25 +103,48 @@ const invoiceFormSchema = z.object({
         purchaseId: z.string().optional(),
         originalRate: z.number().optional(),
         saleRate: z.number().optional(),
-        componentBreakdown: z.array(z.object({
-          productId: z.string(),
-          variantId: z.string(),
-          productName: z.string(),
-          sku: z.string(),
-          quantity: z.number(),
-          purchaseId: z.string(),
-          unitCost: z.number(),
-          totalCost: z.number()
-        })).optional(),
-        customExpenses: z.array(z.object({
-          name: z.string(),
-          amount: z.number(),
-          actualCost: z.number(),
-          clientCost: z.number(),
-          category: z.enum(['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other']),
-          description: z.string().optional(),
-          expenseId: z.string().optional()
-        })).optional(),
+        componentBreakdown: z
+          .array(
+            z.object({
+              productId: z.string(),
+              variantId: z.string(),
+              productName: z.string(),
+              sku: z.string(),
+              quantity: z.number(),
+              purchaseId: z.string(),
+              unitCost: z.number(),
+              totalCost: z.number()
+            })
+          )
+          .optional(),
+        customExpenses: z
+          .array(
+            z.object({
+              name: z.string(),
+              amount: z.number(),
+              actualCost: z.number(),
+              clientCost: z.number(),
+              category: z.enum([
+                'materials',
+                'labor',
+                'equipment',
+                'transport',
+                'rent',
+                'utilities',
+                'fuel',
+                'maintenance',
+                'marketing',
+                'office-supplies',
+                'professional-services',
+                'insurance',
+                'taxes',
+                'other'
+              ]),
+              description: z.string().optional(),
+              expenseId: z.string().optional()
+            })
+          )
+          .optional(),
         totalComponentCost: z.number().optional(),
         totalCustomExpenses: z.number().optional()
       })
@@ -228,7 +251,9 @@ export function NewInvoiceForm({
       profit: 0,
       description: initialData?.description || '',
       notes: initialData?.notes || '',
-      terms: initialData?.terms || (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')),
+      terms:
+        initialData?.terms ||
+        (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')),
       paymentDetails: {
         bankName: initialPaymentDetails?.BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
         accountNumber: initialPaymentDetails?.ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
@@ -368,10 +393,10 @@ export function NewInvoiceForm({
   const calculatedProfit =
     items.reduce((sum, item) => {
       const revenue = item.rate * item.quantity;
-      
+
       // Calculate total cost based on what's available
       let totalCost = 0;
-      
+
       // For items with component breakdown (virtual products from projects)
       if (item.totalComponentCost !== undefined) {
         totalCost += item.totalComponentCost;
@@ -379,7 +404,7 @@ export function NewInvoiceForm({
         // Regular products with original rate
         totalCost += item.originalRate * item.quantity;
       }
-      
+
       // Add custom expenses actual cost
       if (item.customExpenses && item.customExpenses.length > 0) {
         const expensesCost = item.customExpenses.reduce((expenseSum, expense) => {
@@ -390,7 +415,7 @@ export function NewInvoiceForm({
         // Use pre-calculated total if available
         totalCost += item.totalCustomExpenses;
       }
-      
+
       const itemProfit = revenue - totalCost;
       return sum + itemProfit;
     }, 0) - discountAmount;
@@ -423,165 +448,230 @@ export function NewInvoiceForm({
     form.setValue('amountInWords', amountInWords, { shouldValidate: true });
   }, [grandTotal, form]);
 
-  const handleAddItemFromSelector = useCallback((item: {
-    productId?: string;
-    variantId?: string;
-    virtualProductId?: string;
-    isVirtualProduct?: boolean;
-    productName: string;
-    sku: string;
-    description: string;
-    quantity: number;
-    rate: number;
-    saleRate: number;
-    originalRate?: number;
-    purchaseId?: string;
-    componentBreakdown?: Array<{
-      productId: string;
-      variantId: string;
+  const handleAddItemFromSelector = useCallback(
+    (item: {
+      productId?: string;
+      variantId?: string;
+      virtualProductId?: string;
+      isVirtualProduct?: boolean;
       productName: string;
       sku: string;
+      description: string;
       quantity: number;
-      purchaseId: string;
-      unitCost: number;
-      totalCost: number;
-    }>;
-    customExpenses?: Array<{
-      name: string;
-      amount?: number; // Old format
-      actualCost?: number; // New format
-      clientCost?: number; // New format
-      category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other' | 'overhead' | 'packaging' | 'shipping';
-      description?: string;
-    }>;
-    totalComponentCost?: number;
-    totalCustomExpenses?: number;
-  }) => {
-    // Convert old format customExpenses to new format if needed
-    const convertedCustomExpenses = item.customExpenses?.map(expense => {
-      // If old format (has amount but not actualCost/clientCost), convert it
-      if (expense.amount !== undefined && expense.actualCost === undefined && expense.clientCost === undefined) {
-        // Map old categories to new ones
-        let newCategory: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other' = 'other';
-        
-        if (expense.category === 'overhead') {
-          newCategory = 'other';
-        } else if (expense.category === 'packaging') {
-          newCategory = 'materials';
-        } else if (expense.category === 'shipping') {
-          newCategory = 'transport';
-        } else if (['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other'].includes(expense.category)) {
-          newCategory = expense.category as typeof newCategory;
+      rate: number;
+      saleRate: number;
+      originalRate?: number;
+      purchaseId?: string;
+      componentBreakdown?: Array<{
+        productId: string;
+        variantId: string;
+        productName: string;
+        sku: string;
+        quantity: number;
+        purchaseId: string;
+        unitCost: number;
+        totalCost: number;
+      }>;
+      customExpenses?: Array<{
+        name: string;
+        amount?: number; // Old format
+        actualCost?: number; // New format
+        clientCost?: number; // New format
+        category:
+          | 'materials'
+          | 'labor'
+          | 'equipment'
+          | 'transport'
+          | 'rent'
+          | 'utilities'
+          | 'fuel'
+          | 'maintenance'
+          | 'marketing'
+          | 'office-supplies'
+          | 'professional-services'
+          | 'insurance'
+          | 'taxes'
+          | 'other'
+          | 'overhead'
+          | 'packaging'
+          | 'shipping';
+        description?: string;
+      }>;
+      totalComponentCost?: number;
+      totalCustomExpenses?: number;
+    }) => {
+      // Convert old format customExpenses to new format if needed
+      const convertedCustomExpenses = item.customExpenses?.map(expense => {
+        // If old format (has amount but not actualCost/clientCost), convert it
+        if (expense.amount !== undefined && expense.actualCost === undefined && expense.clientCost === undefined) {
+          // Map old categories to new ones
+          let newCategory:
+            | 'materials'
+            | 'labor'
+            | 'equipment'
+            | 'transport'
+            | 'rent'
+            | 'utilities'
+            | 'fuel'
+            | 'maintenance'
+            | 'marketing'
+            | 'office-supplies'
+            | 'professional-services'
+            | 'insurance'
+            | 'taxes'
+            | 'other' = 'other';
+
+          if (expense.category === 'overhead') {
+            newCategory = 'other';
+          } else if (expense.category === 'packaging') {
+            newCategory = 'materials';
+          } else if (expense.category === 'shipping') {
+            newCategory = 'transport';
+          } else if (
+            [
+              'materials',
+              'labor',
+              'equipment',
+              'transport',
+              'rent',
+              'utilities',
+              'fuel',
+              'maintenance',
+              'marketing',
+              'office-supplies',
+              'professional-services',
+              'insurance',
+              'taxes',
+              'other'
+            ].includes(expense.category)
+          ) {
+            newCategory = expense.category as typeof newCategory;
+          }
+
+          return {
+            name: expense.name,
+            amount: expense.amount,
+            actualCost: expense.amount,
+            clientCost: expense.amount,
+            category: newCategory,
+            description: expense.description
+          };
         }
-        
+        // Already in new format
         return {
           name: expense.name,
-          amount: expense.amount,
-          actualCost: expense.amount,
-          clientCost: expense.amount,
-          category: newCategory,
+          amount: expense.clientCost ?? 0,
+          actualCost: expense.actualCost ?? 0,
+          clientCost: expense.clientCost ?? 0,
+          category: expense.category as
+            | 'materials'
+            | 'labor'
+            | 'equipment'
+            | 'transport'
+            | 'rent'
+            | 'utilities'
+            | 'fuel'
+            | 'maintenance'
+            | 'marketing'
+            | 'office-supplies'
+            | 'professional-services'
+            | 'insurance'
+            | 'taxes'
+            | 'other',
           description: expense.description
         };
+      });
+      // Validate item data
+      if (!item.description || item.description.trim() === '') {
+        // For virtual products, use product name as description if description is empty
+        if (item.isVirtualProduct && item.productName) {
+          item.description = item.productName;
+        } else {
+          toast.error('Invalid item', {
+            description: 'Item description is required.'
+          });
+          return;
+        }
       }
-      // Already in new format
-      return {
-        name: expense.name,
-        amount: expense.clientCost ?? 0,
-        actualCost: expense.actualCost ?? 0,
-        clientCost: expense.clientCost ?? 0,
-        category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
-        description: expense.description
-      };
-    });
-    // Validate item data
-    if (!item.description || item.description.trim() === '') {
-      // For virtual products, use product name as description if description is empty
-      if (item.isVirtualProduct && item.productName) {
-        item.description = item.productName;
-      } else {
-        toast.error('Invalid item', {
-          description: 'Item description is required.'
+
+      if (item.quantity <= 0) {
+        toast.error('Invalid quantity', {
+          description: 'Quantity must be greater than 0.'
         });
         return;
       }
-    }
 
-    if (item.quantity <= 0) {
-      toast.error('Invalid quantity', {
-        description: 'Quantity must be greater than 0.'
-      });
-      return;
-    }
+      if (item.rate < 0) {
+        toast.error('Invalid rate', {
+          description: 'Rate cannot be negative.'
+        });
+        return;
+      }
 
-    if (item.rate < 0) {
-      toast.error('Invalid rate', {
-        description: 'Rate cannot be negative.'
-      });
-      return;
-    }
+      // For virtual products, check if already exists
+      if (item.isVirtualProduct && item.virtualProductId) {
+        const existingVirtualItemIndex = fields.findIndex(field => field.virtualProductId === item.virtualProductId);
 
-    // For virtual products, check if already exists
-    if (item.isVirtualProduct && item.virtualProductId) {
-      const existingVirtualItemIndex = fields.findIndex(field => field.virtualProductId === item.virtualProductId);
+        if (existingVirtualItemIndex !== -1) {
+          // Virtual product exists, update its quantity
+          const existingItem = form.watch(`items.${existingVirtualItemIndex}`);
+          const newQuantity = existingItem.quantity + item.quantity;
+          form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
+          form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
+        } else {
+          // Add new virtual product
+          append({
+            id: uuidv4(),
+            description: item.description,
+            quantity: item.quantity,
+            rate: item.rate,
+            amount: item.quantity * item.rate,
+            productId: item.virtualProductId, // Store virtualProductId as productId
+            virtualProductId: item.virtualProductId,
+            isVirtualProduct: true,
+            variantSKU: item.sku,
+            originalRate: item.originalRate,
+            saleRate: item.saleRate,
+            componentBreakdown: item.componentBreakdown,
+            customExpenses: convertedCustomExpenses,
+            totalComponentCost: item.totalComponentCost,
+            totalCustomExpenses: item.totalCustomExpenses
+          });
+        }
+        return;
+      }
 
-      if (existingVirtualItemIndex !== -1) {
-        // Virtual product exists, update its quantity
-        const existingItem = form.watch(`items.${existingVirtualItemIndex}`);
+      // For regular products, check if item from the SAME purchase already exists
+      const existingItemIndex = fields.findIndex(
+        field =>
+          field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
+      );
+
+      if (existingItemIndex !== -1) {
+        // Item from same purchase exists, update its quantity
+        const existingItem = form.watch(`items.${existingItemIndex}`);
         const newQuantity = existingItem.quantity + item.quantity;
-        form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
-        form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
+        form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
+        form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
       } else {
-        // Add new virtual product
+        // Item doesn't exist or is from a different purchase, add new entry
         append({
           id: uuidv4(),
           description: item.description,
           quantity: item.quantity,
           rate: item.rate,
           amount: item.quantity * item.rate,
-          productId: item.virtualProductId, // Store virtualProductId as productId
-          virtualProductId: item.virtualProductId,
-          isVirtualProduct: true,
+          productId: item.productId,
+          variantId: item.variantId,
           variantSKU: item.sku,
+          purchaseId: item.purchaseId,
           originalRate: item.originalRate,
-          saleRate: item.saleRate,
-          componentBreakdown: item.componentBreakdown,
-          customExpenses: convertedCustomExpenses,
-          totalComponentCost: item.totalComponentCost,
-          totalCustomExpenses: item.totalCustomExpenses
+          saleRate: item.saleRate
         });
       }
-      return;
-    }
-
-    // For regular products, check if item from the SAME purchase already exists
-    const existingItemIndex = fields.findIndex(
-      field =>
-        field.variantId === item.variantId && field.variantSKU === item.sku && field.purchaseId === item.purchaseId
-    );
-
-    if (existingItemIndex !== -1) {
-      // Item from same purchase exists, update its quantity
-      const existingItem = form.watch(`items.${existingItemIndex}`);
-      const newQuantity = existingItem.quantity + item.quantity;
-      form.setValue(`items.${existingItemIndex}.quantity`, newQuantity);
-      form.setValue(`items.${existingItemIndex}.amount`, newQuantity * existingItem.rate);
-    } else {
-      // Item doesn't exist or is from a different purchase, add new entry
-      append({
-        id: uuidv4(),
-        description: item.description,
-        quantity: item.quantity,
-        rate: item.rate,
-        amount: item.quantity * item.rate,
-        productId: item.productId,
-        variantId: item.variantId,
-        variantSKU: item.sku,
-        purchaseId: item.purchaseId,
-        originalRate: item.originalRate,
-        saleRate: item.saleRate
-      });
-    }
-  }, [fields, form, append]);
+    },
+    [fields, form, append]
+  );
 
   const handleCustomerSelect = (customerName: string) => {
     const customer = customers.find(customer => customer.name === customerName);
@@ -1056,12 +1146,7 @@ export function NewInvoiceForm({
                   Add Products or Custom Items
                 </h3>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCustomExpenseDialogOpen(true)}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsCustomExpenseDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Custom Item
               </Button>
@@ -1071,21 +1156,23 @@ export function NewInvoiceForm({
           <AddCustomExpenseDialog
             open={isCustomExpenseDialogOpen}
             onOpenChange={setIsCustomExpenseDialogOpen}
-            onAdd={(expense) => {
+            onAdd={expense => {
               append({
                 id: uuidv4(),
                 description: expense.name,
                 quantity: 1,
                 rate: expense.clientCost,
                 amount: expense.clientCost,
-                customExpenses: [{
-                  name: expense.name,
-                  amount: expense.clientCost,
-                  actualCost: expense.actualCost,
-                  clientCost: expense.clientCost,
-                  category: expense.category,
-                  description: expense.description
-                }]
+                customExpenses: [
+                  {
+                    name: expense.name,
+                    amount: expense.clientCost,
+                    actualCost: expense.actualCost,
+                    clientCost: expense.clientCost,
+                    category: expense.category,
+                    description: expense.description
+                  }
+                ]
               });
             }}
           />
@@ -1093,7 +1180,7 @@ export function NewInvoiceForm({
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector - Hidden when from project */}
             {!fromProject && (variants.length > 0 || virtualProducts.length > 0) && (
-              <div className="bg-muted/30 p-4 rounded-lg">
+              <div className="bg-muted/30 rounded-lg">
                 <EnhancedProductSelector
                   variants={variants}
                   virtualProducts={virtualProducts}
@@ -1105,17 +1192,17 @@ export function NewInvoiceForm({
             )}
 
             {/* Invoice Items Table with Container Query */}
-            <div className={cn(
-              "border rounded-lg overflow-auto shadow-sm @container max-h-[665px]",
-              fromProject && "lg:col-span-2" // Full width when product selector is hidden
-            )}>
+            <div
+              className={cn(
+                'border rounded-lg overflow-auto shadow-sm @container max-h-[665px]',
+                fromProject && 'lg:col-span-2' // Full width when product selector is hidden
+              )}
+            >
               <div className="bg-primary text-white px-4 py-3">
                 <h3 className="text-sm font-semibold">
                   Invoice Items
                   {fromProject && projectId && (
-                    <span className="ml-2 text-xs opacity-80">
-                      (From Project: {projectId})
-                    </span>
+                    <span className="ml-2 text-xs opacity-80">(From Project: {projectId})</span>
                   )}
                 </h3>
               </div>
@@ -1124,10 +1211,9 @@ export function NewInvoiceForm({
                 <div className="text-center text-muted-foreground py-20">
                   <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm max-w-sm mx-auto">
-                    {fromProject 
-                      ? "No items from project. Please go back and add inventory to the project first."
-                      : "No items added yet. Use the product selector above to add items."
-                    }
+                    {fromProject
+                      ? 'No items from project. Please go back and add inventory to the project first.'
+                      : 'No items added yet. Use the product selector above to add items.'}
                   </p>
                 </div>
               )}
@@ -1142,11 +1228,12 @@ export function NewInvoiceForm({
                   const purchaseId = form.watch(`items.${index}.purchaseId`);
                   const virtualProductId = form.watch(`items.${index}.virtualProductId`);
                   const isVirtualProduct = form.watch(`items.${index}.isVirtualProduct`);
-                  
+
                   // Get available stock based on product type
-                  const availableStock = isVirtualProduct && virtualProductId
-                    ? getVirtualProductAvailableQuantity(virtualProductId)
-                    : getAvailableStock(variantId);
+                  const availableStock =
+                    isVirtualProduct && virtualProductId
+                      ? getVirtualProductAvailableQuantity(virtualProductId)
+                      : getAvailableStock(variantId);
 
                   // Get stock limit for this specific purchase (including current item's quantity)
                   const purchaseStockLimit = purchaseId
@@ -1252,7 +1339,11 @@ export function NewInvoiceForm({
                                             form.setValue(`items.${index}.amount`, 1 * currentRate);
                                             return;
                                           }
-                                          const maxStock = isVirtualProduct ? availableStock : (purchaseId ? purchaseStockLimit : availableStock);
+                                          const maxStock = isVirtualProduct
+                                            ? availableStock
+                                            : purchaseId
+                                              ? purchaseStockLimit
+                                              : availableStock;
                                           if (numericValue > maxStock) {
                                             toast.error('Insufficient stock', {
                                               description: isVirtualProduct
@@ -1282,7 +1373,11 @@ export function NewInvoiceForm({
                               className="h-8 w-8"
                               onClick={() => {
                                 const newQuantity = currentQuantity + 1;
-                                const maxStock = isVirtualProduct ? availableStock : (purchaseId ? purchaseStockLimit : availableStock);
+                                const maxStock = isVirtualProduct
+                                  ? availableStock
+                                  : purchaseId
+                                    ? purchaseStockLimit
+                                    : availableStock;
                                 if (newQuantity > maxStock) {
                                   toast.error('Insufficient stock', {
                                     description: isVirtualProduct
@@ -1296,7 +1391,10 @@ export function NewInvoiceForm({
                                 form.setValue(`items.${index}.quantity`, newQuantity);
                                 form.setValue(`items.${index}.amount`, newQuantity * currentRate);
                               }}
-                              disabled={currentQuantity >= (isVirtualProduct ? availableStock : (purchaseId ? purchaseStockLimit : availableStock))}
+                              disabled={
+                                currentQuantity >=
+                                (isVirtualProduct ? availableStock : purchaseId ? purchaseStockLimit : availableStock)
+                              }
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -1385,7 +1483,10 @@ export function NewInvoiceForm({
                                               field.onChange(numericValue);
                                               form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
                                               if (item.customExpenses && item.customExpenses.length > 0) {
-                                                form.setValue(`items.${index}.customExpenses.0.clientCost`, numericValue);
+                                                form.setValue(
+                                                  `items.${index}.customExpenses.0.clientCost`,
+                                                  numericValue
+                                                );
                                               }
                                             }}
                                             value={field.value || ''}
@@ -1462,6 +1563,7 @@ export function NewInvoiceForm({
                     </div>
                   );
                 })}
+
               </div>
             </div>
           </div>

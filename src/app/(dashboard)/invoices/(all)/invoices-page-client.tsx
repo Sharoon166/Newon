@@ -10,12 +10,12 @@ import { Card, CardContent, CardTitle, CardHeader } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { InvoicesTable } from '@/features/invoices/components/invoices-table';
 import { InvoiceFilter } from '@/features/invoices/components/invoice-filter';
-import type { Invoice } from '@/features/invoices/types';
+import type { Invoice, PaginatedInvoices } from '@/features/invoices/types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 
 interface InvoicesPageClientProps {
-  invoices: Invoice[];
+  invoicesData: PaginatedInvoices;
   quotations: Invoice[];
   initialStats: {
     totalInvoices: number;
@@ -38,7 +38,7 @@ interface InvoicesPageClientProps {
 }
 
 export function InvoicesPageClient({
-  invoices,
+  invoicesData,
   quotations,
   initialStats,
   initialDateFrom,
@@ -186,7 +186,7 @@ export function InvoicesPageClient({
         <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
           <TabsTrigger value="invoices" className="flex items-center gap-2">
             <Receipt className="h-4 w-4" />
-            Invoices ({invoices.length})
+            Invoices ({invoicesData.totalDocs})
           </TabsTrigger>
           <TabsTrigger value="quotations" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
@@ -195,7 +195,11 @@ export function InvoicesPageClient({
         </TabsList>
 
         <TabsContent value="invoices">
-          <InvoicesTable invoices={invoices} initialDateFrom={initialDateFrom} initialDateTo={initialDateTo} />
+          <InvoicesTable 
+            invoicesData={invoicesData}
+            initialDateFrom={initialDateFrom} 
+            initialDateTo={initialDateTo} 
+          />
         </TabsContent>
 
         <TabsContent value="quotations">

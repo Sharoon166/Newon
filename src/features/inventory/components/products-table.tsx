@@ -554,7 +554,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
                   return (
                     <TableHead
                       key={header.id}
-                      className="whitespace-nowrap px-2 py-3 text-left text-sm font-medium text-gray-900"
+                      className="whitespace-nowrap text-left text-sm font-medium text-gray-900"
                     >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
