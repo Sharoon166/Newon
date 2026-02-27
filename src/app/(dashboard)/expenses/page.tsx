@@ -13,13 +13,14 @@ export default async function ExpensesPage({
     limit?: string;
     dateFrom?: string;
     dateTo?: string;
+    tab?: string;
   }>;
 }) {
   const session = await requireAuth();
   const params = await searchParams;
 
   const page = Number(params.page) || 1;
-  const limit = Number(params.limit) || 10;
+  const limit = Number(params.limit) || 20;
 
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
   const dateTo = params.dateTo ? new Date(params.dateTo) : undefined;
@@ -41,9 +42,10 @@ export default async function ExpensesPage({
       <ExpenseKPIsComponent kpis={kpis} />
       
       <ExpensesPageClient
-        expenses={expensesResult.docs}
-        invoiceExpenses={invoiceExpensesResult.docs}
+        expensesData={expensesResult}
+        invoiceExpensesData={invoiceExpensesResult}
         userId={session.user.id}
+        activeTab={params.tab}
       />
     </div>
   );

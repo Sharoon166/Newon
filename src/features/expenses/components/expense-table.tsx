@@ -10,8 +10,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   useReactTable,
-  getSortedRowModel,
-  getPaginationRowModel
+  getSortedRowModel
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,11 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowUpDown, Pencil, Search, Filter, Trash2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { TablePagination } from '@/components/general/table-pagination';
-import type { Expense, ExpenseCategory } from '../types';
+import { ServerPagination } from '@/components/general/server-pagination';
+import type { Expense, ExpenseCategory, PaginatedExpenses } from '../types';
 
 interface ExpenseTableProps {
-  data: Expense[];
+  expensesData: PaginatedExpenses;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
@@ -47,15 +46,12 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   other: 'Other'
 };
 
-export function ExpenseTable({ data, onEdit, onDelete }: ExpenseTableProps) {
+export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTableProps) {
+  const data = expensesData.docs;
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 10
-  });
 
   const filteredData =
     categoryFilter === 'all' ? data : data.filter(expense => expense.category === categoryFilter);
@@ -187,17 +183,14 @@ export function ExpenseTable({ data, onEdit, onDelete }: ExpenseTableProps) {
     state: {
       sorting,
       columnFilters,
-      globalFilter,
-      pagination
+      globalFilter
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     globalFilterFn: 'includesString'
   });
 
@@ -271,7 +264,15 @@ export function ExpenseTable({ data, onEdit, onDelete }: ExpenseTableProps) {
         </Table>
       </div>
 
-      <TablePagination table={table} itemName="Expense" />
+      <ServerPagination
+        currentPage={expensesData.page || 1}
+        totalPages={expensesData.totalPages}
+        totalDocs={expensesData.totalDocs}
+        hasNextPage={expensesData.hasNextPage}
+        hasPrevPage={expensesData.hasPrevPage}
+        pageSize={expensesData.limit}
+        itemName="expenses"
+      />
     </div>
   );
 }

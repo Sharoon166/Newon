@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ import { ExpenseTable } from './expense-table';
 import { ExpenseFormDialog } from './expense-form-dialog';
 import { ExpenseFilter } from './expense-filter';
 import { deleteExpense, getExpense } from '../actions';
-import type { Expense } from '../types';
+import type { Expense, PaginatedExpenses } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
@@ -23,21 +23,37 @@ import {
 } from '@/components/ui/alert-dialog';
 
 interface ExpensesPageClientProps {
-  expenses: Expense[];
-  invoiceExpenses: Expense[];
+  expensesData: PaginatedExpenses;
+  invoiceExpensesData: PaginatedExpenses;
   userId: string;
+  activeTab?: string;
 }
 
 export function ExpensesPageClient({
-  expenses,
-  invoiceExpenses,
-  userId
+  expensesData,
+  invoiceExpensesData,
+  userId,
+  activeTab
 }: ExpensesPageClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | undefined>();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState(activeTab || 'expenses');
+
+  useEffect(() => {
+    setCurrentTab(activeTab || 'expenses');
+  }, [activeTab]);
+
+  const handleTabChange = (value: string): void => {
+    setCurrentTab(value);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', value);
+    params.delete('page'); // Reset to page 1 when switching tabs
+    router.push(`/expenses?${params.toString()}`, { scroll: false });
+  };
 
   const handleEdit = async (expenseId: string): Promise<void> => {
     const result = await getExpense(expenseId);
@@ -86,11 +102,11 @@ export function ExpensesPageClient({
 
   return (
     <>
-      <Tabs defaultValue="expenses" className="space-y-6">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="flex flex-wrap gap-y-4 justify-between items-center">
           <TabsList>
-            <TabsTrigger value="expenses">Expenses</TabsTrigger>
-            <TabsTrigger value="invoice-expenses">Invoice Expenses</TabsTrigger>
+            <TabsTrigger value="expenses">Expenses ({expensesData.totalDocs})</TabsTrigger>
+            <TabsTrigger value="invoice-expenses">Invoice Expenses ({invoiceExpensesData.totalDocs})</TabsTrigger>
           </TabsList>
           <div className="flex flex-wrap items-center gap-2">
             <ExpenseFilter />
@@ -105,21 +121,29 @@ export function ExpensesPageClient({
           <div>
             <h2 className="text-lg font-medium">All Expenses</h2>
             <p className="text-sm text-muted-foreground">
-              {expenses.length} expense{expenses.length !== 1 ? 's' : ''} found
+              {expensesData.totalDocs} expense{expensesData.totalDocs !== 1 ? 's' : ''} found
             </p>
           </div>
-          <ExpenseTable data={expenses} onEdit={handleEdit} onDelete={handleDelete} />
+          <ExpenseTable 
+            expensesData={expensesData}
+            onEdit={handleEdit} 
+            onDelete={handleDelete} 
+          />
         </TabsContent>
 
         <TabsContent value="invoice-expenses" className="space-y-4">
           <div>
             <h2 className="text-lg font-medium">Invoice Expenses</h2>
             <p className="text-sm text-muted-foreground">
-              {invoiceExpenses.length} expense{invoiceExpenses.length !== 1 ? 's' : ''} from
+              {invoiceExpensesData.totalDocs} expense{invoiceExpensesData.totalDocs !== 1 ? 's' : ''} from
               invoices
             </p>
           </div>
-          <ExpenseTable data={invoiceExpenses} onEdit={handleEdit} onDelete={handleDelete} />
+          <ExpenseTable 
+            expensesData={invoiceExpensesData}
+            onEdit={handleEdit} 
+            onDelete={handleDelete} 
+          />
         </TabsContent>
       </Tabs>
 
