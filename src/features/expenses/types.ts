@@ -12,6 +12,7 @@ export type ExpenseCategory =
   | 'professional-services'
   | 'insurance'
   | 'taxes'
+  | 'salary'
   | 'other';
 
 export const EXPENSE_CATEGORIES: ReadonlyArray<{ value: ExpenseCategory; label: string }> = [

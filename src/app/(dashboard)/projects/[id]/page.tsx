@@ -32,37 +32,38 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
     canViewInvoiceItems: userHasPermission(session, 'view:project-inventory'),
     canViewAuditLogs: userHasPermission(session, 'view:audit-logs'),
     canViewClientFinancials: userHasPermission(session, 'view:client-financials'),
-    canViewProjectInvoices: userHasPermission(session, 'view:project-invoices')
+    canViewProjectInvoices: userHasPermission(session, 'view:project-invoices'),
+    canCancel: userHasPermission(session, 'delete:projects') // Reusing delete permission for cancel
   };
 
   try {
     const project = await getProject(projectId, session.user.id, session.user.role);
-    
+
     const [customer, projectInvoice, projectInvoices, auditLogsResult, enrichedExpenses] = await Promise.all([
       getCustomer(project.customerId),
-      permissions.canViewInvoiceItems ? getProjectInvoice(project.invoiceId) : Promise.resolve(null),
+      permissions.canViewInvoiceItems ? getProjectInvoice(project.projectId!) : Promise.resolve(null),
       permissions.canViewProjectInvoices ? getProjectInvoices(project.projectId!) : Promise.resolve([]),
       permissions.canViewAuditLogs ? getProjectAuditLogs(project.projectId!) : Promise.resolve({ logs: [] }),
-      getProjectExpensesWithTransactions(project.expenses)
+      getProjectExpensesWithTransactions(project.projectId!)
     ]);
 
     const auditLogs = auditLogsResult.logs ?? [];
 
     return (
       <>
-      <ProjectPageClient
-        project={project}
-        customer={customer}
-        projectInvoice={projectInvoice}
-        projectId={projectId}
-        userId={session.user.id!}
-        userName={session.user.name || 'Unknown'}
-        userRole={session.user.role}
-        {...permissions}
-        projectInvoices={projectInvoices}
-        auditLogs={auditLogs}
-        enrichedExpenses={enrichedExpenses}
-      />
+        <ProjectPageClient
+          project={project}
+          customer={customer}
+          projectInvoice={projectInvoice}
+          projectId={projectId}
+          userId={session.user.id!}
+          userName={session.user.name || 'Unknown'}
+          userRole={session.user.role}
+          {...permissions}
+          projectInvoices={projectInvoices}
+          auditLogs={auditLogs}
+          enrichedExpenses={enrichedExpenses}
+        />
       </>
     );
   } catch {

@@ -5,6 +5,7 @@ export type AuditAction =
   | 'project_created'
   | 'project_updated'
   | 'project_status_changed'
+  | 'project_cancelled'
   | 'inventory_added'
   | 'inventory_updated'
   | 'inventory_deleted'
@@ -50,6 +51,7 @@ const projectAuditLogSchema = new Schema<IProjectAuditLog>(
         'project_created',
         'project_updated',
         'project_status_changed',
+        'project_cancelled',
         'inventory_added',
         'inventory_updated',
         'inventory_deleted',

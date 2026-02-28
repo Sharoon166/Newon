@@ -25,7 +25,8 @@ import {
   MoreHorizontal,
   Users,
   Calendar,
-  Coins
+  Coins,
+  Ban
 } from 'lucide-react';
 import { Project } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -41,26 +42,26 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { deleteProject } from '../actions';
+import { cancelProject } from '../actions';
 import { toast } from 'sonner';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 
 interface ProjectsTableProps {
   data: Project[];
   canEdit?: boolean;
-  canDelete?: boolean;
+  canCancel?: boolean;
   canViewBudget?: boolean;
   onRefresh?: () => void;
 }
 
-export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefresh }: ProjectsTableProps) {
+export function ProjectsTable({ data, canEdit, canCancel, canViewBudget, onRefresh }: ProjectsTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10
@@ -86,29 +87,24 @@ export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefre
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const handleDelete = async () => {
+  const handleCancel = async () => {
     if (!selectedProject) return;
 
-    if(selectedProject.invoiceId) {
-      toast.error("Project has an a invoice connected so it cannot be deleted.")
-      return
-    }
-
     try {
-      setIsDeleting(true);
-      await deleteProject(selectedProject.projectId!);
-      toast.success('Project deleted successfully');
-      setDeleteDialogOpen(false);
+      setIsCancelling(true);
+      await cancelProject(selectedProject.projectId!);
+      toast.success('Project cancelled successfully');
+      setCancelDialogOpen(false);
       if (onRefresh) {
         onRefresh();
       } else {
         router.refresh();
       }
     } catch (error) {
-      toast.error('Failed to delete project');
+      toast.error((error as Error).message || 'Failed to cancel project');
       console.error(error);
     } finally {
-      setIsDeleting(false);
+      setIsCancelling(false);
     }
   };
 
@@ -219,18 +215,18 @@ export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefre
                   </DropdownMenuItem>
                 </Link>
               )}
-              {canDelete && (
+              {canCancel && project.status !== 'cancelled' && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => {
                       setSelectedProject(project);
-                      setDeleteDialogOpen(true);
+                      setCancelDialogOpen(true);
                     }}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                    <Ban className="h-4 w-4 mr-2" />
+                    Cancel Project
                   </DropdownMenuItem>
                 </>
               )}
@@ -241,7 +237,7 @@ export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefre
     });
 
     return baseColumns;
-  }, [canEdit, canDelete, canViewBudget]);
+  }, [canEdit, canCancel, canViewBudget]);
 
   const table = useReactTable({
     data,
@@ -339,14 +335,14 @@ export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefre
       </div>
 
       <ConfirmationDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        onConfirm={handleDelete}
-        title="Delete Project"
-        description={`Are you sure you want to delete project "${selectedProject?.title}"? This action cannot be undone and will delete all associated expenses.`}
-        confirmText="Delete Project"
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancel}
+        title="Cancel Project"
+        description={`Are you sure you want to cancel project "${selectedProject?.title}"? This will delete all project expenses, unlink the invoice, and recreate the invoice expenses in the Expense collection.`}
+        confirmText="Cancel Project"
         variant="destructive"
-        isProcessing={isDeleting}
+        isProcessing={isCancelling}
       />
     </>
   );

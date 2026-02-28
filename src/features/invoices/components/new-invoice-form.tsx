@@ -124,22 +124,7 @@ const invoiceFormSchema = z.object({
               amount: z.number(),
               actualCost: z.number(),
               clientCost: z.number(),
-              category: z.enum([
-                'materials',
-                'labor',
-                'equipment',
-                'transport',
-                'rent',
-                'utilities',
-                'fuel',
-                'maintenance',
-                'marketing',
-                'office-supplies',
-                'professional-services',
-                'insurance',
-                'taxes',
-                'other'
-              ]),
+              category: z.string(),
               description: z.string().optional(),
               expenseId: z.string().optional()
             })
@@ -386,7 +371,7 @@ export function NewInvoiceForm({
   const discountType = form.watch('discountType');
   const taxAmount = (subtotal * taxRate) / 100;
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-  const total = (subtotal + taxAmount) - discountAmount;
+  const total = subtotal + taxAmount - discountAmount;
 
   // Calculate profit in real-time
   const items = form.watch('items');
@@ -466,24 +451,7 @@ export function NewInvoiceForm({
         amount?: number; // Old format
         actualCost?: number; // New format
         clientCost?: number; // New format
-        category:
-          | 'materials'
-          | 'labor'
-          | 'equipment'
-          | 'transport'
-          | 'rent'
-          | 'utilities'
-          | 'fuel'
-          | 'maintenance'
-          | 'marketing'
-          | 'office-supplies'
-          | 'professional-services'
-          | 'insurance'
-          | 'taxes'
-          | 'other'
-          | 'overhead'
-          | 'packaging'
-          | 'shipping';
+        category: string; // Accept any category string, will be converted below
         description?: string;
       }>;
       totalComponentCost?: number;
@@ -493,56 +461,12 @@ export function NewInvoiceForm({
       const convertedCustomExpenses = item.customExpenses?.map(expense => {
         // If old format (has amount but not actualCost/clientCost), convert it
         if (expense.amount !== undefined && expense.actualCost === undefined && expense.clientCost === undefined) {
-          // Map old categories to new ones
-          let newCategory:
-            | 'materials'
-            | 'labor'
-            | 'equipment'
-            | 'transport'
-            | 'rent'
-            | 'utilities'
-            | 'fuel'
-            | 'maintenance'
-            | 'marketing'
-            | 'office-supplies'
-            | 'professional-services'
-            | 'insurance'
-            | 'taxes'
-            | 'other' = 'other';
-
-          if (expense.category === 'overhead') {
-            newCategory = 'other';
-          } else if (expense.category === 'packaging') {
-            newCategory = 'materials';
-          } else if (expense.category === 'shipping') {
-            newCategory = 'transport';
-          } else if (
-            [
-              'materials',
-              'labor',
-              'equipment',
-              'transport',
-              'rent',
-              'utilities',
-              'fuel',
-              'maintenance',
-              'marketing',
-              'office-supplies',
-              'professional-services',
-              'insurance',
-              'taxes',
-              'other'
-            ].includes(expense.category)
-          ) {
-            newCategory = expense.category as typeof newCategory;
-          }
-
           return {
             name: expense.name,
             amount: expense.amount,
             actualCost: expense.amount,
             clientCost: expense.amount,
-            category: newCategory,
+            category: expense.category,
             description: expense.description
           };
         }
@@ -552,21 +476,7 @@ export function NewInvoiceForm({
           amount: expense.clientCost ?? 0,
           actualCost: expense.actualCost ?? 0,
           clientCost: expense.clientCost ?? 0,
-          category: expense.category as
-            | 'materials'
-            | 'labor'
-            | 'equipment'
-            | 'transport'
-            | 'rent'
-            | 'utilities'
-            | 'fuel'
-            | 'maintenance'
-            | 'marketing'
-            | 'office-supplies'
-            | 'professional-services'
-            | 'insurance'
-            | 'taxes'
-            | 'other',
+          category: expense.category,
           description: expense.description
         };
       });
@@ -1561,7 +1471,6 @@ export function NewInvoiceForm({
                     </div>
                   );
                 })}
-
               </div>
             </div>
           </div>

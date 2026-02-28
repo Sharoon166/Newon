@@ -101,10 +101,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
           </div>
 
           <div className="flex items-center gap-2">
-            <Select
-              value={period}
-              onValueChange={value => setPeriod(value as '7' | '30' | 'monthly' | 'custom')}
-            >
+            <Select value={period} onValueChange={value => setPeriod(value as '7' | '30' | 'monthly' | 'custom')}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -167,7 +164,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
                   </linearGradient>
                 </defs>
 
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" />
 
                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
 
@@ -188,7 +185,11 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
                           expenses: 'Expenses',
                           netProfit: 'Net Profit'
                         };
-                        return [formatCurrency(value as number), labels[name as string] || name];
+                        return [
+                          <span key={name} className="font-bold">{labels[name as string] || name}</span>,
+                          ' - ',
+                          formatCurrency(value as number)
+                        ];
                       }}
                     />
                   }
@@ -226,9 +227,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
 
             <div>
               <div className="text-xs text-muted-foreground">Net Profit</div>
-              <div
-                className={`text-lg font-semibold ${totalNetProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}
-              >
+              <div className={`text-lg font-semibold ${totalNetProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                 {formatCurrency(totalNetProfit)}
               </div>
             </div>

@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency } from '@/lib/utils';
-import type { ExpenseCategory } from '@/features/expenses/types';
 import { EXPENSE_CATEGORIES } from '@/features/expenses/types';
 
 const customExpenseSchema = z.object({

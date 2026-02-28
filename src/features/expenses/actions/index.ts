@@ -16,12 +16,23 @@ import type {
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
-function transformLeanExpense(leanDoc: LeanExpense): Expense {
+function transformLeanExpense(leanDoc: any): Expense {
+  const { _id, __v, transactions, ...rest } = leanDoc;
+
   return {
-    ...leanDoc,
-    id: String(leanDoc._id),
-    _id: undefined,
-    __v: undefined
+    ...rest,
+    id: String(_id),
+    date: leanDoc.date instanceof Date ? leanDoc.date.toISOString() : leanDoc.date,
+    createdAt: leanDoc.createdAt instanceof Date ? leanDoc.createdAt.toISOString() : leanDoc.createdAt,
+    updatedAt: leanDoc.updatedAt instanceof Date ? leanDoc.updatedAt.toISOString() : leanDoc.updatedAt,
+    transactions:
+      transactions?.map((t: any) => ({
+        ...t,
+        id: String(t._id),
+        _id: undefined,
+        date: t.date instanceof Date ? t.date.toISOString() : t.date,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt
+      })) || []
   } as Expense;
 }
 
@@ -365,7 +376,7 @@ interface InvoiceExpenseItem {
   name: string;
   actualCost: number;
   clientCost: number;
-  category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
+  category: string;
   description?: string;
 }
 
@@ -375,7 +386,8 @@ export async function createInvoiceExpenses(
   invoiceDate: Date,
   customExpenses: InvoiceExpenseItem[],
   createdBy: string,
-  projectId?: string
+  projectId?: string,
+  session?: any
 ): Promise<ActionResult<string[]>> {
   try {
     await dbConnect();
@@ -403,7 +415,7 @@ export async function createInvoiceExpenses(
       };
 
       const newExpense = new ExpenseModel(expenseData);
-      const savedExpense = await newExpense.save();
+      const savedExpense = await newExpense.save({ session });
       expenseIds.push(savedExpense.expenseId);
     }
 
@@ -417,11 +429,11 @@ export async function createInvoiceExpenses(
   }
 }
 
-export async function deleteInvoiceExpenses(invoiceId: string): Promise<ActionResult<void>> {
+export async function deleteInvoiceExpenses(invoiceId: string, session?: any): Promise<ActionResult<void>> {
   try {
     await dbConnect();
 
-    await ExpenseModel.deleteMany({ invoiceId, source: 'invoice' });
+    await ExpenseModel.deleteMany({ invoiceId, source: 'invoice' }, { session });
 
     revalidatePath('/expenses');
     revalidatePath('/dashboard');

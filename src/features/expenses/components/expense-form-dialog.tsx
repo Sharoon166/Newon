@@ -56,6 +56,7 @@ const formSchema = z.object({
     'professional-services',
     'insurance',
     'taxes',
+    'salary',
     'other'
   ]),
   date: z.date({
@@ -89,6 +90,7 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   'professional-services': 'Professional Services',
   insurance: 'Insurance',
   taxes: 'Taxes',
+  salary: 'Salary',
   other: 'Other'
 };
 

@@ -408,11 +408,20 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
 
         if (customExpenses.length > 0) {
           const { createInvoiceExpenses } = await import('@/features/expenses/actions');
+          // Filter to only valid invoice expense categories
+          const validCustomExpenses = customExpenses.map(expense => ({
+            name: expense.name,
+            actualCost: expense.actualCost,
+            clientCost: expense.clientCost,
+            category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+            description: expense.description
+          }));
+          
           const expenseResult = await createInvoiceExpenses(
             (savedInvoice._id as mongoose.Types.ObjectId).toString(),
             savedInvoice.invoiceNumber,
             savedInvoice.date,
-            customExpenses,
+            validCustomExpenses,
             savedInvoice.createdBy,
             savedInvoice.projectId
           );
@@ -1141,11 +1150,20 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
 
         if (customExpenses.length > 0) {
           const { createInvoiceExpenses } = await import('@/features/expenses/actions');
+          // Filter to only valid invoice expense categories
+          const validCustomExpenses = customExpenses.map(expense => ({
+            name: expense.name,
+            actualCost: expense.actualCost,
+            clientCost: expense.clientCost,
+            category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+            description: expense.description
+          }));
+          
           const expenseResult = await createInvoiceExpenses(
             (savedInvoice._id as mongoose.Types.ObjectId).toString(),
             savedInvoice.invoiceNumber,
             savedInvoice.date,
-            customExpenses,
+            validCustomExpenses,
             createdBy,
             savedInvoice.projectId
           );
@@ -1203,6 +1221,11 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
 
     if (invoice.status === 'cancelled') {
       throw new Error('Invoice is already cancelled');
+    }
+
+    // Prevent cancellation if invoice is linked to a project
+    if (invoice.projectId) {
+      throw new Error('Cannot cancel invoice linked to a project. Please unlink it from the project first.');
     }
 
     // Prevent cancellation if invoice has any payments
@@ -1275,6 +1298,7 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     revalidatePath('/inventory');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1837,12 +1861,21 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
             .filter(item => item.customExpenses && item.customExpenses.length > 0)
             .flatMap(item => item.customExpenses || []);
 
+          // Filter to only valid invoice expense categories
+          const validCustomExpenses = customExpenses.map(expense => ({
+            name: expense.name,
+            actualCost: expense.actualCost,
+            clientCost: expense.clientCost,
+            category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+            description: expense.description
+          }));
+
           const { syncInvoiceExpenses } = await import('@/features/expenses/actions');
           const expenseResult = await syncInvoiceExpenses(
             (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
             updatedInvoice.invoiceNumber,
             updatedInvoice.date,
-            customExpenses,
+            validCustomExpenses,
             updatedInvoice.createdBy,
             updatedInvoice.projectId
           );
@@ -1872,6 +1905,7 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
       revalidatePath('/customers');
       revalidatePath('/purchases');
       revalidatePath('/inventory');
+      revalidatePath('/projects');
 
       return transformInvoice(updatedInvoice.toObject() as unknown as LeanInvoice);
     } catch (updateError) {

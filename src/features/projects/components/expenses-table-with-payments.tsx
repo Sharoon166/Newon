@@ -54,6 +54,7 @@ export function ExpensesTableWithPayments({
       'professional-services': { variant: 'secondary', label: 'Professional Services' },
       insurance: { variant: 'outline', label: 'Insurance' },
       taxes: { variant: 'default', label: 'Taxes' },
+      salary: { variant: 'secondary', label: 'Other' },
       other: { variant: 'secondary', label: 'Other' }
     };
 

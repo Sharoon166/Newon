@@ -31,31 +31,15 @@ export function ProjectDetails({ project, customer, canViewBudget, projectInvoic
 
   const statusConfig = getStatusConfig(project.status);
 
-  // Ensure we have valid numbers
+  // Ensure we have valid numbers from backend virtuals
   const totalExpenses = project.totalExpenses || 0;
-  
-  // Calculate inventory cost from invoice items using actual costs
-  let totalInventoryCost = 0;
-  if (projectInvoice && projectInvoice.items) {
-    totalInventoryCost = projectInvoice.items.reduce((sum, item) => {
-      // For virtual products, use component cost + custom expenses actual cost
-      if (item.isVirtualProduct) {
-        const componentCost = item.totalComponentCost || 0;
-        const customExpensesCost = item.customExpenses?.reduce((expSum, exp) => expSum + exp.actualCost, 0) || 0;
-        return sum + componentCost + customExpensesCost;
-      }
-      // For regular products, use originalRate * quantity (actual cost) instead of client price
-      const actualCost = (item.originalRate || item.unitPrice) * item.quantity;
-      return sum + actualCost;
-    }, 0);
-  }
-  
-  const totalProjectCost = totalExpenses + totalInventoryCost;
+  const totalInventoryCost = project.totalInventoryCost || 0;
+  const totalProjectCost = project.totalProjectCost || 0;
   const budget = project.budget || 0;
 
   const budgetUsedPercentage = canViewBudget && budget > 0 ? (totalProjectCost / budget) * 100 : 0;
   const isOverBudget = canViewBudget && (budget - totalProjectCost) < 0;
-  const remaining = budget - totalProjectCost;
+  const remaining = project.remainingBudget || (budget - totalProjectCost);
 
   // Prepare chart data
   const chartData = [
@@ -182,6 +166,31 @@ export function ProjectDetails({ project, customer, canViewBudget, projectInvoic
                   <div>
                     <p className="text-sm text-muted-foreground mb-1.5">Total Budget</p>
                     <p className="text-lg sm:text-2xl font-bold">{formatCurrency(budget)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1.5">Invoice Total</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg sm:text-2xl font-bold text-violet-600">
+                        {formatCurrency(projectInvoice?.totalAmount || 0)}
+                      </p>
+                      {projectInvoice && (
+                        <>
+                          {projectInvoice.totalAmount > budget ? (
+                            <Badge variant="destructive" className="text-xs">
+                              Exceeds Budget
+                            </Badge>
+                          ) : projectInvoice.totalAmount === budget ? (
+                            <Badge variant="outline" className="text-xs border-green-600 text-green-600">
+                              Matches Budget
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs border-blue-600 text-blue-600">
+                              Within Budget
+                            </Badge>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground mb-1.5">Spent ({budgetUsedPercentage.toFixed(1)}%)</p>

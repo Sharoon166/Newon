@@ -47,7 +47,7 @@ const virtualProductSchema = z.object({
   customExpenses: z.array(z.object({
     name: z.string().min(1, 'Expense name is required'),
     amount: z.number().min(0.01, 'Amount must be greater than 0'),
-    category: z.enum(['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other']),
+    category: z.enum(['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'salary', 'other']),
     description: z.string().optional()
   })),
   basePrice: z.number().min(0.01, 'Base price must be greater than 0'),

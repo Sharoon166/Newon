@@ -58,22 +58,33 @@ export function AddPaymentDialog({
   useEffect(() => {
     if (open && expenseId) {
       setIsLoading(true);
+      setRemainingAmount(0); // Reset before loading
       getProjectExpenseWithTransactions(expenseId)
         .then(details => {
           if (details) {
             setRemainingAmount(details.remainingAmount);
             setValue('amount', details.remainingAmount);
+          } else {
+            setRemainingAmount(0);
+            setValue('amount', 0);
           }
         })
         .catch(error => {
           console.error('Failed to load expense details:', error);
           toast.error('Failed to load expense details');
+          setRemainingAmount(0);
+          setValue('amount', 0);
         })
         .finally(() => {
           setIsLoading(false);
         });
+    } else if (!open) {
+      // Clear values when dialog closes
+      reset();
+      setRemainingAmount(0);
+      setPaymentDate(new Date());
     }
-  }, [open, expenseId, setValue]);
+  }, [open, expenseId, setValue, reset]);
 
   const onSubmit = async (data: {
     amount: number;
@@ -85,8 +96,14 @@ export function AddPaymentDialog({
       return;
     }
 
-    if (data.amount > remainingAmount) {
-      toast.error(`Payment amount cannot exceed remaining amount (${formatCurrency(remainingAmount)})`);
+    // Re-check remaining amount before submission
+    const currentDetails = await getProjectExpenseWithTransactions(expenseId);
+    const currentRemaining = currentDetails?.remainingAmount ?? remainingAmount;
+
+    if (data.amount > currentRemaining) {
+      toast.error(`Payment amount (${formatCurrency(data.amount)}) exceeds remaining amount (${formatCurrency(currentRemaining)})`);
+      setRemainingAmount(currentRemaining);
+      setValue('amount', currentRemaining);
       return;
     }
 
@@ -135,6 +152,11 @@ export function AddPaymentDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="p-3 bg-muted/50 rounded-lg flex justify-between items-center mb-4">
+              <span className="text-sm text-muted-foreground">Total Remaining:</span>
+              <span className="font-bold text-lg text-primary">{formatCurrency(remainingAmount)}</span>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="amount">
                 Amount <span className="text-destructive">*</span>

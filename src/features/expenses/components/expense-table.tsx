@@ -43,6 +43,7 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   'professional-services': 'Professional Services',
   insurance: 'Insurance',
   taxes: 'Taxes',
+  salary: 'Salary',
   other: 'Other'
 };
 

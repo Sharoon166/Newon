@@ -2,59 +2,6 @@ import mongoose, { Document, Schema, PaginateModel } from 'mongoose';
 import mongoosePaginate from 'mongoose-paginate-v2';
 import { generateId } from './Counter';
 
-// Expense subdocument interface
-interface IExpense {
-  expenseId?: string;
-  description: string;
-  amount: number;
-  category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
-  date: Date;
-  addedBy: string;
-  addedByName?: string;
-  addedByRole: 'admin' | 'staff';
-  receipt?: string;
-  notes?: string;
-  createdAt: Date;
-}
-
-// Inventory subdocument interface
-interface IInventoryItem {
-  inventoryId?: string;
-  productId?: string;
-  variantId?: string;
-  virtualProductId?: string;
-  isVirtualProduct: boolean;
-  productName: string;
-  sku: string;
-  description: string;
-  quantity: number;
-  rate: number;
-  totalCost: number;
-  purchaseId?: string; // For regular products
-  componentBreakdown?: Array<{
-    productId: string;
-    variantId: string;
-    productName: string;
-    sku: string;
-    quantity: number;
-    purchaseId: string;
-    unitCost: number;
-    totalCost: number;
-  }>;
-  customExpenses?: Array<{
-    name: string;
-    amount: number;
-    category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
-    description?: string;
-  }>;
-  totalComponentCost?: number;
-  totalCustomExpenses?: number;
-  addedBy: string;
-  addedByName?: string;
-  addedAt: Date;
-  notes?: string;
-}
-
 // Main Project document interface
 interface IProject extends Document {
   projectId?: string;
@@ -68,7 +15,6 @@ interface IProject extends Document {
   startDate: Date;
   endDate?: Date;
   assignedStaff: string[];
-  expenses: IExpense[];
   totalExpenses: number;
   totalProjectCost: number;
   remainingBudget: number;
@@ -77,60 +23,6 @@ interface IProject extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
-
-// Expense subdocument schema
-const expenseSchema = new Schema<IExpense>(
-  {
-    expenseId: {
-      type: String,
-      required: false
-    },
-    description: {
-      type: String,
-      required: [true, 'Expense description is required'],
-      trim: true
-    },
-    amount: {
-      type: Number,
-      required: [true, 'Expense amount is required'],
-      min: [0, 'Amount must be positive']
-    },
-    category: {
-      type: String,
-      enum: ['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other'],
-      required: [true, 'Expense category is required']
-    },
-    date: {
-      type: Date,
-      required: [true, 'Expense date is required'],
-      default: Date.now
-    },
-    addedBy: {
-      type: String,
-      required: [true, 'Added by is required']
-    },
-    addedByName: {
-      type: String
-    },
-    addedByRole: {
-      type: String,
-      enum: ['admin', 'staff'],
-      required: [true, 'Added by role is required']
-    },
-    receipt: {
-      type: String
-    },
-    notes: {
-      type: String,
-      trim: true
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
-  },
-  { _id: true }
-);
 
 // Main Project schema
 const projectSchema = new Schema<IProject>(
@@ -190,10 +82,6 @@ const projectSchema = new Schema<IProject>(
     assignedStaff: {
       type: [String],
       default: [],
-    },
-    expenses: {
-      type: [expenseSchema],
-      default: []
     },
     createdBy: {
       type: String,

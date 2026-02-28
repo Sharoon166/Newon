@@ -1,5 +1,3 @@
-import type { ExpenseCategory } from '@/features/expenses/types';
-
 // Invoice status type
 export type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
 
@@ -31,7 +29,7 @@ export interface CustomExpense {
   amount: number;
   actualCost: number;
   clientCost: number;
-  category: ExpenseCategory;
+  category: string;
   description?: string;
   expenseId?: string;
 }

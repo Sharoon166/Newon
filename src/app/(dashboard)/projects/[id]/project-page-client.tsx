@@ -12,12 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ProjectAuditLogs } from '@/features/projects/components/project-audit-logs';
-import { Plus, Pencil, ExternalLink, Receipt, Activity, Package } from 'lucide-react';
+import { Plus, Pencil, ExternalLink, Receipt, Activity, Package, Ban } from 'lucide-react';
 import Link from 'next/link';
 import { Project } from '@/features/projects/types';
 import type { Customer } from '@/features/customers/types';
 import type { Invoice } from '@/features/invoices/types';
 import { formatCurrency } from '@/lib/utils';
+import { cancelProject } from '@/features/projects/actions';
+import { toast } from 'sonner';
+import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 
 interface ProjectPageClientProps {
   project: Project;
@@ -34,6 +37,7 @@ interface ProjectPageClientProps {
   canViewAuditLogs: boolean;
   canViewClientFinancials: boolean;
   canViewProjectInvoices: boolean;
+  canCancel: boolean;
   projectInvoices: Invoice[];
   enrichedExpenses: import('@/features/projects/types').EnrichedExpense[];
   auditLogs: Array<{
@@ -75,6 +79,7 @@ export function ProjectPageClient({
   canViewInvoiceItems,
   canViewAuditLogs,
   canViewProjectInvoices,
+  canCancel,
   projectInvoices,
   enrichedExpenses,
   auditLogs
@@ -82,9 +87,26 @@ export function ProjectPageClient({
   const router = useRouter();
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const handleRefresh = () => {
     router.refresh();
+  };
+
+  const handleCancel = async () => {
+    try {
+      setIsCancelling(true);
+      await cancelProject(projectId);
+      toast.success('Project cancelled successfully');
+      setCancelDialogOpen(false);
+      router.refresh();
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to cancel project');
+      console.error(error);
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const getStatusConfig = (status: string) => {
@@ -133,6 +155,12 @@ export function ProjectPageClient({
                   Update Status
                 </Button>
               )}
+              {canCancel && project.status !== 'cancelled' && (
+                <Button variant="destructive" onClick={() => setCancelDialogOpen(true)}>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Cancel Project
+                </Button>
+              )}
               {canEdit && (
                 <Button asChild>
                   <Link href={`/projects/${projectId}/edit`}>
@@ -162,7 +190,7 @@ export function ProjectPageClient({
             )}
             <TabsTrigger value="expenses" className="gap-2">
               <Receipt className="h-4 w-4" />
-              Expenses ({project.expenses.length})
+              Expenses ({enrichedExpenses.length})
             </TabsTrigger>
             {canViewAuditLogs && (
               <TabsTrigger value="activity" className="gap-2">
@@ -200,7 +228,7 @@ export function ProjectPageClient({
                     </Button>
                   )}
               </div>
-              {project.expenses.length === 0 ? (
+              {enrichedExpenses.length === 0 ? (
                 <div className="text-center py-16">
                   <Receipt className="h-12 w-12 mx-auto mb-3 text-gray-400" />
                   <p className="text-sm text-muted-foreground mb-4">No expenses recorded yet</p>
@@ -230,10 +258,10 @@ export function ProjectPageClient({
               <ProjectAuditLogs
                 logs={auditLogs}
                 users={[
-                  ...project.assignedStaff.map(staffId => ({
-                    id: staffId,
-                    name: project.expenses.find(e => e.addedBy === staffId)?.addedByName || 'Unknown'
-                  })),
+                  ...(project.assignedStaffDetails?.map(staff => ({
+                    id: staff.id,
+                    name: `${staff.firstName} ${staff.lastName}`
+                  })) || []),
                   { id: userId, name: userName }
                 ].filter((user, index, self) => index === self.findIndex(u => u.id === user.id))}
               />
@@ -262,6 +290,17 @@ export function ProjectPageClient({
           currentStatus={project.status}
         />
       )}
+
+      <ConfirmationDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={handleCancel}
+        title="Cancel Project"
+        description={`Are you sure you want to cancel project "${project.title}"? This will delete all project expenses, unlink the invoice, and recreate the invoice expenses in the Expense collection.`}
+        confirmText="Cancel Project"
+        variant="destructive"
+        isProcessing={isCancelling}
+      />
     </>
   );
 }

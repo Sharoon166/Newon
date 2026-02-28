@@ -11,7 +11,6 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { PaymentDetails } from '@/features/settings/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
-import type { ExpenseCategory } from '@/features/expenses/types';
 import { toast } from 'sonner';
 
 type DocumentType = 'invoice' | 'quotation';
@@ -63,7 +62,7 @@ interface FormData {
       amount: number;
       actualCost: number;
       clientCost: number;
-      category: ExpenseCategory;
+      category: string;
       description?: string;
       expenseId?: string;
     }>;
@@ -194,26 +193,14 @@ export function NewInvoiceFormWrapper({
             totalCustomExpenses: item.totalCustomExpenses
           }),
           ...(item.customExpenses && item.customExpenses.length > 0 && {
-            customExpenses: item.customExpenses.map(expense => {
-              // Map form categories back to full expense categories
-              const categoryMap: Record<string, 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other'> = {
-                'materials': 'materials',
-                'labor': 'labor',
-                'overhead': 'equipment', // Map overhead back to equipment as default
-                'packaging': 'materials',
-                'shipping': 'transport',
-                'other': 'other'
-              };
-              
-              return {
-                name: expense.name,
-                amount: expense.clientCost,
-                actualCost: expense.actualCost,
-                clientCost: expense.clientCost,
-                category: categoryMap[expense.category] || 'other',
-                description: expense.description
-              };
-            }),
+            customExpenses: item.customExpenses.map(expense => ({
+              name: expense.name,
+              amount: expense.clientCost,
+              actualCost: expense.actualCost,
+              clientCost: expense.clientCost,
+              category: expense.category,
+              description: expense.description
+            })),
             totalCustomExpenses: item.totalCustomExpenses
           }),
           quantity: item.quantity,

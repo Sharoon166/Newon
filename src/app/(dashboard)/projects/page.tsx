@@ -25,7 +25,7 @@ async function ProjectsContent() {
 
   const canCreate = userHasPermission(session, 'create:projects');
   const canEdit = userHasPermission(session, 'edit:projects');
-  const canDelete = userHasPermission(session, 'delete:projects');
+  const canCancel = userHasPermission(session, 'delete:projects'); // Reusing delete permission for cancel
   const canViewBudget = userHasPermission(session, 'view:budget');
 
   const { docs: projects } = await getProjects({}, session.user.id, session.user.role);
@@ -60,7 +60,7 @@ async function ProjectsContent() {
           )}
         </div>
       ) : (
-        <ProjectsTable data={projects} canEdit={canEdit} canDelete={canDelete} canViewBudget={canViewBudget} />
+        <ProjectsTable data={projects} canEdit={canEdit} canCancel={canCancel} canViewBudget={canViewBudget} />
       )}
     </div>
   );

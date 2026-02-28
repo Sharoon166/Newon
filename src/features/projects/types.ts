@@ -76,7 +76,6 @@ export interface Project {
     lastName: string;
     email: string;
   }>;
-  expenses: Expense[];
   totalExpenses: number;
   totalInventoryCost: number;
   totalProjectCost: number;
@@ -186,20 +185,6 @@ export interface LeanProject {
   startDate: Date | string;
   endDate?: Date | string;
   assignedStaff: string[];
-  expenses: Array<{
-    _id: Record<string, unknown>;
-    expenseId?: string;
-    description: string;
-    amount: number;
-    category: ExpenseCategory;
-    date: Date | string;
-    addedBy: string;
-    addedByName?: string;
-    addedByRole: 'admin' | 'staff';
-    receipt?: string;
-    notes?: string;
-    createdAt: Date | string;
-  }>;
   totalExpenses: number;
   totalInventoryCost: number;
   totalProjectCost: number;

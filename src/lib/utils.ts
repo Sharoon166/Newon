@@ -18,8 +18,10 @@ export function formatNumber(num: number) {
   });
 }
 
-export function formatCurrency(num: number) {
-  if (!num || typeof num != 'number') return num;
+export function formatCurrency(num: number | undefined | null) {
+  if (num === undefined || num === null || typeof num !== 'number') {
+    return 'Rs 0';
+  }
 
   return num
     .toLocaleString('en-PK', {

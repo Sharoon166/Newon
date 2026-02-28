@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CalendarIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { createProject, updateProject } from '../actions';
+import { createProject, updateProject, linkInvoiceToProject } from '../actions';
 import { CreateProjectDto, UpdateProjectDto, Project, ProjectStatus } from '../types';
 import { ProjectInvoiceSelector } from './project-invoice-selector';
 import type { Invoice } from '@/features/invoices/types';
@@ -28,23 +28,25 @@ interface ProjectFormProps {
   canViewBudget?: boolean;
 }
 
-export function ProjectForm({ project, invoices, staffMembers, currentUserId, canViewBudget = true }: ProjectFormProps) {
+export function ProjectForm({
+  project,
+  invoices,
+  staffMembers,
+  currentUserId,
+  canViewBudget = true
+}: ProjectFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(
     project?.startDate ? new Date(project.startDate) : undefined
   );
-  const [endDate, setEndDate] = useState<Date | undefined>(
-    project?.endDate ? new Date(project.endDate) : undefined
-  );
+  const [endDate, setEndDate] = useState<Date | undefined>(project?.endDate ? new Date(project.endDate) : undefined);
   const [selectedStaff, setSelectedStaff] = useState<string[]>(project?.assignedStaff || []);
-  
-  // Find initial invoice if editing (project was created from an invoice)
-  const initialInvoice = project 
-    ? invoices.find(inv => inv.customerId === project.customerId)
-    : null;
-  
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(initialInvoice || null);
+
+  const linkedInvoice = project ? invoices.find(inv => inv.projectId === project.projectId) : null;
+
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(linkedInvoice || null);
+  const [isLinked, setIsLinked] = useState<boolean>(!!project && !!linkedInvoice);
 
   const {
     register,
@@ -63,12 +65,7 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
 
   const status = watch('status');
 
-  const onSubmit = async (data: {
-    title: string;
-    description: string;
-    budget: number;
-    status: ProjectStatus;
-  }) => {
+  const onSubmit = async (data: { title: string; description: string; budget: number; status: ProjectStatus }) => {
     if (!selectedInvoice) {
       toast.error('Please select an invoice');
       return;
@@ -76,6 +73,12 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
 
     if (!startDate) {
       toast.error('Please select a start date');
+      return;
+    }
+
+    // Validate end date is after start date
+    if (endDate && endDate < startDate) {
+      toast.error('End date must be after start date');
       return;
     }
 
@@ -97,6 +100,12 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
         };
 
         await updateProject(project.projectId!, updateData);
+
+        // Check if invoice needs to be linked
+        if (selectedInvoice && (!linkedInvoice || linkedInvoice.id !== selectedInvoice.id)) {
+          await linkInvoiceToProject(project.projectId!, selectedInvoice.invoiceNumber);
+        }
+
         toast.success('Project updated successfully');
         router.push(`/projects/${project.projectId}`);
       } else {
@@ -138,12 +147,17 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
         invoices={invoices}
         selectedInvoice={selectedInvoice}
         onInvoiceSelect={setSelectedInvoice}
-        disabled={project !== undefined && project.expenses.length > 0}
+        disabled={isLinked}
+        disableUnlink={false}
+        projectId={project?.projectId}
+        showUnlinkButton={!!project && isLinked}
+        onUnlinked={() => setIsLinked(false)}
       />
 
-      {project && project.expenses.length > 0 && (
+      {isLinked && (
         <p className="text-sm text-muted-foreground">
-          Invoice cannot be changed because this project has expenses.
+          Invoice selector is disabled because an invoice is currently linked. Use the unlink button to change the
+          invoice.
         </p>
       )}
 
@@ -195,7 +209,7 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select value={status} onValueChange={value => setValue('status', value as ProjectStatus)}>
-            <SelectTrigger className='w-full'>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
             <SelectContent>
@@ -223,7 +237,7 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+              <Calendar mode="single" selected={startDate} onSelect={setStartDate} />
             </PopoverContent>
           </Popover>
         </div>
@@ -241,9 +255,17 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId, ca
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+              <Calendar
+                mode="single"
+                selected={endDate}
+                onSelect={setEndDate}
+                disabled={date => (startDate ? date < startDate : false)}
+              />
             </PopoverContent>
           </Popover>
+          {startDate && (
+            <p className="text-xs text-muted-foreground">End date must be after {format(startDate, 'PPP')}</p>
+          )}
         </div>
       </div>
 

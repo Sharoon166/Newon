@@ -150,6 +150,7 @@ export function AddExpenseDialog({ open, onOpenChange, projectId, userId, userRo
                   <SelectItem value="professional-services">Professional Services</SelectItem>
                   <SelectItem value="insurance">Insurance</SelectItem>
                   <SelectItem value="taxes">Taxes</SelectItem>
+                  <SelectItem value="salary">Salary</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
