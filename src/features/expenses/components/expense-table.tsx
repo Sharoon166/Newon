@@ -119,9 +119,16 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
               >
                 {expense.invoiceNumber}
               </a>
+            </div>
+          );
+        }
+
+        if (expense.source === 'project' && expense.projectId) {
+          return (
+            <div className="space-y-1">
               {expense.projectId && (
                 <a
-                  href={`/projects?search=${expense.projectId}`}
+                  href={`/projects/${expense.projectId}`}
                   className="text-xs text-muted-foreground hover:underline block"
                 >
                   Project: {expense.projectId}
@@ -142,7 +149,7 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
       enableHiding: false,
       cell: ({ row }) => {
         const expense = row.original;
-        const isFromInvoice = expense.source === 'invoice';
+        const isFromInvoiceOrExpense = expense.source === 'invoice' || expense.source === "project";
         return (
           <div className="flex justify-end gap-2">
             {onEdit && (
@@ -150,9 +157,9 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
                 variant="ghost"
                 size="icon"
                 onClick={() => onEdit(expense.expenseId)}
-                disabled={isFromInvoice}
+                disabled={isFromInvoiceOrExpense}
                 className="h-8 w-8"
-                title={isFromInvoice ? 'Cannot edit invoice expense' : 'Edit expense'}
+                title={isFromInvoiceOrExpense ? 'Cannot edit invoice expense' : 'Edit expense'}
               >
                 <Pencil className="h-4 w-4" />
                 <span className="sr-only">Edit</span>
@@ -163,9 +170,9 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
                 variant="ghost"
                 size="icon"
                 onClick={() => onDelete(expense.expenseId)}
-                disabled={isFromInvoice}
+                disabled={isFromInvoiceOrExpense}
                 className="h-8 w-8 text-red-600 hover:text-red-700"
-                title={isFromInvoice ? 'Cannot delete invoice expense' : 'Delete expense'}
+                title={isFromInvoiceOrExpense ? 'Cannot delete invoice expense' : 'Delete expense'}
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Delete</span>

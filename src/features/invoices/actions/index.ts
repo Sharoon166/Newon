@@ -439,56 +439,16 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
     // Deduct stock from purchases if this is an invoice (not quotation) and stockDeducted is true
     if (data.type === 'invoice' && data.items.length > 0) {
       try {
-        // Skip stock deduction if invoice is from a project (stock already deducted when added to project)
-        if (data.projectId) {
-          // For project invoices, copy the component breakdown from project inventory
-          const ProjectModel = (await import('@/models/Project')).default;
-          const project = await ProjectModel.findOne({ projectId: data.projectId }).lean();
-          
-          if (project && project.inventory && project.inventory.length > 0) {
-            // Match invoice items with project inventory and copy tracking data
-            for (let i = 0; i < savedInvoice.items.length; i++) {
-              const invoiceItem = savedInvoice.items[i];
-              
-              const projectInventoryItem = project.inventory.find((item: {
-                productId?: string;
-                virtualProductId?: string;
-                variantId?: string;
-              }) => {
-                if (invoiceItem.isVirtualProduct) {
-                  return item.virtualProductId === invoiceItem.virtualProductId;
-                } else {
-                  return item.productId === invoiceItem.productId && item.variantId === invoiceItem.variantId;
-                }
-              });
-              
-              if (projectInventoryItem) {
-                // Copy purchase tracking from project
-                if (invoiceItem.isVirtualProduct && projectInventoryItem.componentBreakdown) {
-                  invoiceItem.componentBreakdown = projectInventoryItem.componentBreakdown;
-                  invoiceItem.totalComponentCost = projectInventoryItem.totalComponentCost;
-                } else if (!invoiceItem.isVirtualProduct && projectInventoryItem.purchaseId) {
-                  invoiceItem.purchaseId = projectInventoryItem.purchaseId;
-                  invoiceItem.originalRate = projectInventoryItem.rate;
-                }
-              }
-            }
-            
-            // Mark as deducted (stock was deducted when added to project)
-            savedInvoice.stockDeducted = true;
-            await savedInvoice.save();
-          }
-        } else {
-          // Normal invoice (not from project) - deduct stock as usual
-          const { deductStockForInvoice } = await import('@/features/purchases/actions/stock');
-          const stockResult = await deductStockForInvoice(
-            data.items.map(item => ({
-              purchaseId: item.purchaseId,
-              quantity: item.quantity,
-              isVirtualProduct: item.isVirtualProduct,
-              virtualProductId: item.virtualProductId
-            }))
-          );
+        // Deduct stock for all invoices
+        const { deductStockForInvoice } = await import('@/features/purchases/actions/stock');
+        const stockResult = await deductStockForInvoice(
+          data.items.map(item => ({
+            purchaseId: item.purchaseId,
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId
+          }))
+        );
 
         if (!stockResult.success) {
           console.warn('Some stock deductions failed:', stockResult.errors);
@@ -559,7 +519,6 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
         }
 
         await savedInvoice.save();
-        }
       } catch (stockError) {
         console.error('Error deducting stock:', stockError);
         // Continue - invoice is created but stock not deducted
@@ -703,6 +662,11 @@ export async function deleteInvoice(id: string): Promise<void> {
       throw new Error('Invoice not found');
     }
 
+    // Prevent deletion if invoice is linked to a project
+    if (invoice.projectId) {
+      throw new Error('Cannot delete invoice linked to a project. Please remove it from the project first or cancel the invoice instead.');
+    }
+
     // Only allow deletion of draft invoices or quotations
     // For invoices/quotations with any other status, they should be cancelled instead
     if (invoice.type === 'invoice' && invoice.status !== 'draft') {
@@ -753,26 +717,16 @@ export async function deleteInvoice(id: string): Promise<void> {
     // Restore stock if it was deducted
     if (invoice.type === 'invoice' && invoice.stockDeducted && invoice.items.length > 0) {
       try {
-        // Only restore stock if invoice is NOT from a project
-        // Project invoices don't own the stock - the project does
-        console.log(`[deleteInvoice] Invoice ${invoice.invoiceNumber} - projectId: ${invoice.projectId || 'none'}`);
-        
-        if (!invoice.projectId) {
-          console.log(`[deleteInvoice] Restoring stock for non-project invoice ${invoice.invoiceNumber}`);
-          const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
-          await restoreStockForInvoice(
-            invoice.items.map(item => ({
-              purchaseId: item.purchaseId,
-              quantity: item.quantity,
-              isVirtualProduct: item.isVirtualProduct,
-              virtualProductId: item.virtualProductId,
-              componentBreakdown: item.componentBreakdown
-            }))
-          );
-        } else {
-          console.log(`[deleteInvoice] Skipping stock restoration for project invoice ${invoice.invoiceNumber} (projectId: ${invoice.projectId})`);
-        }
-        // If invoice is from project, stock remains with project - no restoration needed
+        const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
+        await restoreStockForInvoice(
+          invoice.items.map(item => ({
+            purchaseId: item.purchaseId,
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId,
+            componentBreakdown: item.componentBreakdown
+          }))
+        );
       } catch (stockError) {
         console.error('Error restoring stock:', stockError);
         // Continue with deletion even if stock restoration fails
@@ -1270,26 +1224,16 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     // Restore stock if it was deducted
     if (invoice.type === 'invoice' && invoice.stockDeducted && invoice.items.length > 0) {
       try {
-        // Only restore stock if invoice is NOT from a project
-        // Project invoices don't own the stock - the project does
-        console.log(`[cancelInvoice] Invoice ${invoice.invoiceNumber} - projectId: ${invoice.projectId || 'none'}`);
-        
-        if (!invoice.projectId) {
-          console.log(`[cancelInvoice] Restoring stock for non-project invoice ${invoice.invoiceNumber}`);
-          const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
-          await restoreStockForInvoice(
-            invoice.items.map(item => ({
-              purchaseId: item.purchaseId,
-              quantity: item.quantity,
-              isVirtualProduct: item.isVirtualProduct,
-              virtualProductId: item.virtualProductId,
-              componentBreakdown: item.componentBreakdown
-            }))
-          );
-        } else {
-          console.log(`[cancelInvoice] Skipping stock restoration for project invoice ${invoice.invoiceNumber} (projectId: ${invoice.projectId})`);
-        }
-        // If invoice is from project, stock remains with project - no restoration needed
+        const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
+        await restoreStockForInvoice(
+          invoice.items.map(item => ({
+            purchaseId: item.purchaseId,
+            quantity: item.quantity,
+            isVirtualProduct: item.isVirtualProduct,
+            virtualProductId: item.virtualProductId,
+            componentBreakdown: item.componentBreakdown
+          }))
+        );
         invoice.stockDeducted = false;
         await invoice.save();
       } catch (stockError) {
@@ -1650,7 +1594,7 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
 }
 
 // Manually restore stock for an invoice (if it needs to be cancelled)
-export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
+export async function restoreInvoiceStock(invoiceId: string, skipRevalidation = false): Promise<Invoice> {
   try {
     await dbConnect();
 
@@ -1668,13 +1612,6 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
       throw new Error('Stock was not deducted for this invoice');
     }
 
-    // Skip stock restoration for project invoices - stock belongs to the project
-    if (invoice.projectId) {
-      console.log(`[restoreInvoiceStock] Skipping stock restoration for project invoice ${invoice.invoiceNumber} (projectId: ${invoice.projectId})`);
-      // Just return the invoice without restoring stock
-      return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
-    }
-
     if (invoice.items.length > 0) {
       const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
       const stockResult = await restoreStockForInvoice(
@@ -1684,7 +1621,8 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
           isVirtualProduct: item.isVirtualProduct,
           virtualProductId: item.virtualProductId,
           componentBreakdown: item.componentBreakdown
-        }))
+        })),
+        skipRevalidation
       );
 
       if (!stockResult.success) {
@@ -1695,11 +1633,13 @@ export async function restoreInvoiceStock(invoiceId: string): Promise<Invoice> {
       await invoice.save();
     }
 
-    revalidatePath('/invoices');
-    revalidatePath(`/invoices/${invoiceId}`);
-    revalidatePath('/purchases');
-    revalidatePath('/inventory');
-    revalidatePath('/ledger');
+    if (!skipRevalidation) {
+      revalidatePath('/invoices');
+      revalidatePath(`/invoices/${invoiceId}`);
+      revalidatePath('/purchases');
+      revalidatePath('/inventory');
+      revalidatePath('/ledger');
+    }
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1730,16 +1670,12 @@ export async function canEditInvoice(invoiceId: string): Promise<{
       return { allowed: false, reason: 'Cannot edit cancelled invoices', requiresStockRestore: false };
     }
 
-    // Cannot edit paid invoices (financial records finalized)
-    if (invoice.status === 'paid') {
-      return { allowed: false, reason: 'Cannot edit paid invoices', requiresStockRestore: false };
-    }
-
     // Quotations can always be edited (unless cancelled)
     if (invoice.type === 'quotation') {
       return { allowed: true, requiresStockRestore: false };
     }
 
+    // Invoices can be edited in any status except cancelled
     // Pending invoices
     if (invoice.status === 'pending') {
       // If stock not deducted - safe to edit
@@ -1755,7 +1691,25 @@ export async function canEditInvoice(invoiceId: string): Promise<{
       };
     }
 
-    return { allowed: false, reason: 'Invoice cannot be edited in current status', requiresStockRestore: false };
+    // Partial and paid invoices can be edited
+    if (invoice.status === 'partial' || invoice.status === 'paid') {
+      // If stock deducted - needs restore/re-deduct
+      if (invoice.stockDeducted) {
+        return {
+          allowed: true,
+          requiresStockRestore: true,
+          warning: 'Stock will be restored and re-deducted after editing. Payment records will be preserved.'
+        };
+      }
+
+      return {
+        allowed: true,
+        requiresStockRestore: false,
+        warning: 'Payment records will be preserved.'
+      };
+    }
+
+    return { allowed: true, requiresStockRestore: false };
   } catch (error) {
     console.error(`Error checking edit permission for invoice ${invoiceId}:`, error);
     return { allowed: false, reason: 'Error checking permissions', requiresStockRestore: false };
@@ -1782,15 +1736,15 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
       throw new Error('Invoice not found');
     }
 
-    const wasStockDeducted = originalInvoice.stockDeducted;
+    // Use editCheck to determine if stock needs to be re-deducted
+    // (not originalInvoice.stockDeducted, which is false after page load restoration)
+    const needsStockRededuction = editCheck.requiresStockRestore;
 
-    // Step 1: Restore stock if it was deducted
-    if (wasStockDeducted && editCheck.requiresStockRestore) {
-      await restoreInvoiceStock(id);
-    }
+    // Note: Stock restoration is now handled when navigating to edit page
+    // We only need to handle the update and re-deduction here
 
     try {
-      // Step 2: Update the invoice with new data
+      // Step 1: Update the invoice with new data
       // Convert date strings to UTC Date objects
       const { dateStringToUTC } = await import('@/lib/utils');
       const processedData = { ...data };
@@ -1813,7 +1767,8 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
           items.map(item => ({
             rate: item.unitPrice,
             originalRate: item.originalRate,
-            quantity: item.quantity
+            quantity: item.quantity,
+            customExpenses: item.customExpenses
           })),
           discountAmount
         );
@@ -1823,10 +1778,8 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
         Object.entries(processedData).filter(([, value]) => value !== undefined)
       );
 
-      // Reset stockDeducted to false since we restored it
-      if (wasStockDeducted) {
-        updateData.stockDeducted = false;
-      }
+      // Note: stockDeducted is already false from page load restoration
+      // No need to set it here
 
       const updatedInvoice = await InvoiceModel.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
 
@@ -1834,8 +1787,8 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
         throw new Error('Failed to update invoice');
       }
 
-      // Step 3: Re-deduct stock if it was originally deducted
-      if (wasStockDeducted && updatedInvoice.type === 'invoice') {
+      // Step 2: Re-deduct stock if it was originally deducted
+      if (needsStockRededuction && updatedInvoice.type === 'invoice') {
         try {
           await deductInvoiceStock(id);
         } catch (stockError) {
@@ -1922,14 +1875,8 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
 
       return transformInvoice(updatedInvoice.toObject() as unknown as LeanInvoice);
     } catch (updateError) {
-      // If update failed and we restored stock, try to re-deduct the original stock
-      if (wasStockDeducted && editCheck.requiresStockRestore) {
-        try {
-          await deductInvoiceStock(id);
-        } catch (redeductError) {
-          console.error('Failed to restore original stock state after update failure:', redeductError);
-        }
-      }
+      // If update failed, stock is already restored from page load
+      // User can navigate back to detail page where they can manually re-deduct if needed
       throw updateError;
     }
   } catch (error) {

@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/general/page-header';
 import { FolderKanban } from 'lucide-react';
 import { userHasPermission } from '@/lib/rbac';
 import { getStaffMembers } from '@/features/staff/actions';
-import { getCustomers } from '@/features/customers/actions';
+import { getInvoices } from '@/features/invoices/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -24,8 +24,8 @@ async function AddProjectContent() {
 
   const canViewBudget = userHasPermission(session, 'view:budget');
   const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
-  const customersResult = await getCustomers({ limit: 1000 }); // Get all customers
-  const customers = customersResult.docs;
+  const invoicesResult = await getInvoices({ type: 'invoice', limit: 1000 }); // Get all invoices
+  const invoices = invoicesResult.docs;
 
   return (
     <div className="space-y-6">
@@ -34,7 +34,7 @@ async function AddProjectContent() {
       <Card>
         <CardContent className="pt-6">
           <ProjectForm 
-            customers={customers} 
+            invoices={invoices} 
             staffMembers={staffMembers} 
             currentUserId={session.user.id!}
             canViewBudget={canViewBudget}

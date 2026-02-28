@@ -4,6 +4,7 @@ import { Project } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { User, TrendingUp, TrendingDown, TriangleAlert, ArrowUpRight } from 'lucide-react';
 import type { Customer } from '@/features/customers/types';
+import type { Invoice } from '@/features/invoices/types';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, Legend } from 'recharts';
 import { Item, ItemContent, ItemMedia } from '@/components/ui/item';
@@ -13,9 +14,10 @@ interface ProjectDetailsProps {
   project: Project;
   customer?: Customer;
   canViewBudget?: boolean;
+  projectInvoice?: Invoice | null;
 }
 
-export function ProjectDetails({ project, customer, canViewBudget }: ProjectDetailsProps) {
+export function ProjectDetails({ project, customer, canViewBudget, projectInvoice }: ProjectDetailsProps) {
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { bg: string; text: string; label: string }> = {
       planning: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Planning' },
@@ -30,26 +32,42 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
   const statusConfig = getStatusConfig(project.status);
 
   // Ensure we have valid numbers
-  const totalInventoryCost = project.totalInventoryCost || 0;
   const totalExpenses = project.totalExpenses || 0;
-  const totalProjectCost = project.totalProjectCost || totalInventoryCost + totalExpenses;
+  
+  // Calculate inventory cost from invoice items using actual costs
+  let totalInventoryCost = 0;
+  if (projectInvoice && projectInvoice.items) {
+    totalInventoryCost = projectInvoice.items.reduce((sum, item) => {
+      // For virtual products, use component cost + custom expenses actual cost
+      if (item.isVirtualProduct) {
+        const componentCost = item.totalComponentCost || 0;
+        const customExpensesCost = item.customExpenses?.reduce((expSum, exp) => expSum + exp.actualCost, 0) || 0;
+        return sum + componentCost + customExpensesCost;
+      }
+      // For regular products, use originalRate * quantity (actual cost) instead of client price
+      const actualCost = (item.originalRate || item.unitPrice) * item.quantity;
+      return sum + actualCost;
+    }, 0);
+  }
+  
+  const totalProjectCost = totalExpenses + totalInventoryCost;
   const budget = project.budget || 0;
 
   const budgetUsedPercentage = canViewBudget && budget > 0 ? (totalProjectCost / budget) * 100 : 0;
-  const isOverBudget = canViewBudget && project.remainingBudget < 0;
-  const remaining = project.remainingBudget || budget - totalProjectCost;
+  const isOverBudget = canViewBudget && (budget - totalProjectCost) < 0;
+  const remaining = budget - totalProjectCost;
 
   // Prepare chart data
   const chartData = [
-    { name: 'Inventory', value: totalInventoryCost, fill: '#f97316' }, // orange-500
+    { name: 'Inventory', value: totalInventoryCost, fill: '#8b5cf6' }, // violet-500
     { name: 'Expenses', value: totalExpenses, fill: '#3b82f6' }, // blue-500
     { name: 'Remaining', value: Math.max(0, remaining), fill: isOverBudget ? '#ef4444' : '#10b981' } // red-500 or emerald-500
   ].filter(item => item.value > 0);
 
   const chartConfig = {
     inventory: {
-      label: 'Inventory Cost',
-      color: '#f97316'
+      label: 'Inventory Costs',
+      color: '#8b5cf6'
     },
     expenses: {
       label: 'Operating Expenses',
@@ -80,19 +98,6 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
                   <Badge className={`${statusConfig.bg} ${statusConfig.text} border-0 font-medium`}>
                     {statusConfig.label}
                   </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1.5">Client</p>
-                  <p className="text-base font-semibold">{project.customerName}</p>
-                  {customer && (
-                    <Link
-                      href={`/ledger/${customer.customerId || customer.id}`}
-                      className="text-xs inline-flex items-center gap-1 text-primary hover:underline"
-                    >
-                      View Ledger
-                      <ArrowUpRight className="h-4 w-4 mr-2" />
-                    </Link>
-                  )}
                 </div>
               </div>
 
@@ -132,13 +137,18 @@ export function ProjectDetails({ project, customer, canViewBudget }: ProjectDeta
                     <span className="text-sm text-muted-foreground">No team assigned</span>
                   )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1.5">Inventory</p>
-                  <p className="text-base font-semibold">{project.inventory.length} items</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1.5">Expenses</p>
-                  <p className="text-base font-semibold">{project.expenses.length} records</p>
+                 <div>
+                  <p className="text-sm text-muted-foreground mb-1.5">Client</p>
+                  <p className="text-base font-semibold">{project.customerName}</p>
+                  {customer && (
+                    <Link
+                      href={`/ledger/${customer.customerId || customer.id}`}
+                      className="text-xs inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      View Ledger
+                      <ArrowUpRight className="h-4 w-4 mr-2" />
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>

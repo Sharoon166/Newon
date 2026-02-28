@@ -42,7 +42,7 @@ export interface Expense {
   notes?: string;
   addedBy: string;
   addedByName?: string;
-  source: 'manual' | 'invoice';
+  source: 'manual' | 'invoice' | 'project';
   invoiceId?: string;
   invoiceNumber?: string;
   projectId?: string;

@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/general/page-header';
 import { FolderKanban } from 'lucide-react';
 import { userHasPermission } from '@/lib/rbac';
 import { getStaffMembers } from '@/features/staff/actions';
-import { getCustomers } from '@/features/customers/actions';
+import { getInvoices } from '@/features/invoices/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -33,13 +33,18 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
   const canViewBudget = userHasPermission(session, 'view:budget');
 
   try {
-    const [project, staffMembers, customersResult] = await Promise.all([
+    const [project, staffMembers, invoicesResult] = await Promise.all([
       getProject(id, session.user.id, session.user.role),
       getStaffMembers({ isActive: true, role: "staff" }),
-      getCustomers({ limit: 1000 })
+      getInvoices({ limit: 1000 })
     ])
 
-    const customers = customersResult.docs;
+    const invoices = invoicesResult.docs;
+
+    // Staff cannot edit projects with certain statuses
+    if (session.user.role === 'staff' && ['on-hold', 'completed', 'cancelled'].includes(project.status)) {
+      redirect('/not-allowed');
+    }
 
     return (
       <div className="space-y-6">
@@ -53,7 +58,7 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
           <CardContent className="pt-6">
             <ProjectForm 
               project={project} 
-              customers={customers}
+              invoices={invoices}
               staffMembers={staffMembers} 
               currentUserId={session.user.id!}
               canViewBudget={canViewBudget}

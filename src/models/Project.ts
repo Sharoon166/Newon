@@ -11,6 +11,7 @@ interface IExpense {
   date: Date;
   addedBy: string;
   addedByName?: string;
+  addedByRole: 'admin' | 'staff';
   receipt?: string;
   notes?: string;
   createdAt: Date;
@@ -57,6 +58,7 @@ interface IInventoryItem {
 // Main Project document interface
 interface IProject extends Document {
   projectId?: string;
+  invoiceId: string;
   customerId: string;
   customerName: string;
   title: string;
@@ -66,9 +68,7 @@ interface IProject extends Document {
   startDate: Date;
   endDate?: Date;
   assignedStaff: string[];
-  inventory: IInventoryItem[];
   expenses: IExpense[];
-  totalInventoryCost: number;
   totalExpenses: number;
   totalProjectCost: number;
   remainingBudget: number;
@@ -112,6 +112,11 @@ const expenseSchema = new Schema<IExpense>(
     addedByName: {
       type: String
     },
+    addedByRole: {
+      type: String,
+      enum: ['admin', 'staff'],
+      required: [true, 'Added by role is required']
+    },
     receipt: {
       type: String
     },
@@ -127,117 +132,6 @@ const expenseSchema = new Schema<IExpense>(
   { _id: true }
 );
 
-// Inventory subdocument schema
-const inventoryItemSchema = new Schema<IInventoryItem>(
-  {
-    inventoryId: {
-      type: String,
-      required: false
-    },
-    productId: {
-      type: String
-    },
-    variantId: {
-      type: String
-    },
-    virtualProductId: {
-      type: String
-    },
-    isVirtualProduct: {
-      type: Boolean,
-      required: true,
-      default: false
-    },
-    productName: {
-      type: String,
-      required: [true, 'Product name is required'],
-      trim: true
-    },
-    sku: {
-      type: String,
-      required: [true, 'SKU is required'],
-      trim: true
-    },
-    description: {
-      type: String,
-      required: [true, 'Description is required'],
-      trim: true
-    },
-    quantity: {
-      type: Number,
-      required: [true, 'Quantity is required'],
-      min: [1, 'Quantity must be at least 1']
-    },
-    rate: {
-      type: Number,
-      required: [true, 'Rate is required'],
-      min: [0, 'Rate must be non-negative']
-    },
-    totalCost: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    purchaseId: {
-      type: String
-    },
-    componentBreakdown: {
-      type: [
-        {
-          productId: String,
-          variantId: String,
-          productName: String,
-          sku: String,
-          quantity: Number,
-          purchaseId: String,
-          unitCost: Number,
-          totalCost: Number
-        }
-      ],
-      default: undefined
-    },
-    customExpenses: {
-      type: [
-        {
-          name: String,
-          amount: Number,
-          category: {
-            type: String,
-            enum: ['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other']
-          },
-          description: String
-        }
-      ],
-      default: undefined
-    },
-    totalComponentCost: {
-      type: Number,
-      min: 0
-    },
-    totalCustomExpenses: {
-      type: Number,
-      min: 0
-    },
-    addedBy: {
-      type: String,
-      required: [true, 'Added by is required']
-    },
-    addedByName: {
-      type: String
-    },
-    addedAt: {
-      type: Date,
-      required: true,
-      default: Date.now
-    },
-    notes: {
-      type: String,
-      trim: true
-    }
-  },
-  { _id: true }
-);
-
 // Main Project schema
 const projectSchema = new Schema<IProject>(
   {
@@ -246,6 +140,11 @@ const projectSchema = new Schema<IProject>(
       required: false,
       unique: true,
       sparse: true,
+      index: true
+    },
+    invoiceId: {
+      type: String,
+      required: [true, 'Invoice ID is required'],
       index: true
     },
     customerId: {
@@ -292,10 +191,6 @@ const projectSchema = new Schema<IProject>(
       type: [String],
       default: [],
     },
-    inventory: {
-      type: [inventoryItemSchema],
-      default: []
-    },
     expenses: {
       type: [expenseSchema],
       default: []
@@ -325,16 +220,14 @@ projectSchema.index({ createdAt: -1 });
 projectSchema.plugin(mongoosePaginate);
 
 // Virtual properties for calculated fields
-projectSchema.virtual('totalInventoryCost').get(function () {
-  return this.inventory.reduce((sum, item) => sum + (item.totalCost || 0), 0);
-});
-
 projectSchema.virtual('totalExpenses').get(function () {
-  return this.expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  // Calculate from paid amounts in Expense collection
+  // This virtual is recalculated via calculateVirtuals helper
+  return 0;
 });
 
 projectSchema.virtual('totalProjectCost').get(function () {
-  return this.totalInventoryCost + this.totalExpenses;
+  return this.totalExpenses;
 });
 
 projectSchema.virtual('remainingBudget').get(function () {

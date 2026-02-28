@@ -15,21 +15,16 @@ import {
   RefreshCw,
   ArrowUpRight,
   Info,
-  Download,
-  Eye,
-  Layers,
-  Coins
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { AddPaymentDialog } from '@/features/invoices/components/add-payment-dialog';
 import { UpdateStatusDialog } from '@/features/invoices/components/update-status-dialog';
-import { EditInvoiceDialog } from '@/features/invoices/components/edit-invoice-dialog';
 import { PaymentsList } from '@/features/invoices/components/payments-list';
 import { NewonInvoiceTemplate } from '@/features/invoices/components/invoice-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
@@ -38,6 +33,7 @@ import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
+import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -45,12 +41,9 @@ export default function InvoiceDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [productImages, setProductImages] = useState<Map<string, string>>(new Map());
-  const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
-  const [breakdownSheetOpen, setBreakdownSheetOpen] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,6 +57,20 @@ export default function InvoiceDetailPage() {
       setIsLoading(true);
       const data = await getInvoice(params.id as string);
       setInvoice(data);
+
+      // Auto-deduct stock if this is an invoice and stock hasn't been deducted yet
+      if (data.type === 'invoice' && !data.stockDeducted && data.status !== 'cancelled') {
+        try {
+          await deductInvoiceStock(params.id as string);
+          // Refetch to get updated invoice with stockDeducted: true
+          const updatedData = await getInvoice(params.id as string);
+          setInvoice(updatedData);
+          toast.success('Stock deducted automatically');
+        } catch (stockError) {
+          console.error('Auto stock deduction failed:', stockError);
+          // Don't show error toast - stock can be deducted manually if needed
+        }
+      }
 
       // Fetch product images
       await fetchImages(data.items);
@@ -177,9 +184,8 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const handleViewBreakdown = (index: number) => {
-    setSelectedItemIndex(index);
-    setBreakdownSheetOpen(true);
+  const toggleItemExpansion = (index: number) => {
+    // Removed - now handled by InvoiceItemsTable component
   };
 
   if (isLoading) {
@@ -312,27 +318,18 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-          {/* Edit button - Disabled for project invoices, navigate to edit page for quotations and pending invoices, use dialog for paid/partial */}
+          {/* Edit button - Navigate to edit page for all non-project invoices */}
           {invoice.projectId ? (
             <Button variant="outline" disabled title="Project invoices cannot be edited from here">
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
-          ) : invoice.type === 'quotation' || invoice.status === 'pending' ? (
+          ) : (
             <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
               <Link href={`/invoices/${invoice.id}/edit`}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Link>
-            </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              onClick={() => setEditDialogOpen(true)} 
-              disabled={invoice.status === 'cancelled'}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
             </Button>
           )}
           <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
@@ -507,63 +504,7 @@ export default function InvoiceDetailPage() {
             </Card>
           )}
 
-          {/* Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Items</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoice.items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{index + 1}. </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{item.productName}</p>
-                          {item.variantSKU && item.variantId?.startsWith('var') && (
-                            <p className="text-sm text-muted-foreground">SKU: {item.variantSKU}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {item.quantity} {item.unit}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p>{formatCurrency(item.unitPrice)}</p>
-                          {item.customExpenses && item.customExpenses.length > 0 && item.customExpenses[0].actualCost !== undefined && (
-                            <p className="text-xs text-muted-foreground">
-                              Actual: {formatCurrency(item.customExpenses[0].actualCost)}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(item.totalPrice)}</TableCell>
-                      <TableCell className="text-right">
-                        {item.isVirtualProduct && (
-                          <Button variant="ghost" size="sm" onClick={() => handleViewBreakdown(index)}>
-                            <Eye className="h-4 w-4 mr-1" />
-                            View Breakdown
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <InvoiceItemsTable invoice={invoice} />
 
           {/* Notes */}
           {invoice.notes && (
@@ -683,13 +624,6 @@ export default function InvoiceDetailPage() {
             type={invoice.type}
             onSuccess={fetchInvoice}
           />
-
-          <EditInvoiceDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            invoice={invoice}
-            onSuccess={fetchInvoice}
-          />
         </>
       )}
 
@@ -718,153 +652,6 @@ export default function InvoiceDetailPage() {
               />
             )}
           </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Virtual Product Breakdown Sheet */}
-      <Sheet open={breakdownSheetOpen} onOpenChange={setBreakdownSheetOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl px-8 pb-12 overflow-y-auto">
-          <SheetHeader className="px-0">
-            <SheetTitle className="text-primary">Virtual Product Breakdown</SheetTitle>
-          </SheetHeader>
-
-          {selectedItemIndex !== null &&
-            invoice.items[selectedItemIndex] &&
-            (() => {
-              const item = invoice.items[selectedItemIndex];
-              const componentCost = item.totalComponentCost || 0;
-              const customCost = item.totalCustomExpenses || 0;
-              const totalCost = componentCost + customCost;
-              const profit = item.totalPrice - totalCost;
-              const margin = item.totalPrice > 0 ? ((profit / item.totalPrice) * 100).toFixed(1) : '0.0';
-
-              return (
-                <div className="mt-6 space-y-6">
-                  {/* Product Header */}
-                  <div className="pt-6 pb-4 border-b">
-                    <h2 className="text-2xl font-semibold tracking-tight">{item.productName}</h2>
-                    <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
-                      {item.variantSKU && <span>SKU: {item.variantSKU}</span>}
-                      <span>
-                        {item.quantity} {item.unit}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* KPI Bar */}
-                  <div className="py-6 border-b">
-                    <div className="flex justify-between flex-wrap gap-6">
-                      <div>
-                        <p className="text-xs uppercase text-muted-foreground tracking-wide">Selling Price</p>
-                        <p className="mt-1 text-2xl font-semibold">{formatCurrency(item.totalPrice)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase text-muted-foreground tracking-wide">Total Cost</p>
-                        <p className="mt-1 text-2xl font-semibold">{formatCurrency(totalCost)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase text-muted-foreground tracking-wide">Profit</p>
-                        <p className={`mt-1 text-3xl font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatCurrency(profit)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{margin}% margin</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Cost Breakdown Section */}
-                  <div className="py-6 space-y-8">
-                    <h3 className="text-lg font-semibold tracking-tight text-primary">Cost Breakdown</h3>
-
-                    {/* Component Breakdown */}
-                    {item.componentBreakdown && item.componentBreakdown.length > 0 && (
-                      <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <h3 className="font-medium text-primary inline-flex items-center gap-2">
-                            <Layers className="size-6" />
-                            Components
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{formatCurrency(componentCost)}</p>
-                        </div>
-                        <div className="divide-y">
-                          {item.componentBreakdown.map((c, idx) => (
-                            <div key={idx} className="flex justify-between items-center py-3">
-                              <div>
-                                <p className="font-medium">{c.productName}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {c.sku} @ {c.purchaseId}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {c.quantity} × {formatCurrency(c.unitCost)}
-                                </p>
-                              </div>
-                              <p className="font-medium">{formatCurrency(c.totalCost)}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Custom Expenses */}
-                    {item.customExpenses && item.customExpenses.length > 0 && (
-                      <div>
-                        <div className="flex justify-between items-center mb-3">
-                          <h3 className="font-medium text-primary inline-flex items-center gap-2">
-                            <Coins className="size-6" />
-                            Custom Expenses
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{formatCurrency(customCost)}</p>
-                        </div>
-                        <div className="divide-y">
-                          {item.customExpenses.map((e, idx) => {
-                            const actualCost = e.actualCost ?? 0;
-                            const clientCost = e.clientCost ?? 0;
-                            const expenseProfit = clientCost - actualCost;
-                            const expenseMargin = actualCost > 0 ? ((expenseProfit / actualCost) * 100).toFixed(1) : '0.0';
-                            
-                            return (
-                              <div key={idx} className="py-3 space-y-2">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="font-medium">{e.name}</p>
-                                    <p className="text-xs text-muted-foreground capitalize">{e.category}</p>
-                                    {e.description && <p className="text-xs text-muted-foreground mt-1">{e.description}</p>}
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="font-medium">{formatCurrency(clientCost)}</p>
-                                    <p className="text-xs text-muted-foreground">Client Cost</p>
-                                  </div>
-                                </div>
-                                <div className="flex justify-between items-center text-sm bg-muted/50 rounded p-2">
-                                  <div className="flex gap-4">
-                                    <div>
-                                      <p className="text-xs text-muted-foreground">Actual Cost</p>
-                                      <p className="font-medium">{formatCurrency(actualCost)}</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs text-muted-foreground">Profit</p>
-                                      <p className={`font-medium ${expenseProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {formatCurrency(expenseProfit)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xs text-muted-foreground">Margin</p>
-                                    <p className={`font-medium ${parseFloat(expenseMargin) >= 20 ? 'text-green-600' : parseFloat(expenseMargin) >= 10 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                      {expenseMargin}%
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
         </SheetContent>
       </Sheet>
     </div>

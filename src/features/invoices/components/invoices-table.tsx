@@ -466,7 +466,7 @@ export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initia
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive"
-                  disabled={invoice.status === 'cancelled' || invoice.status === 'paid'}
+                  disabled={invoice.status === 'cancelled' || invoice.status === 'paid' || !!invoice.projectId}
                   onClick={() => {
                     setSelectedInvoice(invoice);
                     setCancelDialogOpen(true);
@@ -476,6 +476,7 @@ export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initia
                   Cancel
                   {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
                   {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
+                  {invoice.projectId && <span className="ml-2 text-xs">(Project invoice)</span>}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -606,10 +607,14 @@ export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initia
         onOpenChange={setCancelDialogOpen}
         onConfirm={handleCancel}
         title={`Cancel ${selectedInvoice?.type === 'invoice' ? 'Invoice' : 'Quotation'}`}
-        description={`Are you sure you want to cancel ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} ${selectedInvoice?.invoiceNumber}? ${
-          selectedInvoice?.stockDeducted ? 'Stock will be restored to inventory.' : 'This will mark it as cancelled.'
-        }`}
-        confirmText="Cancel Invoice"
+        description={
+          selectedInvoice?.projectId
+            ? `This ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} is linked to a project and cannot be cancelled. Please manage it through the project page.`
+            : `Are you sure you want to cancel ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} ${selectedInvoice?.invoiceNumber}? ${
+                selectedInvoice?.stockDeducted ? 'Stock will be restored to inventory.' : 'This will mark it as cancelled.'
+              }`
+        }
+        confirmText={selectedInvoice?.projectId ? undefined : 'Cancel Invoice'}
         variant="destructive"
         isProcessing={isCancelling}
       />

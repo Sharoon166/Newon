@@ -28,17 +28,22 @@ export function calculateInvoiceProfit(
   discountAmount: number
 ): number {
   const finalProfit = items.reduce((sum, item) => {
+    // If item has custom expenses, only calculate profit from custom expenses
+    // to avoid double-counting (the item rate is already the clientCost)
+    if (item.customExpenses && item.customExpenses.length > 0) {
+      const customExpenseProfit = item.customExpenses.reduce((expSum, exp) => {
+        return expSum + (exp.clientCost - exp.actualCost);
+      }, 0);
+      return sum + customExpenseProfit;
+    }
+    
+    // For regular items, calculate profit from rate vs originalRate
     const costPrice = item.originalRate ?? 0;
     const sellingPrice = item.rate;
     const profitPerUnit = sellingPrice - costPrice;
     const itemProfit = profitPerUnit * item.quantity;
     
-    // Add profit from custom expenses (clientCost - actualCost)
-    const customExpenseProfit = item.customExpenses?.reduce((expSum, exp) => {
-      return expSum + (exp.clientCost - exp.actualCost);
-    }, 0) ?? 0;
-    
-    return sum + itemProfit + customExpenseProfit;
+    return sum + itemProfit;
   }, 0) - discountAmount
 
   // Return profit (can be negative if selling at a loss)

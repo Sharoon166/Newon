@@ -15,20 +15,20 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { createProject, updateProject } from '../actions';
 import { CreateProjectDto, UpdateProjectDto, Project, ProjectStatus } from '../types';
-import { ProjectCustomerSelector } from './project-customer-selector';
-import type { Customer } from '@/features/customers/types';
+import { ProjectInvoiceSelector } from './project-invoice-selector';
+import type { Invoice } from '@/features/invoices/types';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 
 interface ProjectFormProps {
   project?: Project;
-  customers: Customer[];
+  invoices: Invoice[];
   staffMembers: Array<{ id: string; firstName: string; lastName: string; email: string }>;
   currentUserId: string;
   canViewBudget?: boolean;
 }
 
-export function ProjectForm({ project, customers, staffMembers, currentUserId, canViewBudget = true }: ProjectFormProps) {
+export function ProjectForm({ project, invoices, staffMembers, currentUserId, canViewBudget = true }: ProjectFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(
@@ -39,12 +39,12 @@ export function ProjectForm({ project, customers, staffMembers, currentUserId, c
   );
   const [selectedStaff, setSelectedStaff] = useState<string[]>(project?.assignedStaff || []);
   
-  // Find initial customer if editing
-  const initialCustomer = project 
-    ? customers.find(c => c.customerId === project.customerId || c.id === project.customerId)
+  // Find initial invoice if editing (project was created from an invoice)
+  const initialInvoice = project 
+    ? invoices.find(inv => inv.customerId === project.customerId)
     : null;
   
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(initialCustomer || null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(initialInvoice || null);
 
   const {
     register,
@@ -69,8 +69,8 @@ export function ProjectForm({ project, customers, staffMembers, currentUserId, c
     budget: number;
     status: ProjectStatus;
   }) => {
-    if (!selectedCustomer) {
-      toast.error('Please select a customer');
+    if (!selectedInvoice) {
+      toast.error('Please select an invoice');
       return;
     }
 
@@ -85,8 +85,8 @@ export function ProjectForm({ project, customers, staffMembers, currentUserId, c
       if (project) {
         // Update existing project
         const updateData: UpdateProjectDto = {
-          customerId: selectedCustomer.customerId || selectedCustomer.id,
-          customerName: selectedCustomer.name,
+          customerId: selectedInvoice.customerId,
+          customerName: selectedInvoice.customerName,
           title: data.title,
           description: data.description,
           budget: Number(data.budget),
@@ -100,10 +100,11 @@ export function ProjectForm({ project, customers, staffMembers, currentUserId, c
         toast.success('Project updated successfully');
         router.push(`/projects/${project.projectId}`);
       } else {
-        // Create new project
+        // Create new project from invoice
         const createData: CreateProjectDto = {
-          customerId: selectedCustomer.customerId || selectedCustomer.id,
-          customerName: selectedCustomer.name,
+          invoiceId: selectedInvoice.id,
+          customerId: selectedInvoice.customerId,
+          customerName: selectedInvoice.customerName,
           title: data.title,
           description: data.description,
           budget: Number(data.budget),
@@ -132,18 +133,17 @@ export function ProjectForm({ project, customers, staffMembers, currentUserId, c
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Customer Selection */}
-      <ProjectCustomerSelector
-        customers={customers}
-        selectedCustomer={selectedCustomer}
-        onCustomerSelect={setSelectedCustomer}
-        disabled={project !== undefined && (project.inventory.length > 0 || project.expenses.length > 0)}
-        showFinancials={canViewBudget}
+      {/* Invoice Selection */}
+      <ProjectInvoiceSelector
+        invoices={invoices}
+        selectedInvoice={selectedInvoice}
+        onInvoiceSelect={setSelectedInvoice}
+        disabled={project !== undefined && project.expenses.length > 0}
       />
 
-      {project && (project.inventory.length > 0 || project.expenses.length > 0) && (
+      {project && project.expenses.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          Customer cannot be changed because this project has inventory or expenses.
+          Invoice cannot be changed because this project has expenses.
         </p>
       )}
 

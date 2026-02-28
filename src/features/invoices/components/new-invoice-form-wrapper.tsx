@@ -213,7 +213,8 @@ export function NewInvoiceFormWrapper({
                 category: categoryMap[expense.category] || 'other',
                 description: expense.description
               };
-            })
+            }),
+            totalCustomExpenses: item.totalCustomExpenses
           }),
           quantity: item.quantity,
           unit: 'pcs',
@@ -222,7 +223,8 @@ export function NewInvoiceFormWrapper({
           discountValue: undefined,
           discountAmount: 0,
           totalPrice: item.amount,
-          purchaseId: item.purchaseId
+          purchaseId: item.purchaseId,
+          originalRate: item.originalRate
         })),
         subtotal,
         discountType: documentData.discountType as 'fixed' | 'percentage' | undefined,

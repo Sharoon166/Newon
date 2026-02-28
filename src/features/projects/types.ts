@@ -2,8 +2,6 @@ import type { ExpenseCategory } from '@/features/expenses/types';
 
 export type ProjectStatus = 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
 
-export type InventoryExpenseCategory = ExpenseCategory;
-
 export interface Expense {
   id?: string;
   expenseId?: string;
@@ -13,52 +11,56 @@ export interface Expense {
   date: Date | string;
   addedBy: string;
   addedByName?: string;
+  addedByRole: 'admin' | 'staff';
   receipt?: string;
   notes?: string;
   createdAt?: Date | string;
 }
 
-export interface InventoryItem {
+export interface PaymentTransaction {
   id?: string;
-  inventoryId?: string;
-  productId?: string;
-  variantId?: string;
-  virtualProductId?: string;
-  isVirtualProduct: boolean;
-  productName: string;
-  sku: string;
-  description: string;
-  quantity: number;
-  rate: number;
-  totalCost: number;
-  purchaseId?: string; // For regular products
-  componentBreakdown?: Array<{
-    productId: string;
-    variantId: string;
-    productName: string;
-    sku: string;
-    quantity: number;
-    purchaseId: string;
-    unitCost: number;
-    totalCost: number;
-  }>;
-  customExpenses?: Array<{
-    name: string;
-    amount: number;
-    category: InventoryExpenseCategory;
-    description?: string;
-  }>;
-  totalComponentCost?: number;
-  totalCustomExpenses?: number;
+  amount: number;
+  date: Date | string;
+  source: 'cash' | 'jazzcash' | 'easypaisa' | 'bank-transfer' | 'cheque' | 'other';
+  notes?: string;
   addedBy: string;
   addedByName?: string;
-  addedAt: Date | string;
+  createdAt?: Date | string;
+}
+
+export interface ProjectExpenseWithTransactions {
+  id: string;
+  expenseId: string;
+  description: string;
+  amount: number;
+  category: ExpenseCategory;
+  date: Date | string;
+  addedBy: string;
+  addedByName?: string;
+  addedByRole: 'admin' | 'staff';
+  receipt?: string;
   notes?: string;
+  projectId: string;
+  source: 'project';
+  transactions: PaymentTransaction[];
+  totalPaid: number;
+  remainingAmount: number;
+  paymentStatus: 'unpaid' | 'partial' | 'paid';
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface EnrichedExpense extends Expense {
+  transactions: PaymentTransaction[];
+  totalPaid: number;
+  remainingAmount: number;
+  paymentStatus: 'unpaid' | 'partial' | 'paid';
 }
 
 export interface Project {
   id: string;
   projectId?: string;
+  invoiceId: string;
   customerId: string;
   customerName: string;
   title: string;
@@ -74,10 +76,9 @@ export interface Project {
     lastName: string;
     email: string;
   }>;
-  inventory: InventoryItem[];
   expenses: Expense[];
-  totalInventoryCost: number;
   totalExpenses: number;
+  totalInventoryCost: number;
   totalProjectCost: number;
   remainingBudget: number;
   createdBy: string;
@@ -87,6 +88,7 @@ export interface Project {
 }
 
 export interface CreateProjectDto {
+  invoiceId: string;
   customerId: string;
   customerName: string;
   title: string;
@@ -111,53 +113,23 @@ export interface UpdateProjectDto {
   assignedStaff?: string[];
 }
 
-export interface AddInventoryDto {
-  productId?: string;
-  variantId?: string;
-  virtualProductId?: string;
-  isVirtualProduct: boolean;
-  productName: string;
-  sku: string;
-  description: string;
-  quantity: number;
-  rate: number;
-  purchaseId?: string; // For regular products
-  componentBreakdown?: Array<{
-    productId: string;
-    variantId: string;
-    productName: string;
-    sku: string;
-    quantity: number;
-    purchaseId: string;
-    unitCost: number;
-    totalCost: number;
-  }>;
-  customExpenses?: Array<{
-    name: string;
-    amount: number;
-    category: InventoryExpenseCategory;
-    description?: string;
-  }>;
-  totalComponentCost?: number;
-  totalCustomExpenses?: number;
-  addedBy: string;
-  notes?: string;
-}
-
-export interface UpdateInventoryDto {
-  quantity?: number;
-  rate?: number;
-  notes?: string;
-}
-
 export interface AddExpenseDto {
   description: string;
   amount: number;
   category: ExpenseCategory;
   date: Date;
   addedBy: string;
+  addedByRole: 'admin' | 'staff';
   receipt?: string;
   notes?: string;
+}
+
+export interface AddPaymentTransactionDto {
+  amount: number;
+  date: Date;
+  source: 'cash' | 'jazzcash' | 'easypaisa' | 'bank-transfer' | 'cheque' | 'other';
+  notes?: string;
+  addedBy: string;
 }
 
 export interface UpdateExpenseDto {
@@ -188,13 +160,6 @@ export interface ExpenseFilters {
   search?: string;
 }
 
-export interface InventoryFilters {
-  category?: InventoryExpenseCategory;
-  addedBy?: string;
-  search?: string;
-  isVirtualProduct?: boolean;
-}
-
 export interface PaginatedProjects {
   docs: Project[];
   totalDocs: number;
@@ -211,6 +176,7 @@ export interface PaginatedProjects {
 export interface LeanProject {
   _id: Record<string, unknown>;
   projectId?: string;
+  invoiceId: string;
   customerId: string;
   customerName: string;
   title: string;
@@ -220,43 +186,6 @@ export interface LeanProject {
   startDate: Date | string;
   endDate?: Date | string;
   assignedStaff: string[];
-  inventory: Array<{
-    _id: Record<string, unknown>;
-    inventoryId?: string;
-    productId?: string;
-    variantId?: string;
-    virtualProductId?: string;
-    isVirtualProduct: boolean;
-    productName: string;
-    sku: string;
-    description: string;
-    quantity: number;
-    rate: number;
-    totalCost: number;
-    purchaseId?: string;
-    componentBreakdown?: Array<{
-      productId: string;
-      variantId: string;
-      productName: string;
-      sku: string;
-      quantity: number;
-      purchaseId: string;
-      unitCost: number;
-      totalCost: number;
-    }>;
-    customExpenses?: Array<{
-      name: string;
-      amount: number;
-      category: InventoryExpenseCategory;
-      description?: string;
-    }>;
-    totalComponentCost?: number;
-    totalCustomExpenses?: number;
-    addedBy: string;
-    addedByName?: string;
-    addedAt: Date | string;
-    notes?: string;
-  }>;
   expenses: Array<{
     _id: Record<string, unknown>;
     expenseId?: string;
@@ -266,12 +195,13 @@ export interface LeanProject {
     date: Date | string;
     addedBy: string;
     addedByName?: string;
+    addedByRole: 'admin' | 'staff';
     receipt?: string;
     notes?: string;
     createdAt: Date | string;
   }>;
-  totalInventoryCost: number;
   totalExpenses: number;
+  totalInventoryCost: number;
   totalProjectCost: number;
   remainingBudget: number;
   createdBy: string;

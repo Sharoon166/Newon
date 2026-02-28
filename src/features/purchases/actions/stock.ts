@@ -52,8 +52,9 @@ export async function deductPurchaseStock(purchaseId: string, quantity: number):
  * Restore stock to a purchase (when invoice is cancelled/deleted)
  * @param purchaseId - The purchase ID to restore to
  * @param quantity - The quantity to restore
+ * @param skipRevalidation - Skip revalidatePath calls (for use during server component render)
  */
-export async function restorePurchaseStock(purchaseId: string, quantity: number): Promise<void> {
+export async function restorePurchaseStock(purchaseId: string, quantity: number, skipRevalidation = false): Promise<void> {
   try {
     await dbConnect();
 
@@ -67,9 +68,11 @@ export async function restorePurchaseStock(purchaseId: string, quantity: number)
     purchase.remaining = Math.min(purchase.remaining + quantity, purchase.quantity);
     await purchase.save();
 
-    revalidatePath('/purchases');
-    revalidatePath('/inventory');
-    revalidatePath('/virtual-products');
+    if (!skipRevalidation) {
+      revalidatePath('/purchases');
+      revalidatePath('/inventory');
+      revalidatePath('/virtual-products');
+    }
   } catch (error) {
     console.error(`Error restoring stock to purchase ${purchaseId}:`, error);
     throw error;
@@ -295,6 +298,7 @@ export async function deductStockForInvoice(
  * Restore stock for multiple items (used when deleting/cancelling invoice)
  * Handles both regular products and virtual products
  * @param items - Array of items with purchaseId, quantity, and virtual product info
+ * @param skipRevalidation - Skip revalidatePath calls (for use during server component render)
  */
 export async function restoreStockForInvoice(
   items: Array<{ 
@@ -312,7 +316,8 @@ export async function restoreStockForInvoice(
       unitCost: number;
       totalCost: number;
     }>;
-  }>
+  }>,
+  skipRevalidation = false
 ): Promise<{ success: boolean; errors: string[] }> {
   const errors: string[] = [];
 
@@ -390,7 +395,7 @@ export async function restoreStockForInvoice(
     // Handle regular products
     else if (item.purchaseId) {
       try {
-        await restorePurchaseStock(item.purchaseId, item.quantity);
+        await restorePurchaseStock(item.purchaseId, item.quantity, skipRevalidation);
       } catch (error) {
         errors.push(`${item.purchaseId}: ${(error as Error).message}`);
       }

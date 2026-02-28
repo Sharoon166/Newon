@@ -2,17 +2,12 @@ import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { getProject, getProjectInvoices } from '@/features/projects/actions';
+import { getProject, getProjectInvoices, getProjectInvoice, getProjectExpensesWithTransactions } from '@/features/projects/actions';
 import { getProjectAuditLogs } from '@/features/projects/actions/audit';
 import { getCustomer } from '@/features/customers/actions';
-import { getVirtualProducts } from '@/features/virtual-products/actions';
-import { getProducts } from '@/features/inventory/actions';
-import { getAllPurchases } from '@/features/purchases/actions';
 import { userHasPermission } from '@/lib/rbac';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProjectPageClient } from './project-page-client';
-import { EnhancedVariants } from '@/features/inventory/types';
-import { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 
 interface ProjectPageProps {
   params: Promise<{
@@ -34,9 +29,7 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
     canEdit: userHasPermission(session, 'edit:projects'),
     canAddExpense: userHasPermission(session, 'add:expenses'),
     canViewBudget: userHasPermission(session, 'view:budget'),
-    canViewInventory: userHasPermission(session, 'view:project-inventory'),
-    canAddInventory: userHasPermission(session, 'add:project-inventory'),
-    canGenerateInvoice: userHasPermission(session, 'create:invoices'),
+    canViewInvoiceItems: userHasPermission(session, 'view:project-inventory'),
     canViewAuditLogs: userHasPermission(session, 'view:audit-logs'),
     canViewClientFinancials: userHasPermission(session, 'view:client-financials'),
     canViewProjectInvoices: userHasPermission(session, 'view:project-invoices')
@@ -45,22 +38,22 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
   try {
     const project = await getProject(projectId, session.user.id, session.user.role);
     
-    const [customer, projectInvoices, auditLogsResult, inventoryResults] = await Promise.all([
+    const [customer, projectInvoice, projectInvoices, auditLogsResult, enrichedExpenses] = await Promise.all([
       getCustomer(project.customerId),
+      permissions.canViewInvoiceItems ? getProjectInvoice(project.invoiceId) : Promise.resolve(null),
       permissions.canViewProjectInvoices ? getProjectInvoices(project.projectId!) : Promise.resolve([]),
       permissions.canViewAuditLogs ? getProjectAuditLogs(project.projectId!) : Promise.resolve({ logs: [] }),
-      permissions.canViewInventory
-        ? Promise.all([getProducts(), getVirtualProducts(), getAllPurchases()])
-        : Promise.resolve([[], [], []])
+      getProjectExpensesWithTransactions(project.expenses)
     ]);
 
-    const [variants, virtualProducts, purchases] = inventoryResults;
     const auditLogs = auditLogsResult.logs ?? [];
 
     return (
+      <>
       <ProjectPageClient
         project={project}
         customer={customer}
+        projectInvoice={projectInvoice}
         projectId={projectId}
         userId={session.user.id!}
         userName={session.user.name || 'Unknown'}
@@ -68,10 +61,9 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
         {...permissions}
         projectInvoices={projectInvoices}
         auditLogs={auditLogs}
-        variants={variants}
-        virtualProducts={virtualProducts}
-        purchases={purchases}
+        enrichedExpenses={enrichedExpenses}
       />
+      </>
     );
   } catch {
     redirect('/projects');

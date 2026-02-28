@@ -220,7 +220,8 @@ export function EditInvoiceFormWrapper({
                 clientCost: expense.clientCost,
                 category: expense.category,
                 description: expense.description
-              }))
+              })),
+              totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
             }),
             quantity: item.quantity,
             unit: 'pcs',
@@ -230,7 +231,7 @@ export function EditInvoiceFormWrapper({
             discountAmount: 0,
             totalPrice: item.amount,
             purchaseId: item.purchaseId,
-            originalRate: item.originalRate
+            originalRate: item.originalRate || item.rate
           })),
           subtotal,
           discountType: formData.discountType as 'fixed' | 'percentage' | undefined,
@@ -251,6 +252,7 @@ export function EditInvoiceFormWrapper({
 
         await updateInvoiceFull(invoice.id, updateData);
         toast.success(`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} updated successfully!`);
+        router.refresh(); // Clear client-side cache
         router.push(`/invoices/${invoice.id}`);
       } catch (error) {
         console.error('Error updating invoice:', error);
@@ -264,13 +266,12 @@ export function EditInvoiceFormWrapper({
 
   return (
     <div className="space-y-4">
-      {requiresStockRestore && warning && (
+      {warning && (
         <Alert className="border-amber-500 bg-amber-50">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">{warning}</AlertDescription>
         </Alert>
       )}
-
       {invoice.type === 'invoice' ? (
         <NewInvoiceForm
           isLoading={isLoading}

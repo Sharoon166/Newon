@@ -11,6 +11,8 @@ export type AuditAction =
   | 'expense_added'
   | 'expense_updated'
   | 'expense_deleted'
+  | 'payment_added'
+  | 'payment_deleted'
   | 'staff_assigned'
   | 'staff_removed'
   | 'invoice_generated';
@@ -54,6 +56,8 @@ const projectAuditLogSchema = new Schema<IProjectAuditLog>(
         'expense_added',
         'expense_updated',
         'expense_deleted',
+        'payment_added',
+        'payment_deleted',
         'staff_assigned',
         'staff_removed',
         'invoice_generated'

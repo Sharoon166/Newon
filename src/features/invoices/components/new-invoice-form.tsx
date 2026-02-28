@@ -386,39 +386,28 @@ export function NewInvoiceForm({
   const discountType = form.watch('discountType');
   const taxAmount = (subtotal * taxRate) / 100;
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-  const total = subtotal + taxAmount - discountAmount;
+  const total = (subtotal + taxAmount) - discountAmount;
 
   // Calculate profit in real-time
   const items = form.watch('items');
-  const calculatedProfit =
-    items.reduce((sum, item) => {
-      const revenue = item.rate * item.quantity;
+  const totalCost = items.reduce((sum, item) => {
+    let itemCost = 0;
 
-      // Calculate total cost based on what's available
-      let totalCost = 0;
+    // Priority 1: If item has custom expenses, use totalCustomExpenses ONLY (ignore originalRate)
+    if (item.customExpenses && item.customExpenses.length > 0) {
+      itemCost = item.totalCustomExpenses || 0;
+    } else if (item.isVirtualProduct && (item.totalComponentCost || 0) > 0) {
+      // Priority 2: For virtual products without custom expenses, use component cost (only if > 0)
+      itemCost = item.totalComponentCost || 0;
+    } else if (item.originalRate !== undefined && item.originalRate !== null) {
+      // Priority 3: For regular products without custom expenses, use originalRate
+      itemCost = item.originalRate * item.quantity;
+    }
 
-      // For items with component breakdown (virtual products from projects)
-      if (item.totalComponentCost !== undefined) {
-        totalCost += item.totalComponentCost;
-      } else if (item.originalRate !== undefined) {
-        // Regular products with original rate
-        totalCost += item.originalRate * item.quantity;
-      }
+    return sum + itemCost;
+  }, 0);
 
-      // Add custom expenses actual cost
-      if (item.customExpenses && item.customExpenses.length > 0) {
-        const expensesCost = item.customExpenses.reduce((expenseSum, expense) => {
-          return expenseSum + (expense.actualCost ?? 0);
-        }, 0);
-        totalCost += expensesCost;
-      } else if (item.totalCustomExpenses !== undefined) {
-        // Use pre-calculated total if available
-        totalCost += item.totalCustomExpenses;
-      }
-
-      const itemProfit = revenue - totalCost;
-      return sum + itemProfit;
-    }, 0) - discountAmount;
+  const calculatedProfit = total - totalCost;
 
   // Update profit field with calculated value
   useEffect(() => {
@@ -1163,6 +1152,7 @@ export function NewInvoiceForm({
                 quantity: 1,
                 rate: expense.clientCost,
                 amount: expense.clientCost,
+                originalRate: expense.actualCost,
                 customExpenses: [
                   {
                     name: expense.name,
@@ -1172,7 +1162,9 @@ export function NewInvoiceForm({
                     category: expense.category,
                     description: expense.description
                   }
-                ]
+                ],
+                totalComponentCost: 0,
+                totalCustomExpenses: expense.actualCost
               });
             }}
           />
@@ -1422,6 +1414,8 @@ export function NewInvoiceForm({
                                               const value = e.target.value;
                                               if (value === '') {
                                                 field.onChange(0);
+                                                form.setValue(`items.${index}.totalCustomExpenses`, 0);
+                                                form.setValue(`items.${index}.originalRate`, 0);
                                                 return;
                                               }
                                               const numericValue = parseFloat(value);
@@ -1430,9 +1424,13 @@ export function NewInvoiceForm({
                                                   description: 'Actual cost must be 0 or greater'
                                                 });
                                                 field.onChange(0);
+                                                form.setValue(`items.${index}.totalCustomExpenses`, 0);
+                                                form.setValue(`items.${index}.originalRate`, 0);
                                                 return;
                                               }
                                               field.onChange(numericValue);
+                                              form.setValue(`items.${index}.totalCustomExpenses`, numericValue);
+                                              form.setValue(`items.${index}.originalRate`, numericValue);
                                             }}
                                             value={field.value || ''}
                                           />

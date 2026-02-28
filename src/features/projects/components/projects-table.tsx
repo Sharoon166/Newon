@@ -89,6 +89,11 @@ export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefre
   const handleDelete = async () => {
     if (!selectedProject) return;
 
+    if(selectedProject.invoiceId) {
+      toast.error("Project has an a invoice connected so it cannot be deleted.")
+      return
+    }
+
     try {
       setIsDeleting(true);
       await deleteProject(selectedProject.projectId!);
@@ -181,29 +186,6 @@ export function ProjectsTable({ data, canEdit, canDelete, canViewBudget, onRefre
             </Button>
           ),
           cell: ({ row }) => <div className="font-medium">{formatCurrency(row.getValue('budget'))}</div>
-        },
-        {
-          accessorKey: 'totalExpenses',
-          header: 'Expenses',
-          cell: ({ row }) => <div className="text-orange-600">{formatCurrency(row.getValue('totalExpenses'))}</div>
-        },
-        {
-          accessorKey: 'remainingBudget',
-          header: ({ column }) => (
-            <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-              Remaining
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          ),
-          cell: ({ row }) => {
-            const remaining = row.getValue('remainingBudget') as number;
-            const isNegative = remaining < 0;
-            return (
-              <div className={`font-medium ${isNegative ? 'text-red-600' : 'text-green-600'}`}>
-                {formatCurrency(remaining)}
-              </div>
-            );
-          }
         }
       );
     }

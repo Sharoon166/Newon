@@ -215,7 +215,7 @@ export function ExpenseFormDialog({
                     <FormLabel>Category</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className='w-full'>
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                       </FormControl>

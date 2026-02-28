@@ -45,7 +45,13 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
       );
     }
 
-    // Fetch all required data
+    // Restore stock if needed (so form shows correct available quantities)
+    if (editCheck.requiresStockRestore && invoice.stockDeducted) {
+      const { restoreInvoiceStock } = await import('@/features/invoices/actions');
+      await restoreInvoiceStock(id,true); // Skip revalidation during render
+    }
+
+    // Fetch all required data (AFTER stock restoration so we get updated quantities)
     const [customersResult, variants, purchases, virtualProducts, paymentDetails, invoiceTermsData] = await Promise.all([
       getCustomers({ limit: 1000, includeDisabled: false }),
       getProducts(),
