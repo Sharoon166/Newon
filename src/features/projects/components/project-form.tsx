@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, Loader2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { createProject, updateProject, linkInvoiceToProject } from '../actions';
@@ -25,7 +25,6 @@ interface ProjectFormProps {
   invoices: Invoice[];
   staffMembers: Array<{ id: string; firstName: string; lastName: string; email: string }>;
   currentUserId: string;
-  canViewBudget?: boolean;
 }
 
 export function ProjectForm({
@@ -33,7 +32,6 @@ export function ProjectForm({
   invoices,
   staffMembers,
   currentUserId,
-  canViewBudget = true
 }: ProjectFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -296,13 +294,13 @@ export function ProjectForm({
         <p className="text-sm text-muted-foreground">{selectedStaff.length} staff member(s) selected</p>
       </div>
 
-      <div className="flex gap-4">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {project ? 'Update Project' : 'Create Project'}
-        </Button>
+      <div className="flex gap-4 justify-end">
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 className="animate-spin" /> : <Save />}
+          {project ? 'Update Project' : 'Create Project'}
         </Button>
       </div>
     </form>

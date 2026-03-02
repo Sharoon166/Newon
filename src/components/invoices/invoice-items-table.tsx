@@ -13,7 +13,7 @@ interface InvoiceItemsTableProps {
   showTotals?: boolean;
 }
 
-export function InvoiceItemsTable({ invoice, showTotals = true }: InvoiceItemsTableProps) {
+export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsTableProps) {
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
 
   const toggleItemExpansion = (index: number) => {

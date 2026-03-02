@@ -32,7 +32,7 @@ async function ProjectsContent() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Projects" description="Manage your projects and track expenses" icon={<FolderKanban />}>
+      <PageHeader title="Projects" description="Manage your projects and track their expenses">
         {canCreate && (
           <Link href="/projects/add">
             <Button>

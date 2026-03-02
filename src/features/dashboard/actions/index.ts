@@ -132,11 +132,12 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       }
     ]);
 
-    // Get monthly expenses
+    // Get monthly expenses (excluding invoice-sourced expenses to avoid double counting)
     const monthlyExpensesData = await ExpenseModel.aggregate([
       {
         $match: {
-          date: { $gte: monthStart }
+          date: { $gte: monthStart },
+          source: { $ne: 'invoice' }
         }
       },
       {
@@ -198,7 +199,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       ExpenseModel.aggregate([
         {
           $match: {
-            date: { $gte: lastMonthStart, $lte: lastMonthEnd }
+            date: { $gte: lastMonthStart, $lte: lastMonthEnd },
+            source: { $ne: 'invoice' }
           }
         },
         {
@@ -598,11 +600,12 @@ export async function getProfitTrendByDateRange(startDate: Date, endDate: Date):
       }
     ]);
 
-    // Get expenses data grouped by date
+    // Get expenses data grouped by date (excluding invoice-sourced to avoid double counting)
     const expensesData = await ExpenseModel.aggregate([
       {
         $match: {
-          date: { $gte: start, $lte: end }
+          date: { $gte: start, $lte: end },
+          source: { $ne: 'invoice' }
         }
       },
       {
@@ -694,11 +697,12 @@ export async function getMonthlyProfitTrend(): Promise<ProfitTrendData[]> {
       }
     ]);
 
-    // Get expenses data grouped by month
+    // Get expenses data grouped by month (excluding invoice-sourced to avoid double counting)
     const expensesData = await ExpenseModel.aggregate([
       {
         $match: {
-          date: { $gte: startDate }
+          date: { $gte: startDate },
+          source: { $ne: 'invoice' }
         }
       },
       {

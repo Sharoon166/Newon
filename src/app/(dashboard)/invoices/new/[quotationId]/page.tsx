@@ -25,7 +25,8 @@ export default async function QuotationConversionPage({ params }: QuotationConve
     return notFound();
   }
 
-  const [variants, purchases] = await Promise.all([getProducts(), getAllPurchases()]);
+  const [variants, purchasesData] = await Promise.all([getProducts(), getAllPurchases()]);
+  const purchases = purchasesData.docs;
 
   return (
     <div className="container mx-auto py-10">

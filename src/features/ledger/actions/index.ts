@@ -266,7 +266,6 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
   try {
     await dbConnect();
 
-    const { subMonths } = await import('date-fns');
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     monthStart.setHours(0, 0, 0, 0);

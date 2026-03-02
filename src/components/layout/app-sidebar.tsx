@@ -12,7 +12,13 @@ import {
   UserSquare,
   PackageOpen,
   FolderKanban,
-  Receipt
+  Receipt,
+  Boxes,
+  PackagePlus,
+  User2,
+  ReceiptText,
+  Wallet,
+  BriefcaseBusiness
 } from 'lucide-react';
 
 import {
@@ -70,12 +76,12 @@ const data = {
         {
           name: 'Virtual Products',
           url: '/virtual-products',
-          icon: PackageOpen
+          icon: Boxes
         },
         {
           name: 'Purchases',
           url: '/purchases',
-          icon: Package
+          icon: PackagePlus
         }
       ]
     },
@@ -85,12 +91,12 @@ const data = {
         {
           name: 'Customers',
           url: '/customers',
-          icon: UserSquare
+          icon: User2
         },
         {
           name: 'Invoices & Quotations',
           url: '/invoices',
-          icon: ScrollTextIcon
+          icon: ReceiptText
         },
         {
           name: 'Ledger',
@@ -105,12 +111,12 @@ const data = {
         {
           name: 'Projects',
           url: '/projects',
-          icon: FolderKanban
+          icon: BriefcaseBusiness
         },
         {
           name: 'Expenses',
           url: '/expenses',
-          icon: Receipt
+          icon: Wallet
         }
       ]
     },
@@ -214,10 +220,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <div className="bg-white p-2 -m-2 truncate">
+                      <button type="button" className="bg-white p-2 -m-2 truncate w-full text-left">
                         <div className="flex items-center gap-3 cursor-pointer group">
-                          <div className={cn('flex aspect-square size-10 p-1 items-center justify-center')}>
-                            <img
+                          <div className={cn('flex aspect-square p-1 size-8 items-center justify-center')}>
+                            <Image
+                              unoptimized
+                              unselectable="on"
                               height={100}
                               width={100}
                               src={currentBrand.logo ?? '/logo.png'}
@@ -234,7 +242,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <ChevronsUpDown className="ml-1 size-4 opacity-50" />
                           </div>
                         </div>
-                      </div>
+                      </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       className="w-fit rounded-lg p-2"
@@ -283,7 +291,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           width={50}
                           src={brands[1].logo ?? '/logo.png'}
                           alt={`${brands[1].displayName}`}
-                          className='rounded-md'
+                          className="rounded-md"
                         />
                         <div className="grid flex-1 min-w-0">
                           <div className="flex items-center gap-2">

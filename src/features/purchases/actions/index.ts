@@ -1,11 +1,11 @@
 'use server';
 
 import dbConnect from '@/lib/db';
-import PurchaseModel from '@/models/Purchase';
+import PurchaseModel, { type IPurchase } from '@/models/Purchase';
 import ProductModel from '@/models/Product';
 import mongoose from 'mongoose';
 import { revalidatePath } from 'next/cache';
-import type { CreatePurchaseDto, UpdatePurchaseDto } from '../types';
+import type { CreatePurchaseDto, UpdatePurchaseDto, PurchaseFilters, PaginatedPurchases } from '../types';
 import type { LocationInventory, ProductVariant } from '@/features/inventory/types';
 
 // Type for lean purchase document from MongoDB
@@ -30,72 +30,105 @@ export type LeanPurchase = {
   __v?: number;
 };
 
-export const getAllPurchases = async () => {
+export const getAllPurchases = async (filters?: PurchaseFilters): Promise<PaginatedPurchases> => {
   await dbConnect();
 
-  const purchases = await PurchaseModel.aggregate([
-    {
-      $lookup: {
-        from: 'products',
-        localField: 'productId',
-        foreignField: '_id',
-        as: 'product'
-      }
-    },
-    {
-      $unwind: {
-        path: '$product',
-        preserveNullAndEmptyArrays: true
-      }
-    },
-    {
-      $sort: { purchaseDate: -1, }
-    },
-    {
-      $project: {
-        _id: 0,
-        id: { $toString: '$_id' },
-        productId: { $toString: '$productId' },
-        variantId: 1,
-        supplier: 1,
-        locationId: 1,
-        quantity: 1,
-        unitPrice: 1,
-        retailPrice: 1,
-        wholesalePrice: 1,
-        shippingCost: 1,
-        totalCost: 1,
-        purchaseDate: 1,
-        remaining: 1,
-        notes: 1,
-        purchaseId: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        productName: '$product.name',
-        productSupplier: '$product.supplier',
-        variant: {
-          $arrayElemAt: [
-            {
-              $filter: {
-                input: '$product.variants',
-                as: 'variant',
-                cond: { $eq: ['$$variant.id', '$variantId'] }
-              }
-            },
-            0
-          ]
-        }
-      }
-    }
-  ]);
+  const page = filters?.page || 1;
+  const limit = filters?.limit || 10;
 
-  // Serialize dates to strings for client components
-  return purchases.map(purchase => ({
-    ...purchase,
-    purchaseDate: purchase.purchaseDate?.toISOString() || null,
-    createdAt: purchase.createdAt?.toISOString() || null,
-    updatedAt: purchase.updatedAt?.toISOString() || null,
-  }));
+  // Build match query
+  const matchQuery: Record<string, unknown> = {};
+
+  if (filters?.supplier) {
+    matchQuery.supplier = { $regex: filters.supplier, $options: 'i' };
+  }
+
+  if (filters?.dateFrom || filters?.dateTo) {
+    const dateQuery: Record<string, Date> = {};
+    if (filters.dateFrom) {
+      dateQuery.$gte = filters.dateFrom;
+    }
+    if (filters.dateTo) {
+      dateQuery.$lte = filters.dateTo;
+    }
+    matchQuery.purchaseDate = dateQuery;
+  }
+
+  if (filters?.search) {
+    matchQuery.$or = [
+      { purchaseId: { $regex: filters.search, $options: 'i' } },
+      { supplier: { $regex: filters.search, $options: 'i' } }
+    ];
+  }
+
+  // Use paginate with populate instead of aggregate
+  const result = await (PurchaseModel as mongoose.PaginateModel<IPurchase>).paginate(matchQuery, {
+    page,
+    limit,
+    sort: { purchaseDate: -1 },
+    lean: true,
+    populate: {
+      path: 'productId',
+      select: 'name supplier variants'
+    }
+  });
+
+  // Transform and serialize the results
+  const serializedDocs = result.docs.map((purchase) => {
+    const doc = purchase as unknown as LeanPurchase & {
+      productId?: {
+        _id: unknown;
+        name: string;
+        supplier: string;
+        variants: Array<{
+          id: string;
+          sku: string;
+          attributes?: Record<string, string>;
+        }>;
+      };
+    };
+    
+    const variant = doc.productId?.variants?.find(v => v.id === doc.variantId);
+    
+    return {
+      id: doc._id.toString(),
+      productId: typeof doc.productId === 'object' && doc.productId?._id ? doc.productId._id.toString() : doc.productId?.toString() || '',
+      variantId: doc.variantId,
+      supplier: doc.supplier,
+      locationId: doc.locationId,
+      quantity: doc.quantity,
+      unitPrice: doc.unitPrice,
+      retailPrice: doc.retailPrice,
+      wholesalePrice: doc.wholesalePrice,
+      shippingCost: doc.shippingCost,
+      totalCost: doc.totalCost,
+      purchaseDate: doc.purchaseDate?.toISOString() || '',
+      remaining: doc.remaining,
+      notes: doc.notes,
+      purchaseId: doc.purchaseId,
+      createdAt: doc.createdAt?.toISOString() || '',
+      updatedAt: doc.updatedAt?.toISOString() || '',
+      productName: doc.productId?.name,
+      productSupplier: doc.productId?.supplier,
+      variant: variant ? {
+        id: variant.id,
+        sku: variant.sku,
+        attributes: variant.attributes
+      } : undefined
+    };
+  });
+
+  return {
+    docs: serializedDocs,
+    totalDocs: result.totalDocs,
+    limit: result.limit,
+    page: result.page || 1,
+    totalPages: result.totalPages,
+    hasNextPage: result.hasNextPage || false,
+    hasPrevPage: result.hasPrevPage || false,
+    nextPage: result.nextPage || null,
+    prevPage: result.prevPage || null
+  };
 };
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
@@ -150,7 +183,7 @@ export const getPurchasesByVariantId = async (productId: string, variantId: stri
 
   const purchases = (await PurchaseModel.find(purchasesQuery)
     .sort({ purchaseDate: -1 }) // Sort by date descending
-    .lean()) as LeanPurchase[];
+    .lean()) as unknown as LeanPurchase[];
 
   return purchases.map(purchase => {
     return {
@@ -171,7 +204,7 @@ export const getPurchasesByProductId = async (productId: string) => {
 
   const purchases = (await PurchaseModel.find({ productId: new mongoose.Types.ObjectId(productId) })
     .sort({ purchaseDate: -1 }) // Sort by date descending
-    .lean()) as LeanPurchase[];
+    .lean()) as unknown as LeanPurchase[];
 
   return purchases.map(purchase => {
     return {
@@ -189,7 +222,7 @@ export const getPurchasesByProductId = async (productId: string) => {
 export const getPurchaseById = async (id: string) => {
   await dbConnect();
 
-  const purchase = (await PurchaseModel.findById(id).lean()) as LeanPurchase | null;
+  const purchase = (await PurchaseModel.findById(id).lean()) as unknown as LeanPurchase | null;
 
   if (!purchase) {
     return null;
@@ -238,7 +271,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
 
         if (locationInventoryIndex >= 0) {
           // Update existing inventory entry
-          const oldStock = inventory[locationInventoryIndex].availableStock;
           inventory[locationInventoryIndex].availableStock += data.quantity;
         } else {
           // Add new inventory entry for this location
@@ -299,7 +331,7 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   const purchaseObj = newPurchase.toObject();
   return {
     ...purchaseObj,
-    id: purchaseObj._id.toString(),
+    id: purchaseObj._id?.toString(),
     purchaseId: purchaseObj.purchaseId,
     productId: purchaseObj.productId.toString(),
     variantId: purchaseObj.variantId,
@@ -374,8 +406,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
         );
 
         if (locationInventoryIndex >= 0) {
-          // Update existing inventory entry
-          const oldStock = inventory[locationInventoryIndex].availableStock;
           inventory[locationInventoryIndex].availableStock += quantityDiff;
 
           // Ensure it doesn't go below 0
@@ -396,7 +426,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
         variant.inventory = inventory;
 
         // Update legacy fields for backward compatibility
-        const oldVariantAvailable = variant.availableStock || 0;
         const totalAvailable = inventory.reduce(
           (sum: number, inv: LocationInventory) => sum + (inv.availableStock || 0),
           0

@@ -5,7 +5,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TablePagination } from '@/components/general/table-pagination';
-import { Plus, Trash2, Edit, FileText, Users, TrendingUp, AlertCircle, DollarSign, LucideIcon, Receipt, ReceiptText, Banknote } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Edit,
+  FileText,
+  Users,
+  TrendingUp,
+  AlertCircle,
+  LucideIcon,
+  Receipt,
+  ReceiptText,
+  Banknote,
+  Ban
+} from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import type { AuditAction } from '@/models/ProjectAuditLog';
 import {
@@ -54,7 +67,11 @@ const actionConfig: Record<AuditAction, { icon: LucideIcon; badgeClass: string; 
     badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     label: 'Expense Added'
   },
-  expense_updated: { icon: ReceiptText, badgeClass: 'bg-sky-100 text-sky-700 border-sky-200', label: 'Expense Updated' },
+  expense_updated: {
+    icon: ReceiptText,
+    badgeClass: 'bg-sky-100 text-sky-700 border-sky-200',
+    label: 'Expense Updated'
+  },
   expense_deleted: { icon: Trash2, badgeClass: 'bg-red-100 text-red-700 border-red-200', label: 'Expense Deleted' },
   payment_added: {
     icon: Banknote,
@@ -68,6 +85,11 @@ const actionConfig: Record<AuditAction, { icon: LucideIcon; badgeClass: string; 
     icon: FileText,
     badgeClass: 'bg-indigo-100 text-indigo-700 border-indigo-200',
     label: 'Invoice Generated'
+  },
+  project_cancelled: {
+    icon: Ban,
+    badgeClass: 'bg-red-100 text-red-700 border-red-200',
+    label: 'Cancelled'
   }
 };
 

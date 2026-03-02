@@ -74,7 +74,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
             invoice={invoice}
             customers={customers}
             variants={variants}
-            purchases={purchases}
+            purchases={purchases.docs}
             virtualProducts={virtualProducts}
             paymentDetails={paymentDetails}
             invoiceTerms={invoiceTermsData}

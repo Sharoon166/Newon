@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Invoice } from '../types';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,8 +37,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MoreHorizontal } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { DateRange } from 'react-day-picker';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AddPaymentDialog } from './add-payment-dialog';
@@ -61,11 +59,9 @@ import { ServerPagination } from '@/components/general/server-pagination';
 interface InvoicesTableProps {
   invoicesData: PaginatedInvoices;
   onRefresh?: () => void;
-  initialDateFrom?: string;
-  initialDateTo?: string;
 }
 
-export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initialDateTo }: InvoicesTableProps) {
+export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -96,38 +92,6 @@ export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initia
     return () => clearTimeout(timer);
   }, [searchValue, router, searchParams]);
 
-  // Initialize date range from URL params
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (initialDateFrom || initialDateTo) {
-      return {
-        from: initialDateFrom ? new Date(initialDateFrom) : undefined,
-        to: initialDateTo ? new Date(initialDateTo) : undefined
-      };
-    }
-    return undefined;
-  });
-
-  // Update URL when date range changes
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    setDateRange(range);
-
-    const params = new URLSearchParams(window.location.search);
-
-    if (range?.from) {
-      params.set('dateFrom', format(range.from, 'yyyy-MM-dd'));
-    } else {
-      params.delete('dateFrom');
-    }
-
-    if (range?.to) {
-      params.set('dateTo', format(range.to, 'yyyy-MM-dd'));
-    } else {
-      params.delete('dateTo');
-    }
-
-    // Navigate with new params (this will trigger server-side refetch)
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
 
   const handleRefresh = () => {
     if (onRefresh) {
@@ -433,23 +397,21 @@ export function InvoicesTable({ invoicesData, onRefresh, initialDateFrom, initia
                 </DropdownMenuItem>
                 {invoice.status !== 'cancelled' && (
                   <>
-                    {!invoice.projectId && (
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // For quotations and pending invoices, navigate to edit page
-                          if (invoice.type === 'quotation' || invoice.status === 'pending') {
-                            router.push(`/invoices/${invoice.id}/edit`);
-                          } else {
-                            // For paid/partial invoices, use dialog
-                            setSelectedInvoice(invoice);
-                            setEditDialogOpen(true);
-                          }
-                        }}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem
+                      onClick={() => {
+                        // For quotations and draft invoices, navigate to edit page
+                        if (invoice.type === 'quotation' || invoice.status === 'draft') {
+                          router.push(`/invoices/${invoice.id}/edit`);
+                        } else {
+                          // For paid/partial/pending invoices, use dialog
+                          setSelectedInvoice(invoice);
+                          setEditDialogOpen(true);
+                        }
+                      }}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
                     {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
                       <DropdownMenuItem
                         onClick={() => {

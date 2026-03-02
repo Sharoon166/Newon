@@ -14,7 +14,7 @@ export default async function NewDocument({ searchParams }: NewDocumentProps) {
   const params = await searchParams;
   const activeTab = params.tab === 'quotation' ? 'quotation' : 'invoice';
 
-  const [customersData, variants, purchases, virtualProducts, paymentDetails, invoiceTerms] = await Promise.all([
+  const [customersData, variants, purchasesData, virtualProducts, paymentDetails, invoiceTerms] = await Promise.all([
     getCustomers({ limit: 1000, includeDisabled: false }), // Exclude disabled customers from invoice creation
     getProducts(),
     getAllPurchases(),
@@ -24,6 +24,7 @@ export default async function NewDocument({ searchParams }: NewDocumentProps) {
   ]);
 
   const customers = customersData.docs;
+  const purchases = purchasesData.docs;
 
   return (
     <div className="container mx-auto py-10">

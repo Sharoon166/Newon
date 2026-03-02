@@ -184,10 +184,6 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const toggleItemExpansion = (index: number) => {
-    // Removed - now handled by InvoiceItemsTable component
-  };
-
   if (isLoading) {
     return (
       <div className="container mx-auto py-10">

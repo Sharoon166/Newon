@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import ExpenseModel from '@/models/Expense';
 import type {
@@ -16,8 +17,10 @@ import type {
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
-function transformLeanExpense(leanDoc: any): Expense {
+function transformLeanExpense(leanDoc: LeanExpense): Expense {
   const { _id, __v, transactions, ...rest } = leanDoc;
+
+  type TransactionType = NonNullable<LeanExpense['transactions']>[number];
 
   return {
     ...rest,
@@ -26,7 +29,7 @@ function transformLeanExpense(leanDoc: any): Expense {
     createdAt: leanDoc.createdAt instanceof Date ? leanDoc.createdAt.toISOString() : leanDoc.createdAt,
     updatedAt: leanDoc.updatedAt instanceof Date ? leanDoc.updatedAt.toISOString() : leanDoc.updatedAt,
     transactions:
-      transactions?.map((t: any) => ({
+      transactions?.map((t: TransactionType) => ({
         ...t,
         id: String(t._id),
         _id: undefined,
@@ -180,7 +183,7 @@ export async function createExpense(data: CreateExpenseDto): Promise<ActionResul
     revalidatePath('/expenses');
     revalidatePath('/dashboard');
 
-    return { success: true, data: transformLeanExpense(savedExpense.toObject() as LeanExpense) };
+    return { success: true, data: transformLeanExpense(savedExpense.toObject() as unknown as LeanExpense) };
   } catch (error) {
     console.error('Error creating expense:', error);
     if (error instanceof z.ZodError) {
@@ -387,7 +390,7 @@ export async function createInvoiceExpenses(
   customExpenses: InvoiceExpenseItem[],
   createdBy: string,
   projectId?: string,
-  session?: any
+  session?: mongoose.ClientSession
 ): Promise<ActionResult<string[]>> {
   try {
     await dbConnect();
@@ -429,7 +432,7 @@ export async function createInvoiceExpenses(
   }
 }
 
-export async function deleteInvoiceExpenses(invoiceId: string, session?: any): Promise<ActionResult<void>> {
+export async function deleteInvoiceExpenses(invoiceId: string, session?: mongoose.ClientSession): Promise<ActionResult<void>> {
   try {
     await dbConnect();
 

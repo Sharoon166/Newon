@@ -8,7 +8,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable
 } from '@tanstack/react-table';
@@ -19,11 +18,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronUp, Search, ExternalLink, Download, FileSpreadsheet, Trash2, Plus, Edit2, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Purchase } from '../types';
-import { useRouter } from 'next/navigation';
+import { Purchase, PaginatedPurchases } from '../types';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { exportToCsv, exportToPdf } from '../utils/export-utils';
-import { TablePagination } from '@/components/general/table-pagination';
+import { ServerPagination } from '@/components/general/server-pagination';
 import { deletePurchase } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { toast } from 'sonner';
@@ -41,20 +40,17 @@ export interface EnhancedPurchase extends Purchase {
 }
 
 interface PurchasesTableWithActionsProps {
-  purchases: EnhancedPurchase[];
+  purchasesData: PaginatedPurchases;
   products: EnhancedVariants[];
 }
 
-export function PurchasesTableWithActions({ purchases: initialPurchases, products }: PurchasesTableWithActionsProps) {
+export function PurchasesTableWithActions({ purchasesData, products }: PurchasesTableWithActionsProps) {
   const router = useRouter();
-  const [purchases, setPurchases] = useState<EnhancedPurchase[]>(initialPurchases);
+  const searchParams = useSearchParams();
+  const [purchases, setPurchases] = useState<EnhancedPurchase[]>(purchasesData.docs as EnhancedPurchase[]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 10
-  });
-  const [searchValue, setSearchValue] = useState('');
+  const [searchValue, setSearchValue] = useState(searchParams.get('search') || '');
   
   // Dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -64,10 +60,10 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
   const [editPurchaseOpen, setEditPurchaseOpen] = useState(false);
   const [purchaseToEdit, setPurchaseToEdit] = useState<EnhancedPurchase | null>(null);
 
-  // Update purchases when initialPurchases changes
+  // Update purchases when purchasesData changes
   useEffect(() => {
-    setPurchases(initialPurchases);
-  }, [initialPurchases]);
+    setPurchases(purchasesData.docs as EnhancedPurchase[]);
+  }, [purchasesData]);
 
   // Get unique suppliers for filter
   const suppliers = useMemo(() => {
@@ -288,17 +284,14 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
     state: {
       sorting,
       columnFilters,
-      pagination,
       globalFilter: searchValue
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onPaginationChange: setPagination,
     onGlobalFilterChange: setSearchValue,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     globalFilterFn: (row, columnId, filterValue) => {
       if (!filterValue) return true;
       const searchStr = filterValue.toLowerCase();
@@ -315,9 +308,19 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
     }
   });
 
-  // Handle search input change
+  // Handle search input change with URL params
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(e.target.value);
+    const value = e.target.value;
+    setSearchValue(value);
+    
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set('search', value);
+      params.set('page', '1'); // Reset to first page on search
+    } else {
+      params.delete('search');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   // Handle export to CSV
@@ -443,7 +446,15 @@ export function PurchasesTableWithActions({ purchases: initialPurchases, product
         </Table>
       </div>
 
-      <TablePagination table={table} itemName="Purchases" />
+      <ServerPagination
+        currentPage={purchasesData.page}
+        totalPages={purchasesData.totalPages}
+        totalDocs={purchasesData.totalDocs}
+        hasNextPage={purchasesData.hasNextPage}
+        hasPrevPage={purchasesData.hasPrevPage}
+        pageSize={purchasesData.limit}
+        itemName="purchases"
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

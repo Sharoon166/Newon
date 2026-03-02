@@ -193,5 +193,5 @@ export interface LeanProject {
   createdByName?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
-  __v?: number;
+  // __v?: number;
 }

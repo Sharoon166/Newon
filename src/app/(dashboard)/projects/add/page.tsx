@@ -37,7 +37,6 @@ async function AddProjectContent() {
             invoices={invoices} 
             staffMembers={staffMembers} 
             currentUserId={session.user.id!}
-            canViewBudget={canViewBudget}
           />
         </CardContent>
       </Card>

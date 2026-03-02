@@ -1229,9 +1229,9 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     }
 
     // Prevent cancellation if invoice has any payments
-    if (invoice.paidAmount > 0) {
+    if (invoice.paidAmount > 0 || (invoice.payments && invoice.payments.length > 0)) {
       throw new Error(
-        `Cannot cancel invoice with payments (${invoice.paidAmount} paid). Please delete all payments first or process a refund/credit note instead.`
+        `Cannot cancel invoice with existing payments. Please delete all payment records first.`
       );
     }
 
@@ -1242,6 +1242,17 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
         ? `${invoice.notes}\n\nCancellation Reason: ${reason}`
         : `Cancellation Reason: ${reason}`;
     }
+
+    // Unlink from project if linked
+    if (invoice.projectId) {
+      const ProjectModel = (await import('@/models/Project')).default;
+      await ProjectModel.findOneAndUpdate(
+        { projectId: invoice.projectId },
+        { $unset: { invoiceId: '' } }
+      );
+      invoice.projectId = undefined;
+    }
+
     await invoice.save();
 
     // Restore stock if it was deducted
@@ -1524,6 +1535,10 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
 
     if (invoice.type !== 'invoice') {
       throw new Error('Can only deduct stock for invoices, not quotations');
+    }
+
+    if (invoice.status === 'cancelled') {
+      throw new Error('Cannot deduct stock for a cancelled invoice');
     }
 
     if (invoice.stockDeducted) {

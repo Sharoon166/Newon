@@ -47,7 +47,7 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
         const allPurchases = await getAllPurchases();
         
         // Filter by date range
-        const filtered = allPurchases.filter(purchase => {
+        const filtered = allPurchases.docs.filter(purchase => {
           const purchaseDate = new Date(purchase.purchaseDate);
           const from = new Date(dateRange.from!);
           from.setHours(0, 0, 0, 0);

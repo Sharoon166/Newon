@@ -10,7 +10,9 @@ import type {
   PaginatedProjects,
   AddExpenseDto,
   UpdateExpenseDto,
-  LeanProject
+  LeanProject,
+  ProjectExpenseWithTransactions,
+  EnrichedExpense
 } from '../types';
 import type { Invoice } from '@/features/invoices/types';
 import dbConnect from '@/lib/db';
@@ -18,10 +20,12 @@ import ProjectModel from '@/models/Project';
 import InvoiceModel from '@/models/Invoice';
 import Staff from '@/models/Staff';
 import Customer from '@/models/Customer';
+import ExpenseModel from '@/models/Expense';
+import { ExpenseCategory } from '@/features/expenses/types';
 
 // Helper function to transform lean project to Project type
 function transformLeanProject(leanDoc: LeanProject): Project {
-  const { _id, __v, ...rest } = leanDoc;
+  const { _id, ...rest } = leanDoc;
 
   const toISOString = (date: Date | string | undefined): string | undefined => {
     if (!date) return undefined;
@@ -45,7 +49,6 @@ async function calculateVirtuals(leanDoc: LeanProject): Promise<LeanProject> {
 
   // Fetch their paid amounts from Expense collection by projectId
   if (leanDoc.projectId) {
-    const ExpenseModel = (await import('@/models/Expense')).default;
     const expenses = await ExpenseModel.find({
       projectId: leanDoc.projectId,
       source: 'project'
@@ -60,19 +63,11 @@ async function calculateVirtuals(leanDoc: LeanProject): Promise<LeanProject> {
   // Get inventory costs from invoices linked to this project
   let totalInventoryCost = 0;
   if (leanDoc.projectId) {
-    console.log(`[CALCULATE VIRTUALS] Looking for invoices with projectId: ${leanDoc.projectId}`);
-    const InvoiceModel = (await import('@/models/Invoice')).default;
     const invoices = await InvoiceModel.find({ projectId: leanDoc.projectId }).lean();
-
-    console.log(`[CALCULATE VIRTUALS] Found ${invoices.length} invoices for project ${leanDoc.projectId}`);
 
     if (invoices && invoices.length > 0) {
       totalInventoryCost = invoices.reduce((invoiceSum, invoice) => {
         if (!invoice.items) return invoiceSum;
-
-        console.log(
-          `[CALCULATE VIRTUALS] Processing invoice ${invoice.invoiceNumber} with ${invoice.items.length} items`
-        );
 
         const invoiceItemsCost = invoice.items.reduce((sum, item) => {
           // For virtual products, use component cost + custom expenses actual cost
@@ -80,33 +75,20 @@ async function calculateVirtuals(leanDoc: LeanProject): Promise<LeanProject> {
             const componentCost = item.totalComponentCost || 0;
             const customExpensesCost = item.customExpenses?.reduce((expSum, exp) => expSum + exp.actualCost, 0) || 0;
             const itemCost = componentCost + customExpensesCost;
-            console.log(
-              `[CALCULATE VIRTUALS] Virtual product ${item.productName}: componentCost=${componentCost}, customExpensesCost=${customExpensesCost}, total=${itemCost}`
-            );
             return sum + itemCost;
           }
           // For regular products, use originalRate * quantity (actual cost) instead of client price
           const actualCost = (item.originalRate || item.unitPrice) * item.quantity;
-          console.log(
-            `[CALCULATE VIRTUALS] Regular product ${item.productName}: originalRate=${item.originalRate}, unitPrice=${item.unitPrice}, quantity=${item.quantity}, actualCost=${actualCost}`
-          );
           return sum + actualCost;
         }, 0);
 
-        console.log(`[CALCULATE VIRTUALS] Invoice ${invoice.invoiceNumber} total cost: ${invoiceItemsCost}`);
         return invoiceSum + invoiceItemsCost;
       }, 0);
     }
-
-    console.log(`[CALCULATE VIRTUALS] Total inventory cost: ${totalInventoryCost}`);
   }
 
   const totalProjectCost = totalExpenses + totalInventoryCost;
   const remainingBudget = leanDoc.budget - totalProjectCost;
-
-  console.log(
-    `[CALCULATE VIRTUALS] Project ${leanDoc.projectId}: budget=${leanDoc.budget}, expenses=${totalExpenses}, inventory=${totalInventoryCost}, total=${totalProjectCost}, remaining=${remainingBudget}`
-  );
 
   return {
     ...leanDoc,
@@ -168,7 +150,7 @@ export async function getProjects(
     const skip = (page - 1) * limit;
 
     // Build Aggregation Pipeline for performance (fixing N+1 issue)
-    const pipeline: any[] = [
+    const pipeline: mongoose.PipelineStage[] = [
       { $match: query },
       { $sort: { createdAt: -1 } },
       {
@@ -291,7 +273,16 @@ export async function getProjects(
     const totalDocs = aggregateResult.metadata[0]?.total || 0;
     const totalPages = Math.ceil(totalDocs / limit);
 
-    const docs = aggregateResult.docs.map((doc: any) => {
+    interface AggregatedProjectDoc extends Omit<LeanProject, 'assignedStaffDetails'> {
+      assignedStaffDetails?: Array<{
+        _id: mongoose.Types.ObjectId;
+        firstName: string;
+        lastName: string;
+        email: string;
+      }>;
+    }
+
+    const docs = aggregateResult.docs.map((doc: AggregatedProjectDoc) => {
       const { _id, assignedStaffDetails, startDate, endDate, createdAt, updatedAt, ...rest } = doc;
       return {
         ...rest,
@@ -300,7 +291,7 @@ export async function getProjects(
         endDate: endDate ? new Date(endDate).toISOString() : undefined,
         createdAt: createdAt ? new Date(createdAt).toISOString() : undefined,
         updatedAt: updatedAt ? new Date(updatedAt).toISOString() : undefined,
-        assignedStaffDetails: assignedStaffDetails?.map((staff: any) => {
+        assignedStaffDetails: assignedStaffDetails?.map(staff => {
           const { _id: staffId, ...staffRest } = staff;
           return {
             ...staffRest,
@@ -397,7 +388,10 @@ export async function createProject(data: CreateProjectDto): Promise<Project> {
 
     // Create audit log
     const { createAuditLog } = await import('./audit');
-    const staff = (await Staff.findById(savedProject.createdBy).select('firstName lastName').session(session).lean()) as {
+    const staff = (await Staff.findById(savedProject.createdBy)
+      .select('firstName lastName')
+      .session(session)
+      .lean()) as {
       firstName: string;
       lastName: string;
     } | null;
@@ -483,12 +477,8 @@ export async function linkInvoiceToProject(
       .lean();
 
     if (previouslyLinkedInvoice) {
-      console.log(
-        `[LINK INVOICE] Found previously linked invoice ${previouslyLinkedInvoice.invoiceNumber}, recreating its expenses`
-      );
-
-      const customExpensesToRecreate = previouslyLinkedInvoice.items.flatMap((item) =>
-        (item.customExpenses || []).map((expense) => ({
+      const customExpensesToRecreate = previouslyLinkedInvoice.items.flatMap(item =>
+        (item.customExpenses || []).map(expense => ({
           name: expense.name,
           actualCost: expense.actualCost,
           clientCost: expense.clientCost,
@@ -519,8 +509,6 @@ export async function linkInvoiceToProject(
       );
     }
 
-    const ExpenseModel = (await import('@/models/Expense')).default;
-
     // Execute updates sequentially to avoid concurrent session usage issues
     await ExpenseModel.deleteMany({ invoiceId: invoice._id.toString(), source: 'invoice' }, { session });
     await InvoiceModel.findOneAndUpdate({ invoiceNumber: invoice.invoiceNumber }, { $set: { projectId } }, { session });
@@ -546,6 +534,15 @@ export async function unlinkInvoiceFromProject(projectId: string, invoiceNumberO
   const session = await mongoose.startSession();
   session.startTransaction();
 
+  let customExpensesToRecreate: Array<{
+    name: string;
+    actualCost: number;
+    clientCost: number;
+    category: string;
+    description?: string;
+  }> = [];
+  let invoiceData: { id: string; invoiceNumber: string; date: Date; createdBy: string } | null = null;
+
   try {
     await dbConnect();
 
@@ -563,10 +560,9 @@ export async function unlinkInvoiceFromProject(projectId: string, invoiceNumberO
     if (!invoice) throw new Error('Invoice not found');
     if (invoice.projectId !== projectId) throw new Error('Invoice is not linked to this project');
 
-    console.log(`[UNLINK INVOICE] Unlinking invoice ${invoice.invoiceNumber} from project ${projectId}`);
-
-    const customExpensesToRecreate = invoice.items.flatMap((item) =>
-      (item.customExpenses || []).map((expense) => ({
+    // Store data for expense recreation after transaction
+    customExpensesToRecreate = invoice.items.flatMap(item =>
+      (item.customExpenses || []).map(expense => ({
         name: expense.name,
         actualCost: expense.actualCost,
         clientCost: expense.clientCost,
@@ -575,30 +571,22 @@ export async function unlinkInvoiceFromProject(projectId: string, invoiceNumberO
       }))
     );
 
-    if (customExpensesToRecreate.length > 0) {
-      const { createInvoiceExpenses } = await import('@/features/expenses/actions');
-      await createInvoiceExpenses(
-        invoice._id.toString(),
-        invoice.invoiceNumber,
-        invoice.date instanceof Date ? invoice.date : new Date(invoice.date),
-        customExpensesToRecreate,
-        invoice.createdBy,
-        undefined,
-        session
-      );
-    }
+    invoiceData = {
+      id: invoice._id.toString(),
+      invoiceNumber: invoice.invoiceNumber,
+      date: invoice.date instanceof Date ? invoice.date : new Date(invoice.date),
+      createdBy: invoice.createdBy
+    };
 
     // Execute updates sequentially
-    await InvoiceModel.findOneAndUpdate({ invoiceNumber: invoice.invoiceNumber }, { $unset: { projectId: '' } }, { session });
+    await InvoiceModel.findOneAndUpdate(
+      { invoiceNumber: invoice.invoiceNumber },
+      { $unset: { projectId: '' } },
+      { session }
+    );
     await ProjectModel.findOneAndUpdate({ projectId }, { $unset: { invoiceId: '' } }, { session });
 
     await session.commitTransaction();
-
-    revalidatePath('/projects');
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath('/invoices');
-    revalidatePath(`/invoices/${invoice._id.toString()}`);
-    revalidatePath('/expenses');
   } catch (error) {
     await session.abortTransaction();
     console.error(`Error unlinking invoice ${invoiceNumberOrId} from project ${projectId}:`, error);
@@ -606,6 +594,37 @@ export async function unlinkInvoiceFromProject(projectId: string, invoiceNumberO
   } finally {
     session.endSession();
   }
+
+  // Recreate expenses after transaction is committed and session is closed
+  try {
+    if (customExpensesToRecreate.length > 0 && invoiceData) {
+      const { createInvoiceExpenses } = await import('@/features/expenses/actions');
+      const result = await createInvoiceExpenses(
+        invoiceData.id,
+        invoiceData.invoiceNumber,
+        invoiceData.date,
+        customExpensesToRecreate,
+        invoiceData.createdBy,
+        undefined
+      );
+
+      if (!result.success) {
+        console.error('[UNLINK INVOICE] Failed to recreate expenses:', result.error);
+        // Don't throw - the unlink was successful, just log the expense recreation failure
+      }
+    }
+  } catch (expenseError) {
+    console.error('[UNLINK INVOICE] Error recreating expenses:', expenseError);
+    // Don't throw - the unlink was successful
+  }
+
+  revalidatePath('/projects');
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/invoices');
+  if (invoiceData) {
+    revalidatePath(`/invoices/${invoiceData.id}`);
+  }
+  revalidatePath('/expenses');
 }
 
 export async function updateProject(id: string, data: UpdateProjectDto, userRole?: string): Promise<Project> {
@@ -678,7 +697,7 @@ export async function updateProject(id: string, data: UpdateProjectDto, userRole
             }
             return acc;
           },
-          {} as Record<string, any>
+          {} as Record<string, string | boolean | number | undefined>
         )
       });
     }
@@ -726,6 +745,15 @@ export async function cancelProject(id: string, reason?: string): Promise<Projec
   const session = await mongoose.startSession();
   session.startTransaction();
 
+  let customExpensesToRecreate: Array<{
+    name: string;
+    actualCost: number;
+    clientCost: number;
+    category: string;
+    description?: string;
+  }> = [];
+  let invoiceData: { id: string; invoiceNumber: string; date: Date; createdBy: string } | null = null;
+
   try {
     await dbConnect();
 
@@ -739,31 +767,22 @@ export async function cancelProject(id: string, reason?: string): Promise<Projec
       throw new Error('Project is already cancelled');
     }
 
-    console.log(`[CANCEL PROJECT] Cancelling project ${id}`);
-
-    const tasks: Promise<any>[] = [];
-
     // Step 1: Delete all project expenses from Expense collection
-    const ExpenseModel = (await import('@/models/Expense')).default;
-    tasks.push(
-      ExpenseModel.deleteMany(
-        {
-          projectId: id,
-          source: 'project'
-        },
-        { session }
-      )
+    await ExpenseModel.deleteMany(
+      {
+        projectId: id,
+        source: 'project'
+      },
+      { session }
     );
 
     // Step 2: Unlink invoice if one is linked
-    const InvoiceModel = (await import('@/models/Invoice')).default;
     const linkedInvoice = await InvoiceModel.findOne({ projectId: id }).session(session).lean();
 
     if (linkedInvoice) {
-      console.log(`[CANCEL PROJECT] Found linked invoice ${linkedInvoice.invoiceNumber}, unlinking and recreating expenses`);
-
-      const customExpensesToRecreate = linkedInvoice.items.flatMap((item) =>
-        (item.customExpenses || []).map((expense) => ({
+      // Store data for expense recreation after transaction
+      customExpensesToRecreate = linkedInvoice.items.flatMap(item =>
+        (item.customExpenses || []).map(expense => ({
           name: expense.name,
           actualCost: expense.actualCost,
           clientCost: expense.clientCost,
@@ -772,51 +791,39 @@ export async function cancelProject(id: string, reason?: string): Promise<Projec
         }))
       );
 
-      // Recreate these expenses in the Expense collection (without projectId)
-      if (customExpensesToRecreate.length > 0) {
-        const { createInvoiceExpenses } = await import('@/features/expenses/actions');
-        tasks.push(
-          createInvoiceExpenses(
-            linkedInvoice._id.toString(),
-            linkedInvoice.invoiceNumber,
-            linkedInvoice.date instanceof Date ? linkedInvoice.date : new Date(linkedInvoice.date),
-            customExpensesToRecreate,
-            linkedInvoice.createdBy,
-            undefined,
-            session
-          )
-        );
-      }
+      invoiceData = {
+        id: linkedInvoice._id.toString(),
+        invoiceNumber: linkedInvoice.invoiceNumber,
+        date: linkedInvoice.date instanceof Date ? linkedInvoice.date : new Date(linkedInvoice.date),
+        createdBy: linkedInvoice.createdBy
+      };
 
       // Remove projectId from the invoice
-      tasks.push(
-        InvoiceModel.findOneAndUpdate({ invoiceNumber: linkedInvoice.invoiceNumber }, { $unset: { projectId: '' } }, { session })
+      await InvoiceModel.findOneAndUpdate(
+        { invoiceNumber: linkedInvoice.invoiceNumber },
+        { $unset: { projectId: '' } },
+        { session }
       );
 
       // Also remove invoiceId from the project
-      tasks.push(ProjectModel.findOneAndUpdate({ projectId: id }, { $unset: { invoiceId: '' } }, { session }));
+      await ProjectModel.findOneAndUpdate({ projectId: id }, { $unset: { invoiceId: '' } }, { session });
     }
 
     // Step 3: Update project status to cancelled
-    tasks.push(
-      ProjectModel.findOneAndUpdate(
-        { projectId: id },
-        {
-          $set: {
-            status: 'cancelled',
-            ...(reason && {
-              description: project.description
-                ? `${project.description}\n\nCancellation Reason: ${reason}`
-                : `Cancellation Reason: ${reason}`
-            })
-          }
-        },
-        { new: true, runValidators: true, session }
-      ).lean()
-    );
-
-    const results = await Promise.all(tasks);
-    const updatedProject = results[results.length - 1];
+    const updatedProject = await ProjectModel.findOneAndUpdate(
+      { projectId: id },
+      {
+        $set: {
+          status: 'cancelled',
+          ...(reason && {
+            description: project.description
+              ? `${project.description}\n\nCancellation Reason: ${reason}`
+              : `Cancellation Reason: ${reason}`
+          })
+        }
+      },
+      { new: true, runValidators: true, session }
+    ).lean();
 
     if (!updatedProject) {
       throw new Error('Failed to cancel project');
@@ -843,16 +850,6 @@ export async function cancelProject(id: string, reason?: string): Promise<Projec
     });
 
     await session.commitTransaction();
-
-    console.log(`[CANCEL PROJECT] Successfully cancelled project ${id}`);
-
-    revalidatePath('/projects');
-    revalidatePath(`/projects/${id}`);
-    revalidatePath('/dashboard');
-    revalidatePath('/invoices');
-    revalidatePath('/expenses');
-
-    return transformLeanProject(await calculateVirtuals(updatedProject as unknown as LeanProject));
   } catch (error) {
     await session.abortTransaction();
     console.error(`[CANCEL PROJECT] Error cancelling project ${id}:`, error);
@@ -860,13 +857,48 @@ export async function cancelProject(id: string, reason?: string): Promise<Projec
   } finally {
     session.endSession();
   }
+
+  // Recreate invoice expenses after transaction is committed and session is closed
+  try {
+    if (customExpensesToRecreate.length > 0 && invoiceData) {
+      const { createInvoiceExpenses } = await import('@/features/expenses/actions');
+      const result = await createInvoiceExpenses(
+        invoiceData.id,
+        invoiceData.invoiceNumber,
+        invoiceData.date,
+        customExpensesToRecreate,
+        invoiceData.createdBy,
+        undefined
+      );
+
+      if (!result.success) {
+        console.error('[CANCEL PROJECT] Failed to recreate invoice expenses:', result.error);
+        // Don't throw - the cancellation was successful, just log the expense recreation failure
+      }
+    }
+  } catch (expenseError) {
+    console.error('[CANCEL PROJECT] Error recreating invoice expenses:', expenseError);
+    // Don't throw - the cancellation was successful
+  }
+
+  revalidatePath('/projects');
+  revalidatePath(`/projects/${id}`);
+  revalidatePath('/dashboard');
+  revalidatePath('/invoices');
+  revalidatePath('/expenses');
+
+  const finalProject = await ProjectModel.findOne({ projectId: id }).lean();
+  if (!finalProject) {
+    throw new Error('Project not found after cancellation');
+  }
+
+  return transformLeanProject(await calculateVirtuals(finalProject as unknown as LeanProject));
 }
 
-export async function addExpense(
-  projectId: string,
-  data: AddExpenseDto,
-  userRole: string
-): Promise<Project> {
+// EXPENSE MANAGEMENT FOR PROJECTS
+// ============================================
+
+export async function addExpense(projectId: string, data: AddExpenseDto, userRole: string): Promise<Project> {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -881,8 +913,6 @@ export async function addExpense(
     const addedByName = staff ? `${staff.firstName} ${staff.lastName}` : 'Unknown';
 
     // Create expense in Expense collection only
-    const ExpenseModel = (await import('@/models/Expense')).default;
-
     const expenseData = {
       description: data.description,
       amount: data.amount,
@@ -893,15 +923,20 @@ export async function addExpense(
       source: 'project' as const,
       projectId,
       notes: data.notes,
-      transactions: userRole === 'admin' ? [{
-        amount: data.amount,
-        date: data.date,
-        source: 'cash', // Default source for auto-pay
-        notes: 'Automatically paid (Admin addition)',
-        addedBy: data.addedBy,
-        addedByName,
-        createdAt: new Date()
-      }] : []
+      transactions:
+        userRole === 'admin'
+          ? [
+              {
+                amount: data.amount,
+                date: data.date,
+                source: 'cash', // Default source for auto-pay
+                notes: 'Automatically paid (Admin addition)',
+                addedBy: data.addedBy,
+                addedByName,
+                createdAt: new Date()
+              }
+            ]
+          : []
     };
 
     const newExpense = new ExpenseModel(expenseData);
@@ -960,7 +995,6 @@ export async function updateExpense(
   try {
     await dbConnect();
 
-    const ExpenseModel = (await import('@/models/Expense')).default;
     const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 
     // Find by either expenseId (custom) or _id (mongo)
@@ -1023,8 +1057,6 @@ export async function deleteExpense(
     if (userRole === 'staff' && ['on-hold', 'completed', 'cancelled'].includes(project.status)) {
       throw new Error(`Cannot delete expenses from ${project.status} projects`);
     }
-
-    const ExpenseModel = (await import('@/models/Expense')).default;
 
     // Find by either expenseId (custom) or _id (mongo)
     const expenseQuery = mongoose.isValidObjectId(expenseIdOrId)
@@ -1124,19 +1156,54 @@ export async function getProjectInvoices(projectId: string): Promise<Invoice[]> 
     // Transform invoices to match Invoice type
     return invoices.map(invoice => {
       const inv = invoice as unknown as {
-        _id: unknown;
-        __v?: number;
+        _id: mongoose.Types.ObjectId;
+        invoiceNumber: string;
+        customerId: string;
+        customerName: string;
+        customerEmail?: string;
+        customerPhone?: string;
+        customerAddress?: string;
+        customerCompany?: string;
+        projectId?: string;
         date: Date | string;
         dueDate?: Date | string;
         validUntil?: Date | string;
+        items: Array<{
+          _id: mongoose.Types.ObjectId;
+          productId: string;
+          productName: string;
+          quantity: number;
+          unitPrice: number;
+          totalPrice: number;
+          [key: string]: unknown;
+        }>;
+        subtotal: number;
+        taxRate: number;
+        taxAmount: number;
+        discountRate: number;
+        discountAmount: number;
+        totalAmount: number;
+        paidAmount: number;
+        remainingAmount: number;
+        status: 'draft' | 'pending' | 'paid' | 'partial' | 'cancelled';
+        type: 'invoice' | 'quotation';
+        notes?: string;
+        terms?: string;
+        createdBy: string;
         createdAt: Date | string;
         updatedAt: Date | string;
-        items: Array<{ _id: unknown; [key: string]: unknown }>;
-        payments?: Array<{ _id: unknown; date: Date | string; [key: string]: unknown }>;
-        [key: string]: unknown;
+        payments?: Array<{
+          _id: mongoose.Types.ObjectId;
+          amount: number;
+          date: Date | string;
+          source: string;
+          notes?: string;
+          addedBy: string;
+          createdAt?: Date | string;
+        }>;
       };
 
-      const { _id, __v, ...rest } = inv;
+      const { _id, ...rest } = inv;
       return {
         ...rest,
         id: String(_id),
@@ -1183,8 +1250,6 @@ export async function getProjectExpenseWithTransactions(
   try {
     await dbConnect();
 
-    const ExpenseModel = (await import('@/models/Expense')).default;
-
     // Find by either expenseId (custom) or _id (mongo)
     const expenseQuery = mongoose.isValidObjectId(expenseIdOrId)
       ? { _id: expenseIdOrId, source: 'project' }
@@ -1201,7 +1266,7 @@ export async function getProjectExpenseWithTransactions(
       expenseId: string;
       description: string;
       amount: number;
-      category: any;
+      category: ExpenseCategory;
       date: Date | string;
       addedBy: string;
       addedByName?: string;
@@ -1241,14 +1306,13 @@ export async function getProjectExpenseWithTransactions(
       notes: exp.notes,
       createdAt: exp.createdAt instanceof Date ? exp.createdAt.toISOString() : exp.createdAt,
       updatedAt: exp.updatedAt instanceof Date ? exp.updatedAt.toISOString() : exp.updatedAt,
-      transactions: exp.transactions.map((transaction) => {
+      transactions: exp.transactions.map(transaction => {
         const { _id: transactionId, ...transactionRest } = transaction;
         return {
           ...transactionRest,
           id: String(transactionId),
           date: transaction.date instanceof Date ? transaction.date.toISOString() : transaction.date,
-          createdAt:
-            transaction.createdAt instanceof Date ? transaction.createdAt.toISOString() : transaction.createdAt
+          createdAt: transaction.createdAt instanceof Date ? transaction.createdAt.toISOString() : transaction.createdAt
         };
       }),
       totalPaid,
@@ -1267,8 +1331,6 @@ export async function getProjectExpensesWithTransactions(
   try {
     await dbConnect();
 
-    const ExpenseModel = (await import('@/models/Expense')).default;
-
     // Fetch all expenses for this project from the Expense collection
     const projectExpenses = await ExpenseModel.find({
       projectId,
@@ -1280,13 +1342,13 @@ export async function getProjectExpensesWithTransactions(
     }
 
     // Transform and enrich with transaction data
-    return projectExpenses.map((expense) => {
+    return projectExpenses.map(expense => {
       const exp = expense as unknown as {
-        _id: unknown;
+        _id: mongoose.Types.ObjectId;
         expenseId: string;
         description: string;
         amount: number;
-        category: any;
+        category: ExpenseCategory;
         date: Date | string;
         addedBy: string;
         addedByName?: string;
@@ -1294,7 +1356,7 @@ export async function getProjectExpensesWithTransactions(
         receipt?: string;
         notes?: string;
         transactions: Array<{
-          _id: unknown;
+          _id: mongoose.Types.ObjectId;
           amount: number;
           date: Date | string;
           source: string;
@@ -1305,10 +1367,10 @@ export async function getProjectExpensesWithTransactions(
         }>;
       };
 
-      const totalPaid = exp.transactions.reduce((sum, t) => sum + t.amount, 0);
-      const remainingAmount = exp.amount - totalPaid;
+      const totalPaid = exp.transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+      const remainingAmount = (exp.amount || 0) - totalPaid;
       const paymentStatus: 'unpaid' | 'partial' | 'paid' =
-        totalPaid === 0 ? 'unpaid' : totalPaid >= exp.amount ? 'paid' : 'partial';
+        totalPaid === 0 ? 'unpaid' : totalPaid >= (exp.amount || 0) ? 'paid' : 'partial';
 
       return {
         id: String(exp._id),
@@ -1322,11 +1384,11 @@ export async function getProjectExpensesWithTransactions(
         addedByRole: exp.addedByRole,
         receipt: exp.receipt,
         notes: exp.notes,
-        transactions: exp.transactions.map((t) => {
-          const { _id, ...rest } = t;
+        transactions: exp.transactions.map(t => {
+          const { _id: tId, ...rest } = t;
           return {
             ...rest,
-            id: String(_id),
+            id: String(tId),
             date: t.date instanceof Date ? t.date.toISOString() : t.date,
             createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt
           };
@@ -1334,7 +1396,7 @@ export async function getProjectExpensesWithTransactions(
         totalPaid,
         remainingAmount,
         paymentStatus
-      } as unknown as import('../types').EnrichedExpense;
+      } as EnrichedExpense;
     });
   } catch (error) {
     console.error('Error fetching expenses with transactions:', error);
@@ -1348,8 +1410,6 @@ export async function addPaymentTransaction(
 ): Promise<import('../types').ProjectExpenseWithTransactions> {
   try {
     await dbConnect();
-
-    const ExpenseModel = (await import('@/models/Expense')).default;
 
     // Get staff name
     const staff = (await Staff.findById(data.addedBy).select('firstName lastName').lean()) as {
@@ -1440,8 +1500,6 @@ export async function deletePaymentTransaction(
   try {
     await dbConnect();
 
-    const ExpenseModel = (await import('@/models/Expense')).default;
-
     // Find by either expenseId (custom) or _id (mongo)
     const expenseQuery = mongoose.isValidObjectId(expenseIdOrId)
       ? { _id: expenseIdOrId, source: 'project' }
@@ -1516,7 +1574,6 @@ export async function getProjectExpenses(
   try {
     await dbConnect();
 
-    const ExpenseModel = (await import('@/models/Expense')).default;
     const expenses = await ExpenseModel.find({
       projectId,
       source: 'project'
@@ -1526,19 +1583,32 @@ export async function getProjectExpenses(
 
     return expenses.map(expense => {
       const exp = expense as unknown as {
-        _id: unknown;
-        __v?: number;
+        _id: mongoose.Types.ObjectId;
+        expenseId: string;
+        description: string;
+        amount: number;
+        category: ExpenseCategory;
         date: Date | string;
+        addedBy: string;
+        addedByName?: string;
+        addedByRole: 'admin' | 'staff';
+        receipt?: string;
+        notes?: string;
         createdAt: Date | string;
         updatedAt: Date | string;
-        transactions: Array<{ _id: unknown; date: Date | string; [key: string]: unknown }>;
-        totalPaid: number;
-        remainingAmount: number;
-        paymentStatus: 'unpaid' | 'partial' | 'paid';
-        [key: string]: unknown;
+        transactions: Array<{
+          _id: mongoose.Types.ObjectId;
+          amount: number;
+          date: Date | string;
+          source: string;
+          notes?: string;
+          addedBy: string;
+          addedByName?: string;
+          createdAt?: Date | string;
+        }>;
       };
 
-      const { _id, __v, ...rest } = exp;
+      const { _id, ...rest } = exp;
 
       return {
         ...rest,
@@ -1554,7 +1624,7 @@ export async function getProjectExpenses(
             date: transaction.date instanceof Date ? transaction.date.toISOString() : transaction.date
           };
         })
-      } as import('../types').ProjectExpenseWithTransactions;
+      } as ProjectExpenseWithTransactions;
     });
   } catch (error) {
     console.error(`Error fetching expenses for project ${projectId}:`, error);

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import mongoosePaginate from 'mongoose-paginate-v2';
 import { generateId } from './Counter';
 
 // Define the purchase schema
@@ -86,6 +87,9 @@ const purchaseSchema = new mongoose.Schema(
 // Index for faster queries
 purchaseSchema.index({ productId: 1, variantId: 1, purchaseDate: -1 });
 
+// Add pagination plugin
+purchaseSchema.plugin(mongoosePaginate);
+
 // Pre-save hook to calculate totalCost and initialize remaining
 purchaseSchema.pre('save', async function (next) {
   if (this.isModified('quantity') || this.isModified('unitPrice')) {
@@ -110,7 +114,30 @@ purchaseSchema.pre('save', async function (next) {
   next();
 });
 
-// Create and export the model
-const Purchase = mongoose.models.Purchase || mongoose.model('Purchase', purchaseSchema);
+// Define interface for Purchase document
+export interface IPurchase extends mongoose.Document {
+  purchaseId: string;
+  productId: mongoose.Types.ObjectId;
+  variantId: string;
+  supplier: string;
+  locationId: string;
+  quantity: number;
+  unitPrice: number;
+  retailPrice: number;
+  wholesalePrice: number;
+  shippingCost: number;
+  totalCost: number;
+  purchaseDate: Date;
+  remaining: number;
+  notes?: string;
+}
+
+// Create and export the model with PaginateModel type
+// Delete existing model to ensure plugin is applied
+if (mongoose.models.Purchase) {
+  delete mongoose.models.Purchase;
+}
+
+const Purchase = mongoose.model<IPurchase, mongoose.PaginateModel<IPurchase>>('Purchase', purchaseSchema);
 
 export default Purchase;

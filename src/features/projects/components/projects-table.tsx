@@ -21,7 +21,6 @@ import {
   Eye,
   Pencil,
   Search,
-  Trash2,
   MoreHorizontal,
   Users,
   Calendar,

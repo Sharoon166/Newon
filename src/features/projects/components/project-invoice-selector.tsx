@@ -37,9 +37,21 @@ export function ProjectInvoiceSelector({
   const [isUnlinking, setIsUnlinking] = useState(false);
   const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
 
+  // Filter out OTC customers, cancelled invoices, and quotations - only show actual invoices
+  const validInvoices = invoices.filter(
+    invoice =>
+      invoice.customerId !== 'otc' &&
+      invoice.status !== 'cancelled' &&
+      invoice.type === 'invoice'
+  );
+
   const handleInvoiceChange = (invoiceId: string) => {
-    const invoice = invoices.find(inv => inv.id === invoiceId);
+    const invoice = validInvoices.find(inv => inv.id === invoiceId);
     if (invoice) {
+      if (invoice.projectId && invoice.projectId !== projectId) {
+        toast.error(`Invoice ${invoice.invoiceNumber} is already linked to another project`);
+        return;
+      }
       onInvoiceSelect(invoice);
     }
   };
@@ -64,15 +76,6 @@ export function ProjectInvoiceSelector({
     }
   };
 
-  // Filter out OTC customers, cancelled invoices, and quotations - only show actual invoices
-  const validInvoices = invoices.filter(
-    invoice =>
-      invoice.customerId !== 'otc' &&
-      invoice.status !== 'cancelled' &&
-      invoice.type === 'invoice' &&
-      (!invoice.projectId || invoice.projectId === projectId)
-  );
-
   return (
     <div className="space-y-2">
       <Label>
@@ -90,8 +93,17 @@ export function ProjectInvoiceSelector({
           <SelectContent>
             {validInvoices.map(invoice => (
               <SelectItem key={invoice.id} value={invoice.id}>
-                {invoice.invoiceNumber} - {invoice.customerName}
-                <span className="text-muted-foreground">{invoice.customerCompany && ` (${invoice.customerCompany})`}</span>
+                <div className="flex flex-col">
+                  <span>
+                    {invoice.invoiceNumber} - {invoice.customerName}
+                    <span className="text-muted-foreground">{invoice.customerCompany && ` (${invoice.customerCompany})`}</span>
+                  </span>
+                  {invoice.projectId && invoice.projectId !== projectId && (
+                    <span className="text-[10px] text-destructive font-medium uppercase">
+                      Already linked to another project
+                    </span>
+                  )}
+                </div>
               </SelectItem>
             ))}
           </SelectContent>
@@ -99,13 +111,12 @@ export function ProjectInvoiceSelector({
         {showUnlinkButton && selectedInvoice && projectId && (
           <Button
             type="button"
-            variant="outline"
-            size="icon"
+            variant="secondary"
             onClick={() => setShowUnlinkDialog(true)}
             disabled={disableUnlink}
             title="Unlink invoice from project"
           >
-            <Unlink className="h-4 w-4" />
+            <Unlink className="h-4 w-4" /> Unlink Invoice
           </Button>
         )}
       </div>

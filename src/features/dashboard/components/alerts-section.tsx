@@ -1,18 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { OutOfStockAlert, OverdueInvoiceAlert, PendingPaymentAlert } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { AlertCircle, AlertTriangle, Clock, Package, Loader2, ArrowUpRight, ChevronDown, PackageX, BadgeAlert, ClockArrowUp } from 'lucide-react';
+import {
+  AlertCircle,
+  Package,
+  PackageX,
+  BadgeAlert,
+  ClockArrowUp,
+  Loader2,
+  ChevronDown,
+  ArrowUpRight,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getLowStockAlerts, getOverdueInvoices, getPendingPayments } from '../actions';
-import Image from 'next/image';
-import { ImageZoom } from '@/components/ui/shadcn-io/image-zoom';
 
 interface AlertsSectionProps {
   outOfStockAlerts: OutOfStockAlert[];
@@ -23,7 +29,7 @@ interface AlertsSectionProps {
 export function AlertsSection({
   outOfStockAlerts: initialOutOfStock,
   overdueInvoices: initialOverdue,
-  pendingPayments: initialPending
+  pendingPayments: initialPending,
 }: AlertsSectionProps) {
   const [outOfStockAlerts, setOutOfStockAlerts] = useState(initialOutOfStock);
   const [overdueInvoices, setOverdueInvoices] = useState(initialOverdue);
@@ -37,11 +43,14 @@ export function AlertsSection({
   const [hasMoreOverdue, setHasMoreOverdue] = useState(initialOverdue.length === 5);
   const [hasMorePending, setHasMorePending] = useState(initialPending.length === 5);
 
+  const criticalCount = outOfStockAlerts.length + overdueInvoices.length;
+  const upcomingCount = pendingPayments.length;
+
   const loadMoreStock = async () => {
     setLoadingStock(true);
     try {
       const newAlerts = await getLowStockAlerts(5, outOfStockAlerts.length);
-      setOutOfStockAlerts([...outOfStockAlerts, ...newAlerts]);
+      setOutOfStockAlerts((prev) => [...prev, ...newAlerts]);
       setHasMoreStock(newAlerts.length === 5);
     } catch (error) {
       console.error('Error loading more stock alerts:', error);
@@ -54,7 +63,7 @@ export function AlertsSection({
     setLoadingOverdue(true);
     try {
       const newInvoices = await getOverdueInvoices(5, overdueInvoices.length);
-      setOverdueInvoices([...overdueInvoices, ...newInvoices]);
+      setOverdueInvoices((prev) => [...prev, ...newInvoices]);
       setHasMoreOverdue(newInvoices.length === 5);
     } catch (error) {
       console.error('Error loading more overdue invoices:', error);
@@ -67,7 +76,7 @@ export function AlertsSection({
     setLoadingPending(true);
     try {
       const newPayments = await getPendingPayments(5, pendingPayments.length);
-      setPendingPayments([...pendingPayments, ...newPayments]);
+      setPendingPayments((prev) => [...prev, ...newPayments]);
       setHasMorePending(newPayments.length === 5);
     } catch (error) {
       console.error('Error loading more pending payments:', error);
@@ -79,246 +88,239 @@ export function AlertsSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5" />
-          Alerts & Notifications
-        </CardTitle>
-        <CardDescription>Important items requiring attention</CardDescription>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Alerts
+            </CardTitle>
+            <CardDescription>Inventory, invoices, and upcoming payments that need your attention.</CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant={criticalCount > 0 ? 'destructive' : 'secondary'}>
+              {criticalCount} critical
+            </Badge>
+            <Badge variant={upcomingCount > 0 ? 'outline' : 'secondary'}>
+              {upcomingCount} upcoming
+            </Badge>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="out-of-stock">
-          <TabsList className="flex overflow-x-auto whitespace-nowrap gap-2 p-1 rounded-md">
-            <TabsTrigger value="out-of-stock">
-              <PackageX className="text-red-500 max-sm:size-6" />
-              <span className="max-sm:sr-only">Out of Stock </span>{outOfStockAlerts.length > 0 && <div className="size-2 bg-orange-500 rounded-full" />}
-            </TabsTrigger>
-            <TabsTrigger value="overdue">
-              <BadgeAlert className="text-orange-500 max-sm:size-6" />
-              <span className="max-sm:sr-only">Overdue</span> {overdueInvoices.length > 0 && <div className="size-2 bg-orange-500 rounded-full" />}
-            </TabsTrigger>
-            <TabsTrigger value="pending">
-              <ClockArrowUp className="text-destructive max-sm:size-6"/>
-              <span className="max-sm:sr-only">Pending</span> {pendingPayments.length > 0 && <div className="size-2 bg-orange-500 rounded-full" />}
-            </TabsTrigger>
-          </TabsList>
+        <div className="grid gap-4 md:grid-cols-3">
+          {/* Out of stock */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <PackageX className="h-4 w-4 text-red-500" />
+                <span>Out of stock</span>
+              </div>
+              {outOfStockAlerts.length > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {outOfStockAlerts.length}
+                </Badge>
+              )}
+            </div>
 
-          {/* Out of Stock */}
-          <TabsContent value="out-of-stock" className="mt-4">
             {outOfStockAlerts.length > 0 ? (
-              <div className="space-y-3">
-                <ScrollArea className="h-[300px] sm:h-[400px] pr-4">
-                  <div className="space-y-3">
-                    {outOfStockAlerts.map(alert => (
-                      <div
-                        key={alert.id}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3"
-                      >
-                        <div className="flex flex-wrap items-center gap-3 min-w-0">
-                          {alert.image ? (
-                            <ImageZoom>
-                              <Image
-                                src={alert.image}
-                                alt={alert.productName}
-                                width={100}
-                                height={100}
-                                className="h-10 w-10 sm:h-12 sm:w-12 rounded-md"
-                              />
-                            </ImageZoom>
-                          ) : (
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100 shrink-0">
-                              <Package className="h-5 w-5 text-red-600" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate text-wrap">{alert.productName}</div>
-                            <div className="text-xs text-muted-foreground font-mono">{alert.sku}</div>
-                          </div>
-                        </div>
-                        <div className="text-right sm:text-right sm:w-full">
-                          <Badge variant="destructive" className="font-semibold">
-                            Out of Stock
-                          </Badge>
+              <div className="space-y-2">
+                {outOfStockAlerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className="rounded-md border bg-muted/40 px-3 py-2 text-xs"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{alert.productName}</div>
+                        <div className="text-muted-foreground font-mono truncate">
+                          {alert.sku}
                         </div>
                       </div>
-                    ))}
+                      <Package className="h-4 w-4 text-red-500 shrink-0" />
+                    </div>
                   </div>
-                </ScrollArea>
-
-                <div className="flex flex-col items-center gap-2">
-                  {hasMoreStock && (
-                    <Button
-                      variant="outline"
-                      className="w-full sm:max-w-sm"
-                      onClick={loadMoreStock}
-                      disabled={loadingStock}
-                    >
-                      {loadingStock ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
-                        </>
-                      ) : (
-                        'Load More'
-                      )}
-                      <ChevronDown />
-                    </Button>
-                  )}
-
-                  <Button className="w-full sm:max-w-sm" asChild>
-                    <Link href="/inventory">
-                      View All Inventory
-                      <ArrowUpRight />
-                    </Link>
+                ))}
+                {hasMoreStock && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-center text-xs"
+                    onClick={loadMoreStock}
+                    disabled={loadingStock}
+                  >
+                    {loadingStock ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      <>
+                        Load more
+                        <ChevronDown className="ml-1 h-3 w-3" />
+                      </>
+                    )}
                   </Button>
-                </div>
+                )}
+                <Button variant="link" className="px-0 text-xs" asChild>
+                  <Link href="/inventory">
+                    View all inventory
+                    <ArrowUpRight className="ml-1 h-3 w-3" />
+                  </Link>
+                </Button>
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No out of stock items</p>
-              </div>
+              <p className="text-xs text-muted-foreground py-4">
+                No products are currently out of stock.
+              </p>
             )}
-          </TabsContent>
+          </div>
 
-          {/* Overdue */}
-          <TabsContent value="overdue" className="mt-4">
+          {/* Overdue invoices */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <BadgeAlert className="h-4 w-4 text-orange-500" />
+                <span>Overdue invoices</span>
+              </div>
+              {overdueInvoices.length > 0 && (
+                <Badge variant="destructive" className="text-xs">
+                  {overdueInvoices.length}
+                </Badge>
+              )}
+            </div>
+
             {overdueInvoices.length > 0 ? (
-              <div className="space-y-3">
-                <ScrollArea className="h-[300px] sm:h-[400px] pr-4">
-                  <div className="space-y-3">
-                    {overdueInvoices.map(invoice => (
-                      <Link
-                        key={invoice.id}
-                        href={`/invoices/${invoice.id}`}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-100 shrink-0">
-                            <AlertTriangle className="h-5 w-5 text-orange-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{invoice.customerName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {invoice.invoiceNumber} • Due: {formatDate(new Date(invoice.dueDate))}
-                            </div>
-                          </div>
+              <div className="space-y-2">
+                {overdueInvoices.map((invoice) => (
+                  <Link
+                    key={invoice.id}
+                    href={`/invoices/${invoice.id}`}
+                    className="block rounded-md border bg-muted/40 px-3 py-2 text-xs hover:bg-accent/60 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{invoice.customerName}</div>
+                        <div className="text-muted-foreground truncate">
+                          {invoice.invoiceNumber} · Due {formatDate(new Date(invoice.dueDate))}
                         </div>
-
-                        <div className="text-right sm:text-right w-full sm:w-auto">
-                          <div className="font-semibold">{formatCurrency(invoice.amount)}</div>
-                          <Badge variant="destructive" className="text-xs mt-1">
-                            {invoice.daysOverdue}d overdue
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </ScrollArea>
-
-                <div className="flex flex-col items-center gap-2">
-                  {hasMoreOverdue && (
-                    <Button
-                      variant="outline"
-                      className="w-full sm:max-w-sm"
-                      onClick={loadMoreOverdue}
-                      disabled={loadingOverdue}
-                    >
-                      {loadingOverdue ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
-                        </>
-                      ) : (
-                        'Load More'
-                      )}
-                      <ChevronDown />
-                    </Button>
-                  )}
-
-                  <Button className="w-full sm:max-w-sm" asChild>
-                    <Link href="/invoices">
-                      View All Invoices
-                      <ArrowUpRight />
-                    </Link>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-semibold">{formatCurrency(invoice.amount)}</div>
+                        <Badge variant="destructive" className="mt-1 text-[10px]">
+                          {invoice.daysOverdue}d overdue
+                        </Badge>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {hasMoreOverdue && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-center text-xs"
+                    onClick={loadMoreOverdue}
+                    disabled={loadingOverdue}
+                  >
+                    {loadingOverdue ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      <>
+                        Load more
+                        <ChevronDown className="ml-1 h-3 w-3" />
+                      </>
+                    )}
                   </Button>
-                </div>
+                )}
+                <Button variant="link" className="px-0 text-xs" asChild>
+                  <Link href="/invoices">
+                    View all invoices
+                    <ArrowUpRight className="ml-1 h-3 w-3" />
+                  </Link>
+                </Button>
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No overdue invoices</p>
-              </div>
+              <p className="text-xs text-muted-foreground py-4">
+                No invoices are overdue right now.
+              </p>
             )}
-          </TabsContent>
+          </div>
 
-          {/* Pending Payments */}
-          <TabsContent value="pending" className="mt-4">
+          {/* Pending payments */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ClockArrowUp className="h-4 w-4 text-emerald-600" />
+                <span>Upcoming payments</span>
+              </div>
+              {pendingPayments.length > 0 && (
+                <Badge variant="outline" className="text-xs">
+                  {pendingPayments.length}
+                </Badge>
+              )}
+            </div>
+
             {pendingPayments.length > 0 ? (
-              <div className="space-y-3">
-                <ScrollArea className="h-[300px] sm:h-[400px] pr-4">
-                  <div className="space-y-3">
-                    {pendingPayments.map(payment => (
-                      <Link
-                        key={payment.id}
-                        href={`/invoices/${payment.id}`}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-amber-100 shrink-0">
-                            <Clock className="h-5 w-5 text-amber-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{payment.customerName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {payment.invoiceNumber} • Due: {formatDate(new Date(payment.dueDate))}
-                            </div>
-                          </div>
+              <div className="space-y-2">
+                {pendingPayments.map((payment) => (
+                  <Link
+                    key={payment.id}
+                    href={`/invoices/${payment.id}`}
+                    className="block rounded-md border bg-muted/40 px-3 py-2 text-xs hover:bg-accent/60 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{payment.customerName}</div>
+                        <div className="text-muted-foreground truncate">
+                          {payment.invoiceNumber} · Due {formatDate(new Date(payment.dueDate))}
                         </div>
-
-                        <div className="text-right sm:text-right w-full sm:w-auto">
-                          <div className="font-semibold">{formatCurrency(payment.amount)}</div>
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            {payment.daysUntilDue}d left
-                          </Badge>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </ScrollArea>
-
-                <div className="flex flex-col items-center gap-2">
-                  {hasMorePending && (
-                    <Button
-                      variant="outline"
-                      className="w-full sm:max-w-sm"
-                      onClick={loadMorePending}
-                      disabled={loadingPending}
-                    >
-                      {loadingPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
-                        </>
-                      ) : (
-                        'Load More'
-                      )}
-                      <ChevronDown />
-                    </Button>
-                  )}
-
-                  <Button className="w-full sm:max-w-sm" asChild>
-                    <Link href="/ledger">
-                      View Ledger
-                      <ArrowUpRight />
-                    </Link>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-semibold">{formatCurrency(payment.amount)}</div>
+                        <Badge variant="secondary" className="mt-1 text-[10px]">
+                          {payment.daysUntilDue}d left
+                        </Badge>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {hasMorePending && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-center text-xs"
+                    onClick={loadMorePending}
+                    disabled={loadingPending}
+                  >
+                    {loadingPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      <>
+                        Load more
+                        <ChevronDown className="ml-1 h-3 w-3" />
+                      </>
+                    )}
                   </Button>
-                </div>
+                )}
+                <Button variant="link" className="px-0 text-xs" asChild>
+                  <Link href="/ledger">
+                    View ledger
+                    <ArrowUpRight className="ml-1 h-3 w-3" />
+                  </Link>
+                </Button>
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No pending payments</p>
-              </div>
+              <p className="text-xs text-muted-foreground py-4">
+                No upcoming payments in the next few days.
+              </p>
             )}
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

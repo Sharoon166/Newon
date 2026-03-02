@@ -121,7 +121,7 @@ export interface LeanExpense {
   notes?: string;
   addedBy: string;
   addedByName?: string;
-  source: 'manual' | 'invoice';
+  source: 'manual' | 'invoice' | 'project';
   invoiceId?: string;
   invoiceNumber?: string;
   projectId?: string;
@@ -130,4 +130,14 @@ export interface LeanExpense {
   createdAt: Date | string;
   updatedAt: Date | string;
   __v?: number;
+  transactions?: Array<{
+    _id: Record<string, unknown>;
+    amount: number;
+    date: Date | string;
+    source: string;
+    addedBy: string;
+    addedByName?: string;
+    notes?: string;
+    createdAt: Date | string;
+  }>;
 }

@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import { Plus, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,6 @@ import { PageHeader } from '@/components/general/page-header';
 import { VirtualProductsTable } from '@/features/virtual-products/components/virtual-products-table';
 import { VirtualProductsCards } from '@/features/virtual-products/components/virtual-products-cards';
 import { getVirtualProducts } from '@/features/virtual-products/actions';
-import { getProducts } from '@/features/inventory/actions';
 
 export const metadata = {
   title: 'Virtual Products',
@@ -51,7 +49,7 @@ export default function VirtualProductsPage() {
     <div className="container mx-auto py-6 space-y-6">
       <PageHeader
         title="Virtual Products"
-        description="Create and manage virtual products composed of multiple inventory items"
+        description="Create and manage virtual products"
       >
         <Link href="/virtual-products/add">
           <Button>

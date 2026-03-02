@@ -4,13 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardMetrics } from '../types';
 import { formatCurrency } from '@/lib/utils';
 import {
-  Package,
+  Boxes,
   TrendingUp,
   TrendingDown,
   ShoppingCart,
   Wallet,
   Coins,
-  BarChart3
+  BarChart3,
 } from 'lucide-react';
 
 interface MetricsCardsProps {
@@ -19,26 +19,28 @@ interface MetricsCardsProps {
 
 export function MetricsCards({ metrics }: MetricsCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3  max-w-6xl">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
-          <Package className="h-6 w-6 text-blue-600" />
+          <CardTitle className="text-sm font-medium">Inventory value</CardTitle>
+          <Boxes className="h-6 w-6 text-blue-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{metrics.totalStock.toLocaleString()}</div>
-          <p className="text-xs text-muted-foreground mt-1">Value: {formatCurrency(metrics.totalStockValue)}</p>
+          <div className="text-2xl font-bold">{formatCurrency(metrics.totalStockValue)}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {metrics.totalStock.toLocaleString()} units in stock
+          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Daily Sales</CardTitle>
+          <CardTitle className="text-sm font-medium">Today&apos;s revenue</CardTitle>
           <BarChart3 className="h-6 w-6 text-green-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(metrics.dailySales)}</div>
-          <p className="text-xs text-muted-foreground mt-1">Today&apos;s revenue</p>
+          <p className="text-xs text-muted-foreground mt-1">Compared to yesterday</p>
           {metrics.dailySalesTrend !== 0 && (
             <div className={`flex items-center gap-1 mt-1 text-xs ${metrics.dailySalesTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
               {metrics.dailySalesTrend > 0 ? (
@@ -54,12 +56,12 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Monthly Sales</CardTitle>
+          <CardTitle className="text-sm font-medium">Month-to-date revenue</CardTitle>
           <ShoppingCart className="h-6 w-6 text-purple-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(metrics.monthlySales)}</div>
-          <p className="text-xs text-muted-foreground mt-1">This month&apos;s revenue</p>
+          <p className="text-xs text-muted-foreground mt-1">This month so far</p>
           {metrics.monthlySalesTrend !== 0 && (
             <div className={`flex items-center gap-1 mt-1 text-xs ${metrics.monthlySalesTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
               {metrics.monthlySalesTrend > 0 ? (
@@ -75,24 +77,26 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-          <Coins className="h-6 w-6 text-emerald-600" />
+          <CardTitle className="text-sm font-medium">Outstanding payments</CardTitle>
+          <Wallet className="h-6 w-6 text-amber-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</div>
-          <p className="text-xs text-muted-foreground mt-1">All time revenue</p>
+          <div className="text-2xl font-bold">{formatCurrency(metrics.pendingPayments)}</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {metrics.pendingPaymentsCount} open invoice{metrics.pendingPaymentsCount === 1 ? '' : 's'}
+          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+          <CardTitle className="text-sm font-medium">Net profit</CardTitle>
           <TrendingUp className={`h-6 w-6 ${metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(metrics.netProfit)}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            Profit: {formatCurrency(metrics.monthlyProfit)} - Expenses: {formatCurrency(metrics.monthlyExpenses)}
+            Profit: {formatCurrency(metrics.monthlyProfit)} · Expenses: {formatCurrency(metrics.monthlyExpenses)}
           </p>
           {metrics.netProfitTrend !== 0 && (
             <div className={`flex items-center gap-1 mt-1 text-xs ${metrics.netProfitTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -109,12 +113,12 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-          <Wallet className="h-6 w-6 text-amber-600" />
+          <CardTitle className="text-sm font-medium">All-time revenue</CardTitle>
+          <Coins className="h-6 w-6 text-emerald-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(metrics.pendingPayments)}</div>
-          <p className="text-xs text-muted-foreground mt-1">{metrics.pendingPaymentsCount} invoices</p>
+          <div className="text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</div>
+          <p className="text-xs text-muted-foreground mt-1">Historical total</p>
         </CardContent>
       </Card>
     </div>

@@ -1,44 +1,18 @@
-import { Suspense } from 'react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+
+import { PageHeader } from '@/components/general/page-header';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getDashboardData } from '@/features/dashboard/actions';
 import { MetricsCards } from '@/features/dashboard/components/metrics-cards';
 import { SalesChart } from '@/features/dashboard/components/sales-chart';
 import { ProfitChart } from '@/features/dashboard/components/profit-chart';
 import { AlertsSection } from '@/features/dashboard/components/alerts-section';
 import { getSession } from '@/lib/auth-utils';
-import { redirect } from 'next/navigation';
-import { LayoutDashboard } from 'lucide-react';
-import { PageHeader } from '@/components/general/page-header';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export const dynamic = 'force-dynamic';
-
-function ChartSkeleton() {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-48" />
-          </div>
-          <Skeleton className="h-10 w-40" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-[300px] w-full" />
-        <div className="grid md:grid-cols-3 gap-4 pt-4 mt-4 border-t">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="text-center space-y-2">
-              <Skeleton className="h-3 w-24 mx-auto" />
-              <Skeleton className="h-6 w-32 mx-auto" />
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 async function DashboardCharts() {
   const {
@@ -78,28 +52,47 @@ export default async function DashboardPage() {
   }
 
   const { metrics } = await getDashboardData();
+  const firstName = session?.user.name?.split(' ')[0] ?? 'Admin';
 
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={<LayoutDashboard className="size-8" />}
         title="Dashboard"
-        description="Welcome back!"
-      />
+        description={`Welcome back, ${firstName}. Here’s how your business is doing today.`}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm">
+            <Link href="/invoices/new">New invoice</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/inventory/add">Add product</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/expenses">Log expense</Link>
+          </Button>
+        </div>
+      </PageHeader>
 
-      <MetricsCards metrics={metrics} />
+      <section aria-labelledby="dashboard-metrics">
+        <h2 id="dashboard-metrics" className="sr-only">
+          Key metrics
+        </h2>
+        <MetricsCards metrics={metrics} />
+      </section>
 
-      <div className="grid gap-6">
-        <Suspense fallback={<><ChartSkeleton /><ChartSkeleton /></>}>
-          <DashboardCharts />
-        </Suspense>
-      </div>
+      <section aria-labelledby="dashboard-charts" className='space-y-6'>
+        <h2 id="dashboard-charts" className="sr-only">
+          Sales and profit trends
+        </h2>
+        <DashboardCharts />
+      </section>
 
-      <div className="grid gap-6">
-        <Suspense fallback={<ChartSkeleton />}>
-          <DashboardAlerts />
-        </Suspense>
-      </div>
+      <section aria-labelledby="dashboard-alerts" className="grid gap-6">
+        <h2 id="dashboard-alerts" className="sr-only">
+          Alerts and tasks
+        </h2>
+        <DashboardAlerts />
+      </section>
     </div>
   );
 }
