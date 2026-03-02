@@ -1,9 +1,10 @@
 import { Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/general/page-header';
-import { getExpenses, getExpenseKPIs, getInvoiceExpenses } from '@/features/expenses/actions';
+import { getExpenses, getExpenseKPIs, getInvoiceExpenses, getProjectExpenses } from '@/features/expenses/actions';
 import { ExpensesPageClient } from '@/features/expenses/components/expenses-page-client';
 import { requireAuth } from '@/lib/auth-utils';
 import { ExpenseKPIsComponent } from '@/features/expenses/components/expense-kpis';
+import { ExpenseCategory } from '@/features/expenses/types';
 
 export default async function ExpensesPage({
   searchParams
@@ -14,6 +15,8 @@ export default async function ExpensesPage({
     dateFrom?: string;
     dateTo?: string;
     tab?: string;
+    search?: string;
+    category?: string;
   }>;
 }) {
   const session = await requireAuth();
@@ -21,13 +24,16 @@ export default async function ExpensesPage({
 
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 20;
+  const search = params.search;
+  const category = params.category as ExpenseCategory;
 
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
   const dateTo = params.dateTo ? new Date(params.dateTo) : undefined;
 
-  const [expensesResult, invoiceExpensesResult, kpis] = await Promise.all([
-    getExpenses({ page, limit, dateFrom, dateTo }),
-    getInvoiceExpenses({ page, limit, dateFrom, dateTo }),
+  const [expensesResult, invoiceExpensesResult, projectExpensesResult, kpis] = await Promise.all([
+    getExpenses({ page, limit, dateFrom, dateTo, search, category }),
+    getInvoiceExpenses({ page, limit, dateFrom, dateTo, search, category }),
+    getProjectExpenses({ page, limit, dateFrom, dateTo, search, category }),
     getExpenseKPIs({ dateFrom, dateTo })
   ]);
 
@@ -44,6 +50,7 @@ export default async function ExpensesPage({
       <ExpensesPageClient
         expensesData={expensesResult}
         invoiceExpensesData={invoiceExpensesResult}
+        projectExpensesData={projectExpensesResult}
         userId={session.user.id}
         activeTab={params.tab}
       />

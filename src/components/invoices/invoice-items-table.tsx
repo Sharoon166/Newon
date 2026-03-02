@@ -54,7 +54,6 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
         <TableHeader>
           <TableRow>
             <TableHead className="w-[50px]"></TableHead>
-            <TableHead >Sr.</TableHead>
             <TableHead>Product</TableHead>
             <TableHead className="text-right">Quantity</TableHead>
             <TableHead className="text-right">Unit Price</TableHead>
@@ -77,9 +76,6 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                   )}
                 </TableCell>
                 <TableCell>
-                    {(index+1)}.
-                </TableCell>
-                <TableCell>
                   <div>
                     <div className="font-medium">{item.productName}</div>
                     <div className="flex items-center gap-2 mt-1">
@@ -99,16 +95,29 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                   {formatCurrency(item.unitPrice)}
 
                   <div className="text-muted-foreground text-xs">
-                    Original: {formatCurrency(
+                    Original:{' '}
+                    {formatCurrency(
                       item.customExpenses && item.customExpenses.length > 0
                         ? item.totalCustomExpenses || 0
                         : item.isVirtualProduct && (item.totalComponentCost || 0) > 0
-                        ? item.totalComponentCost || 0
-                        : item.originalRate ?? 0
+                          ? item.totalComponentCost || 0
+                          : (item.originalRate ?? 0)
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-semibold">{formatCurrency(item.totalPrice)}</TableCell>
+                <TableCell className="text-right font-semibold">
+                  {formatCurrency(item.totalPrice)}
+                  <div className="text-muted-foreground text-xs font-medium">
+                    Original:{' '}
+                    {formatCurrency(
+                      item.customExpenses && item.customExpenses.length > 0
+                        ? (item.totalCustomExpenses || 0) * item.quantity
+                        : item.isVirtualProduct && (item.totalComponentCost || 0) > 0
+                          ? (item.totalComponentCost || 0) * item.quantity
+                          : (item.originalRate ?? 0) * item.quantity
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
               {item.isVirtualProduct && expandedItems.has(index) && (
                 <TableRow>
@@ -239,18 +248,16 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                 </TableRow>
               )}
               <TableRow>
-                <TableCell colSpan={4} className="text-right text-lg font-bold">
+                <TableCell colSpan={4} className="text-right font-bold">
                   Total:
                 </TableCell>
-                <TableCell className="text-right text-lg font-bold">{formatCurrency(invoice.totalAmount)}</TableCell>
+                <TableCell className="text-right font-bold">{formatCurrency(invoice.totalAmount)}</TableCell>
               </TableRow>
               <TableRow className="bg-green-50">
-                <TableCell colSpan={4} className="text-right text-lg font-bold text-green-700">
+                <TableCell colSpan={4} className="text-right font-bold text-green-700">
                   Profit:
                 </TableCell>
-                <TableCell className="text-right text-lg font-bold text-green-700">
-                  {formatCurrency(profit)}
-                </TableCell>
+                <TableCell className="text-right font-bold text-green-700">{formatCurrency(profit)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>

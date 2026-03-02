@@ -482,6 +482,7 @@ const invoiceSchema = new Schema<IInvoice>(
 
 // Indexes for better query performance
 invoiceSchema.index({ type: 1, status: 1 });
+invoiceSchema.index({ type: 1, status: 1, date: 1 });
 invoiceSchema.index({ customerId: 1, date: -1 });
 invoiceSchema.index({ date: -1 });
 invoiceSchema.index({ market: 1, billingType: 1 });

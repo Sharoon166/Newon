@@ -1,8 +1,6 @@
 import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
 import { getProducts } from '@/features/inventory/actions';
-import { formatCurrency } from '@/lib/utils';
-import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
 
 export const dynamic = 'force-dynamic';

@@ -15,12 +15,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProjectDetails } from '@/features/projects/components/project-details';
 import { ProjectExpensesSection } from '@/features/projects/components/project-expenses-section';
 import { ProjectActions } from '@/features/projects/components/project-actions';
-import { ProjectInvoicesList } from '@/features/projects/components/project-invoices-list';
 import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ProjectAuditLogs } from '@/features/projects/components/project-audit-logs';
-import { Package, Receipt, Activity } from 'lucide-react';
+import { Package, Receipt, Activity, FileText, ExternalLink, Banknote } from 'lucide-react';
 import { PageHeader } from '@/components/general/page-header';
+import StaffFinances from '@/features/projects/components/staff-finances';
 
 interface ProjectPageProps {
   params: Promise<{
@@ -65,101 +65,113 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
     const { id: userId, name: userName = 'unknown', role: userRole } = session.user;
 
     return (
-        <div className="space-y-8">
-          <PageHeader title={project.title} description={`Project ID: ${project.projectId}`}>
-            <ProjectActions
-              projectId={projectId}
-              projectTitle={project.title}
-              projectStatus={project.status}
-              canEdit={permissions.canEdit}
-              canCancel={permissions.canCancel}
-              userRole={userRole}
-            />
-          </PageHeader>
-
-          {/* Executive Header */}
-          <div className="bg-white pb-6">
-            <p className="text-base text-gray-600 max-w-[80ch] line-clamp-3">{project.description}</p>
-          </div>
-
-          {/* Project Details Grid */}
-          <ProjectDetails
-            project={project}
-            customer={customer}
-            canViewBudget={permissions.canViewBudget}
-            projectInvoice={projectInvoice}
+      <div className="space-y-8">
+        <PageHeader title={project.title} description={`Project ID: ${project.projectId}`}>
+          <ProjectActions
+            projectId={projectId}
+            projectTitle={project.title}
+            projectStatus={project.status}
+            canEdit={permissions.canEdit}
+            canCancel={permissions.canCancel}
+            userRole={userRole}
           />
+        </PageHeader>
 
-          {/* Project Invoices - Admin Only */}
-          {permissions.canViewProjectInvoices && projectInvoices.length > 0 && (
-            <ProjectInvoicesList invoices={projectInvoices} />
+        {/* Executive Header */}
+        <div className="bg-white pb-6">
+          <p className="text-base text-gray-600 max-w-[80ch] line-clamp-3">{project.description}</p>
+        </div>
+
+        {/* Project Details Grid */}
+        <ProjectDetails
+          project={project}
+          customer={customer}
+          canViewBudget={permissions.canViewBudget}
+          canViewProjectInvoice={permissions.canViewProjectInvoices}
+          projectInvoice={projectInvoice}
+        />
+
+        {/* Invoice Items & Expenses & Activity Section */}
+        <Tabs defaultValue={permissions.canViewInvoiceItems ? 'invoice-items' : 'expenses'} className="space-y-4">
+          <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
+            {permissions.canViewBudget && (
+              <TabsTrigger value="staff-payments" className="gap-2">
+                <Banknote className="h-4 w-4" />
+                Staff Payments
+              </TabsTrigger>
+            )}
+            {permissions.canViewInvoiceItems && (
+              <TabsTrigger value="invoice-items" className="gap-2">
+                <Package className="h-4 w-4" />
+                Invoice Items ({projectInvoice?.items.length || 0})
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="expenses" className="gap-2">
+              <Receipt className="h-4 w-4" />
+              Expenses ({enrichedExpenses.length})
+            </TabsTrigger>
+            {permissions.canViewAuditLogs && (
+              <TabsTrigger value="activity" className="gap-2">
+                <Activity className="h-4 w-4" />
+                Activity ({auditLogs.length})
+              </TabsTrigger>
+            )}
+          </TabsList>
+          {permissions.canViewBudget && project.projectId && (
+            <TabsContent value="staff-payments">
+              <StaffFinances projectId={project.projectId} />
+            </TabsContent>
           )}
 
-          {/* Invoice Items & Expenses & Activity Section */}
-          <Tabs defaultValue={permissions.canViewInvoiceItems ? 'invoice-items' : 'expenses'} className="space-y-4">
-            <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
-              {permissions.canViewInvoiceItems && (
-                <TabsTrigger value="invoice-items" className="gap-2">
-                  <Package className="h-4 w-4" />
-                  Invoice Items ({projectInvoice?.items.length || 0})
-                </TabsTrigger>
-              )}
-              <TabsTrigger value="expenses" className="gap-2">
-                <Receipt className="h-4 w-4" />
-                Expenses ({enrichedExpenses.length})
-              </TabsTrigger>
-              {permissions.canViewAuditLogs && (
-                <TabsTrigger value="activity" className="gap-2">
-                  <Activity className="h-4 w-4" />
-                  Activity ({auditLogs.length})
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            {permissions.canViewInvoiceItems && (
-              <TabsContent value="invoice-items">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Invoice Items</h3>
-                  {!projectInvoice || projectInvoice.items.length === 0 ? (
-                    <div className="text-center py-16">
-                      <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-sm text-muted-foreground">No invoice items found</p>
-                    </div>
-                  ) : (
-                    <InvoiceItemsTable invoice={projectInvoice} showTotals />
-                  )}
+          {permissions.canViewInvoiceItems && (
+            <TabsContent value="invoice-items">
+              <div className="space-y-4 pt-6">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold">Invoice Items</h3>
+                  <p className="text-sm text-muted-foreground">
+                    This section shows all items present with the project{`'`}s invoice
+                  </p>
                 </div>
-              </TabsContent>
-            )}
+                {!projectInvoice || projectInvoice.items.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                    <p className="text-sm text-muted-foreground">No invoice items found</p>
+                  </div>
+                ) : (
+                  <InvoiceItemsTable invoice={projectInvoice} showTotals />
+                )}
+              </div>
+            </TabsContent>
+          )}
 
-            <TabsContent value="expenses">
-              <ProjectExpensesSection
-                enrichedExpenses={enrichedExpenses}
-                projectId={projectId}
-                projectStatus={project.status}
-                userId={userId}
-                userRole={userRole}
-                canEdit={permissions.canEdit}
-                canAddExpense={permissions.canAddExpense}
+          <TabsContent value="expenses">
+            <ProjectExpensesSection
+              enrichedExpenses={enrichedExpenses}
+              projectId={projectId}
+              projectStatus={project.status}
+              userId={userId}
+              userRole={userRole}
+              canEdit={permissions.canEdit}
+              canAddExpense={permissions.canAddExpense}
+            />
+          </TabsContent>
+
+          {permissions.canViewAuditLogs && (
+            <TabsContent value="activity">
+              <ProjectAuditLogs
+                logs={auditLogs}
+                users={[
+                  ...project.assignedStaff.map(staffId => ({
+                    id: staffId,
+                    name: enrichedExpenses.find(e => e.addedBy === staffId)?.addedByName || 'Unknown'
+                  })),
+                  { id: userId, name: userName }
+                ].filter((user, index, self) => index === self.findIndex(u => u.id === user.id))}
               />
             </TabsContent>
-
-            {permissions.canViewAuditLogs && (
-              <TabsContent value="activity">
-                <ProjectAuditLogs
-                  logs={auditLogs}
-                  users={[
-                    ...project.assignedStaff.map(staffId => ({
-                      id: staffId,
-                      name: enrichedExpenses.find(e => e.addedBy === staffId)?.addedByName || 'Unknown'
-                    })),
-                    { id: userId, name: userName }
-                  ].filter((user, index, self) => index === self.findIndex(u => u.id === user.id))}
-                />
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
+          )}
+        </Tabs>
+      </div>
     );
   } catch {
     redirect('/projects');

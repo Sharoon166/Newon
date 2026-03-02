@@ -115,7 +115,7 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
   return (
     <Card>
       <CardHeader className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col flex-wrap sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle className="text-base">Sales performance</CardTitle>
             <CardDescription>Revenue tracking and analysis</CardDescription>

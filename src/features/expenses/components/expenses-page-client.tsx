@@ -25,6 +25,7 @@ import {
 interface ExpensesPageClientProps {
   expensesData: PaginatedExpenses;
   invoiceExpensesData: PaginatedExpenses;
+  projectExpensesData: PaginatedExpenses;
   userId: string;
   activeTab?: string;
 }
@@ -32,6 +33,7 @@ interface ExpensesPageClientProps {
 export function ExpensesPageClient({
   expensesData,
   invoiceExpensesData,
+  projectExpensesData,
   userId,
   activeTab
 }: ExpensesPageClientProps) {
@@ -51,7 +53,7 @@ export function ExpensesPageClient({
     setCurrentTab(value);
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', value);
-    params.delete('page'); // Reset to page 1 when switching tabs
+    params.set('page', '1'); // Reset to page 1 when switching tabs
     router.push(`/expenses?${params.toString()}`, { scroll: false });
   };
 
@@ -102,14 +104,17 @@ export function ExpensesPageClient({
 
   return (
     <>
+    <div className="flex justify-end">
+      <ExpenseFilter />
+    </div>
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="flex flex-wrap gap-y-4 justify-between items-center">
           <TabsList>
             <TabsTrigger value="expenses">Expenses ({expensesData.totalDocs})</TabsTrigger>
+            <TabsTrigger value="project-expenses">Project Expenses ({projectExpensesData.totalDocs})</TabsTrigger>
             <TabsTrigger value="invoice-expenses">Invoice Expenses ({invoiceExpensesData.totalDocs})</TabsTrigger>
           </TabsList>
           <div className="flex flex-wrap items-center gap-2">
-            <ExpenseFilter />
             <Button className="grow" onClick={() => setIsFormOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add Expense
@@ -124,26 +129,27 @@ export function ExpensesPageClient({
               {expensesData.totalDocs} expense{expensesData.totalDocs !== 1 ? 's' : ''} found
             </p>
           </div>
-          <ExpenseTable 
-            expensesData={expensesData}
-            onEdit={handleEdit} 
-            onDelete={handleDelete} 
-          />
+          <ExpenseTable mode="manual" expensesData={expensesData} onEdit={handleEdit} onDelete={handleDelete} />
+        </TabsContent>
+
+        <TabsContent value="project-expenses" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-medium">Project Expenses</h2>
+            <p className="text-sm text-muted-foreground">
+              {projectExpensesData.totalDocs} expense{projectExpensesData.totalDocs !== 1 ? 's' : ''} from projects
+            </p>
+          </div>
+          <ExpenseTable mode="project" expensesData={projectExpensesData} onEdit={handleEdit} onDelete={handleDelete} />
         </TabsContent>
 
         <TabsContent value="invoice-expenses" className="space-y-4">
           <div>
             <h2 className="text-lg font-medium">Invoice Expenses</h2>
             <p className="text-sm text-muted-foreground">
-              {invoiceExpensesData.totalDocs} expense{invoiceExpensesData.totalDocs !== 1 ? 's' : ''} from
-              invoices
+              {invoiceExpensesData.totalDocs} expense{invoiceExpensesData.totalDocs !== 1 ? 's' : ''} from invoices
             </p>
           </div>
-          <ExpenseTable 
-            expensesData={invoiceExpensesData}
-            onEdit={handleEdit} 
-            onDelete={handleDelete} 
-          />
+          <ExpenseTable mode="invoice" expensesData={invoiceExpensesData} onEdit={handleEdit} onDelete={handleDelete} />
         </TabsContent>
       </Tabs>
 

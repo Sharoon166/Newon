@@ -177,9 +177,12 @@ export function ProjectAuditLogs({ logs, users }: ProjectAuditLogsProps) {
   const actionTypes = Array.from(new Set(logs.map(log => log.action)));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4  pt-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <h3 className="text-lg font-semibold">Activity Log</h3>
+        <div className="space-y-1">
+          <h3 className="text-xl font-semibold">Activity Log</h3>
+          <p className="text-sm text-muted-foreground">View and manage all project audit logs</p>
+        </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Select value={selectedUser} onValueChange={setSelectedUser}>
             <SelectTrigger className="w-full sm:w-[180px]">
@@ -218,7 +221,7 @@ export function ProjectAuditLogs({ logs, users }: ProjectAuditLogsProps) {
         </div>
       ) : (
         <>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg p-4">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map(headerGroup => (

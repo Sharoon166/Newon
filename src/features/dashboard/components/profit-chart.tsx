@@ -3,13 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ProfitTrendData } from '../types';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -30,21 +24,21 @@ const chartConfig = {
     label: 'Profit',
     theme: {
       light: 'var(--chart-1)',
-      dark: 'var(--chart-1)',
+      dark: 'var(--chart-1)'
     }
   },
   expenses: {
     label: 'Expenses',
     theme: {
       light: 'var(--destructive)',
-      dark: 'var(--destructive)',
+      dark: 'var(--destructive)'
     }
   }
 } satisfies ChartConfig;
 
 function ProfitTooltip({
   active,
-  payload,
+  payload
 }: {
   active?: boolean;
   payload?: Array<{ name?: string; value?: number; color?: string; payload?: { fullDate?: string } }>;
@@ -53,16 +47,11 @@ function ProfitTooltip({
   const fullDate = payload[0]?.payload?.fullDate;
 
   const rows = payload
-    .filter((p) => typeof p.value === 'number')
-    .map((p) => {
+    .filter(p => typeof p.value === 'number')
+    .map(p => {
       const key = (p.name ?? '').toLowerCase();
-      const label = key === 'profit' ? 'Profit' : key === 'expenses' ? 'Expenses' : p.name ?? 'Value';
-      const color =
-        key === 'profit'
-          ? 'var(--color-profit)'
-          : key === 'expenses'
-            ? 'var(--color-expenses)'
-            : p.color;
+      const label = key === 'profit' ? 'Profit' : key === 'expenses' ? 'Expenses' : (p.name ?? 'Value');
+      const color = key === 'profit' ? 'var(--color-profit)' : key === 'expenses' ? 'var(--color-expenses)' : p.color;
 
       return { label, value: p.value ?? 0, color };
     });
@@ -71,14 +60,10 @@ function ProfitTooltip({
     <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
       <div className="mb-1 text-muted-foreground">{fullDate ?? 'Profit & expenses'}</div>
       <div className="grid gap-1.5">
-        {rows.map((row) => (
+        {rows.map(row => (
           <div key={row.label} className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <span
-                className="h-2 w-2 rounded-[2px]"
-                style={{ backgroundColor: row.color }}
-                aria-hidden
-              />
+              <span className="h-2 w-2 rounded-[2px]" style={{ backgroundColor: row.color }} aria-hidden />
               <span className="text-muted-foreground">{row.label}</span>
             </div>
             <span className="font-mono font-medium tabular-nums text-foreground">{formatCurrency(row.value)}</span>
@@ -148,7 +133,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
   return (
     <Card>
       <CardHeader className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle className="text-base">Profit analysis</CardTitle>
             <CardDescription>Financial performance tracking</CardDescription>
@@ -160,7 +145,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
                 { value: '7' as const, label: '7 days', disabled: false },
                 { value: '30' as const, label: '30 days', disabled: !data30Days },
                 { value: 'monthly' as const, label: '12 months', disabled: !dataMonthly },
-                { value: 'custom' as const, label: 'Custom', disabled: false },
+                { value: 'custom' as const, label: 'Custom', disabled: false }
               ].map(({ value, label, disabled }) => (
                 <button
                   key={value}
@@ -168,12 +153,12 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
                   onClick={() => setPeriod(value)}
                   disabled={disabled}
                   className={cn(
-                    "inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
+                    'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer',
                     period === value
-                      ? "bg-secondary text-secondary-foreground shadow-sm"
+                      ? 'bg-secondary text-secondary-foreground shadow-sm'
                       : disabled
-                      ? "bg-muted/20 text-muted-foreground/50 cursor-not-allowed"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted/80"
+                        ? 'bg-muted/20 text-muted-foreground/50 cursor-not-allowed'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
                   )}
                 >
                   {label}
@@ -249,7 +234,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
                   axisLine={false}
                   tickMargin={10}
                   width={84}
-                  tickFormatter={(value) => formatCurrency(value as number)}
+                  tickFormatter={value => formatCurrency(value as number)}
                   fontSize={12}
                   tick={{ fill: '#6b7280' }}
                 />
@@ -294,14 +279,12 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
 
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Net profit</div>
-                <div
-                  className={`text-lg font-medium ${
-                    totalNetProfit >= 0 ? 'text-foreground' : 'text-destructive'
-                  }`}
-                >
+                <div className={`text-lg font-medium ${totalNetProfit >= 0 ? 'text-foreground' : 'text-destructive'}`}>
                   {formatCurrency(totalNetProfit)}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">{totalNetProfit >= 0 ? 'Positive result' : 'Negative result'}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {totalNetProfit >= 0 ? 'Positive result' : 'Negative result'}
+                </div>
               </div>
             </div>
           </div>

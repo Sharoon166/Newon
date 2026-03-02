@@ -51,6 +51,16 @@ export interface Expense {
   clientCost?: number;
   createdAt: Date | string;
   updatedAt: Date | string;
+  transactions?: Array<{
+    id?: string;
+    amount: number;
+    date: Date | string;
+    source: string;
+    addedBy?: string;
+    addedByName?: string;
+    notes?: string;
+    createdAt?: Date | string;
+  }>;
 }
 
 export interface CreateExpenseDto {
@@ -85,6 +95,7 @@ export interface ExpenseFilters {
   dateTo?: Date;
   page?: number;
   limit?: number;
+  source?: 'manual' | 'invoice' | 'project';
 }
 
 export interface PaginatedExpenses {

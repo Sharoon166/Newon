@@ -94,7 +94,9 @@ export async function getExpenses(filters?: ExpenseFilters): Promise<PaginatedEx
   try {
     await dbConnect();
 
-    const query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {
+      source: filters?.source || 'manual'
+    };
 
     if (filters?.search) {
       query.$or = [
@@ -297,26 +299,104 @@ export async function getExpenseKPIs(filters?: { dateFrom?: Date; dateTo?: Date 
     const [totalResult, dailyResult, yesterdayResult, categoryResult, countResult] =
       await Promise.all([
         ExpenseModel.aggregate([
-          ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
-          { $group: { _id: null, total: { $sum: '$amount' } } }
+          { $match: { ...(Object.keys(dateFilter).length > 0 ? dateFilter : {}) } },
+          {
+            $addFields: {
+              paidTx: {
+                $reduce: {
+                  input: { $ifNull: ['$transactions', []] },
+                  initialValue: 0,
+                  in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: {
+                $sum: {
+                  $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+                }
+              }
+            }
+          }
         ]),
         ExpenseModel.aggregate([
           { $match: { date: { $gte: startOfDay, $lte: endOfDay }, ...dateFilter } },
-          { $group: { _id: null, total: { $sum: '$amount' } } }
+          {
+            $addFields: {
+              paidTx: {
+                $reduce: {
+                  input: { $ifNull: ['$transactions', []] },
+                  initialValue: 0,
+                  in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: {
+                $sum: {
+                  $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+                }
+              }
+            }
+          }
         ]),
         ExpenseModel.aggregate([
           { $match: { date: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
-          { $group: { _id: null, total: { $sum: '$amount' } } }
+          {
+            $addFields: {
+              paidTx: {
+                $reduce: {
+                  input: { $ifNull: ['$transactions', []] },
+                  initialValue: 0,
+                  in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: {
+                $sum: {
+                  $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+                }
+              }
+            }
+          }
         ]),
         ExpenseModel.aggregate([
-          ...(Object.keys(dateFilter).length > 0 ? [{ $match: dateFilter }] : []),
-          { $group: { _id: '$category', total: { $sum: '$amount' } } },
+          { $match: { ...(Object.keys(dateFilter).length > 0 ? dateFilter : {}) } },
+          {
+            $addFields: {
+              paidTx: {
+                $reduce: {
+                  input: { $ifNull: ['$transactions', []] },
+                  initialValue: 0,
+                  in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: '$category',
+              total: {
+                $sum: {
+                  $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+                }
+              }
+            }
+          },
           { $sort: { total: -1 } },
           { $limit: 1 }
         ]),
-        Object.keys(dateFilter).length > 0 
-          ? ExpenseModel.countDocuments(dateFilter)
-          : ExpenseModel.countDocuments()
+        ExpenseModel.countDocuments({ ...dateFilter })
       ]);
 
     const dailyExpenses = dailyResult[0]?.total || 0;
@@ -360,9 +440,22 @@ export async function getTotalExpensesForPeriod(startDate: Date, endDate: Date):
         }
       },
       {
+        $addFields: {
+          paidTx: {
+            $reduce: {
+              input: { $ifNull: ['$transactions', []] },
+              initialValue: 0,
+              in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+            }
+          }
+        }
+      },
+      {
         $group: {
           _id: null,
-          total: { $sum: '$amount' }
+          total: {
+            $sum: { $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }] }
+          }
         }
       }
     ]);
@@ -540,5 +633,65 @@ export async function getInvoiceExpenses(filters?: ExpenseFilters): Promise<Pagi
   } catch (error) {
     console.error('Error fetching invoice expenses:', error);
     throw new Error('Failed to fetch invoice expenses');
+  }
+}
+
+export async function getProjectExpenses(filters?: ExpenseFilters): Promise<PaginatedExpenses> {
+  try {
+    await dbConnect();
+
+    const query: Record<string, unknown> = { source: 'project' };
+
+    if (filters?.search) {
+      query.$or = [
+        { description: { $regex: filters.search, $options: 'i' } },
+        { projectId: { $regex: filters.search, $options: 'i' } },
+        { notes: { $regex: filters.search, $options: 'i' } }
+      ];
+    }
+
+    if (filters?.category) {
+      query.category = filters.category;
+    }
+
+    if (filters?.dateFrom || filters?.dateTo) {
+      const dateQuery: Record<string, Date> = {};
+      if (filters.dateFrom) {
+        dateQuery.$gte = filters.dateFrom;
+      }
+      if (filters.dateTo) {
+        dateQuery.$lte = filters.dateTo;
+      }
+      query.date = dateQuery;
+    }
+
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 10;
+
+    const result = await ExpenseModel.paginate(query, {
+      page,
+      limit,
+      sort: { date: -1, createdAt: -1 },
+      lean: true
+    });
+
+    const transformedExpenses = result.docs.map((expense: unknown) =>
+      transformLeanExpense(expense as LeanExpense)
+    );
+
+    return {
+      docs: transformedExpenses,
+      totalDocs: result.totalDocs,
+      limit: result.limit,
+      page: result.page || 1,
+      totalPages: result.totalPages,
+      hasNextPage: result.hasNextPage || false,
+      hasPrevPage: result.hasPrevPage || false,
+      nextPage: result.nextPage || null,
+      prevPage: result.prevPage || null
+    };
+  } catch (error) {
+    console.error('Error fetching project expenses:', error);
+    throw new Error('Failed to fetch project expenses');
   }
 }

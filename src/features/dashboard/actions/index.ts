@@ -1,6 +1,5 @@
 'use server';
 
-
 import { startOfDay, endOfDay, startOfMonth, subDays, differenceInDays, addDays, format } from 'date-fns';
 import dbConnect from '@/lib/db';
 import InvoiceModel from '@/models/Invoice';
@@ -29,124 +28,258 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
     const monthStart = startOfMonth(now);
-    
+
     // Previous periods for trends
     const yesterdayStart = startOfDay(subDays(now, 1));
     const yesterdayEnd = endOfDay(subDays(now, 1));
     const lastMonthStart = startOfMonth(subMonths(now, 1));
     const lastMonthEnd = endOfDay(subDays(monthStart, 1));
 
+    const [
+      stockData,
+      dailySalesData,
+      monthlySalesData,
+      totalRevenueData,
+      pendingPaymentsData,
+      monthlyProfitData,
+      monthlyExpensesData
+    ] = await Promise.all([
+      PurchaseModel.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalStock: { $sum: '$remaining' },
+            totalStockValue: { $sum: { $multiply: ['$remaining', '$unitPrice'] } }
+          }
+        }
+      ]),
+
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' },
+            date: { $gte: todayStart, $lte: todayEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$totalAmount' }
+          }
+        }
+      ]),
+
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' },
+            date: { $gte: monthStart }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$totalAmount' }
+          }
+        }
+      ]),
+
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$totalAmount' }
+          }
+        }
+      ]),
+
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $in: ['pending', 'partial'] }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$balanceAmount' },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+
+      InvoiceModel.aggregate([
+        {
+          $match: {
+            type: 'invoice',
+            status: { $ne: 'cancelled' },
+            date: { $gte: monthStart },
+            profit: { $exists: true }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$profit' }
+          }
+        }
+      ]),
+
+      ExpenseModel.aggregate([
+        { $match: { date: { $gte: monthStart } } },
+        {
+          $addFields: {
+            paidTx: {
+              $reduce: {
+                input: { $ifNull: ['$transactions', []] },
+                initialValue: 0,
+                in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: {
+                $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+              }
+            }
+          }
+        }
+      ])
+    ]);
     // Get total stock and value from purchases
-    const stockData = await PurchaseModel.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalStock: { $sum: '$remaining' },
-          totalStockValue: { $sum: { $multiply: ['$remaining', '$unitPrice'] } }
-        }
-      }
-    ]);
+    // const stockData = await PurchaseModel.aggregate([
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       totalStock: { $sum: '$remaining' },
+    //       totalStockValue: { $sum: { $multiply: ['$remaining', '$unitPrice'] } }
+    //     }
+    //   }
+    // ]);
 
-    // Get daily sales (today's invoices)
-    const dailySalesData = await InvoiceModel.aggregate([
-      {
-        $match: {
-          type: 'invoice',
-          status: { $ne: 'cancelled' },
-          date: { $gte: todayStart, $lte: todayEnd }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$totalAmount' }
-        }
-      }
-    ]);
+    // // Get daily sales (today's invoices)
+    // const dailySalesData = await InvoiceModel.aggregate([
+    //   {
+    //     $match: {
+    //       type: 'invoice',
+    //       status: { $ne: 'cancelled' },
+    //       date: { $gte: todayStart, $lte: todayEnd }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       total: { $sum: '$totalAmount' }
+    //     }
+    //   }
+    // ]);
 
-    // Get monthly sales
-    const monthlySalesData = await InvoiceModel.aggregate([
-      {
-        $match: {
-          type: 'invoice',
-          status: { $ne: 'cancelled' },
-          date: { $gte: monthStart }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$totalAmount' }
-        }
-      }
-    ]);
+    // // Get monthly sales
+    // const monthlySalesData = await InvoiceModel.aggregate([
+    //   {
+    //     $match: {
+    //       type: 'invoice',
+    //       status: { $ne: 'cancelled' },
+    //       date: { $gte: monthStart }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       total: { $sum: '$totalAmount' }
+    //     }
+    //   }
+    // ]);
 
-    // Get total revenue (all time)
-    const totalRevenueData = await InvoiceModel.aggregate([
-      {
-        $match: {
-          type: 'invoice',
-          status: { $ne: 'cancelled' }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$totalAmount' }
-        }
-      }
-    ]);
+    // // Get total revenue (all time)
+    // const totalRevenueData = await InvoiceModel.aggregate([
+    //   {
+    //     $match: {
+    //       type: 'invoice',
+    //       status: { $ne: 'cancelled' }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       total: { $sum: '$totalAmount' }
+    //     }
+    //   }
+    // ]);
 
-    // Get pending payments
-    const pendingPaymentsData = await InvoiceModel.aggregate([
-      {
-        $match: {
-          type: 'invoice',
-          status: { $in: ['pending', 'partial'] }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$balanceAmount' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    // // Get pending payments
+    // const pendingPaymentsData = await InvoiceModel.aggregate([
+    //   {
+    //     $match: {
+    //       type: 'invoice',
+    //       status: { $in: ['pending', 'partial'] }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       total: { $sum: '$balanceAmount' },
+    //       count: { $sum: 1 }
+    //     }
+    //   }
+    // ]);
 
-    // Get monthly profit (sum of profit fields from this month's invoices)
-    const monthlyProfitData = await InvoiceModel.aggregate([
-      {
-        $match: {
-          type: 'invoice',
-          status: { $ne: 'cancelled' },
-          date: { $gte: monthStart },
-          profit: { $exists: true }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$profit' }
-        }
-      }
-    ]);
+    // // Get monthly profit (sum of profit fields from this month's invoices)
+    // const monthlyProfitData = await InvoiceModel.aggregate([
+    //   {
+    //     $match: {
+    //       type: 'invoice',
+    //       status: { $ne: 'cancelled' },
+    //       date: { $gte: monthStart },
+    //       profit: { $exists: true }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       total: { $sum: '$profit' }
+    //     }
+    //   }
+    // ]);
 
-    // Get monthly expenses (excluding invoice-sourced expenses to avoid double counting)
-    const monthlyExpensesData = await ExpenseModel.aggregate([
-      {
-        $match: {
-          date: { $gte: monthStart },
-          source: { $ne: 'invoice' }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$amount' }
-        }
-      }
-    ]);
+    // // Get monthly expenses (include all expenses like expenses page)
+    // const monthlyExpensesData = await ExpenseModel.aggregate([
+    //   { $match: { date: { $gte: monthStart } } },
+    //   {
+    //     $addFields: {
+    //       paidTx: {
+    //         $reduce: {
+    //           input: { $ifNull: ['$transactions', []] },
+    //           initialValue: 0,
+    //           in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+    //         }
+    //       }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       total: {
+    //         $sum: {
+    //           $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+    //         }
+    //       }
+    //     }
+    //   }
+    // ]);
 
     // Previous period data for trends
     const [yesterdaySalesData, lastMonthSalesData, lastMonthProfitData, lastMonthExpensesData] = await Promise.all([
@@ -203,13 +336,38 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
             source: { $ne: 'invoice' }
           }
         },
+        { $unwind: { path: '$transactions', preserveNullAndEmptyArrays: true } },
         {
           $group: {
             _id: null,
-            total: { $sum: '$amount' }
+            total: { $sum: { $ifNull: ['$transactions.amount', 0] } }
           }
         }
       ])
+      // ExpenseModel.aggregate([
+      //   { $match: {date: { $gte: lastMonthStart, $lte: lastMonthEnd },} },
+      //   {
+      //     $addFields: {
+      //       paidTx: {
+      //         $reduce: {
+      //           input: { $ifNull: ['$transactions', []] },
+      //           initialValue: 0,
+      //           in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+      //         }
+      //       }
+      //     }
+      //   },
+      //   {
+      //     $group: {
+      //       _id: null,
+      //       total: {
+      //         $sum: {
+      //           $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+      //         }
+      //       }
+      //     }
+      //   }
+      // ])
     ]);
 
     const dailySales = dailySalesData[0]?.total || 0;
@@ -384,7 +542,7 @@ export async function getSalesTrendByDateRange(startDate: Date, endDate: Date): 
     // Fill in missing dates with zero values
     const data: SalesTrendData[] = [];
     const daysDiff = differenceInDays(end, start);
-    
+
     for (let i = 0; i <= daysDiff; i++) {
       const date = addDays(start, i);
       const dateStr = format(date, 'yyyy-MM-dd');
@@ -506,11 +664,37 @@ export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[
       }
     ]);
 
-    // Get expenses data grouped by date
+    // Get expenses data grouped by date (include all expenses like expenses page)
+    // const expensesData = await ExpenseModel.aggregate([
+    //   {
+    //     $match: {
+    //       date: { $gte: startDate, $lte: todayEnd }
+    //     }
+    //   },
+    //   {
+    //     $group: {
+    //       _id: {
+    //         $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
+    //       },
+    //       expenses: { $sum: '$amount' }
+    //     }
+    //   },
+    //   {
+    //     $sort: { _id: 1 }
+    //   }
+    // ]);
+
     const expensesData = await ExpenseModel.aggregate([
+      { $match: { date: { $gte: startDate, $lte: todayEnd } } },
       {
-        $match: {
-          date: { $gte: startDate, $lte: todayEnd }
+        $addFields: {
+          paidTx: {
+            $reduce: {
+              input: { $ifNull: ['$transactions', []] },
+              initialValue: 0,
+              in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+            }
+          }
         }
       },
       {
@@ -518,7 +702,11 @@ export async function getProfitTrend(days: number = 7): Promise<ProfitTrendData[
           _id: {
             $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: 'UTC' }
           },
-          expenses: { $sum: '$amount' }
+          expenses: {
+            $sum: {
+              $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+            }
+          }
         }
       },
       {
@@ -600,12 +788,11 @@ export async function getProfitTrendByDateRange(startDate: Date, endDate: Date):
       }
     ]);
 
-    // Get expenses data grouped by date (excluding invoice-sourced to avoid double counting)
+    // Get expenses data grouped by date (include all expenses like expenses page)
     const expensesData = await ExpenseModel.aggregate([
       {
         $match: {
-          date: { $gte: start, $lte: end },
-          source: { $ne: 'invoice' }
+          date: { $gte: start, $lte: end }
         }
       },
       {
@@ -638,7 +825,7 @@ export async function getProfitTrendByDateRange(startDate: Date, endDate: Date):
     // Fill in missing dates with zero values
     const data: ProfitTrendData[] = [];
     const daysDiff = differenceInDays(end, start);
-    
+
     for (let i = 0; i <= daysDiff; i++) {
       const date = addDays(start, i);
       const dateStr = format(date, 'yyyy-MM-dd');
@@ -697,12 +884,11 @@ export async function getMonthlyProfitTrend(): Promise<ProfitTrendData[]> {
       }
     ]);
 
-    // Get expenses data grouped by month (excluding invoice-sourced to avoid double counting)
+    // Get expenses data grouped by month (include all expenses like expenses page)
     const expensesData = await ExpenseModel.aggregate([
       {
         $match: {
-          date: { $gte: startDate },
-          source: { $ne: 'invoice' }
+          date: { $gte: startDate }
         }
       },
       {

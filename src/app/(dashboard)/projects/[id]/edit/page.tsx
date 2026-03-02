@@ -30,7 +30,6 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
     redirect('/not-allowed');
   }
 
-  const canViewBudget = userHasPermission(session, 'view:budget');
 
   try {
     const [project, staffMembers, invoicesResult] = await Promise.all([

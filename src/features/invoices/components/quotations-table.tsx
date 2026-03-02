@@ -50,7 +50,6 @@ import { format } from 'date-fns';
 import { updateInvoiceStatus } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { UpdateStatusDialog } from './update-status-dialog';
-import { EditInvoiceDialog } from './edit-invoice-dialog';
 import { toast } from 'sonner';
 import { printInvoicePDF } from '../utils/print-invoice';
 
@@ -66,7 +65,6 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
   const [globalFilter, setGlobalFilter] = useState('');
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<Invoice | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
@@ -306,7 +304,6 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
-                    // Quotations always navigate to edit page
                     router.push(`/invoices/${quotation.id}/edit`);
                   }}
                 >
@@ -478,13 +475,6 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
             invoiceId={selectedQuotation.id}
             currentStatus={selectedQuotation.status}
             type={selectedQuotation.type}
-            onSuccess={() => onRefresh?.()}
-          />
-
-          <EditInvoiceDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            invoice={selectedQuotation}
             onSuccess={() => onRefresh?.()}
           />
         </>

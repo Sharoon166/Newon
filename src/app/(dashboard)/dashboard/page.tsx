@@ -2,9 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { PageHeader } from '@/components/general/page-header';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { getDashboardData } from '@/features/dashboard/actions';
 import { MetricsCards } from '@/features/dashboard/components/metrics-cards';
 import { SalesChart } from '@/features/dashboard/components/sales-chart';

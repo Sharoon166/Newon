@@ -335,6 +335,15 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
     const newInvoice = new InvoiceModel(invoiceData);
     const savedInvoice = await newInvoice.save();
 
+    // Handle OTC customer payment status
+    if (savedInvoice.customerId === 'otc' && savedInvoice.type === 'invoice') {
+      // For OTC customers, automatically set paid amount to total and mark as paid
+      savedInvoice.paidAmount = savedInvoice.totalAmount;
+      savedInvoice.balanceAmount = 0;
+      savedInvoice.status = 'paid';
+      await savedInvoice.save();
+    }
+
     // Create ledger entry for invoice (only for actual invoices, not quotations)
     if (data.type === 'invoice') {
       try {
@@ -1034,6 +1043,15 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
 
     const newInvoice = new InvoiceModel(invoiceData);
     const savedInvoice = await newInvoice.save();
+
+    // Handle OTC customer payment status
+    if (savedInvoice.customerId === 'otc' && savedInvoice.type === 'invoice') {
+      // For OTC customers, automatically set paid amount to total and mark as paid
+      savedInvoice.paidAmount = savedInvoice.totalAmount;
+      savedInvoice.balanceAmount = 0;
+      savedInvoice.status = 'paid';
+      await savedInvoice.save();
+    }
 
     // Deduct stock from purchases
     if (savedInvoice.items.length > 0) {
@@ -1837,6 +1855,15 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
             `Invoice updated but stock re-deduction failed: ${(stockError as Error).message}. Please manually deduct stock.`
           );
         }
+      }
+
+      // Step 3: Handle OTC customer payment status
+      if (updatedInvoice.customerId === 'otc' && updatedInvoice.type === 'invoice') {
+        // For OTC customers, automatically set paid amount to total and mark as paid
+        updatedInvoice.paidAmount = updatedInvoice.totalAmount;
+        updatedInvoice.balanceAmount = 0;
+        updatedInvoice.status = 'paid';
+        await updatedInvoice.save();
       }
 
       // Update ledger entry if this is an invoice and total amount changed

@@ -284,7 +284,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
         // If no location specified, add to the first available location or create a default one
         if (inventory.length > 0) {
           const firstLocation = inventory[0];
-          const oldStock = firstLocation.availableStock;
           firstLocation.availableStock += data.quantity;
         } else {
           // Create a default inventory entry

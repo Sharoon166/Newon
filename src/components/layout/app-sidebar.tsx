@@ -257,7 +257,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           currentBrand.id === 'newon' ? 'bg-accent' : 'hover:bg-accent'
                         )}
                       >
-                        <img
+                        <Image
+                          unoptimized
                           height={50}
                           width={50}
                           src={brands[0].logo ?? '/logo.png'}
@@ -286,7 +287,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           currentBrand.id === 'waymor' ? 'bg-accent' : 'hover:bg-accent'
                         )}
                       >
-                        <img
+                        <Image
+                          unoptimized
                           height={50}
                           width={50}
                           src={brands[1].logo ?? '/logo.png'}

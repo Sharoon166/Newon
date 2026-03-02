@@ -14,16 +14,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, Pencil, Search, Filter, Trash2 } from 'lucide-react';
+import { ArrowUpDown, Pencil, Search, Filter, Trash2, CheckCircle2, Clock } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ServerPagination } from '@/components/general/server-pagination';
 import type { Expense, ExpenseCategory, PaginatedExpenses } from '../types';
+import Link from 'next/link';
 
 interface ExpenseTableProps {
   expensesData: PaginatedExpenses;
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  mode?: 'manual' | 'project' | 'invoice';
 }
 
 type CategoryFilter = 'all' | ExpenseCategory;
@@ -46,7 +49,7 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   other: 'Other'
 };
 
-export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTableProps) {
+export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }: ExpenseTableProps) {
   const data = expensesData.docs;
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -99,12 +102,67 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <div className="text-right font-medium text-red-600">
-          {formatCurrency(row.original.amount)}
-        </div>
-      )
+      cell: ({ row }) => {
+        const totalAmount = row.original.amount;
+        const paidAmount =
+          mode === 'invoice' || mode === 'manual'
+            ? totalAmount
+            : (row.original.transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0);
+        const isFullyPaid = paidAmount >= totalAmount && totalAmount > 0;
+
+        if (mode === 'invoice' || mode === 'manual') {
+          return <div className="text-right font-medium">{formatCurrency(totalAmount)}</div>;
+        }
+
+        return (
+          <div className="space-y-1 text-right">
+            <div className="text-sm text-muted-foreground line-through decoration-muted-foreground/50">
+              {formatCurrency(totalAmount)}
+            </div>
+            <div className={`font-bold ${isFullyPaid ? 'text-green-600' : 'text-amber-600'}`}>
+              {formatCurrency(paidAmount)}
+            </div>
+          </div>
+        );
+      }
     },
+    ...(mode === 'project'
+      ? [
+          {
+            id: 'status',
+            header: 'Status',
+            cell: ({ row }: { row: { original: Expense } }) => {
+              const totalAmount = row.original.amount;
+              const paidAmount = (row.original.transactions || []).reduce(
+                (sum, t) => sum + (t.amount || 0),
+                0
+              );
+              if (paidAmount >= totalAmount && totalAmount > 0) {
+                return (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Paid
+                  </Badge>
+                );
+              }
+              if (paidAmount > 0) {
+                return (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                    <Clock className="h-3 w-3" />
+                    Partial
+                  </Badge>
+                );
+              }
+              return (
+                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 gap-1">
+                  <Clock className="h-3 w-3" />
+                  Pending
+                </Badge>
+              );
+            }
+          } as ColumnDef<Expense>
+        ]
+      : []),
     {
       accessorKey: 'source',
       header: 'Source',
@@ -113,12 +171,12 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
         if (expense.source === 'invoice' && expense.invoiceNumber) {
           return (
             <div className="space-y-1">
-              <a 
+              <Link 
                 href={`/invoices?search=${expense.invoiceNumber}`}
                 className="text-sm text-primary hover:underline block"
               >
                 {expense.invoiceNumber}
-              </a>
+              </Link>
             </div>
           );
         }
@@ -127,12 +185,9 @@ export function ExpenseTable({ expensesData, onEdit, onDelete }: ExpenseTablePro
           return (
             <div className="space-y-1">
               {expense.projectId && (
-                <a
-                  href={`/projects/${expense.projectId}`}
-                  className="text-xs text-muted-foreground hover:underline block"
-                >
-                  Project: {expense.projectId}
-                </a>
+                <Link href={`/projects/${expense.projectId}`} className="text-sm text-primary hover:underline block">
+                  {expense.projectId}
+                </Link>
               )}
             </div>
           );

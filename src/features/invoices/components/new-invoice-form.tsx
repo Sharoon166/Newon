@@ -297,11 +297,19 @@ export function NewInvoiceForm({
 
   // Set selected customer from initialData
   useEffect(() => {
-    if (initialData?.customerId && customers.length > 0) {
-      const customer = customers.find(c => c.customerId === initialData.customerId || c.id === initialData.customerId);
-      if (customer) {
-        setSelectedCustomer(customer);
+    if (initialData?.customerId) {
+      // Check if this is an OTC customer
+      if (initialData.customerId === 'otc') {
+        setIsOtcCustomer(true);
+        setSelectedCustomer(OTC_CUSTOMER as Customer);
         setIsToOpen(false); // Close the customer selector since we have a customer
+      } else if (customers.length > 0) {
+        const customer = customers.find(c => c.customerId === initialData.customerId || c.id === initialData.customerId);
+        if (customer) {
+          setSelectedCustomer(customer);
+          setIsOtcCustomer(false);
+          setIsToOpen(false); // Close the customer selector since we have a customer
+        }
       }
     }
   }, [initialData?.customerId, customers]);

@@ -21,7 +21,7 @@ import InvoiceModel from '@/models/Invoice';
 import Staff from '@/models/Staff';
 import Customer from '@/models/Customer';
 import ExpenseModel from '@/models/Expense';
-import { ExpenseCategory } from '@/features/expenses/types';
+import { ExpenseCategory, LeanExpense } from '@/features/expenses/types';
 
 // Helper function to transform lean project to Project type
 function transformLeanProject(leanDoc: LeanProject): Project {
@@ -52,11 +52,15 @@ async function calculateVirtuals(leanDoc: LeanProject): Promise<LeanProject> {
     const expenses = await ExpenseModel.find({
       projectId: leanDoc.projectId,
       source: 'project'
-    }).lean();
+    }).lean() as unknown as LeanExpense[];
 
-    // Sum up the total amounts (original amounts, not just what's paid)
+    // Sum up the total amounts from transactions (cash flow)
     totalExpenses = expenses.reduce((sum, expense) => {
-      return sum + (expense.amount || 0);
+      const transactionSum = (expense.transactions || []).reduce(
+        (tSum: number, t) => tSum + (t.amount || 0),
+        0
+      );
+      return sum + transactionSum;
     }, 0);
   }
 
@@ -77,9 +81,14 @@ async function calculateVirtuals(leanDoc: LeanProject): Promise<LeanProject> {
             const itemCost = componentCost + customExpensesCost;
             return sum + itemCost;
           }
-          // For regular products, use originalRate * quantity (actual cost) instead of client price
-          const actualCost = (item.originalRate || item.unitPrice) * item.quantity;
-          return sum + actualCost;
+          // For regular products, consider ONLY inventory items (must have a variantId).
+          // Exclude manual items (e.g., productId: 'manual-entry' or 'custom-item') which have no variantId.
+          if (item.variantId) {
+            const actualCost = (item.originalRate || item.unitPrice) * item.quantity;
+            return sum + actualCost;
+          }
+          // Ignore manual/non-inventory items
+          return sum;
         }, 0);
 
         return invoiceSum + invoiceItemsCost;
@@ -197,7 +206,18 @@ export async function getProjects(
                   $reduce: {
                     input: '$projectExpenses',
                     initialValue: 0,
-                    in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+                    in: {
+                      $add: [
+                        '$$value',
+                        {
+                          $reduce: {
+                            input: { $ifNull: ['$$this.transactions', []] },
+                            initialValue: 0,
+                            in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+                          }
+                        }
+                      ]
+                    }
                   }
                 },
                 totalInventoryCost: {
@@ -215,9 +235,9 @@ export async function getProjects(
                               $add: [
                                 '$$value',
                                 {
-                                  $cond: [
-                                    '$$this.isVirtualProduct',
-                                    {
+                                  $cond: {
+                                    if: '$$this.isVirtualProduct',
+                                    then: {
                                       $add: [
                                         { $ifNull: ['$$this.totalComponentCost', 0] },
                                         {
@@ -229,13 +249,26 @@ export async function getProjects(
                                         }
                                       ]
                                     },
-                                    {
-                                      $multiply: [
-                                        { $ifNull: ['$$this.originalRate', { $ifNull: ['$$this.unitPrice', 0] }] },
-                                        { $ifNull: ['$$this.quantity', 0] }
-                                      ]
+                                    else: {
+                                      $cond: {
+                                        // Include only inventory items: variantId present (non-empty)
+                                        if: {
+                                          $gt: [
+                                            { $strLenCP: { $ifNull: ['$$this.variantId', ''] } },
+                                            0
+                                          ]
+                                        },
+                                        then: {
+                                          $multiply: [
+                                            { $ifNull: ['$$this.originalRate', { $ifNull: ['$$this.unitPrice', 0] }] },
+                                            { $ifNull: ['$$this.quantity', 0] }
+                                          ]
+                                        },
+                                        // Exclude manual items (no variantId)
+                                        else: 0
+                                      }
                                     }
-                                  ]
+                                  }
                                 }
                               ]
                             }
@@ -392,9 +425,9 @@ export async function createProject(data: CreateProjectDto): Promise<Project> {
       .select('firstName lastName')
       .session(session)
       .lean()) as {
-      firstName: string;
-      lastName: string;
-    } | null;
+        firstName: string;
+        lastName: string;
+      } | null;
     const userName = staff ? `${staff.firstName} ${staff.lastName}` : 'System';
 
     if (savedProject.projectId) {
@@ -527,6 +560,134 @@ export async function linkInvoiceToProject(
     throw new Error((error as Error).message || 'Failed to link invoice to project');
   } finally {
     if (!parentSession) session.endSession();
+  }
+}
+
+// ============================================
+// STAFF FINANCES AGGREGATION (PER PROJECT)
+// ============================================
+export interface StaffFinanceSummary {
+  staffId: string;
+  staffName: string;
+  email?: string;
+  expenseCount: number;
+  totalAmount: number;
+  totalPaid: number;
+  remaining: number; // yet to be paid
+}
+
+// Interface for aggregation result
+interface StaffFinanceAggregationResult {
+  _id: string;
+  staff: Array<{
+    firstName: string;
+    lastName: string;
+    email: string;
+  }>;
+  staffName: string;
+  email: string | undefined;
+  expenseCount: number;
+  totalAmount: number;
+  totalPaid: number;
+  remaining: number;
+}
+
+export async function getProjectStaffFinances(projectId: string): Promise<StaffFinanceSummary[]> {
+  try {
+    await dbConnect();
+
+    const pipeline: mongoose.PipelineStage[] = [
+      {
+        $match: {
+          projectId,
+          source: 'project'
+        }
+      },
+      // Safely compute totalPaid for each expense
+      {
+        $addFields: {
+          totalPaidForExpense: {
+            $reduce: {
+              input: { $ifNull: ['$transactions', []] },
+              initialValue: 0,
+              in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$addedBy',
+          expenseCount: { $sum: 1 },
+          totalAmount: { $sum: { $ifNull: ['$amount', 0] } },
+          totalPaid: { $sum: '$totalPaidForExpense' }
+        }
+      },
+      {
+        $addFields: {
+          remaining: { $max: [{ $subtract: ['$totalAmount', '$totalPaid'] }, 0] }
+        }
+      },
+      // Lookup staff details
+      {
+        $lookup: {
+          from: 'staffs',
+          let: { staffId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: [{ $toString: '$_id' }, '$$staffId'] }
+              }
+            },
+            { $project: { firstName: 1, lastName: 1, email: 1 } }
+          ],
+          as: 'staff'
+        }
+      },
+      {
+        $addFields: {
+          staffName: {
+            $cond: [
+              { $gt: [{ $size: '$staff' }, 0] },
+              {
+                $trim: {
+                  input: {
+                    $concat: [
+                      { $ifNull: [{ $arrayElemAt: ['$staff.firstName', 0] }, ''] },
+                      ' ',
+                      { $ifNull: [{ $arrayElemAt: ['$staff.lastName', 0] }, ''] }
+                    ]
+                  }
+                }
+              },
+              'Unknown'
+            ]
+          },
+          email: { $ifNull: [{ $arrayElemAt: ['$staff.email', 0] }, undefined] }
+        }
+      },
+      {
+        $project: {
+          staff: 0
+        }
+      },
+      { $sort: { remaining: -1, totalAmount: -1 } }
+    ];
+
+    const results = await ExpenseModel.aggregate(pipeline);
+
+    return results.map((r: StaffFinanceAggregationResult) => ({
+      staffId: String(r._id),
+      staffName: r.staffName as string,
+      email: r.email as string | undefined,
+      expenseCount: r.expenseCount as number,
+      totalAmount: r.totalAmount as number,
+      totalPaid: r.totalPaid as number,
+      remaining: r.remaining as number
+    }));
+  } catch (error) {
+    console.error('Error aggregating project staff finances:', error);
+    throw new Error('Failed to aggregate staff finances for project');
   }
 }
 
@@ -926,16 +1087,16 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
       transactions:
         userRole === 'admin'
           ? [
-              {
-                amount: data.amount,
-                date: data.date,
-                source: 'cash', // Default source for auto-pay
-                notes: 'Automatically paid (Admin addition)',
-                addedBy: data.addedBy,
-                addedByName,
-                createdAt: new Date()
-              }
-            ]
+            {
+              amount: data.amount,
+              date: data.date,
+              source: 'cash', // Default source for auto-pay
+              notes: 'Automatically paid (Admin addition)',
+              addedBy: data.addedBy,
+              addedByName,
+              createdAt: new Date()
+            }
+          ]
           : []
     };
 
@@ -957,7 +1118,7 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
       userId: data.addedBy,
       userName: addedByName,
       userRole: data.addedByRole,
-      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)} (pending payment)`,
+      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)} ${data.addedByRole == "admin" ? "(along with payment)" : "(pending payment)"}`,
       metadata: {
         expenseId: savedExpense.expenseId,
         amount: data.amount,

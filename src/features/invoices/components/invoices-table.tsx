@@ -37,10 +37,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MoreHorizontal } from 'lucide-react';
-import type { DateRange } from 'react-day-picker';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AddPaymentDialog } from './add-payment-dialog';
-import { EditInvoiceDialog } from './edit-invoice-dialog';
 import {
   useReactTable,
   getCoreRowModel,
@@ -66,7 +64,6 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
   const searchParams = useSearchParams();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
@@ -399,14 +396,7 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
                   <>
                     <DropdownMenuItem
                       onClick={() => {
-                        // For quotations and draft invoices, navigate to edit page
-                        if (invoice.type === 'quotation' || invoice.status === 'draft') {
-                          router.push(`/invoices/${invoice.id}/edit`);
-                        } else {
-                          // For paid/partial/pending invoices, use dialog
-                          setSelectedInvoice(invoice);
-                          setEditDialogOpen(true);
-                        }
+                        router.push(`/invoices/${invoice.id}/edit`);
                       }}
                     >
                       <Edit className="h-4 w-4 mr-2" />
@@ -588,13 +578,6 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
             onOpenChange={setPaymentDialogOpen}
             invoiceId={selectedInvoice.id}
             balanceAmount={selectedInvoice.balanceAmount}
-            onSuccess={handleRefresh}
-          />
-
-          <EditInvoiceDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            invoice={selectedInvoice}
             onSuccess={handleRefresh}
           />
         </>

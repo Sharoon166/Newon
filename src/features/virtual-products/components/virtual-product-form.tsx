@@ -272,7 +272,7 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Base Price <span className="text-destructive">*</span>
+                    Base Selling Price <span className="text-destructive">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input

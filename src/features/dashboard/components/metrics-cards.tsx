@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardMetrics } from '../types';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import {
   Boxes,
   TrendingUp,
@@ -94,7 +94,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
           <TrendingUp className={`h-6 w-6 ${metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatCurrency(metrics.netProfit)}</div>
+          <div className={cn("text-2xl font-bold", metrics.netProfitTrend > 0 ? 'text-green-600' : 'text-red-600')}>{formatCurrency(metrics.netProfit)}</div>
           <p className="text-xs text-muted-foreground mt-1">
             Profit: {formatCurrency(metrics.monthlyProfit)} · Expenses: {formatCurrency(metrics.monthlyExpenses)}
           </p>
