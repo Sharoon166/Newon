@@ -15,7 +15,8 @@ import {
   RefreshCw,
   ArrowUpRight,
   Info,
-  Download
+  Download,
+  Copyright
 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import { AddPaymentDialog } from '@/features/invoices/components/add-payment-dia
 import { UpdateStatusDialog } from '@/features/invoices/components/update-status-dialog';
 import { PaymentsList } from '@/features/invoices/components/payments-list';
 import { NewonInvoiceTemplate } from '@/features/invoices/components/invoice-template';
+import { DeliveryNoteTemplate } from '@/features/invoices/components/delivery-note-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
 import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
@@ -42,9 +44,11 @@ export default function InvoiceDetailPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [isDeliveryNoteOpen, setIsDeliveryNoteOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [productImages, setProductImages] = useState<Map<string, string>>(new Map());
   const printRef = useRef<HTMLDivElement>(null);
+  const deliveryNoteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (params.id) {
@@ -139,12 +143,42 @@ export default function InvoiceDetailPage() {
     `
   });
 
+  const handleDeliveryNotePrint = useReactToPrint({
+    contentRef: deliveryNoteRef,
+    preserveAfterPrint: true,
+    documentTitle: `Delivery-Note-${invoice?.invoiceNumber}.pdf`,
+    pageStyle: `
+      @page {
+        size: A4;
+        margin: 18mm;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .print\\:hidden {
+          display: none !important;
+        }
+      }
+    `
+  });
+
   const handlePrint = () => {
     // Open preview sheet first
     setIsPrintPreviewOpen(true);
     // Then trigger print after a short delay to ensure sheet is rendered
     setTimeout(() => {
       handleReactToPrint();
+    }, 300);
+  };
+
+  const handleDeliveryNote = () => {
+    // Open delivery note preview
+    setIsDeliveryNoteOpen(true);
+    // Then trigger print after a short delay to ensure sheet is rendered
+    setTimeout(() => {
+      handleDeliveryNotePrint();
     }, 300);
   };
 
@@ -314,20 +348,12 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-          {/* Edit button - Navigate to edit page for all non-project invoices */}
-          {invoice.projectId ? (
-            <Button variant="outline" disabled title="Project invoices cannot be edited from here">
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          ) : (
             <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
               <Link href={`/invoices/${invoice.id}/edit`}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
               </Link>
             </Button>
-          )}
           <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Update Status
@@ -356,9 +382,13 @@ export default function InvoiceDetailPage() {
               </Link>
             </Button>
           )}
-          <Button onClick={handlePrint}>
+          <Button variant="secondary" onClick={handlePrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print
+          </Button>
+          <Button variant="secondary" onClick={handleDeliveryNote}>
+            <Download className="h-4 w-4 mr-2" />
+            Delivery Note
           </Button>
           <Button hidden aria-hidden onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
             <Download className="h-4 w-4 mr-2" />
@@ -396,22 +426,7 @@ export default function InvoiceDetailPage() {
                   <CardTitle className="text-2xl flex items-center gap-2">
                     {invoice.invoiceNumber}
                     {invoice.custom && (
-                      <span className="text-amber-600" title="Custom Invoice">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 6v6l4 2" />
-                        </svg>
-                      </span>
+                      <Copyright className='text-primary'/>
                     )}
                   </CardTitle>
                   <div className="flex flex-wrap gap-2 mt-2 capitalize">
@@ -647,6 +662,46 @@ export default function InvoiceDetailPage() {
                 ref={printRef}
               />
             )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delivery Note Sheet */}
+      <Sheet open={isDeliveryNoteOpen} onOpenChange={setIsDeliveryNoteOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader className="pt-12 lg:pl-12">
+            <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
+              <Download /> Delivery Note Preview
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <DeliveryNoteTemplate
+              data={{
+                deliveryNoteNumber: invoice.invoiceNumber,
+                date: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+                orderNumber: invoice.invoiceNumber,
+                shippingDate: typeof invoice.date === 'string' ? invoice.date : invoice.date.toISOString(),
+                market: invoice.market,
+                client: {
+                  name: invoice.customerName,
+                  company: invoice.customerCompany,
+                  address: invoice.customerAddress,
+                  city: invoice.customerCity,
+                  state: invoice.customerState,
+                  zip: invoice.customerZip,
+                  phone: invoice.customerPhone || ''
+                },
+                items: invoice.items
+                  .filter(item => item.variantId || item.virtualProductId)
+                  .map(item => ({
+                    description: item.productName,
+                    quantity: item.quantity,
+                    variantSKU: item.variantSKU
+                  })),
+                company: COMPANY_DETAILS
+              }}
+              ref={deliveryNoteRef}
+            />
           </div>
         </SheetContent>
       </Sheet>

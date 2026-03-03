@@ -24,6 +24,7 @@ export type Permission =
   | 'create:projects'
   | 'edit:projects'
   | 'delete:projects'
+  | 'view:expenses'
   | 'add:expenses'
   | 'view:budget'
   | 'view:project-inventory'
@@ -58,6 +59,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'create:projects',
     'edit:projects',
     'delete:projects',
+    'view:expenses',
     'add:expenses',
     'view:budget',
     'view:project-inventory',

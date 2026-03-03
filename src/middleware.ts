@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
 
   // Role-based access control for staff
   if (token && token.role === 'staff') {
-    const allowedStaffRoutes = ['/inventory/staff', '/projects', '/not-allowed', '/api'];
+    const allowedStaffRoutes = ['/inventory/staff', '/projects', '/not-allowed', '/api',];
     const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
     
     // Also allow access to static assets and Next.js internals
@@ -68,6 +68,7 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)'
+    // '/((?!api|_next/static|_next/image|favicon.ico).*)'
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)'
   ]
 };

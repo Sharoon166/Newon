@@ -267,7 +267,7 @@ export function ProductSelector({
       <div className="@container">
         <div
           ref={gridRef}
-          className="grid grid-flow-dense @md:grid-cols-2 lg:@xl:grid-cols-3 xl:@xl:grid-cols-4 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+          className="grid grid-flow-dense @md:grid-cols-2 xl:@lg:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
         >
           {filteredVariants.map(variant => {
             // Get all purchases for this variant, sorted by FIFO

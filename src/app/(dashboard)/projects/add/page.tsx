@@ -22,7 +22,6 @@ async function AddProjectContent() {
     redirect('/not-allowed');
   }
 
-  const canViewBudget = userHasPermission(session, 'view:budget');
   const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
   const invoicesResult = await getInvoices({ type: 'invoice', limit: 1000 }); // Get all invoices
   const invoices = invoicesResult.docs;
