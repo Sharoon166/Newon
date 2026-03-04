@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters, PaginatedCustomers } from '../types';
+import type { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters } from '../types';
 import dbConnect from '@/lib/db';
 import CustomerModel from '../../../models/Customer';
 
@@ -38,7 +38,7 @@ function transformLeanCustomer(leanDoc: LeanCustomer): Customer {
   } as Customer;
 }
 
-export async function getCustomers(filters?: CustomerFilters & { includeDisabled?: boolean }): Promise<PaginatedCustomers> {
+export async function getCustomers(filters?: CustomerFilters & { includeDisabled?: boolean }): Promise<Customer[]> {
   try {
     await dbConnect();
 
@@ -69,31 +69,17 @@ export async function getCustomers(filters?: CustomerFilters & { includeDisabled
       query.createdAt = dateQuery;
     }
 
-    const page = filters?.page || 1;
-    const limit = filters?.limit || 10;
+    let queryBuilder = CustomerModel.find(query).sort({ customerId: -1 });
 
-    const result = await CustomerModel.paginate(query, {
-      page,
-      limit,
-      sort: { customerId: -1 },
-      lean: true
-    });
+    if (filters?.limit) {
+      queryBuilder = queryBuilder.limit(filters.limit);
+    }
 
-    const transformedCustomers = result.docs.map((customer: unknown) =>
+    const customers = await queryBuilder.lean();
+
+    return customers.map((customer: unknown) =>
       transformLeanCustomer(customer as LeanCustomer)
     );
-
-    return {
-      docs: transformedCustomers,
-      totalDocs: result.totalDocs,
-      limit: result.limit,
-      page: result.page || 1,
-      totalPages: result.totalPages,
-      hasNextPage: result.hasNextPage || false,
-      hasPrevPage: result.hasPrevPage || false,
-      nextPage: result.nextPage || null,
-      prevPage: result.prevPage || null
-    };
   } catch (error) {
     console.error('Error fetching customers:', error);
     throw new Error('Failed to fetch customers');

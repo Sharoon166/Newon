@@ -61,17 +61,3 @@ export const exportToCsv = (data: CsvExportData[], filename: string): void => {
     toast.error('Failed to export purchases to CSV');
   }
 };
-
-/**
- * Export purchases to PDF (navigates to print page)
- */
-export const exportToPdf = (): void => {
-  try {
-    // Navigate to print page - data will be fetched server-side
-    window.location.href = '/purchases/print';
-  } catch (error) {
-    console.error('Error navigating to print page:', error);
-    toast.error('Failed to open print page');
-  }
-};
-

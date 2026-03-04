@@ -270,6 +270,22 @@ export function NewQuotationForm({
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const total = subtotal + taxAmount - discountAmount;
 
+  // Calculate profit in real-time
+  const items = form.watch('items');
+  const totalCost = items.reduce((sum, item) => {
+    if (item.isVirtualProduct) {
+      return sum + (item.originalRate || 0) * item.quantity;
+    }
+    return sum + (item.originalRate || 0) * item.quantity;
+  }, 0);
+
+  const calculatedProfit = total - totalCost;
+
+  // Update profit field with calculated value
+  useEffect(() => {
+    form.setValue('profit', calculatedProfit, { shouldValidate: false });
+  }, [calculatedProfit, form]);
+
   // Update amount in words based on total
   const amountInWords = `${convertToWords(Math.round(total))} Rupees Only`;
   form.setValue('amountInWords', amountInWords, { shouldValidate: true });
@@ -1276,6 +1292,16 @@ export function NewQuotationForm({
               <div className="flex justify-between font-semibold">
                 <span>Total:</span>
                 <span>{formatCurrency(total)}</span>
+              </div>
+
+              {/* Profit Display */}
+              <div className="flex justify-between text-sm bg-green-50 dark:bg-green-950/20 p-2 rounded">
+                <span className="text-green-700 dark:text-green-400 font-medium">Estimated Profit:</span>
+                <span
+                  className={`font-semibold ${calculatedProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                >
+                  {formatCurrency(calculatedProfit)}
+                </span>
               </div>
 
               <div className="flex justify-between items-center">

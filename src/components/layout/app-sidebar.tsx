@@ -18,7 +18,8 @@ import {
   User2,
   ReceiptText,
   Wallet,
-  BriefcaseBusiness
+  BriefcaseBusiness,
+  FileBarChart
 } from 'lucide-react';
 
 import {
@@ -117,6 +118,11 @@ const data = {
           name: 'Expenses',
           url: '/expenses',
           icon: Wallet
+        },
+        {
+          name: 'Reports',
+          url: '/reports',
+          icon: FileBarChart
         }
       ]
     },

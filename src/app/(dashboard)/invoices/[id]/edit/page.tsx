@@ -52,7 +52,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
     }
 
     // Fetch all required data (AFTER stock restoration so we get updated quantities)
-    const [customersResult, variants, purchases, virtualProducts, paymentDetails, invoiceTermsData] = await Promise.all([
+    const [customers, variants, purchases, virtualProducts, paymentDetails, invoiceTermsData] = await Promise.all([
       getCustomers({ limit: 1000, includeDisabled: false }),
       getProducts(),
       getAllPurchases(),
@@ -61,7 +61,6 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
       getInvoiceTerms()
     ]);
 
-    const customers = customersResult.docs;
 
     return (
       <div className="container mx-auto py-10">

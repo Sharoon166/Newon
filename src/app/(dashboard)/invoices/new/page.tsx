@@ -14,8 +14,8 @@ export default async function NewDocument({ searchParams }: NewDocumentProps) {
   const params = await searchParams;
   const activeTab = params.tab === 'quotation' ? 'quotation' : 'invoice';
 
-  const [customersData, variants, purchasesData, virtualProducts, paymentDetails, invoiceTerms] = await Promise.all([
-    getCustomers({ limit: 1000, includeDisabled: false }), // Exclude disabled customers from invoice creation
+  const [customers, variants, purchasesData, virtualProducts, paymentDetails, invoiceTerms] = await Promise.all([
+    getCustomers({ limit: 1000, includeDisabled: false }),
     getProducts(),
     getAllPurchases(),
     getVirtualProducts(),
@@ -23,7 +23,6 @@ export default async function NewDocument({ searchParams }: NewDocumentProps) {
     getInvoiceTerms()
   ]);
 
-  const customers = customersData.docs;
   const purchases = purchasesData.docs;
 
   return (

@@ -21,7 +21,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases } from '../types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
-import { exportToCsv, exportToPdf } from '../utils/export-utils';
+import { exportToCsv } from '../utils/export-utils';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { deletePurchase } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
@@ -343,7 +343,8 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
 
   // Handle export to PDF
   const handleExportPdf = () => {
-    exportToPdf();
+    router.push("/purchases/print");
+
   };
 
   // Use debounced value for filtering

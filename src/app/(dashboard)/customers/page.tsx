@@ -5,17 +5,9 @@ import { getCustomers, deleteCustomer, toggleCustomerDisabled } from '@/features
 import { PageHeader } from '@/components/general/page-header';
 import { CustomerTableWrapper } from '@/features/customers/components/customer-table-wrapper';
 
-export default async function CustomersPage({
-  searchParams
-}: {
-  searchParams: Promise<{ page?: string; limit?: string }>;
-}) {
-  const params = await searchParams;
-  const page = Number(params.page) || 1;
-  const limit = Number(params.limit) || 10;
-
-  // Fetch all customers (including disabled) on the server with pagination
-  const customers = await getCustomers({ page, limit, includeDisabled: true });
+export default async function CustomersPage() {
+  // Fetch all customers (including disabled) on the server
+  const customers = await getCustomers({ includeDisabled: true });
 
   // Server action for deleting a customer
   const deleteCustomerAction = async (id: string) => {

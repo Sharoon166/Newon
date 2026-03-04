@@ -1,5 +1,4 @@
-import mongoose, { Document, Schema, PaginateModel } from 'mongoose';
-import mongoosePaginate from 'mongoose-paginate-v2';
+import mongoose, { Document, Schema } from 'mongoose';
 import { generateId } from './Counter';
 
 // Define the interface for the Customer document
@@ -110,9 +109,6 @@ const customerSchema = new Schema<ICustomer>(
 customerSchema.index({ name: 1 });
 customerSchema.index({ outstandingBalance: 1 });
 
-// Add pagination plugin
-customerSchema.plugin(mongoosePaginate);
-
 // Pre-save hook to generate customerId
 customerSchema.pre('save', async function (next) {
   if (this.isNew && !this.customerId) {
@@ -127,12 +123,11 @@ customerSchema.pre('save', async function (next) {
   next();
 });
 
-// Delete the model if it exists to ensure plugin is applied
+// Delete the model if it exists
 if (mongoose.models.Customer) {
   delete mongoose.models.Customer;
 }
 
-// Create the model with pagination support
-const Customer = mongoose.model<ICustomer, PaginateModel<ICustomer>>('Customer', customerSchema);
+const Customer = mongoose.model<ICustomer>('Customer', customerSchema);
 
 export default Customer;
