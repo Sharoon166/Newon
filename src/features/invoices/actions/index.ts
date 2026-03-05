@@ -518,7 +518,7 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
               item.totalComponentCost = allComponentPurchases.reduce(
                 (sum, p) => sum + p.totalCost,
                 0
-              );
+              ) / (item.quantity || 1);
             } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
               // For regular products, store the first purchase info
               const firstPurchase = deductionData.regularPurchases[0];
@@ -549,10 +549,11 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
     revalidatePath('/inventory');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
     
     // Revalidate project page if invoice was created from a project
     if (data.projectId) {
-      revalidatePath('/projects');
       revalidatePath(`/projects/${data.projectId}`);
     }
 
@@ -585,7 +586,13 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
           rate: item.unitPrice,
           originalRate: item.originalRate,
           quantity: item.quantity,
-          customExpenses: item.customExpenses
+          customExpenses: item.customExpenses?.map(exp => ({
+            actualCost: exp.actualCost,
+            clientCost: exp.clientCost
+          })),
+          isVirtualProduct: item.isVirtualProduct,
+          totalComponentCost: item.totalComponentCost,
+          totalCustomExpenses: item.totalCustomExpenses
         })),
         discountAmount
       );
@@ -660,6 +667,8 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
     revalidatePath('/dashboard');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
 
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
   } catch (error) {
@@ -763,6 +772,8 @@ export async function deleteInvoice(id: string): Promise<void> {
     revalidatePath('/inventory');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
   } catch (error) {
     console.error(`Error deleting invoice ${id}:`, error);
     throw new Error('Failed to delete invoice');
@@ -843,6 +854,8 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
     revalidatePath('/dashboard');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -928,6 +941,8 @@ export async function updatePayment(
     revalidatePath('/dashboard');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1000,6 +1015,8 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
     revalidatePath('/dashboard');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1218,6 +1235,8 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
     revalidatePath('/inventory');
     revalidatePath('/ledger');
     revalidatePath('/customers');
+    revalidatePath('/projects');
+    revalidatePath('/projects/add');
 
     return transformInvoice(savedInvoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1328,6 +1347,7 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     revalidatePath('/ledger');
     revalidatePath('/customers');
     revalidatePath('/projects');
+    revalidatePath('/projects/add');
 
     return transformInvoice(invoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
@@ -1802,7 +1822,6 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
 
     try {
       // Step 1: Update the invoice with new data
-      // Convert date strings to UTC Date objects
       const { dateStringToUTC } = await import('@/lib/utils');
       const processedData = { ...data };
       if (processedData.date && typeof processedData.date === 'string') {
@@ -1825,7 +1844,10 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
             rate: item.unitPrice,
             originalRate: item.originalRate,
             quantity: item.quantity,
-            customExpenses: item.customExpenses
+            customExpenses: item.customExpenses,
+            isVirtualProduct: item.isVirtualProduct,
+            totalComponentCost: item.totalComponentCost,
+            totalCustomExpenses: item.totalCustomExpenses
           })),
           discountAmount
         );

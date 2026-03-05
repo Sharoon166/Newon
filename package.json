@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:expense-costs": "node scripts/migrate-expense-costs.mjs",
+    "migrate:invoice-expenses": "node scripts/migrate-invoice-custom-expenses.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

@@ -6,6 +6,7 @@ import { Invoice } from '../types';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { useDebounce } from '@/hooks/use-debounce';
 import {
   Eye,
   Ban,
@@ -70,24 +71,21 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [searchValue, setSearchValue] = useState(searchParams.get('search') || '');
+  const debouncedSearchValue = useDebounce(searchValue, 500);
 
   const invoices = invoicesData.docs;
 
-  // Debounced search
+  // Update URL params when debounced search value changes
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (searchValue) {
-        params.set('search', searchValue);
-        params.set('page', '1'); // Reset to first page on search
-      } else {
-        params.delete('search');
-      }
-      router.push(`?${params.toString()}`, { scroll: false });
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchValue, router, searchParams]);
+    const params = new URLSearchParams(searchParams.toString());
+    if (debouncedSearchValue) {
+      params.set('search', debouncedSearchValue);
+      params.set('page', '1'); // Reset to first page on search
+    } else {
+      params.delete('search');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [debouncedSearchValue, router, searchParams]);
 
 
   const handleRefresh = () => {

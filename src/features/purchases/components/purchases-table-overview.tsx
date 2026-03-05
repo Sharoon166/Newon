@@ -22,7 +22,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase } from '../types';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
-import { exportToCsv, exportToPdf } from '../utils/export-utils';
+import { exportToCsv } from '../utils/export-utils';
 import { TablePagination } from '@/components/general/table-pagination';
 import { deletePurchase } from '../actions';
 
@@ -225,7 +225,7 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
 
   // Handle export to PDF
   const handleExportPdf = () => {
-    exportToPdf();
+    router.push("/purchases/print")
   };
 
   // Use debounced value for filtering

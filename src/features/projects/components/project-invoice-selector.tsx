@@ -40,7 +40,7 @@ export function ProjectInvoiceSelector({
   // Filter out OTC customers, cancelled invoices, and quotations - only show actual invoices
   const validInvoices = invoices.filter(
     invoice =>
-      invoice.customerId !== 'otc' &&
+      (invoice.customerId !== 'otc' || invoice.customerName.toLowerCase().includes("otc")) &&
       invoice.status !== 'cancelled' &&
       invoice.type === 'invoice'
   );
@@ -63,7 +63,7 @@ export function ProjectInvoiceSelector({
       setIsUnlinking(true);
       await unlinkInvoiceFromProject(projectId, selectedInvoice.invoiceNumber);
       toast.success('Invoice unlinked successfully. Custom expenses have been recreated.');
-      onInvoiceSelect(null); // Clear the selected invoice
+      onInvoiceSelect(null);
       setShowUnlinkDialog(false);
       if (onUnlinked) {
         onUnlinked();

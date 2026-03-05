@@ -64,7 +64,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
       lastName: initialData?.lastName || '',
       email: initialData?.email || '',
       phoneNumber: initialData?.phoneNumber || '',
-      role: initialData?.role || '',
+      role: initialData?.role || 'staff',
       password: '',
     },
   });
@@ -79,10 +79,22 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
           delete updateData.password;
         }
         
-        await updateStaffMember(initialData.id, updateData);
+        const result = await updateStaffMember(initialData.id, updateData);
+        
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
+        
         toast.success('Staff member updated successfully');
       } else {
-        await createStaffMember(data as CreateStaffDto);
+        const result = await createStaffMember(data as CreateStaffDto);
+        
+        if (!result.success) {
+          toast.error(result.error);
+          return;
+        }
+        
         toast.success('Staff member created successfully');
       }
       
@@ -94,7 +106,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
       }
     } catch (error) {
       console.error('Error:', error);
-      toast.error(error instanceof Error ? error.message : 'An error occurred while saving the staff member');
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }

@@ -1001,7 +1001,7 @@ export async function getLowStockAlerts(limit = 5, skip = 0, threshold = 0) {
       {
         $project: {
           _id: 0,
-          id: { $concat: [{ $toString: '$_id' }, '-', '$variants.id'] },
+          id: { $concat: [{ $toString: '$_id' }, '-', '$variants.sku'] },
           productName: '$name',
           sku: '$variants.sku',
           image: '$variants.image',

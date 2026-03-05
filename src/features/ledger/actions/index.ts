@@ -240,7 +240,7 @@ export async function getCustomerLedgers(
 
     // Apply pagination
     const page = filters?.page || 1;
-    const limit = filters?.limit || 10;
+    const limit = filters?.limit || 10000;
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const paginatedLedgers = ledgers.slice(startIndex, endIndex);

@@ -54,20 +54,6 @@ export function exportLedgerToCsv(data: CustomerLedger[]): void {
 }
 
 /**
- * Export ledger data to PDF (navigates to print page)
- */
-export function exportLedgerToPdf(_data: CustomerLedger[]): void {
-  try {
-    // Navigate to print page - data will be fetched server-side
-    window.location.href = '/ledger/print';
-  } catch (error) {
-    console.error('Error navigating to print page:', error);
-    toast.error('Failed to open print page');
-  }
-}
-
-
-/**
  * Export ledger entries to CSV
  */
 export function exportLedgerEntriesToCsv(

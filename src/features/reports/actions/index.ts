@@ -80,7 +80,7 @@ export async function getYearlyReport(year: number): Promise<YearlyReportData> {
 
     // Build monthly reports
     const monthlyReports: MonthlyReport[] = [];
-    let totals = {
+    const totals = {
       invoicesCount: 0,
       quotationsCount: 0,
       revenue: 0,

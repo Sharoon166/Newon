@@ -18,7 +18,7 @@ import type {
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 function transformLeanExpense(leanDoc: LeanExpense): Expense {
-  const { _id, __v, transactions, ...rest } = leanDoc;
+  const { _id, transactions, ...rest } = leanDoc;
 
   type TransactionType = NonNullable<LeanExpense['transactions']>[number];
 

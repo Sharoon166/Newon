@@ -72,14 +72,28 @@ export async function calculateVirtualProductFIFOCost(
     for (const component of vp.components) {
       const requiredQty = component.quantity * quantity;
 
-      // Get all purchases for this component, sorted by FIFO
+      // Get all purchases for this component, sorted by FIFO (date first, then purchaseId for consistency)
       const purchases = await PurchaseModel.find({
         productId: component.productId,
         variantId: component.variantId,
         remaining: { $gt: 0 }
       })
-        .sort({ purchaseDate: 1 })
+        .sort({ purchaseDate: 1, _id: 1 })
         .lean();
+      
+      // Additional client-side sort to ensure consistent ordering when dates are identical
+      // Sort by purchaseDate first, then by purchaseId string (e.g., PR-26-002 before PR-26-006)
+      purchases.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const dateA = (a.purchaseDate as Date).getTime();
+        const dateB = (b.purchaseDate as Date).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        // If dates are equal, sort by purchaseId string
+        const idA = a.purchaseId as string;
+        const idB = b.purchaseId as string;
+        return idA.localeCompare(idB);
+      });
 
       // Calculate effective remaining for each purchase (accounting for items in current invoice)
       const purchasesWithEffectiveRemaining = purchases.map((purchase: Record<string, unknown>) => {

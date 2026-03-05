@@ -1,10 +1,8 @@
-import { Plus, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/general/page-header';
-import { VirtualProductsTable } from '@/features/virtual-products/components/virtual-products-table';
-import { VirtualProductsCards } from '@/features/virtual-products/components/virtual-products-cards';
+import { VirtualProductsViewTabs } from '@/features/virtual-products/components/virtual-products-view-tabs';
 import { getVirtualProducts } from '@/features/virtual-products/actions';
 
 export const metadata = {
@@ -13,35 +11,9 @@ export const metadata = {
 };
 
 async function VirtualProductsContent() {
-  const [virtualProducts, ] = await Promise.all([
-    getVirtualProducts(),
-    // getProducts()
-  ]);
+  const virtualProducts = await getVirtualProducts();
 
-  return (
-    <Tabs defaultValue="table" className="w-full">
-      <div className="flex justify-between items-center mb-4">
-        <TabsList>
-          <TabsTrigger value="table">
-            <TableIcon className="h-4 w-4 mr-2" />
-            Table View
-          </TabsTrigger>
-          <TabsTrigger value="cards">
-            <LayoutGrid className="h-4 w-4 mr-2" />
-            Card View
-          </TabsTrigger>
-        </TabsList>
-      </div>
-
-      <TabsContent value="table" className="mt-0">
-        <VirtualProductsTable data={virtualProducts} />
-      </TabsContent>
-
-      <TabsContent value="cards" className="mt-0">
-        <VirtualProductsCards data={virtualProducts} />
-      </TabsContent>
-    </Tabs>
-  );
+  return <VirtualProductsViewTabs virtualProducts={virtualProducts} />;
 }
 
 export default function VirtualProductsPage() {
@@ -59,7 +31,7 @@ export default function VirtualProductsPage() {
         </Link>
       </PageHeader>
 
-        <VirtualProductsContent />
+      <VirtualProductsContent />
     </div>
   );
 }

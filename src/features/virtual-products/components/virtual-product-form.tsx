@@ -456,7 +456,7 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
                   value={expenseCategory} 
                   onValueChange={(value) => setExpenseCategory(value as ExpenseCategory)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className='w-full'>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>

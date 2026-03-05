@@ -156,7 +156,6 @@ type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 
 export function NewInvoiceForm({
   isLoading,
-  onPreview,
   onSave,
   customers,
   variants = [],
@@ -192,7 +191,6 @@ export function NewInvoiceForm({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [isCustomExpenseDialogOpen, setIsCustomExpenseDialogOpen] = useState(false);
-  const [refreshCustomers, setRefreshCustomers] = useState(0);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
   const form = useForm<InvoiceFormValues>({
@@ -386,15 +384,14 @@ export function NewInvoiceForm({
   const totalCost = items.reduce((sum, item) => {
     let itemCost = 0;
 
-    // Priority 1: If item has custom expenses, use totalCustomExpenses ONLY (ignore originalRate)
-    if (item.customExpenses && item.customExpenses.length > 0) {
-      itemCost = item.totalCustomExpenses || 0;
-    } else if (item.isVirtualProduct && (item.totalComponentCost || 0) > 0) {
-      // Priority 2: For virtual products without custom expenses, use component cost (only if > 0)
-      itemCost = item.totalComponentCost || 0;
+    // For virtual products, use component cost + custom expenses
+    if (item.isVirtualProduct) {
+      const componentCost = item.totalComponentCost || 0;
+      const customExpensesCost = item.totalCustomExpenses || 0;
+      itemCost = (componentCost + customExpensesCost) * (item.quantity || 1);
     } else if (item.originalRate !== undefined && item.originalRate !== null) {
-      // Priority 3: For regular products without custom expenses, use originalRate
-      itemCost = item.originalRate * item.quantity;
+      // For regular products, use originalRate * quantity
+      itemCost = item.originalRate * (item.quantity || 1);
     }
 
     return sum + itemCost;
@@ -526,6 +523,7 @@ export function NewInvoiceForm({
           form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
           form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
         } else {
+          console.log({ item })
           // Add new virtual product
           append({
             id: uuidv4(),
@@ -583,17 +581,32 @@ export function NewInvoiceForm({
   const handleCustomerSelect = (customerName: string) => {
     const customer = customers.find(customer => customer.name === customerName);
     if (customer) {
-      setIsOtcCustomer(false);
-      setSelectedCustomer(customer);
-      form.setValue('customerId', customer.customerId || customer.id);
-      form.setValue('client.name', customer.name);
-      form.setValue('client.company', customer.company || '');
-      form.setValue('client.email', customer.email || '');
-      form.setValue('client.phone', customer.phone || '');
-      form.setValue('client.address', customer.address || '');
-      form.setValue('client.city', customer.city || '');
-      form.setValue('client.state', customer.state || '');
-      form.setValue('client.zip', customer.zip || '');
+      // Check if this is the OTC customer
+      if (customer.customerId === 'otc' || customer.id === 'otc') {
+        setIsOtcCustomer(true);
+        setSelectedCustomer(OTC_CUSTOMER as Customer);
+        form.setValue('customerId', 'otc');
+        form.setValue('client.name', OTC_CUSTOMER.name);
+        form.setValue('client.company', OTC_CUSTOMER.company);
+        form.setValue('client.email', OTC_CUSTOMER.email);
+        form.setValue('client.phone', OTC_CUSTOMER.phone);
+        form.setValue('client.address', OTC_CUSTOMER.address);
+        form.setValue('client.city', OTC_CUSTOMER.city);
+        form.setValue('client.state', OTC_CUSTOMER.state);
+        form.setValue('client.zip', OTC_CUSTOMER.zip);
+      } else {
+        setIsOtcCustomer(false);
+        setSelectedCustomer(customer);
+        form.setValue('customerId', customer.customerId || customer.id);
+        form.setValue('client.name', customer.name);
+        form.setValue('client.company', customer.company || '');
+        form.setValue('client.email', customer.email || '');
+        form.setValue('client.phone', customer.phone || '');
+        form.setValue('client.address', customer.address || '');
+        form.setValue('client.city', customer.city || '');
+        form.setValue('client.state', customer.state || '');
+        form.setValue('client.zip', customer.zip || '');
+      }
 
       setIsToOpen(false);
     }
@@ -1012,22 +1025,22 @@ export function NewInvoiceForm({
                     selectedCustomer.city ||
                     selectedCustomer.state ||
                     selectedCustomer.zip) && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5" />
-                        <span>
-                          {[
-                            selectedCustomer.address,
-                            selectedCustomer.city,
-                            selectedCustomer.state,
-                            selectedCustomer.zip
-                          ]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </span>
-                      </p>
-                    </div>
-                  )}
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-sm flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-0.5" />
+                          <span>
+                            {[
+                              selectedCustomer.address,
+                              selectedCustomer.city,
+                              selectedCustomer.state,
+                              selectedCustomer.zip
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                 </div>
               )}
               {!selectedCustomer && (
@@ -1133,7 +1146,6 @@ export function NewInvoiceForm({
                 {fields.map((item, index) => {
                   const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
                   const currentRate = form.watch(`items.${index}.rate`) || 0;
-                  const originalRate = form.watch(`items.${index}.originalRate`) || 0;
                   const variantId = form.watch(`items.${index}.variantId`);
                   const purchaseId = form.watch(`items.${index}.purchaseId`);
                   const virtualProductId = form.watch(`items.${index}.virtualProductId`);
@@ -1148,11 +1160,11 @@ export function NewInvoiceForm({
                   // Get stock limit for this specific purchase (including current item's quantity)
                   const purchaseStockLimit = purchaseId
                     ? (() => {
-                        const purchase = purchases.find(p => p.purchaseId === purchaseId);
-                        if (!purchase) return 0;
+                      const purchase = purchases.find(p => p.purchaseId === purchaseId);
+                      if (!purchase) return 0;
 
-                        return purchase.remaining;
-                      })()
+                      return purchase.remaining;
+                    })()
                     : Infinity;
 
                   return (
@@ -1310,7 +1322,80 @@ export function NewInvoiceForm({
                             </Button>
                           </div>
                         </div>
-                        {item.customExpenses && item.customExpenses.length > 0 ? (
+                        {item.isVirtualProduct ? (
+                          // For virtual products, show actual cost (read-only) and selling price (editable)
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Actual Cost</div>
+                                <InputGroup>
+                                  <InputGroupInput
+                                    type="number"
+                                    value={(item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)}
+                                    disabled
+                                    className="h-8 text-sm bg-muted"
+                                  />
+                                </InputGroup>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Components: {formatCurrency(item.totalComponentCost || 0)} +
+                                  Expenses: {formatCurrency(item.totalCustomExpenses || 0)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Selling Price</div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.rate`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <InputGroup>
+                                          <InputGroupInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            {...field}
+                                            className="h-8 text-sm"
+                                            onChange={e => {
+                                              const value = e.target.value;
+                                              if (value === '') {
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                return;
+                                              }
+                                              const numericValue = parseFloat(value);
+                                              if (isNaN(numericValue) || numericValue < 0) {
+                                                toast.error('Invalid price', {
+                                                  description: 'Selling price must be 0 or greater'
+                                                });
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                return;
+                                              }
+                                              field.onChange(numericValue);
+                                              form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                            }}
+                                            value={field.value || ''}
+                                          />
+                                        </InputGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <div className="text-xs text-green-600 mt-1">
+                                  Profit per unit: {formatCurrency((item.rate || 0) - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)))} × {currentQuantity} = {formatCurrency(((item.rate || 0) - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) * currentQuantity)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
+                              <div className="font-semibold">
+                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                              </div>
+                            </div>
+                          </div>
+                        ) : item.customExpenses && item.customExpenses.length > 0 ? (
                           <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3 text-sm">
                               <div>
@@ -1819,7 +1904,6 @@ export function NewInvoiceForm({
           <CustomerForm
             onSuccess={() => {
               setIsCreateCustomerOpen(false);
-              setRefreshCustomers(prev => prev + 1);
               toast.success('Customer created successfully');
             }}
             onCancel={() => setIsCreateCustomerOpen(false)}

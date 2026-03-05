@@ -34,7 +34,7 @@ function SalesTooltip({
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ value?: number; payload?: { fullDate?: string } }>;
+  payload?: Array<{ value?: number; payload?: { fullDate?: Date } }>;
 }) {
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value ?? 0;
@@ -42,7 +42,7 @@ function SalesTooltip({
 
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 text-muted-foreground">{fullDate ?? 'Revenue'}</div>
+      <div className="mb-1 text-muted-foreground">{fullDate ? format(fullDate, "dd MMMM, yyyy") : 'Revenue'}</div>
       <div className="flex items-center justify-between gap-6">
         <div className="flex items-center gap-2">
           <span
@@ -108,7 +108,7 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
       revenue: item.revenue,
       sales: item.sales,
       invoices: item.invoices,
-      fullDate: date.toLocaleDateString(),
+      fullDate: date,
     };
   });
 

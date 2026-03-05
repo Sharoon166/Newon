@@ -23,11 +23,14 @@ async function AddProjectContent() {
   }
 
   const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
-  const invoicesResult = await getInvoices({ type: 'invoice', limit: 1000 }); // Get all invoices
+  const invoicesResult = await getInvoices({ type: 'invoice', limit: 10000 });
   const invoices = invoicesResult.docs;
 
   return (
     <div className="space-y-6">
+      <pre>
+      {JSON.stringify(invoices.map(i => i.customerName),null,2)}
+      </pre>
       <PageHeader title="Create New Project" description="Add a new project to track" icon={<FolderKanban />} />
 
       <Card>

@@ -35,7 +35,7 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
     const [project, staffMembers, invoicesResult] = await Promise.all([
       getProject(id, session.user.id, session.user.role),
       getStaffMembers({ isActive: true, role: "staff" }),
-      getInvoices({ limit: 1000 })
+      getInvoices({ type: 'invoice', limit: 10000 })
     ])
 
     const invoices = invoicesResult.docs;

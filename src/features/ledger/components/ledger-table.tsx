@@ -40,7 +40,8 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useMemo, useState } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
-import { exportLedgerToCsv, exportLedgerToPdf, printLedgerEntries } from '../utils/export-utils';
+import { exportLedgerToCsv, printLedgerEntries } from '../utils/export-utils';
+import { useRouter } from 'next/navigation';
 
 // Define columns
 const columns: ColumnDef<CustomerLedger>[] = [
@@ -249,6 +250,8 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
   const [balanceFilter, setBalanceFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const router = useRouter()
+
   // Handle CSV export
   const handleExportCsv = () => {
     exportLedgerToCsv(filteredData);
@@ -256,7 +259,7 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
 
   // Handle PDF export
   const handleExportPdf = () => {
-    exportLedgerToPdf(filteredData);
+    router.push('/ledger/print')
   };
 
   // Filter data based on search and filters

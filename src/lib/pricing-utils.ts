@@ -55,11 +55,16 @@ export function calculateVariantPricing(purchases: Purchase[]): VariantPricing {
     };
   }
 
-  // Sort by purchase date (oldest first) to implement FIFO
+  // Sort by purchase date (oldest first) to implement FIFO, then by purchaseId for consistency
   const sortedPurchases = purchasesWithRemaining.sort((a, b) => {
     const dateA = new Date(a.purchaseDate);
     const dateB = new Date(b.purchaseDate);
-    return dateA.getTime() - dateB.getTime();
+    const timeDiff = dateA.getTime() - dateB.getTime();
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+    // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+    return a.purchaseId.localeCompare(b.purchaseId);
   });
 
   // Use the oldest purchase with remaining units

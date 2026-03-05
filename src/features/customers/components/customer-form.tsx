@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import { Customer, CreateCustomerDto, UpdateCustomerDto } from '../types';
 import { createCustomer, updateCustomer } from '../actions';
 
@@ -16,9 +16,13 @@ const customerFormSchema = z.object({
   name: z.string().min(2, {
     message: 'Name must be at least 2 characters.'
   }),
-  email: z.string().email({
-    message: 'Please enter a valid email address.'
-  }).optional().or(z.literal('')),
+  email: z
+    .string()
+    .email({
+      message: 'Please enter a valid email address.'
+    })
+    .optional()
+    .or(z.literal('')),
   company: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
@@ -84,7 +88,7 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
         if (transformedData.state) updateData.state = transformedData.state;
         if (transformedData.zip) updateData.zip = transformedData.zip;
 
-        await updateCustomer(initialData.customerId || "otc", updateData);
+        await updateCustomer(initialData.customerId || 'otc', updateData);
         toast.success('Customer updated successfully');
       } else {
         // For creation, ensure required fields are present
@@ -122,7 +126,9 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name <span className="text-destructive">*</span></FormLabel>
+              <FormLabel>
+                Name <span className="text-destructive">*</span>
+              </FormLabel>
               <FormControl>
                 <Input placeholder="John Doe" {...field} />
               </FormControl>
@@ -236,7 +242,7 @@ export function CustomerForm({ initialData, onSuccess, onCancel }: CustomerFormP
             </Button>
           )}
           <Button type="submit" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save />}
             {isEditMode ? 'Update Customer' : 'Add Customer'}
           </Button>
         </div>

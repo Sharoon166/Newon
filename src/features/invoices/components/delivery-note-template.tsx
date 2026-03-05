@@ -1,9 +1,9 @@
 import { forwardRef } from 'react';
-import { format } from 'date-fns';
 import { COMPANY_DETAILS } from '@/constants';
 import { brands } from '@/stores/useBrandStore';
 import Image from 'next/image';
 import { Mail, Phone } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface DeliveryNoteItem {
   description: string;
@@ -167,3 +167,6 @@ export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTempl
     </div>
   );
 });
+
+DeliveryNoteTemplate.displayName
+ = 'DeliveryNoteTemplate';

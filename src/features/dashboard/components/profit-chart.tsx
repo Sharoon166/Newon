@@ -41,7 +41,7 @@ function ProfitTooltip({
   payload
 }: {
   active?: boolean;
-  payload?: Array<{ name?: string; value?: number; color?: string; payload?: { fullDate?: string } }>;
+  payload?: Array<{ name?: string; value?: number; color?: string; payload?: { fullDate?: Date } }>;
 }) {
   if (!active || !payload?.length) return null;
   const fullDate = payload[0]?.payload?.fullDate;
@@ -58,7 +58,7 @@ function ProfitTooltip({
 
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 text-muted-foreground">{fullDate ?? 'Profit & expenses'}</div>
+      <div className="mb-1 text-muted-foreground">{fullDate ? format(fullDate,"dd MMMM, yyyy") : 'Profit & expenses'}</div>
       <div className="grid gap-1.5">
         {rows.map(row => (
           <div key={row.label} className="flex items-center justify-between gap-6">
@@ -126,7 +126,7 @@ export function ProfitChart({ data, data30Days, dataMonthly }: ProfitChartProps)
       expenses: item.expenses,
       netProfit: item.netProfit,
       invoices: item.invoices,
-      fullDate: date.toLocaleDateString()
+      fullDate: date
     };
   });
 

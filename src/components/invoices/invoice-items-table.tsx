@@ -32,14 +32,11 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
   const totalCost = invoice.items.reduce((sum, item) => {
     let itemCost = 0;
 
-    // Priority 1: If item has custom expenses, use totalCustomExpenses ONLY (ignore originalRate)
-    if (item.customExpenses && item.customExpenses.length > 0) {
-      itemCost = item.totalCustomExpenses || 0;
-    } else if (item.isVirtualProduct && (item.totalComponentCost || 0) > 0) {
-      // Priority 2: For virtual products without custom expenses, use component cost (only if > 0)
-      itemCost = item.totalComponentCost || 0;
+    if (item.isVirtualProduct) {
+      // For virtual products: cost = component cost + custom expenses
+      itemCost = ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)) * item.quantity;
     } else {
-      // Priority 3: For regular products, use originalRate * quantity
+      // For regular products: cost = originalRate * quantity
       itemCost = (item.originalRate || 0) * item.quantity;
     }
 
@@ -97,11 +94,9 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                   <div className="text-muted-foreground text-xs">
                     Original:{' '}
                     {formatCurrency(
-                      item.customExpenses && item.customExpenses.length > 0
-                        ? item.totalCustomExpenses || 0
-                        : item.isVirtualProduct && (item.totalComponentCost || 0) > 0
-                          ? item.totalComponentCost || 0
-                          : (item.originalRate ?? 0)
+                      item.isVirtualProduct
+                        ? (item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)
+                        : (item.originalRate ?? 0)
                     )}
                   </div>
                 </TableCell>
@@ -110,11 +105,9 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                   <div className="text-muted-foreground text-xs font-medium">
                     Original:{' '}
                     {formatCurrency(
-                      item.customExpenses && item.customExpenses.length > 0
-                        ? (item.totalCustomExpenses || 0) * item.quantity
-                        : item.isVirtualProduct && (item.totalComponentCost || 0) > 0
-                          ? (item.totalComponentCost || 0) * item.quantity
-                          : (item.originalRate ?? 0) * item.quantity
+                      item.isVirtualProduct
+                        ? ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)) * item.quantity
+                        : (item.originalRate ?? 0) * item.quantity
                     )}
                   </div>
                 </TableCell>

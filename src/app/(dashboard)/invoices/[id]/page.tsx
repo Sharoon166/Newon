@@ -7,17 +7,7 @@ import { getInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/
 import { Invoice } from '@/features/invoices/types';
 import { PageHeader } from '@/components/general/page-header';
 import { Button } from '@/components/ui/button';
-import {
-  ArrowLeft,
-  Printer,
-  Plus,
-  Edit,
-  RefreshCw,
-  ArrowUpRight,
-  Info,
-  Download,
-  Copyright
-} from 'lucide-react';
+import { ArrowLeft, Printer, Plus, Edit, RefreshCw, ArrowUpRight, Info, Download, Copyright } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -348,12 +338,12 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
-              <Link href={`/invoices/${invoice.id}/edit`}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Link>
-            </Button>
+          <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
+            <Link href={`/invoices/${invoice.id}/edit`}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Link>
+          </Button>
           <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Update Status
@@ -425,9 +415,7 @@ export default function InvoiceDetailPage() {
                 <div>
                   <CardTitle className="text-2xl flex items-center gap-2">
                     {invoice.invoiceNumber}
-                    {invoice.custom && (
-                      <Copyright className='text-primary'/>
-                    )}
+                    {invoice.custom && <Copyright className="text-primary" />}
                   </CardTitle>
                   <div className="flex flex-wrap gap-2 mt-2 capitalize">
                     <Badge>{invoice.status}</Badge>

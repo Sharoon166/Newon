@@ -145,7 +145,18 @@ export async function deductStockForInvoice(
               productId: component.productId,
               variantId: component.variantId,
               remaining: { $gt: 0 }
-            }).sort({ purchaseDate: 1 }); // FIFO - oldest first
+            }).sort({ purchaseDate: 1, _id: 1 }); // FIFO - oldest first, then by _id for consistency
+            
+            // Additional client-side sort to ensure consistent ordering when dates are identical
+            purchases.sort((a, b) => {
+              const dateA = new Date(a.purchaseDate).getTime();
+              const dateB = new Date(b.purchaseDate).getTime();
+              if (dateA !== dateB) {
+                return dateA - dateB;
+              }
+              // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+              return a.purchaseId.localeCompare(b.purchaseId);
+            });
 
             const purchasesUsed: PurchaseUsage[] = [];
             let remainingToDeduct = requiredQty;

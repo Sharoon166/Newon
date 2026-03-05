@@ -11,6 +11,10 @@ export type LeanStaffMember = Omit<StaffMember, '_id' | '__v'> & {
   __v: number;
 };
 
+export type ActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
 export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMember[]> {
   try {
     await dbConnect();
@@ -81,14 +85,14 @@ export async function getStaffMember(id: string): Promise<StaffMember> {
   }
 }
 
-export async function createStaffMember(data: CreateStaffDto): Promise<StaffMember> {
+export async function createStaffMember(data: CreateStaffDto): Promise<ActionResult<StaffMember>> {
   try {
     await dbConnect();
 
     // Check if email already exists
     const existingStaff = await Staff.findOne({ email: data.email });
     if (existingStaff) {
-      throw new Error('Email already in use');
+      return { success: false, error: 'Email already in use' };
     }
 
     // In a real app, you would hash the password here
@@ -104,19 +108,22 @@ export async function createStaffMember(data: CreateStaffDto): Promise<StaffMemb
     revalidatePath('/staff');
 
     const savedStaffObj = savedStaff.toObject() as LeanStaffMember;
-    return {
+    const staffMember = {
       ...savedStaffObj,
       id: savedStaffObj._id.toString(),
       _id: undefined,
       __v: undefined
     } as StaffMember;
+
+    return { success: true, data: staffMember };
   } catch (error: unknown) {
     console.error('Error creating staff member:', error);
-    throw new Error((error as Error).message || 'Failed to create staff member');
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create staff member';
+    return { success: false, error: errorMessage };
   }
 }
 
-export async function updateStaffMember(id: string, data: UpdateStaffDto): Promise<StaffMember> {
+export async function updateStaffMember(id: string, data: UpdateStaffDto): Promise<ActionResult<StaffMember>> {
   try {
     await dbConnect();
 
@@ -137,22 +144,25 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto): Promi
     ).lean();
 
     if (!updatedStaff) {
-      throw new Error('Staff member not found');
+      return { success: false, error: 'Staff member not found' };
     }
 
     revalidatePath('/staff');
     revalidatePath(`/staff/${id}`);
 
     const updatedStaffObj = updatedStaff as LeanStaffMember;
-    return {
+    const staffMember = {
       ...updatedStaffObj,
       id: updatedStaffObj._id.toString(),
       _id: undefined,
       __v: undefined
     } as StaffMember;
+
+    return { success: true, data: staffMember };
   } catch (error) {
     console.error(`Error updating staff member ${id}:`, error);
-    throw new Error('Failed to update staff member');
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update staff member';
+    return { success: false, error: errorMessage };
   }
 }
 

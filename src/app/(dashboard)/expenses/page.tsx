@@ -5,8 +5,6 @@ import { ExpensesPageClient } from '@/features/expenses/components/expenses-page
 import { requireAuth } from '@/lib/auth-utils';
 import { ExpenseKPIsComponent } from '@/features/expenses/components/expense-kpis';
 import { ExpenseCategory } from '@/features/expenses/types';
-import { userHasPermission } from '@/lib/rbac';
-import { redirect } from 'next/navigation';
 
 export default async function ExpensesPage({
   searchParams
