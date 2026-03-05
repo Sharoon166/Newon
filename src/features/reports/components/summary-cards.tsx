@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
-import { TrendingUp, TrendingDown, FileText, FileCheck, DollarSign, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, FileCheck, DollarSign, AlertCircle } from 'lucide-react';
 
 interface SummaryCardsProps {
   totals: {

@@ -3,8 +3,8 @@
  * Profit = Sum of (rate - originalRate) * quantity for all items - invoice discount
  * 
  * Formula:
- * 1. For each item: itemProfit = (rate - originalRate) * quantity
- * 2. For custom expenses: add (clientCost - actualCost) to profit
+ * 1. For regular items: itemProfit = (rate - originalRate) * quantity
+ * 2. For virtual products: itemProfit = rate - (totalComponentCost + totalCustomExpenses)
  * 3. Sum all item profits
  * 4. Subtract invoice-level discount
  * 
@@ -21,6 +21,9 @@ interface ItemWithProfit {
   originalRate?: number;
   quantity: number;
   customExpenses?: CustomExpense[];
+  totalComponentCost?: number;
+  totalCustomExpenses?: number;
+  isVirtualProduct?: boolean;
 }
 
 export function calculateInvoiceProfit(
@@ -28,13 +31,14 @@ export function calculateInvoiceProfit(
   discountAmount: number
 ): number {
   const finalProfit = items.reduce((sum, item) => {
-    // If item has custom expenses, only calculate profit from custom expenses
-    // to avoid double-counting (the item rate is already the clientCost)
-    if (item.customExpenses && item.customExpenses.length > 0) {
-      const customExpenseProfit = item.customExpenses.reduce((expSum, exp) => {
-        return expSum + (exp.clientCost - exp.actualCost);
-      }, 0);
-      return sum + customExpenseProfit;
+    // For virtual products, calculate profit as: (sellingPrice - (componentCost + customExpensesCost)) * quantity
+    if (item.isVirtualProduct) {
+      const componentCost = item.totalComponentCost || 0;
+      const customExpensesCost = item.totalCustomExpenses || 0;
+      const totalCost = componentCost + customExpensesCost;
+      const profitPerUnit = item.rate - totalCost;
+      const itemProfit = profitPerUnit * item.quantity;
+      return sum + itemProfit;
     }
     
     // For regular items, calculate profit from rate vs originalRate

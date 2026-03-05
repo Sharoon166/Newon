@@ -42,7 +42,7 @@ function SalesTooltip({
 
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 text-muted-foreground">{fullDate ?? 'Revenue'}</div>
+      <div className="mb-1 text-muted-foreground">{fullDate ? format(fullDate, "dd MMMM, yyyy") : 'Revenue'}</div>
       <div className="flex items-center justify-between gap-6">
         <div className="flex items-center gap-2">
           <span

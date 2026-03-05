@@ -80,24 +80,9 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
     const fifoCostMap = new Map<string, number>(); // FIFO cost per component (oldest purchase)
 
     // Group purchases by variant and sort by date (FIFO)
-    const purchasesByVariant = new Map<
-      string,
-      Array<{
-        productId: { toString: () => string };
-        variantId: string;
-        purchaseDate: Date;
-        remaining: number;
-        unitPrice: number;
-      }>
-    >();
+    const purchasesByVariant = new Map<string, PurchaseType[]>();
     purchases.forEach(purchase => {
-      const purchaseObj = purchase as {
-        productId: { toString: () => string };
-        variantId: string;
-        purchaseDate: Date;
-        remaining: number;
-        unitPrice: number;
-      };
+      const purchaseObj = purchase as PurchaseType;
       const key = `${purchaseObj.productId.toString()}-${purchaseObj.variantId}`;
       if (!purchasesByVariant.has(key)) {
         purchasesByVariant.set(key, []);
@@ -107,8 +92,16 @@ export const getVirtualProducts = async (): Promise<EnhancedVirtualProduct[]> =>
 
     // For each variant, sort by purchase date and get FIFO cost
     purchasesByVariant.forEach((variantPurchases, key) => {
-      // Sort by purchase date (oldest first)
-      variantPurchases.sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+      // Sort by purchase date (oldest first), then by purchaseId for consistency
+      variantPurchases.sort((a, b) => {
+        const dateA = new Date(a.purchaseDate).getTime();
+        const dateB = new Date(b.purchaseDate).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+        return a.purchaseId.localeCompare(b.purchaseId);
+      });
 
       // Calculate total stock
       const totalStock = variantPurchases.reduce((sum, p) => sum + (p.remaining || 0), 0);
@@ -241,8 +234,16 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
 
     // For each variant, sort by purchase date and get FIFO cost
     purchasesByVariant.forEach((variantPurchases, key) => {
-      // Sort by purchase date (oldest first)
-      variantPurchases.sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+      // Sort by purchase date (oldest first), then by purchaseId for consistency
+      variantPurchases.sort((a, b) => {
+        const dateA = new Date(a.purchaseDate).getTime();
+        const dateB = new Date(b.purchaseDate).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+        return a.purchaseId.localeCompare(b.purchaseId);
+      });
 
       // Calculate total stock
       const totalStock = variantPurchases.reduce((sum, p) => sum + (p.remaining || 0), 0);

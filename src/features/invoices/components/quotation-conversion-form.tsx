@@ -30,10 +30,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
+import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
+import type { ComponentBreakdown, CustomExpense } from '../types';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { ProductSelector } from './product-selector';
+import { EnhancedProductSelector } from './enhanced-product-selector';
 import { v4 as uuidv4 } from 'uuid';
+import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 
 const invoiceFormSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -52,7 +55,38 @@ const invoiceFormSchema = z.object({
         variantSKU: z.string().optional(),
         purchaseId: z.string().optional(),
         originalRate: z.number().optional(),
-        saleRate: z.number().optional()
+        saleRate: z.number().optional(),
+        virtualProductId: z.string().optional(),
+        isVirtualProduct: z.boolean().optional(),
+        totalComponentCost: z.number().optional(),
+        totalCustomExpenses: z.number().optional(),
+        componentBreakdown: z
+          .array(
+            z.object({
+              productId: z.string(),
+              variantId: z.string(),
+              productName: z.string(),
+              sku: z.string(),
+              quantity: z.number(),
+              purchaseId: z.string(),
+              unitCost: z.number(),
+              totalCost: z.number()
+            })
+          )
+          .optional() satisfies z.ZodType<ComponentBreakdown[] | undefined>,
+        customExpenses: z
+          .array(
+            z.object({
+              name: z.string(),
+              amount: z.number(),
+              actualCost: z.number(),
+              clientCost: z.number(),
+              category: z.string(),
+              description: z.string().optional(),
+              expenseId: z.string().optional()
+            })
+          )
+          .optional() satisfies z.ZodType<CustomExpense[] | undefined>
       })
     )
     .min(1, 'At least one item is required'),
@@ -95,6 +129,13 @@ interface QuotationConversionFormProps {
       productId?: string;
       purchaseId?: string;
       totalPrice: number;
+      virtualProductId?: string;
+      isVirtualProduct?: boolean;
+      originalRate?: number;
+      componentBreakdown?: ComponentBreakdown[];
+      customExpenses?: CustomExpense[];
+      totalComponentCost?: number;
+      totalCustomExpenses?: number;
     }>;
     subtotal: number;
     discountType: 'fixed' | 'percentage';
@@ -127,6 +168,7 @@ interface QuotationConversionFormProps {
   };
   variants?: EnhancedVariants[];
   purchases?: Purchase[];
+  virtualProducts?: EnhancedVirtualProduct[];
 }
 
 export function QuotationConversionForm({
@@ -134,12 +176,14 @@ export function QuotationConversionForm({
   quotationId,
   customerData,
   variants = [],
-  purchases = []
+  purchases = [],
+  virtualProducts = []
 }: QuotationConversionFormProps) {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCustomExpenseDialogOpen, setIsCustomExpenseDialogOpen] = useState(false);
 
   // Fetch next invoice number on mount
   useEffect(() => {
@@ -167,7 +211,7 @@ export function QuotationConversionForm({
       items: quotation.items.map(item => {
         // Validate and cap quantity based on purchase stock limit
         let validatedQuantity = item.quantity;
-        if (item.purchaseId) {
+        if (item.purchaseId && !item.isVirtualProduct) {
           const purchase = purchases.find(p => p.purchaseId === item.purchaseId);
           if (purchase) {
             if (purchase.remaining === 0) {
@@ -180,8 +224,8 @@ export function QuotationConversionForm({
           }
         }
 
-        // Find the purchase to get the correct cost price (originalRate)
-        const purchase = item.purchaseId ? purchases.find(p => p.purchaseId === item.purchaseId) : undefined;
+        // Find the purchase to get the correct cost price (originalRate) for regular products
+        const purchase = item.purchaseId && !item.isVirtualProduct ? purchases.find(p => p.purchaseId === item.purchaseId) : undefined;
         
         return {
           id: item.id,
@@ -192,12 +236,18 @@ export function QuotationConversionForm({
           productId: item.productId,
           variantId: item.variantId,
           variantSKU: item.variantSKU,
-          // Clear purchaseId if the purchase is depleted
+          // Clear purchaseId if the purchase is depleted (only for regular products)
           purchaseId:
-            item.purchaseId && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0
+            item.purchaseId && !item.isVirtualProduct && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0
               ? undefined
               : item.purchaseId,
-          originalRate: purchase?.unitPrice || 0 // Use purchase cost price for profit calculation
+          originalRate: purchase?.unitPrice || item.originalRate || 0,
+          virtualProductId: item.virtualProductId,
+          isVirtualProduct: item.isVirtualProduct,
+          componentBreakdown: item.componentBreakdown,
+          customExpenses: item.customExpenses,
+          totalComponentCost: item.totalComponentCost,
+          totalCustomExpenses: item.totalCustomExpenses
         };
       }),
       taxRate: quotation.taxRate || quotation.gstValue || 0,
@@ -229,29 +279,23 @@ export function QuotationConversionForm({
 
   // Calculate profit in real-time
   const items = form.watch('items');
-
-  // 1. Total selling price (revenue)
-  const totalRevenue = items.reduce((sum, item) => {
-    const price = item.rate ?? 0;
-    const quantity = item.quantity ?? 0;
-    return sum + price * quantity;
-  }, 0);
-
-  // 2. Total cost
   const totalCost = items.reduce((sum, item) => {
-    const cost = item.originalRate ?? 0;
-    const quantity = item.quantity ?? 0;
-    return sum + cost * quantity;
+    let itemCost = 0;
+
+    // For virtual products, use component cost + custom expenses
+    if (item.isVirtualProduct) {
+      const componentCost = item.totalComponentCost || 0;
+      const customExpensesCost = item.totalCustomExpenses || 0;
+      itemCost = (componentCost + customExpensesCost) * (item.quantity || 1);
+    } else if (item.originalRate !== undefined && item.originalRate !== null) {
+      // For regular products, use originalRate * quantity
+      itemCost = item.originalRate * (item.quantity || 1);
+    }
+
+    return sum + itemCost;
   }, 0);
 
-  // 3. Apply discount to revenue (NOT profit)
-  const netRevenue =
-    discountType === 'percentage'
-      ? totalRevenue - (totalRevenue * (discount ?? 0)) / 100
-      : totalRevenue - (discountAmount ?? 0);
-
-  // 4. Final profit
-  const calculatedProfit = netRevenue - totalCost;
+  const calculatedProfit = total - totalCost;
 
   // Update profit field with calculated value
   useEffect(() => {
@@ -344,21 +388,73 @@ export function QuotationConversionForm({
 
   const handleAddItemFromSelector = (item: {
     productId?: string;
-    variantId: string;
+    variantId?: string;
+    virtualProductId?: string;
+    isVirtualProduct?: boolean;
     productName: string;
     sku: string;
     description: string;
     quantity: number;
     rate: number;
+    saleRate?: number;
     originalRate?: number;
     purchaseId?: string;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
+      productName: string;
+      sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+    customExpenses?: Array<{
+      name: string;
+      amount?: number;
+      actualCost?: number;
+      clientCost?: number;
+      category: string;
+      description?: string;
+    }>;
+    totalComponentCost?: number;
+    totalCustomExpenses?: number;
   }) => {
+    // Convert old format customExpenses to new format if needed
+    const convertedCustomExpenses = item.customExpenses?.map(expense => {
+      // If old format (has amount but not actualCost/clientCost), convert it
+      if (expense.amount !== undefined && expense.actualCost === undefined && expense.clientCost === undefined) {
+        return {
+          name: expense.name,
+          amount: expense.amount,
+          actualCost: expense.amount,
+          clientCost: expense.amount,
+          category: expense.category,
+          description: expense.description
+        };
+      }
+      // Already in new format
+      return {
+        name: expense.name,
+        amount: expense.clientCost ?? 0,
+        actualCost: expense.actualCost ?? 0,
+        clientCost: expense.clientCost ?? 0,
+        category: expense.category,
+        description: expense.description
+      };
+    });
+
     // Validate item data
     if (!item.description || item.description.trim() === '') {
-      toast.error('Invalid item', {
-        description: 'Item description is required.'
-      });
-      return;
+      // For virtual products, use product name as description if description is empty
+      if (item.isVirtualProduct && item.productName) {
+        item.description = item.productName;
+      } else {
+        toast.error('Invalid item', {
+          description: 'Item description is required.'
+        });
+        return;
+      }
     }
 
     if (item.quantity <= 0) {
@@ -372,6 +468,48 @@ export function QuotationConversionForm({
       toast.error('Invalid rate', {
         description: 'Rate cannot be negative.'
       });
+      return;
+    }
+
+    // For virtual products, check if already exists
+    if (item.isVirtualProduct && item.virtualProductId) {
+      const existingVirtualItemIndex = form
+        .watch('items')
+        .findIndex(formItem => formItem.virtualProductId === item.virtualProductId);
+
+      if (existingVirtualItemIndex !== -1) {
+        // Virtual product exists, update its quantity
+        const currentItems = form.getValues('items');
+        const existingItem = currentItems[existingVirtualItemIndex];
+        const newQuantity = existingItem.quantity + item.quantity;
+
+        const updatedItems = [...currentItems];
+        updatedItems[existingVirtualItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+          amount: newQuantity * existingItem.rate
+        };
+
+        form.setValue('items', updatedItems, { shouldValidate: true });
+      } else {
+        // Add new virtual product
+        append({
+          id: uuidv4(),
+          description: item.description,
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate,
+          productId: item.virtualProductId,
+          virtualProductId: item.virtualProductId,
+          isVirtualProduct: true,
+          variantSKU: item.sku,
+          originalRate: item.originalRate,
+          componentBreakdown: item.componentBreakdown,
+          customExpenses: convertedCustomExpenses,
+          totalComponentCost: item.totalComponentCost,
+          totalCustomExpenses: item.totalCustomExpenses
+        });
+      }
       return;
     }
 
@@ -412,7 +550,8 @@ export function QuotationConversionForm({
         variantId: item.variantId,
         variantSKU: item.sku,
         purchaseId: item.purchaseId,
-        originalRate: item.originalRate
+        originalRate: item.originalRate,
+        saleRate: item.saleRate
       });
     }
   };
@@ -594,6 +733,25 @@ export function QuotationConversionForm({
             productName: item.description,
             variantId: item.variantId,
             variantSKU: item.variantSKU,
+            ...(item.isVirtualProduct && {
+              virtualProductId: item.virtualProductId,
+              isVirtualProduct: true,
+              componentBreakdown: item.componentBreakdown,
+              totalComponentCost: item.totalComponentCost,
+              totalCustomExpenses: item.totalCustomExpenses
+            }),
+            ...(item.customExpenses && item.customExpenses.length > 0 && {
+              customExpenses: item.customExpenses.map(expense => ({
+                name: expense.name,
+                amount: expense.clientCost,
+                actualCost: expense.actualCost,
+                clientCost: expense.clientCost,
+                category: expense.category,
+                description: expense.description,
+                expenseId: expense.expenseId
+              })),
+              totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
+            }),
             quantity: item.quantity,
             unit: 'pcs',
             unitPrice: item.rate,
@@ -601,7 +759,8 @@ export function QuotationConversionForm({
             discountValue: 0,
             discountAmount: 0,
             totalPrice: item.amount,
-            purchaseId: item.purchaseId
+            purchaseId: item.purchaseId,
+            originalRate: item.originalRate || item.rate
           })),
           subtotal: data.items.reduce((sum, item) => sum + item.amount, 0),
           discountType: data.discountType,
@@ -760,34 +919,49 @@ export function QuotationConversionForm({
                   Add Products or Custom Items
                 </h3>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  append({
-                    id: uuidv4(),
-                    description: '',
-                    quantity: 1,
-                    rate: 0,
-                    amount: 0,
-                    productId: 'custom-item' // Required by Invoice model for custom items
-                  });
-                }}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => setIsCustomExpenseDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Custom Item
               </Button>
             </div>
           </div>
 
+          <AddCustomExpenseDialog
+            open={isCustomExpenseDialogOpen}
+            onOpenChange={setIsCustomExpenseDialogOpen}
+            onAdd={expense => {
+              append({
+                id: uuidv4(),
+                description: expense.name,
+                quantity: 1,
+                rate: expense.clientCost,
+                amount: expense.clientCost,
+                productId: 'custom-item',
+                originalRate: expense.actualCost,
+                customExpenses: [
+                  {
+                    name: expense.name,
+                    amount: expense.clientCost,
+                    actualCost: expense.actualCost,
+                    clientCost: expense.clientCost,
+                    category: expense.category,
+                    description: expense.description
+                  }
+                ],
+                totalComponentCost: 0,
+                totalCustomExpenses: expense.actualCost
+              });
+            }}
+          />
+
           <div className="gap-6 grid lg:grid-cols-2">
             {/* Product Selector */}
             {variants.length > 0 && (
               <div className="bg-muted/30 md:p-4 rounded-lg">
-                <ProductSelector
+                <EnhancedProductSelector
                   variants={variants}
                   purchases={purchases}
+                  virtualProducts={virtualProducts}
                   currentItems={form.watch('items')}
                   onAddItem={handleAddItemFromSelector}
                 />
@@ -968,57 +1142,235 @@ export function QuotationConversionForm({
                             </Button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <div className="text-xs text-muted-foreground mb-1">Rate</div>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.rate`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        {...field}
-                                        className="h-8 text-sm"
-                                        onChange={e => {
-                                          const value = e.target.value;
-                                          if (value === '') {
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          const numericValue = parseFloat(value);
-                                          if (isNaN(numericValue) || numericValue < 0) {
-                                            toast.error('Invalid rate', {
-                                              description: 'Rate must be 0 or greater'
-                                            });
-                                            field.onChange(0);
-                                            form.setValue(`items.${index}.amount`, 0);
-                                            return;
-                                          }
-                                          field.onChange(numericValue);
-                                          form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                        }}
-                                        value={field.value || ''}
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground mb-1">Amount</div>
-                            <div className="font-semibold">
-                              {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                        {item.isVirtualProduct ? (
+                          // For virtual products, show actual cost (read-only) and selling price (editable)
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Actual Cost</div>
+                                <InputGroup>
+                                  <InputGroupInput
+                                    type="number"
+                                    value={(item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)}
+                                    disabled
+                                    className="h-8 text-sm bg-muted"
+                                  />
+                                </InputGroup>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Components: {formatCurrency(item.totalComponentCost || 0)} + 
+                                  Expenses: {formatCurrency(item.totalCustomExpenses || 0)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Selling Price</div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.rate`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <InputGroup>
+                                          <InputGroupInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            {...field}
+                                            className="h-8 text-sm"
+                                            onChange={e => {
+                                              const value = e.target.value;
+                                              if (value === '') {
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                return;
+                                              }
+                                              const numericValue = parseFloat(value);
+                                              if (isNaN(numericValue) || numericValue < 0) {
+                                                toast.error('Invalid price', {
+                                                  description: 'Selling price must be 0 or greater'
+                                                });
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                return;
+                                              }
+                                              field.onChange(numericValue);
+                                              form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                            }}
+                                            value={field.value || ''}
+                                          />
+                                        </InputGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <div className="text-xs text-green-600 mt-1">
+                                  Profit per unit: {formatCurrency(currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)))} × {currentQuantity} = {formatCurrency((currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) * currentQuantity)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
+                              <div className="font-semibold">
+                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        ) : item.customExpenses && item.customExpenses.length > 0 ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Actual Cost</div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.customExpenses.0.actualCost`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <InputGroup>
+                                          <InputGroupInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            {...field}
+                                            className="h-8 text-sm"
+                                            onChange={e => {
+                                              const value = e.target.value;
+                                              if (value === '') {
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.totalCustomExpenses`, 0);
+                                                form.setValue(`items.${index}.originalRate`, 0);
+                                                return;
+                                              }
+                                              const numericValue = parseFloat(value);
+                                              if (isNaN(numericValue) || numericValue < 0) {
+                                                toast.error('Invalid cost', {
+                                                  description: 'Actual cost must be 0 or greater'
+                                                });
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.totalCustomExpenses`, 0);
+                                                form.setValue(`items.${index}.originalRate`, 0);
+                                                return;
+                                              }
+                                              field.onChange(numericValue);
+                                              form.setValue(`items.${index}.totalCustomExpenses`, numericValue);
+                                              form.setValue(`items.${index}.originalRate`, numericValue);
+                                            }}
+                                            value={field.value || ''}
+                                          />
+                                        </InputGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground mb-1">Client Cost</div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.rate`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <InputGroup>
+                                          <InputGroupInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            {...field}
+                                            className="h-8 text-sm"
+                                            onChange={e => {
+                                              const value = e.target.value;
+                                              if (value === '') {
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                return;
+                                              }
+                                              const numericValue = parseFloat(value);
+                                              if (isNaN(numericValue) || numericValue < 0) {
+                                                toast.error('Invalid cost', {
+                                                  description: 'Client cost must be 0 or greater'
+                                                });
+                                                field.onChange(0);
+                                                form.setValue(`items.${index}.amount`, 0);
+                                                return;
+                                              }
+                                              field.onChange(numericValue);
+                                              form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                              if (item.customExpenses && item.customExpenses[0]) {
+                                                form.setValue(`items.${index}.customExpenses.0.clientCost`, numericValue);
+                                              }
+                                            }}
+                                            value={field.value || ''}
+                                          />
+                                        </InputGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
+                              <div className="font-semibold">
+                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <div className="text-xs text-muted-foreground mb-1">Rate</div>
+                              <FormField
+                                control={form.control}
+                                name={`items.${index}.rate`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormControl>
+                                      <InputGroup>
+                                        <InputGroupInput
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          {...field}
+                                          className="h-8 text-sm"
+                                          onChange={e => {
+                                            const value = e.target.value;
+                                            if (value === '') {
+                                              field.onChange(0);
+                                              form.setValue(`items.${index}.amount`, 0);
+                                              return;
+                                            }
+                                            const numericValue = parseFloat(value);
+                                            if (isNaN(numericValue) || numericValue < 0) {
+                                              toast.error('Invalid rate', {
+                                                description: 'Rate must be 0 or greater'
+                                              });
+                                              field.onChange(0);
+                                              form.setValue(`items.${index}.amount`, 0);
+                                              return;
+                                            }
+                                            field.onChange(numericValue);
+                                            form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
+                                          }}
+                                          value={field.value || ''}
+                                        />
+                                      </InputGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs text-muted-foreground mb-1">Amount</div>
+                              <div className="font-semibold">
+                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

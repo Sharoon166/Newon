@@ -5,6 +5,7 @@ import { getProducts } from '@/features/inventory/actions';
 import { getInvoiceByNumber } from '@/features/invoices/actions';
 import { QuotationConversionForm } from '@/features/invoices/components/quotation-conversion-form';
 import { getAllPurchases } from '@/features/purchases/actions';
+import { getVirtualProducts } from '@/features/virtual-products/actions';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import { notFound } from 'next/navigation';
@@ -25,7 +26,11 @@ export default async function QuotationConversionPage({ params }: QuotationConve
     return notFound();
   }
 
-  const [variants, purchasesData] = await Promise.all([getProducts(), getAllPurchases()]);
+  const [variants, purchasesData, virtualProducts] = await Promise.all([
+    getProducts(),
+    getAllPurchases(),
+    getVirtualProducts()
+  ]);
   const purchases = purchasesData.docs;
 
   return (
@@ -118,7 +123,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
             customerZip: quotation.customerZip ?? '',
             customerId: quotation.customerId,
             items: quotation.items.map((item) => ({
-              id: crypto.randomUUID(),
+              id: item.productId,
               productName: item.productName,
               description: item.productName,
               quantity: item.quantity,
@@ -128,7 +133,14 @@ export default async function QuotationConversionPage({ params }: QuotationConve
               variantId: item.variantId,
               variantSKU: item.variantSKU,
               productId: item.productId,
-              purchaseId: item.purchaseId
+              purchaseId: item.purchaseId,
+              virtualProductId: item.virtualProductId,
+              isVirtualProduct: item.isVirtualProduct,
+              originalRate: item.originalRate,
+              componentBreakdown: item.componentBreakdown,
+              customExpenses: item.customExpenses,
+              totalComponentCost: item.totalComponentCost,
+              totalCustomExpenses: item.totalCustomExpenses
             })),
             subtotal: quotation.subtotal,
             discountType: quotation.discountType || 'fixed',
@@ -160,6 +172,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
           }}
           variants={variants}
           purchases={purchases}
+          virtualProducts={virtualProducts}
         />
       </div>
     </div>

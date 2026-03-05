@@ -245,7 +245,7 @@ export function EditInvoiceFormWrapper({
           notes: formData.notes,
           termsAndConditions: formData.terms,
           amountInWords: formData.amountInWords,
-          profit: formData.profit || 0,
+          // Don't send profit - let updateInvoiceFull recalculate it
           custom: hasCustomItems
         };
 

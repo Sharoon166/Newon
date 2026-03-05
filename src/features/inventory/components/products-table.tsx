@@ -490,7 +490,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
           <div className="contents md:flex justify-end w-full">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button>
+                <Button variant="secondary">
                   <Download className="mr-2 h-4 w-4" />
                   Export
                   <ChevronDown className="ml-2 h-4 w-4" />

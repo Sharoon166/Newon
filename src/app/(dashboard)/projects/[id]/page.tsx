@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import {
   getProject,
-  getProjectInvoices,
   getProjectInvoice,
   getProjectExpensesWithTransactions
 } from '@/features/projects/actions';
@@ -18,7 +17,7 @@ import { ProjectActions } from '@/features/projects/components/project-actions';
 import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ProjectAuditLogs } from '@/features/projects/components/project-audit-logs';
-import { Package, Receipt, Activity, FileText, ExternalLink, Banknote } from 'lucide-react';
+import { Package, Receipt, Activity, Banknote } from 'lucide-react';
 import { PageHeader } from '@/components/general/page-header';
 import StaffFinances from '@/features/projects/components/staff-finances';
 
@@ -52,10 +51,9 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
   try {
     const project = await getProject(projectId, session.user.id, session.user.role);
 
-    const [customer, projectInvoice, projectInvoices, auditLogsResult, enrichedExpenses] = await Promise.all([
+    const [customer, projectInvoice, auditLogsResult, enrichedExpenses] = await Promise.all([
       getCustomer(project.customerId),
       permissions.canViewInvoiceItems ? getProjectInvoice(project.projectId!) : Promise.resolve(null),
-      permissions.canViewProjectInvoices ? getProjectInvoices(project.projectId!) : Promise.resolve([]),
       permissions.canViewAuditLogs ? getProjectAuditLogs(project.projectId!) : Promise.resolve({ logs: [] }),
       getProjectExpensesWithTransactions(project.projectId!)
     ]);

@@ -518,7 +518,7 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
               item.totalComponentCost = allComponentPurchases.reduce(
                 (sum, p) => sum + p.totalCost,
                 0
-              );
+              ) / (item.quantity || 1);
             } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
               // For regular products, store the first purchase info
               const firstPurchase = deductionData.regularPurchases[0];
@@ -585,7 +585,13 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
           rate: item.unitPrice,
           originalRate: item.originalRate,
           quantity: item.quantity,
-          customExpenses: item.customExpenses
+          customExpenses: item.customExpenses?.map(exp => ({
+            actualCost: exp.actualCost,
+            clientCost: exp.clientCost
+          })),
+          isVirtualProduct: item.isVirtualProduct,
+          totalComponentCost: item.totalComponentCost,
+          totalCustomExpenses: item.totalCustomExpenses
         })),
         discountAmount
       );
@@ -1802,7 +1808,6 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
 
     try {
       // Step 1: Update the invoice with new data
-      // Convert date strings to UTC Date objects
       const { dateStringToUTC } = await import('@/lib/utils');
       const processedData = { ...data };
       if (processedData.date && typeof processedData.date === 'string') {
@@ -1825,7 +1830,10 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
             rate: item.unitPrice,
             originalRate: item.originalRate,
             quantity: item.quantity,
-            customExpenses: item.customExpenses
+            customExpenses: item.customExpenses,
+            isVirtualProduct: item.isVirtualProduct,
+            totalComponentCost: item.totalComponentCost,
+            totalCustomExpenses: item.totalCustomExpenses
           })),
           discountAmount
         );

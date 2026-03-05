@@ -228,8 +228,12 @@ export function VirtualProductSelector({
         // Add breakdown data
         componentBreakdown: componentBreakdownWithDetails,
         customExpenses: editableExpenses.map(exp => ({
-          ...exp,
-          amount: exp.amount * quantity // Multiply by quantity
+          name: exp.name,
+          amount: exp.amount * quantity,
+          actualCost: exp.amount * quantity,
+          clientCost: exp.amount * quantity,
+          category: exp.category,
+          description: exp.description || ''
         })),
         totalComponentCost,
         totalCustomExpenses

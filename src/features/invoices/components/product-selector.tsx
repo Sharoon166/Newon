@@ -91,7 +91,15 @@ export function ProductSelector({
       .filter(
         p => p.productId === variant.productId && p.variantId === variant.id && (skipStockValidation || p.remaining > 0)
       )
-      .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+      .sort((a, b) => {
+        const dateA = new Date(a.purchaseDate).getTime();
+        const dateB = new Date(b.purchaseDate).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB;
+        }
+        // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+        return a.purchaseId.localeCompare(b.purchaseId);
+      });
 
     // Calculate effective remaining for each purchase based on items in invoice
     const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
@@ -267,13 +275,21 @@ export function ProductSelector({
       <div className="@container">
         <div
           ref={gridRef}
-          className="grid grid-flow-dense @md:grid-cols-2 xl:@lg:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+          className="grid grid-flow-dense @md:grid-cols-2 xl:@xl:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
         >
           {filteredVariants.map(variant => {
             // Get all purchases for this variant, sorted by FIFO
             const allVariantPurchases = purchases
               .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
-              .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+              .sort((a, b) => {
+                const dateA = new Date(a.purchaseDate).getTime();
+                const dateB = new Date(b.purchaseDate).getTime();
+                if (dateA !== dateB) {
+                  return dateA - dateB;
+                }
+                // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+                return a.purchaseId.localeCompare(b.purchaseId);
+              });
             // Calculate effective remaining for each purchase based on items in invoice
             const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
               const quantityUsedInInvoice = currentItems
