@@ -159,9 +159,8 @@ export function ProductSelector({
       return;
     }
 
-    const description = `${variant.productName} - ${variant.sku}${
-      Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
-    }`;
+    const description = `${variant.productName} - ${variant.sku}${Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
+      }`;
 
     const rate =
       priceType === 'retail'
@@ -277,7 +276,7 @@ export function ProductSelector({
           ref={gridRef}
           className="grid grid-flow-dense @md:grid-cols-2 xl:@xl:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
         >
-          {filteredVariants.map(variant => {
+          {filteredVariants.map((variant, index) => {
             // Get all purchases for this variant, sorted by FIFO
             const allVariantPurchases = purchases
               .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
@@ -426,7 +425,7 @@ export function ProductSelector({
                           </Badge>
                           {quantityInInvoice > 0 ? (
                             <span className="text-[10px] text-muted-foreground">({quantityInInvoice} in invoice)</span>
-                          ) : <div className='h-4'/>}
+                          ) : <div className='h-4' />}
                         </div>
                         <span className="text-sm font-bold">
                           {formatCurrency(

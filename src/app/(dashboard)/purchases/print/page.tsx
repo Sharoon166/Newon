@@ -4,7 +4,7 @@ import { PrintablePurchasesWithPrint } from '@/features/purchases/components/pri
 export const dynamic = 'force-dynamic';
 
 export default async function PrintPurchasesPage() {
-  const purchases = await getAllPurchases();
+  const purchases = await getAllPurchases({ limit: 1_000_000 }); // to get all the purchases
 
   return (
     <div className="py-10 print:py-0 print:m-0 print:p-0">

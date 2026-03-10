@@ -17,7 +17,7 @@ export default async function NewDocument({ searchParams }: NewDocumentProps) {
   const [customers, variants, purchasesData, virtualProducts, paymentDetails, invoiceTerms] = await Promise.all([
     getCustomers({ limit: 1000, includeDisabled: false }),
     getProducts(),
-    getAllPurchases(),
+    getAllPurchases({ limit: 1_000_000 }), // to get all the purchases
     getVirtualProducts(),
     getPaymentDetails(),
     getInvoiceTerms()

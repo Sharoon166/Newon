@@ -28,7 +28,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
 
   const [variants, purchasesData, virtualProducts] = await Promise.all([
     getProducts(),
-    getAllPurchases(),
+    getAllPurchases({ limit: 1_000_000 }), // to get all the purchases
     getVirtualProducts()
   ]);
   const purchases = purchasesData.docs;

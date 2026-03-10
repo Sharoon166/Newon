@@ -44,7 +44,7 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
 
       setIsLoading(true);
       try {
-        const allPurchases = await getAllPurchases();
+        const allPurchases = await getAllPurchases({ limit: 1_000_000 }); // to get all the purchases;
         
         // Filter by date range
         const filtered = allPurchases.docs.filter(purchase => {

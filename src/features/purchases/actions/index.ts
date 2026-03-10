@@ -54,12 +54,13 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     matchQuery.purchaseDate = dateQuery;
   }
 
-  if (filters?.search) {
-    matchQuery.$or = [
-      { purchaseId: { $regex: filters.search, $options: 'i' } },
-      { supplier: { $regex: filters.search, $options: 'i' } }
-    ];
-  }
+if (filters?.search) {
+  matchQuery.$or = [
+    { purchaseId: { $regex: filters.search, $options: 'i' } },
+    { supplier: { $regex: filters.search, $options: 'i' } },
+    { notes: { $regex: filters.search, $options: 'i' } }  // Search notes field
+  ];
+}
 
   // Use paginate with populate instead of aggregate
   const result = await (PurchaseModel as mongoose.PaginateModel<IPurchase>).paginate(matchQuery, {
@@ -87,9 +88,9 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
         }>;
       };
     };
-    
+
     const variant = doc.productId?.variants?.find(v => v.id === doc.variantId);
-    
+
     return {
       id: doc._id.toString(),
       productId: typeof doc.productId === 'object' && doc.productId?._id ? doc.productId._id.toString() : doc.productId?.toString() || '',
@@ -118,8 +119,23 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     };
   });
 
+  // Post-query filtering for populated fields
+  let filteredDocs = serializedDocs;
+  if (filters?.search) {
+    const searchTerm = filters.search.toLowerCase();
+    filteredDocs = serializedDocs.filter((purchase) => {
+      return (
+        purchase.purchaseId?.toLowerCase().includes(searchTerm) ||
+        purchase.supplier?.toLowerCase().includes(searchTerm) ||
+        purchase.productName?.toLowerCase().includes(searchTerm) ||
+        purchase.variant?.sku?.toLowerCase().includes(searchTerm) ||  // Fixed: variant.sku
+        purchase.notes?.toLowerCase().includes(searchTerm)
+      );
+    });
+  }
+
   return {
-    docs: serializedDocs,
+    docs: filteredDocs,
     totalDocs: result.totalDocs,
     limit: result.limit,
     page: result.page || 1,
@@ -130,6 +146,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     prevPage: result.prevPage || null
   };
 };
+
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
   await dbConnect();
@@ -325,7 +342,7 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   revalidatePath('/inventory');
   revalidatePath('/purchases');
   revalidatePath('/virtual-products');
-  
+
 
   const purchaseObj = newPurchase.toObject();
   return {
@@ -474,7 +491,7 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   revalidatePath('/inventory');
   revalidatePath('/purchases');
   revalidatePath('/virtual-products');
-  
+
 
   return {
     ...updatedPurchase,
@@ -555,7 +572,7 @@ export const deletePurchase = async (id: string) => {
   revalidatePath(`/inventory/${productId}`);
   revalidatePath('/inventory');
   revalidatePath('/virtual-products');
-  
+
 };
 
 export const getPurchasesAggregateByVariantId = async (productId: string, variantId: string) => {

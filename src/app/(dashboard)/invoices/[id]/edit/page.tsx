@@ -56,7 +56,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
     const [customers, variants, purchases, virtualProducts, paymentDetails, invoiceTermsData] = await Promise.all([
       getCustomers({ limit: 1000, includeDisabled: false }),
       getProducts(),
-      getAllPurchases(),
+      getAllPurchases({ limit: 1_000_000 }), // to get all the purchases
       getVirtualProducts(),
       getPaymentDetails(),
       getInvoiceTerms()
