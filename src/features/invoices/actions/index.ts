@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import InvoiceModel from '@/models/Invoice';
@@ -566,13 +567,16 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
 
 // Update invoice
 export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise<Invoice> {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     await dbConnect();
 
     // Recalculate profit if items or discount changed
     if (data.items || data.discountAmount !== undefined) {
       // Get current invoice to merge with updates
-      const currentInvoice = await InvoiceModel.findById(id).lean();
+      const currentInvoice = await InvoiceModel.findById(id).session(session).lean();
       if (!currentInvoice) {
         throw new Error('Invoice not found');
       }
@@ -614,7 +618,7 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
     const updateData = Object.fromEntries(Object.entries(processedData).filter(([, value]) => value !== undefined));
 
     // Get the original invoice BEFORE updating (for customer financial comparison)
-    const originalInvoice = await InvoiceModel.findById(id).lean();
+    const originalInvoice = await InvoiceModel.findById(id).session(session).lean();
 
     if (!originalInvoice) {
       throw new Error('Invoice not found');
@@ -623,7 +627,7 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
     const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
       id,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true, session }
     ).lean();
 
     if (!updatedInvoice) {
@@ -632,35 +636,31 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
 
     // Update ledger entry if this is an invoice and total amount changed
     if (updatedInvoice.type === 'invoice' && data.totalAmount !== undefined) {
-      try {
-        const { updateLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
-        await updateLedgerEntryFromInvoice({
+      const { updateLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+      await updateLedgerEntryFromInvoice(
+        {
           id: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
           invoiceNumber: updatedInvoice.invoiceNumber,
           totalAmount: updatedInvoice.totalAmount
-        });
-      } catch (ledgerError) {
-        console.error('Error updating ledger entry:', ledgerError);
-        // Continue - invoice is updated but ledger entry update failed
-      }
+        },
+        session
+      );
 
       // Update customer financials if amounts changed
       if (data.totalAmount !== undefined || data.paidAmount !== undefined) {
-        try {
-          const { updateCustomerFinancialsOnInvoiceUpdate } = await import('@/features/customers/actions');
-          await updateCustomerFinancialsOnInvoiceUpdate(
-            updatedInvoice.customerId,
-            originalInvoice.totalAmount,
-            updatedInvoice.totalAmount,
-            originalInvoice.paidAmount,
-            updatedInvoice.paidAmount
-          );
-        } catch (customerError) {
-          console.error('Error updating customer financials:', customerError);
-          // Continue - invoice is updated but customer update failed
-        }
+        const { updateCustomerFinancialsOnInvoiceUpdate } = await import('@/features/customers/actions');
+        await updateCustomerFinancialsOnInvoiceUpdate(
+          updatedInvoice.customerId,
+          originalInvoice.totalAmount,
+          updatedInvoice.totalAmount,
+          originalInvoice.paidAmount,
+          updatedInvoice.paidAmount,
+          session
+        );
       }
     }
+
+    await session.commitTransaction();
 
     revalidatePath('/invoices');
     revalidatePath(`/invoices/${id}`);
@@ -672,8 +672,11 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
 
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
   } catch (error) {
+    await session.abortTransaction();
     console.error(`Error updating invoice ${id}:`, error);
     throw new Error('Failed to update invoice');
+  } finally {
+    session.endSession();
   }
 }
 
@@ -1745,6 +1748,11 @@ export async function canEditInvoice(invoiceId: string): Promise<{
     // Cannot edit cancelled invoices
     if (invoice.status === 'cancelled') {
       return { allowed: false, reason: 'Cannot edit cancelled invoices', requiresStockRestore: false };
+    }
+
+    // Check if invoice is before cutoff date
+    if (invoice.createdAt && new Date(invoice.createdAt) <= INVOICE_EDIT_CUTOFF_DATE) {
+      return { allowed: false, reason: 'Invoice was created before cutoff date and cannot be edited', requiresStockRestore: false };
     }
 
     // Quotations can always be edited (unless cancelled)

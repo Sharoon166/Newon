@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
 import {
   Search,
   ChevronDown,
@@ -274,6 +275,8 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
         id: 'actions',
         cell: ({ row }) => {
           const quotation = row.original;
+          const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
+          
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -306,6 +309,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
                   onClick={() => {
                     router.push(`/invoices/${quotation.id}/edit`);
                   }}
+                  disabled={quotation.status === 'cancelled' || quotation.status === 'converted' || isEditRestricted}
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit

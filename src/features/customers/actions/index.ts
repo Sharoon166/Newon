@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import type { Customer, CreateCustomerDto, UpdateCustomerDto, CustomerFilters } from '../types';
 import dbConnect from '@/lib/db';
 import CustomerModel from '../../../models/Customer';
+import mongoose from 'mongoose';
 
 // Type for lean Mongoose document - using Record for _id to handle Mongoose's FlattenMaps type
 interface LeanCustomer {
@@ -369,7 +370,8 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
   oldTotalAmount: number,
   newTotalAmount: number,
   oldPaidAmount: number,
-  newPaidAmount: number
+  newPaidAmount: number,
+  session?: mongoose.ClientSession
 ): Promise<void> {
   try {
     await dbConnect();
@@ -380,7 +382,7 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
     const outstandingDiff = invoiceDiff - paidDiff;
 
     // Get current values to ensure no negative results
-    const customer = await CustomerModel.findOne({ customerId });
+    const customer = await CustomerModel.findOne({ customerId }).session(session || null);
     
     if (!customer) {
       console.warn(`Customer ${customerId} not found for financial update`);
@@ -399,7 +401,8 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
           totalPaid: newTotalPaid,
           outstandingBalance: newOutstandingBalance
         }
-      }
+      },
+      { session: session || null }
     );
     
     // Revalidate pages that show customer financial data

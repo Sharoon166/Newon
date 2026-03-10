@@ -96,7 +96,7 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                     {formatCurrency(
                       item.isVirtualProduct
                         ? (item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)
-                        : (item.originalRate ?? 0)
+                        : (item.originalRate ?? item.unitPrice ?? 0)
                     )}
                   </div>
                 </TableCell>
@@ -107,7 +107,7 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                     {formatCurrency(
                       item.isVirtualProduct
                         ? ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)) * item.quantity
-                        : (item.originalRate ?? 0) * item.quantity
+                        : (item.originalRate ?? item.unitPrice ?? 0) * item.quantity
                     )}
                   </div>
                 </TableCell>

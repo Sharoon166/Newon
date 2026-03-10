@@ -28,9 +28,6 @@ async function AddProjectContent() {
 
   return (
     <div className="space-y-6">
-      <pre>
-      {JSON.stringify(invoices.map(i => i.customerName),null,2)}
-      </pre>
       <PageHeader title="Create New Project" description="Add a new project to track" icon={<FolderKanban />} />
 
       <Card>

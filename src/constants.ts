@@ -32,3 +32,7 @@ export const OTC_CUSTOMER = {
   state: 'N/A',
   zip: '00000'
 };
+
+// Cutoff date for invoice/quotation editing - invoices/quotations before this date cannot be edited
+// Using a more recent date to ensure system stability and safety
+export const INVOICE_EDIT_CUTOFF_DATE = new Date('2026-03-10');

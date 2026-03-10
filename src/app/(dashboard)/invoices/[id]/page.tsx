@@ -21,7 +21,7 @@ import { NewonInvoiceTemplate } from '@/features/invoices/components/invoice-tem
 import { DeliveryNoteTemplate } from '@/features/invoices/components/delivery-note-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
-import { COMPANY_DETAILS, PAYMENT_DETAILS } from '@/constants';
+import { COMPANY_DETAILS, PAYMENT_DETAILS, INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
@@ -39,6 +39,19 @@ export default function InvoiceDetailPage() {
   const [productImages, setProductImages] = useState<Map<string, string>>(new Map());
   const printRef = useRef<HTMLDivElement>(null);
   const deliveryNoteRef = useRef<HTMLDivElement>(null);
+
+  // Check if invoice/quotation is before cutoff date and should be restricted from editing
+  const isEditRestricted = invoice ? (() => {
+    const createdDate = new Date(invoice.createdAt);
+    const cutoffDate = INVOICE_EDIT_CUTOFF_DATE;
+    console.log('Date comparison debug:', {
+      createdDate: createdDate.toISOString(),
+      cutoffDate: cutoffDate.toISOString(),
+      comparison: createdDate <= cutoffDate,
+      isEditRestricted: createdDate <= cutoffDate
+    });
+    return createdDate <= cutoffDate;
+  })() : false;
 
   useEffect(() => {
     if (params.id) {
@@ -338,13 +351,13 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild disabled={invoice.status === 'cancelled'}>
-            <Link href={`/invoices/${invoice.id}/edit`}>
+          <Button variant="outline" asChild disabled={invoice.status === 'cancelled' || isEditRestricted}>
+            <Link href={isEditRestricted ? '#' : `/invoices/${invoice.id}/edit`}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Link>
           </Button>
-          <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={invoice.status === 'cancelled'}>
+          <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={isEditRestricted}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Update Status
           </Button>
@@ -390,6 +403,23 @@ export default function InvoiceDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Edit Restriction Banner */}
+          {isEditRestricted && (
+            <Card className="border-amber-500 bg-amber-50">
+              <CardContent className="flex items-center gap-2 py-4">
+                <Info className="h-5 w-5 text-amber-600" />
+                <div>
+                  <p className="font-semibold text-amber-800">
+                    Editing Restricted
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    This {invoice.type === 'invoice' ? 'invoice' : 'quotation'} was created on {format(new Date(invoice.createdAt), 'MMM dd, yyyy')} and cannot be edited.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Cancelled Banner */}
           {invoice.status === 'cancelled' && (
             <Card className="border-destructive bg-destructive/10">

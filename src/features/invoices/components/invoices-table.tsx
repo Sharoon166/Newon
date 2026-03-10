@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
+import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -362,6 +363,8 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
         id: 'actions',
         cell: ({ row }) => {
           const invoice = row.original;
+          const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
+          
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -396,6 +399,7 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
                       onClick={() => {
                         router.push(`/invoices/${invoice.id}/edit`);
                       }}
+                      disabled={isEditRestricted}
                     >
                       <Edit className="h-4 w-4 mr-2" />
                       Edit

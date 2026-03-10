@@ -13,6 +13,7 @@ import {
 import dbConnect from '@/lib/db';
 import LedgerEntryModel from '@/models/LedgerEntry';
 import CustomerModel from '@/models/Customer';
+import mongoose from 'mongoose';
 
 // Type for lean Mongoose document
 interface LeanLedgerEntry {
@@ -721,7 +722,8 @@ export async function updateLedgerEntryFromInvoice(
     id: string;
     invoiceNumber: string;
     totalAmount: number;
-  }
+  },
+  session: mongoose.ClientSession | null = null
 ): Promise<void> {
   try {
     await dbConnect();
@@ -730,7 +732,7 @@ export async function updateLedgerEntryFromInvoice(
     const entry = await LedgerEntryModel.findOne({
       transactionType: 'invoice',
       transactionId: invoiceData.id
-    });
+    }).session(session);
 
     if (!entry) {
       console.warn(`No ledger entry found for invoice ${invoiceData.id}`);
@@ -752,7 +754,7 @@ export async function updateLedgerEntryFromInvoice(
     // New balance = balance before this entry + this entry's debit - this entry's credit
     entry.balance = balanceBefore + entry.debit - entry.credit;
 
-    await entry.save();
+    await entry.save({ session });
 
     // Update all subsequent entries for this customer
     if (difference !== 0) {
@@ -769,7 +771,8 @@ export async function updateLedgerEntryFromInvoice(
         },
         {
           $inc: { balance: difference }
-        }
+        },
+        { session: session ?? undefined }
       );
     }
 

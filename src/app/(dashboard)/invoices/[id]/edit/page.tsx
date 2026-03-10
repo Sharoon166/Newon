@@ -35,6 +35,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
         <div className="container mx-auto py-10">
           <PageHeader
             title={`Edit ${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'}`}
+            backLink='/invoices'
           />
           <Alert variant="destructive" className="mt-6">
             <AlertCircle className="h-4 w-4" />
