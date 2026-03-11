@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import type { MonthlyReport } from '../types';
+import { formatCurrency } from '@/lib/utils';
 
 export type ReportCsvData = {
   Month: string;
@@ -23,11 +24,11 @@ export const exportReportsToCsv = (data: MonthlyReport[], year: number): void =>
       Month: report.monthName,
       Invoices: report.invoicesCount,
       Quotations: report.quotationsCount,
-      Revenue: report.revenue.toFixed(2),
-      Paid: report.paidAmount.toFixed(2),
-      Outstanding: report.outstandingAmount.toFixed(2),
-      Expenses: report.expenses.toFixed(2),
-      Profit: report.profit.toFixed(2)
+      Revenue: formatCurrency(report.revenue, false),
+      Paid: formatCurrency(report.paidAmount, false),
+      Outstanding: formatCurrency(report.outstandingAmount, false),
+      Expenses: formatCurrency(report.expenses, false),
+      Profit: formatCurrency(report.profit, false)
     }));
 
     const headers = Object.keys(csvData[0]);

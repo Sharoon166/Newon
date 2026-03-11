@@ -25,7 +25,8 @@ import {
   Package,
   Eye,
   Save,
-  Loader2
+  Loader2,
+  Edit
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
@@ -57,6 +58,7 @@ import {
   ComboboxList
 } from '@/components/ui/combobox';
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
+import { UnitSelector } from '@/components/ui/unit-selector';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 
 const invoiceFormSchema = z.object({
@@ -93,6 +95,7 @@ const invoiceFormSchema = z.object({
         id: z.string(),
         description: z.string().min(1, 'Description is required'),
         quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
+        unit: z.string().min(1, 'Unit is required').default('pcs'),
         rate: z.number().min(0, 'Rate must be 0 or greater'),
         amount: z.number().min(0, 'Amount must be 0 or greater'),
         productId: z.string().optional(),
@@ -187,6 +190,7 @@ export function NewInvoiceForm({
   const [isToOpen, setIsToOpen] = useState(true);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
@@ -529,6 +533,7 @@ export function NewInvoiceForm({
             id: uuidv4(),
             description: item.description,
             quantity: item.quantity,
+            unit: 'pcs', // Will be updated by form field
             rate: item.rate,
             amount: item.quantity * item.rate,
             productId: item.virtualProductId, // Store virtualProductId as productId
@@ -564,6 +569,7 @@ export function NewInvoiceForm({
           id: uuidv4(),
           description: item.description,
           quantity: item.quantity,
+          unit: 'pcs',
           rate: item.rate,
           amount: item.quantity * item.rate,
           productId: item.productId,
@@ -1081,6 +1087,7 @@ export function NewInvoiceForm({
                 id: uuidv4(),
                 description: expense.name,
                 quantity: 1,
+                unit: 'pcs',
                 rate: expense.clientCost,
                 amount: expense.clientCost,
                 originalRate: expense.actualCost,
@@ -1320,6 +1327,24 @@ export function NewInvoiceForm({
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
+                          </div>
+                          <div>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.unit`}
+                              render={({ field }) => (
+                                <FormItem className='flex gap-2 items-center'>
+                                  <FormLabel className="text-xs text-muted-foreground">Unit: </FormLabel>
+                                  <FormControl>
+                                    <UnitSelector
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      placeholder="Enter unit"
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
                           </div>
                         </div>
                         {item.isVirtualProduct ? (
@@ -1831,6 +1856,44 @@ export function NewInvoiceForm({
                       <Textarea
                         className="min-h-[100px]"
                         placeholder="Notes visible on printed invoice..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
+        {/* Terms and Conditions - Collapsible and Collapsed by Default */}
+        <Collapsible open={isTermsOpen} onOpenChange={setIsTermsOpen} className="border rounded-lg">
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isTermsOpen
+                })}
+              >
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                  <Edit className="h-5 w-5" />
+                  Terms and Conditions
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
+              <FormField
+                control={form.control}
+                name="terms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="State the terms and conditions..."
                         {...field}
                       />
                     </FormControl>

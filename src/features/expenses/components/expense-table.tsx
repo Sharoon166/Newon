@@ -3,21 +3,17 @@
 import { useState } from 'react';
 import {
   ColumnDef,
-  ColumnFiltersState,
   SortingState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  useReactTable,
-  getSortedRowModel
+  getSortedRowModel,
+  useReactTable
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, Pencil, Search, Filter, Trash2, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowUpDown, Pencil, Trash2, CheckCircle2, Clock } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ServerPagination } from '@/components/general/server-pagination';
 import type { Expense, ExpenseCategory, PaginatedExpenses } from '../types';
 import Link from 'next/link';
@@ -28,8 +24,6 @@ interface ExpenseTableProps {
   onDelete?: (id: string) => void;
   mode?: 'manual' | 'project' | 'invoice';
 }
-
-type CategoryFilter = 'all' | ExpenseCategory;
 
 const categoryLabels: Record<ExpenseCategory, string> = {
   materials: 'Materials',
@@ -50,14 +44,7 @@ const categoryLabels: Record<ExpenseCategory, string> = {
 };
 
 export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }: ExpenseTableProps) {
-  const data = expensesData.docs;
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
-
-  const filteredData =
-    categoryFilter === 'all' ? data : data.filter(expense => expense.category === categoryFilter);
 
   const columns: ColumnDef<Expense>[] = [
     {
@@ -170,33 +157,22 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
         const expense = row.original;
         if (expense.source === 'invoice' && expense.invoiceNumber) {
           return (
-            <div className="space-y-1">
-              <Link 
-                href={`/invoices?search=${expense.invoiceNumber}`}
-                className="text-sm text-primary hover:underline block"
-              >
-                {expense.invoiceNumber}
-              </Link>
-            </div>
+            <Link
+              href={`/invoices?search=${expense.invoiceNumber}`}
+              className="text-sm text-primary hover:underline block"
+            >
+              {expense.invoiceNumber}
+            </Link>
           );
         }
-
         if (expense.source === 'project' && expense.projectId) {
           return (
-            <div className="space-y-1">
-              {expense.projectId && (
-                <Link href={`/projects/${expense.projectId}`} className="text-sm text-primary hover:underline block">
-                  {expense.projectId}
-                </Link>
-              )}
-            </div>
+            <Link href={`/projects/${expense.projectId}`} className="text-sm text-primary hover:underline block">
+              {expense.projectId}
+            </Link>
           );
         }
-        return (
-          <div className="text-sm text-muted-foreground">
-            {expense.addedByName || '-'}
-          </div>
-        );
+        return <div className="text-sm text-muted-foreground">{expense.addedByName || '-'}</div>;
       }
     },
     {
@@ -204,7 +180,7 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
       enableHiding: false,
       cell: ({ row }) => {
         const expense = row.original;
-        const isFromInvoiceOrExpense = expense.source === 'invoice' || expense.source === "project";
+        const isFromInvoiceOrExpense = expense.source === 'invoice' || expense.source === 'project';
         return (
           <div className="flex justify-end gap-2">
             {onEdit && (
@@ -240,55 +216,16 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
   ];
 
   const table = useReactTable({
-    data: filteredData,
+    data: expensesData.docs,
     columns,
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter
-    },
+    state: { sorting },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    globalFilterFn: 'includesString'
   });
 
   return (
     <div className="space-y-4">
-      <div className="flex sm:items-center justify-between max-sm:flex-col flex-wrap gap-4">
-        <InputGroup className="max-w-sm flex-1">
-          <InputGroupInput
-            placeholder="Search expenses..."
-            value={globalFilter ?? ''}
-            onChange={event => setGlobalFilter(event.target.value)}
-          />
-          <InputGroupAddon>
-            <Search className="h-4 w-4" />
-          </InputGroupAddon>
-        </InputGroup>
-
-        <Select
-          value={categoryFilter}
-          onValueChange={(value: CategoryFilter) => setCategoryFilter(value)}
-        >
-          <SelectTrigger className="w-[200px]">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <SelectValue placeholder="Filter by category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {Object.entries(categoryLabels).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -296,9 +233,7 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
               </TableRow>

@@ -9,8 +9,12 @@ import { ExpenseTable } from './expense-table';
 import { ExpenseFormDialog } from './expense-form-dialog';
 import { ExpenseFilter } from './expense-filter';
 import { deleteExpense, getExpense } from '../actions';
-import type { Expense, PaginatedExpenses } from '../types';
+import type { Expense, ExpenseCategory, PaginatedExpenses } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { Search, Filter } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +48,57 @@ export function ExpensesPageClient({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState(activeTab || 'expenses');
+
+  // Filter states
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchInput, 400);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | ExpenseCategory>(
+    (searchParams.get('category') as ExpenseCategory) || 'all'
+  );
+
+  // Category labels for dropdown
+  const categoryLabels: Record<ExpenseCategory, string> = {
+    materials: 'Materials',
+    labor: 'Labor',
+    equipment: 'Equipment',
+    transport: 'Transport',
+    rent: 'Rent',
+    utilities: 'Utilities',
+    fuel: 'Fuel',
+    maintenance: 'Maintenance',
+    marketing: 'Marketing',
+    'office-supplies': 'Office Supplies',
+    'professional-services': 'Professional Services',
+    insurance: 'Insurance',
+    taxes: 'Taxes',
+    salary: 'Salary',
+    other: 'Other'
+  };
+
+  // Push debounced search to URL
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (debouncedSearch) {
+      params.set('search', debouncedSearch);
+      params.set('page', '1');
+    } else {
+      params.delete('search');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push category filter to URL immediately
+  const handleCategoryChange = (value: 'all' | ExpenseCategory) => {
+    setCategoryFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== 'all') {
+      params.set('category', value);
+      params.set('page', '1');
+    } else {
+      params.delete('category');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   useEffect(() => {
     setCurrentTab(activeTab || 'expenses');
@@ -104,12 +159,44 @@ export function ExpensesPageClient({
 
   return (
     <>
-    <div className="flex justify-end">
-      <ExpenseFilter />
-    </div>
+      <div className="flex justify-end">
+          <ExpenseFilter />
+        </div>
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex sm:items-center justify-between max-sm:flex-col flex-wrap gap-4">
+          <InputGroup className="max-w-sm flex-1">
+            <InputGroupInput
+              placeholder="Search by expense ID, description, vendor..."
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+            />
+            <InputGroupAddon>
+              <Search className="h-4 w-4" />
+            </InputGroupAddon>
+          </InputGroup>
+
+          <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+            <SelectTrigger className="w-[200px]">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {Object.entries(categoryLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        
+      </div>
+
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <div className="flex flex-wrap gap-y-4 justify-between items-center">
-          <TabsList>
+        <div className='space-y-2'>
+          <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
             <TabsTrigger value="expenses">Expenses ({expensesData.totalDocs})</TabsTrigger>
             <TabsTrigger value="project-expenses">Project Expenses ({projectExpensesData.totalDocs})</TabsTrigger>
             <TabsTrigger value="invoice-expenses">Invoice Expenses ({invoiceExpensesData.totalDocs})</TabsTrigger>

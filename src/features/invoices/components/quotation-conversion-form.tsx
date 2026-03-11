@@ -37,6 +37,7 @@ import { useState, useEffect } from 'react';
 import { EnhancedProductSelector } from './enhanced-product-selector';
 import { v4 as uuidv4 } from 'uuid';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
+import { UnitSelector } from '@/components/ui/unit-selector';
 
 const invoiceFormSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -48,6 +49,7 @@ const invoiceFormSchema = z.object({
         id: z.string(),
         description: z.string().min(1, 'Description is required'),
         quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
+        unit: z.string().min(1, 'Unit is required').default('pcs'),
         rate: z.number().min(0, 'Rate must be 0 or greater'),
         amount: z.number().min(0, 'Amount must be 0 or greater'),
         productId: z.string().optional(),
@@ -231,6 +233,7 @@ export function QuotationConversionForm({
           id: item.id,
           description: item.description || item.productName,
           quantity: validatedQuantity,
+          unit: item.unit || 'pcs',
           rate: item.unitPrice,
           amount: validatedQuantity * item.unitPrice,
           productId: item.productId,
@@ -497,6 +500,7 @@ export function QuotationConversionForm({
           id: uuidv4(),
           description: item.description,
           quantity: item.quantity,
+          unit: 'pcs',
           rate: item.rate,
           amount: item.quantity * item.rate,
           productId: item.virtualProductId,
@@ -544,6 +548,7 @@ export function QuotationConversionForm({
         id: uuidv4(),
         description: item.description,
         quantity: item.quantity,
+        unit: 'pcs',
         rate: item.rate,
         amount: item.quantity * item.rate,
         productId: item.productId,
@@ -753,7 +758,7 @@ export function QuotationConversionForm({
               totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
             }),
             quantity: item.quantity,
-            unit: 'pcs',
+            unit: item.unit || 'pcs',
             unitPrice: item.rate,
             discountType: 'fixed',
             discountValue: 0,
@@ -934,6 +939,7 @@ export function QuotationConversionForm({
                 id: uuidv4(),
                 description: expense.name,
                 quantity: 1,
+                unit: 'pcs',
                 rate: expense.clientCost,
                 amount: expense.clientCost,
                 productId: 'custom-item',
@@ -1140,6 +1146,24 @@ export function QuotationConversionForm({
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
+                          </div>
+                          <div>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.unit`}
+                              render={({ field }) => (
+                                <FormItem className='flex items-center gap-2'>
+                                  <FormLabel className="text-xs text-muted-foreground">Unit</FormLabel>
+                                  <FormControl>
+                                    <UnitSelector
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      placeholder="Enter unit"
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
                           </div>
                         </div>
                         {item.isVirtualProduct ? (
@@ -1622,6 +1646,7 @@ export function QuotationConversionForm({
             </CollapsibleContent>
           </div>
         </Collapsible>
+
 
         {/* Form Actions */}
         <div className="flex flex-col sm:flex-row justify-end gap-3 mt-8">

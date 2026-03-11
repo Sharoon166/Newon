@@ -4,17 +4,18 @@ import { getPaymentDetails, getInvoiceTerms } from '@/features/settings/actions'
 import { requireAdmin } from '@/lib/auth-utils';
 import dbConnect from '@/lib/db';
 import Staff, { IStaff } from '@/models/Staff';
+import { redirect } from 'next/navigation';
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
-  
+
   await dbConnect();
-  const admin = await Staff.findById(session.user.id).lean() as IStaff | null;
-  
+  const admin = await Staff.findOne({ staffId: session.user.staffId }).lean() as IStaff | null;
+
   if (!admin) {
-    throw new Error('Admin user not found');
+    redirect("/inventory")
   }
-  
+
   const [paymentDetails, invoiceTerms] = await Promise.all([
     getPaymentDetails(),
     getInvoiceTerms()
@@ -22,12 +23,12 @@ export default async function SettingsPage() {
 
   return (
     <div className="container mx-auto py-6">
-      <PageHeader 
-        title="Settings" 
+      <PageHeader
+        title="Settings"
         description="Manage your account and app preferences"
       />
-      
-      <SettingsTabs 
+
+      <SettingsTabs
         paymentDetails={paymentDetails}
         invoiceTerms={invoiceTerms}
         currentUser={{

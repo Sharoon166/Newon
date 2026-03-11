@@ -180,7 +180,7 @@ export function AlertsSection({
                       <div className="min-w-0">
                         <div className="font-medium truncate">{invoice.customerName}</div>
                         <div className="text-muted-foreground truncate">
-                          {invoice.invoiceNumber} · Due {formatDate(new Date(invoice.dueDate))}
+                          {invoice.invoiceNumber}<div className="max-xs:hidden"> · Due {formatDate(new Date(invoice.dueDate))}</div>
                         </div>
                       </div>
                       <div className="text-right shrink-0">

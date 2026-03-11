@@ -274,6 +274,7 @@ export default function InvoiceDetailPage() {
           items: invoice.items.map(item => ({
             id: item.productId,
             description: item.productName,
+            unit: item.unit ?? "pcs",
             quantity: item.quantity,
             rate: item.unitPrice,
             amount: item.totalPrice,
@@ -346,6 +347,9 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="container mx-auto py-10">
+      <pre>
+        {JSON.stringify(invoice,null,2)}
+      </pre>
       <PageHeader
         title={`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`}
         backLink="/invoices"

@@ -3,11 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   ColumnDef,
-  ColumnFiltersState,
   SortingState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getSortedRowModel,
   useReactTable
 } from '@tanstack/react-table';
@@ -29,7 +27,6 @@ import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import { PurchaseForm } from './purchase-form';
 
-// Extend the Purchase type with additional properties from the API
 export interface EnhancedPurchase extends Purchase {
   variant?: {
     id: string;
@@ -47,11 +44,12 @@ interface PurchasesTableWithActionsProps {
 export function PurchasesTableWithActions({ purchasesData, products }: PurchasesTableWithActionsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [purchases, setPurchases] = useState<EnhancedPurchase[]>(purchasesData.docs as EnhancedPurchase[]);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [searchValue, setSearchValue] = useState(searchParams.get('search') || '');
-  
+
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchInput, 400);
+  const [supplierFilter, setSupplierFilter] = useState(searchParams.get('supplier') || 'all');
+
   // Dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [purchaseToDelete, setPurchaseToDelete] = useState<EnhancedPurchase | null>(null);
@@ -60,21 +58,41 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
   const [editPurchaseOpen, setEditPurchaseOpen] = useState(false);
   const [purchaseToEdit, setPurchaseToEdit] = useState<EnhancedPurchase | null>(null);
 
-  // Update purchases when purchasesData changes
-  useEffect(() => {
-    setPurchases(purchasesData.docs as EnhancedPurchase[]);
-  }, [purchasesData]);
-
-  // Get unique suppliers for filter
-  const suppliers = useMemo(() => {
+  const allSuppliers = useMemo(() => {
     const supplierSet = new Set<string>();
-    purchases.forEach(purchase => {
+    purchasesData.docs.forEach(purchase => {
       if (purchase.supplier) supplierSet.add(purchase.supplier);
     });
     return Array.from(supplierSet).sort();
-  }, [purchases]);
+  }, [purchasesData]);
 
-  // Get unique locations from products
+  const purchases = purchasesData.docs as EnhancedPurchase[];
+
+  // Push debounced search to URL
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (debouncedSearch) {
+      params.set('search', debouncedSearch);
+      params.set('page', '1');
+    } else {
+      params.delete('search');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push supplier filter to URL immediately
+  const handleSupplierChange = (value: string) => {
+    setSupplierFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value && value !== 'all') {
+      params.set('search', value);
+      params.set('page', '1');
+    } else {
+      params.delete('search');
+    }
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
   const locations = useMemo(() => {
     const locationSet = new Map<string, { id: string; name: string; address?: string; isActive: boolean }>();
     products.forEach(product => {
@@ -92,19 +110,6 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
     return Array.from(locationSet.values());
   }, [products]);
 
-  // // Get unique suppliers from products and purchases
-  // const allSuppliers = useMemo(() => {
-  //   const supplierSet = new Set<string>();
-  //   products.forEach(product => {
-  //     if (product.supplier) supplierSet.add(product.supplier);
-  //   });
-  //   purchases.forEach(purchase => {
-  //     if (purchase.supplier) supplierSet.add(purchase.supplier);
-  //   });
-  //   return Array.from(supplierSet).sort();
-  // }, [products, purchases]);
-
-  // Format variant display
   const getVariantDisplay = (purchase: EnhancedPurchase) => {
     if (!purchase.variant) return purchase.variantId;
     const attrString = purchase.variant.attributes
@@ -115,7 +120,6 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
     return attrString ? `${purchase.variant.sku} (${attrString})` : purchase.variant.sku;
   };
 
-  // Handle delete purchase
   const handleDeleteClick = (purchase: EnhancedPurchase) => {
     setPurchaseToDelete(purchase);
     setDeleteDialogOpen(true);
@@ -123,18 +127,11 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
 
   const handleDeleteConfirm = async () => {
     if (!purchaseToDelete) return;
-
     try {
       setIsDeleting(true);
       await deletePurchase(purchaseToDelete.id || purchaseToDelete._id!);
-      
-      // Remove from local state
-      setPurchases(prev => prev.filter(p => 
-        (p.id || p._id) !== (purchaseToDelete.id || purchaseToDelete._id)
-      ));
-      
       toast.success('Purchase deleted successfully');
-      router.refresh(); // Refresh to update inventory
+      router.refresh();
     } catch (error) {
       console.error('Error deleting purchase:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete purchase');
@@ -145,21 +142,18 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
     }
   };
 
-  // Handle edit purchase
   const handleEditClick = (purchase: EnhancedPurchase) => {
     setPurchaseToEdit(purchase);
     setEditPurchaseOpen(true);
   };
 
-  // Handle purchase form success
   const handlePurchaseSuccess = () => {
     setAddPurchaseOpen(false);
     setEditPurchaseOpen(false);
     setPurchaseToEdit(null);
-    router.refresh(); // Refresh to get updated data
+    router.refresh();
   };
 
-  // Define columns
   const columns: ColumnDef<EnhancedPurchase>[] = [
     {
       accessorKey: 'purchaseId',
@@ -243,16 +237,16 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => handleEditClick(row.original)}
             title="Edit purchase"
           >
             <Edit2 className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => handleDeleteClick(row.original)}
             disabled={row.original.remaining < row.original.quantity}
@@ -264,9 +258,9 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
           >
             <Trash2 className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
             title="Go to product"
           >
@@ -277,55 +271,17 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
     }
   ];
 
-  // Initialize the table with search functionality
   const table = useReactTable({
     data: purchases,
     columns,
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter: searchValue
-    },
+    state: { sorting },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setSearchValue,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    globalFilterFn: (row, columnId, filterValue) => {
-      if (!filterValue) return true;
-      const searchStr = filterValue.toLowerCase();
-      const productName = row.original.productName?.toLowerCase() || '';
-      const supplier = row.original.supplier?.toLowerCase() || '';
-      const sku = row.original.variant?.sku?.toLowerCase() || '';
-
-      return productName.includes(searchStr) || supplier.includes(searchStr) || sku.includes(searchStr);
-    },
-    initialState: {
-      pagination: {
-        pageSize: 10
-      }
-    }
   });
 
-  // Handle search input change with URL params
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) {
-      params.set('search', value);
-      params.set('page', '1'); // Reset to first page on search
-    } else {
-      params.delete('search');
-    }
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
-
-  // Handle export to CSV
   const handleExportCsv = () => {
-    const data = table.getFilteredRowModel().rows.map(row => ({
+    const data = table.getRowModel().rows.map(row => ({
       'Purchase Date': formatDate(row.original.purchaseDate),
       Product: row.original.productName || 'Unknown',
       Variant: row.original.variant?.sku || row.original.variantId || '',
@@ -341,20 +297,9 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
     exportToCsv(data, `purchases-${new Date().toISOString().split('T')[0]}`);
   };
 
-  // Handle export to PDF
   const handleExportPdf = () => {
-    router.push("/purchases/print");
-
+    router.push('/purchases/print');
   };
-
-  // Use debounced value for filtering
-  const debouncedSearchValue = useDebounce(searchValue, 300);
-
-  // Update table filter when debounced value changes
-  useEffect(() => {
-    table.setGlobalFilter(debouncedSearchValue);
-  }, [debouncedSearchValue, table]);
-
 
   return (
     <div className="w-full max-w-7xl overflow-x-auto mx-auto">
@@ -365,16 +310,16 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
             <Input
               type="search"
               placeholder="Search by product, supplier, or SKU..."
-              value={searchValue}
-              onChange={handleSearchChange}
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
               className="w-full pl-8"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button 
+            <Button
               onClick={() => setAddPurchaseOpen(true)}
               disabled={products.length === 0}
-              className='grow'
+              className="grow"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Purchase
@@ -387,23 +332,13 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">PDF</span>
             </Button>
-            <Select
-              value={(table.getColumn('supplier')?.getFilterValue() as string) || 'all'}
-              onValueChange={value => {
-                const column = table.getColumn('supplier');
-                if (value === 'all') {
-                  column?.setFilterValue(undefined);
-                } else {
-                  column?.setFilterValue(value);
-                }
-              }}
-            >
+            <Select value={supplierFilter} onValueChange={handleSupplierChange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by supplier" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Suppliers</SelectItem>
-                {suppliers.map(supplier => (
+                {allSuppliers.map(supplier => (
                   <SelectItem key={supplier} value={supplier}>
                     {supplier}
                   </SelectItem>
@@ -457,16 +392,15 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
         itemName="purchases"
       />
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmationDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Purchase?"
         description={
-          purchaseToDelete 
+          purchaseToDelete
             ? `Are you sure you want to delete this purchase? This will remove ${purchaseToDelete.quantity} unit(s) from inventory and cannot be undone. ${
-                purchaseToDelete.remaining === purchaseToDelete.quantity 
-                  ? 'All units are still available (none have been sold).' 
+                purchaseToDelete.remaining === purchaseToDelete.quantity
+                  ? 'All units are still available (none have been sold).'
                   : ''
               }`
             : 'Are you sure you want to delete this purchase?'
@@ -479,18 +413,15 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
         isProcessing={isDeleting}
       />
 
-      {/* Add Purchase Dialog */}
       <PurchaseForm
         productId=""
         variants={products}
         locations={locations}
-        // suppliers={allSuppliers}
         open={addPurchaseOpen}
         onOpenChange={setAddPurchaseOpen}
         onSuccess={handlePurchaseSuccess}
       />
 
-      {/* Edit Purchase Dialog */}
       {purchaseToEdit && (
         <PurchaseForm
           productId={purchaseToEdit.productId}
@@ -498,7 +429,6 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
           variants={products.filter(p => p.productId === purchaseToEdit.productId)}
           purchase={purchaseToEdit}
           locations={locations}
-          // suppliers={allSuppliers}
           open={editPurchaseOpen}
           onOpenChange={setEditPurchaseOpen}
           onSuccess={handlePurchaseSuccess}

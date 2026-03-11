@@ -18,7 +18,7 @@ export function formatNumber(num: number) {
   });
 }
 
-export function formatCurrency(num: number | undefined | null) {
+export function formatCurrency(num: number | undefined | null, compact: boolean = true) {
   if (num === undefined || num === null || typeof num !== 'number') {
     return 'Rs 0';
   }
@@ -27,7 +27,7 @@ export function formatCurrency(num: number | undefined | null) {
     .toLocaleString('en-PK', {
       style: 'currency',
       currency: 'PKR',
-      notation: num > 1_000_000 ? 'compact' : 'standard',
+      notation: (num > 1_000_000 && compact) ? 'compact' : 'standard',
       minimumFractionDigits: 0,
       maximumFractionDigits: 3
     })

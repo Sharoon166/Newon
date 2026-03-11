@@ -427,7 +427,7 @@ export function VirtualProductSelector({
                       </Popover>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 w-full">
+                  <div className="flex flex-wrap items-center gap-2 w-full">
                     <div className="flex items-center border rounded-md">
                       <Button
                         type="button"

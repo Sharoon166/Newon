@@ -42,6 +42,7 @@ interface FormData {
     virtualProductId?: string;
     isVirtualProduct?: boolean;
     quantity: number;
+    unit: string;
     rate: number;
     amount: number;
     purchaseId?: string;
@@ -145,6 +146,7 @@ export function EditInvoiceFormWrapper({
       virtualProductId: item.virtualProductId,
       isVirtualProduct: item.isVirtualProduct,
       quantity: item.quantity,
+      unit: item.unit || 'pcs',
       rate: item.unitPrice,
       amount: item.totalPrice,
       purchaseId: item.purchaseId,
@@ -223,7 +225,7 @@ export function EditInvoiceFormWrapper({
               totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
             }),
             quantity: item.quantity,
-            unit: 'pcs',
+            unit: item.unit || 'pcs',
             unitPrice: item.rate,
             discountType: undefined,
             discountValue: undefined,

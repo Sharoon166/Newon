@@ -25,7 +25,8 @@ import {
   Package,
   Save,
   Eye,
-  Loader2
+  Loader2,
+  Edit
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
@@ -57,6 +58,7 @@ import {
   ComboboxList
 } from '@/components/ui/combobox';
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
+import { UnitSelector } from '@/components/ui/unit-selector';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 
 const quotationFormSchema = z.object({
@@ -93,6 +95,7 @@ const quotationFormSchema = z.object({
         id: z.string(),
         description: z.string().min(1, 'Description is required'),
         quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
+        unit: z.string().min(1, 'Unit is required').default('pcs'),
         rate: z.number().min(0, 'Rate must be 0 or greater'),
         amount: z.number().min(0, 'Amount must be 0 or greater'),
         productId: z.string().optional(),
@@ -153,6 +156,7 @@ export function NewQuotationForm({
   const [isToOpen, setIsToOpen] = useState(true);
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [nextQuotationNumber, setNextQuotationNumber] = useState<string>('Loading...');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
@@ -409,6 +413,7 @@ export function NewQuotationForm({
             id: uuidv4(),
             description: item.description,
             quantity: item.quantity,
+            unit: 'pcs',
             rate: item.rate,
             amount: item.quantity * item.rate,
             productId: item.virtualProductId, // Store virtualProductId as productId
@@ -443,6 +448,7 @@ export function NewQuotationForm({
           id: uuidv4(),
           description: item.description,
           quantity: item.quantity,
+          unit: 'pcs',
           rate: item.rate,
           amount: item.quantity * item.rate,
           productId: item.productId,
@@ -841,22 +847,22 @@ export function NewQuotationForm({
                     selectedCustomer.city ||
                     selectedCustomer.state ||
                     selectedCustomer.zip) && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5" />
-                        <span>
-                          {[
-                            selectedCustomer.address,
-                            selectedCustomer.city,
-                            selectedCustomer.state,
-                            selectedCustomer.zip
-                          ]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </span>
-                      </p>
-                    </div>
-                  )}
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-sm flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-0.5" />
+                          <span>
+                            {[
+                              selectedCustomer.address,
+                              selectedCustomer.city,
+                              selectedCustomer.state,
+                              selectedCustomer.zip
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                 </div>
               )}
               {isCustomCustomer && (
@@ -1045,6 +1051,7 @@ export function NewQuotationForm({
                 id: uuidv4(),
                 description: expense.name,
                 quantity: 1,
+                unit: 'pcs',
                 rate: expense.clientCost,
                 amount: expense.clientCost,
                 originalRate: expense.actualCost,
@@ -1218,6 +1225,24 @@ export function NewQuotationForm({
                               <Plus className="h-3 w-3" />
                             </Button>
                           </div>
+                          <div>
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.unit`}
+                              render={({ field }) => (
+                                <FormItem className='flex items-center gap-2'>
+                                  <FormLabel className="text-xs text-muted-foreground">Unit: </FormLabel>
+                                  <FormControl>
+                                    <UnitSelector
+                                      value={field.value}
+                                      onChange={field.onChange}
+                                      placeholder="Enter unit"
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                         </div>
                         {item.isVirtualProduct ? (
                           // For virtual products, show actual cost (read-only) and selling price (editable)
@@ -1288,7 +1313,7 @@ export function NewQuotationForm({
                                   × {currentQuantity} ={' '}
                                   {formatCurrency(
                                     (currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
-                                      currentQuantity
+                                    currentQuantity
                                   )}
                                 </div>
                               </div>
@@ -1676,6 +1701,44 @@ export function NewQuotationForm({
                       <Textarea
                         className="min-h-[100px]"
                         placeholder="Notes visible on printed quotation..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
+        {/* Terms and Conditions - Collapsible and Collapsed by Default */}
+        <Collapsible open={isTermsOpen} onOpenChange={setIsTermsOpen} className="border rounded-lg">
+          <div className="p-2">
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn('w-full justify-between p-0', {
+                  'mb-4': isTermsOpen
+                })}
+              >
+                <h2 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                  <Edit className="h-5 w-5" />
+                  Terms and Conditions
+                </h2>
+                <ChevronsUpDown />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="px-4 pb-4">
+              <FormField
+                control={form.control}
+                name="terms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        className="min-h-[100px]"
+                        placeholder="State the terms and conditions..."
                         {...field}
                       />
                     </FormControl>

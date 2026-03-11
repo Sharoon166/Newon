@@ -100,6 +100,7 @@ export async function getExpenses(filters?: ExpenseFilters): Promise<PaginatedEx
 
     if (filters?.search) {
       query.$or = [
+        { expenseId: { $regex: filters.search, $options: 'i' } },  // Add expenseId search
         { description: { $regex: filters.search, $options: 'i' } },
         { vendor: { $regex: filters.search, $options: 'i' } },
         { notes: { $regex: filters.search, $options: 'i' } }
@@ -584,6 +585,7 @@ export async function getInvoiceExpenses(filters?: ExpenseFilters): Promise<Pagi
 
     if (filters?.search) {
       query.$or = [
+        { expenseId: { $regex: filters.search, $options: 'i' } },  // Add expenseId search
         { description: { $regex: filters.search, $options: 'i' } },
         { invoiceNumber: { $regex: filters.search, $options: 'i' } },
         { notes: { $regex: filters.search, $options: 'i' } }
@@ -644,6 +646,7 @@ export async function getProjectExpenses(filters?: ExpenseFilters): Promise<Pagi
 
     if (filters?.search) {
       query.$or = [
+        { expenseId: { $regex: filters.search, $options: 'i' } },  // Add expenseId search
         { description: { $regex: filters.search, $options: 'i' } },
         { projectId: { $regex: filters.search, $options: 'i' } },
         { notes: { $regex: filters.search, $options: 'i' } }

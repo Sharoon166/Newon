@@ -58,7 +58,9 @@ if (filters?.search) {
   matchQuery.$or = [
     { purchaseId: { $regex: filters.search, $options: 'i' } },
     { supplier: { $regex: filters.search, $options: 'i' } },
-    { notes: { $regex: filters.search, $options: 'i' } }  // Search notes field
+    { productName: { $regex: filters.search, $options: 'i' } },  // ← Add this
+    { variantSKU: { $regex: filters.search, $options: 'i' } },  // ← Add this
+    { description: { $regex: filters.search, $options: 'i' } }    // ← Add this
   ];
 }
 
@@ -119,23 +121,23 @@ if (filters?.search) {
     };
   });
 
-  // Post-query filtering for populated fields
-  let filteredDocs = serializedDocs;
-  if (filters?.search) {
-    const searchTerm = filters.search.toLowerCase();
-    filteredDocs = serializedDocs.filter((purchase) => {
-      return (
-        purchase.purchaseId?.toLowerCase().includes(searchTerm) ||
-        purchase.supplier?.toLowerCase().includes(searchTerm) ||
-        purchase.productName?.toLowerCase().includes(searchTerm) ||
-        purchase.variant?.sku?.toLowerCase().includes(searchTerm) ||  // Fixed: variant.sku
-        purchase.notes?.toLowerCase().includes(searchTerm)
-      );
-    });
-  }
+  // // Post-query filtering for populated fields
+  // let filteredDocs = serializedDocs;
+  // if (filters?.search) {
+  //   const searchTerm = filters.search.toLowerCase();
+  //   filteredDocs = serializedDocs.filter((purchase) => {
+  //     return (
+  //       purchase.purchaseId?.toLowerCase().includes(searchTerm) ||
+  //       purchase.supplier?.toLowerCase().includes(searchTerm) ||
+  //       purchase.productName?.toLowerCase().includes(searchTerm) ||
+  //       purchase.variant?.sku?.toLowerCase().includes(searchTerm) ||  // Fixed: variant.sku
+  //       purchase.notes?.toLowerCase().includes(searchTerm)
+  //     );
+  //   });
+  // }
 
   return {
-    docs: filteredDocs,
+    docs: serializedDocs,
     totalDocs: result.totalDocs,
     limit: result.limit,
     page: result.page || 1,
@@ -146,6 +148,7 @@ if (filters?.search) {
     prevPage: result.prevPage || null
   };
 };
+
 
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
