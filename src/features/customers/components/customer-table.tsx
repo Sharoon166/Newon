@@ -255,8 +255,8 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map(row => (
-                <TableRow 
-                  key={row.id} 
+                <TableRow
+                  key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
                   className={row.original.disabled ? 'opacity-60' : ''}
                 >

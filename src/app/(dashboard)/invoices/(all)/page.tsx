@@ -21,7 +21,6 @@ interface InvoicesPageProps {
   }>;
 }
 
-
 export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
   const params = await searchParams;
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
@@ -39,7 +38,7 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   return (
     <>
       <div className="container mx-auto py-10">
-        <PageHeader title="Invoices & Quotations" description='View and manage your invoies and quotations'>
+        <PageHeader title="Invoices & Quotations" description="View and manage your invoies and quotations">
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild>
               <Link href="/invoices/new">

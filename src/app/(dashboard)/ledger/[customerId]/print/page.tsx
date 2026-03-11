@@ -50,16 +50,16 @@ export default function PrintLedgerPage() {
       try {
         setIsLoading(true);
         const customerId = params.customerId as string;
-        
+
         const ledgerEntries = await getCustomerLedgerEntries(customerId);
-        
+
         if (ledgerEntries.length === 0) {
           toast.error('No ledger entries found for this customer');
           router.push('/ledger');
           return;
         }
 
-        const invoicesResult = await getInvoices({ 
+        const invoicesResult = await getInvoices({
           customerId,
           limit: 1000
         });
@@ -162,9 +162,7 @@ export default function PrintLedgerPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <Button onClick={handlePrint}>
-          Print / Save as PDF
-        </Button>
+        <Button onClick={handlePrint}>Print / Save as PDF</Button>
       </div>
 
       <div ref={printRef} className="print:m-0 print:p-0 print:w-full print:max-w-full">

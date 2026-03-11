@@ -444,11 +444,7 @@ export function VariantForm({
               disabled={isDeleting}
               className="text-destructive hover:bg-destructive/10"
             >
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               <span className="sr-only">{isDeleting ? 'Deleting variant' : 'Remove variant'}</span>
             </Button>
           )}

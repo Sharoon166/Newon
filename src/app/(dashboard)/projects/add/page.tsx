@@ -22,7 +22,7 @@ async function AddProjectContent() {
     redirect('/not-allowed');
   }
 
-  const staffMembers = await getStaffMembers({ isActive: true, role: "staff" });
+  const staffMembers = await getStaffMembers({ isActive: true, role: 'staff' });
   const invoicesResult = await getInvoices({ type: 'invoice', limit: 10000 });
   const invoices = invoicesResult.docs;
 
@@ -32,11 +32,7 @@ async function AddProjectContent() {
 
       <Card>
         <CardContent className="pt-6">
-          <ProjectForm 
-            invoices={invoices} 
-            staffMembers={staffMembers} 
-            currentUserId={session.user.id!}
-          />
+          <ProjectForm invoices={invoices} staffMembers={staffMembers} currentUserId={session.user.id!} />
         </CardContent>
       </Card>
     </div>

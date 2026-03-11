@@ -24,14 +24,14 @@ const chartConfig = {
     label: 'Revenue',
     theme: {
       light: 'var(--primary)',
-      dark: 'var(--primary)',
-    },
+      dark: 'var(--primary)'
+    }
   }
 } satisfies ChartConfig;
 
 function SalesTooltip({
   active,
-  payload,
+  payload
 }: {
   active?: boolean;
   payload?: Array<{ value?: number; payload?: { fullDate?: Date } }>;
@@ -42,14 +42,10 @@ function SalesTooltip({
 
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
-      <div className="mb-1 text-muted-foreground">{fullDate ? format(fullDate, "dd MMMM, yyyy") : 'Revenue'}</div>
+      <div className="mb-1 text-muted-foreground">{fullDate ? format(fullDate, 'dd MMMM, yyyy') : 'Revenue'}</div>
       <div className="flex items-center justify-between gap-6">
         <div className="flex items-center gap-2">
-          <span
-            className="h-2 w-2 rounded-[2px]"
-            style={{ backgroundColor: 'var(--color-revenue)' }}
-            aria-hidden
-          />
+          <span className="h-2 w-2 rounded-[2px]" style={{ backgroundColor: 'var(--color-revenue)' }} aria-hidden />
           <span className="text-muted-foreground">Revenue</span>
         </div>
         <span className="font-mono font-medium tabular-nums text-foreground">{formatCurrency(value)}</span>
@@ -62,11 +58,11 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
   const [period, setPeriod] = useState<'7' | '30' | 'monthly' | 'custom'>('7');
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: undefined,
-    to: undefined,
+    to: undefined
   });
   const [customData, setCustomData] = useState<SalesTrendData[]>([]);
   const [isLoadingCustom, setIsLoadingCustom] = useState(false);
-  
+
   useEffect(() => {
     if (period === 'custom' && dateRange.from && dateRange.to) {
       setIsLoadingCustom(true);
@@ -75,7 +71,7 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
         .finally(() => setIsLoadingCustom(false));
     }
   }, [period, dateRange.from, dateRange.to]);
-  
+
   let displayData = data;
   if (period === '30' && data30Days) {
     displayData = data30Days;
@@ -84,15 +80,15 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
   } else if (period === 'custom' && customData.length > 0) {
     displayData = customData;
   }
-  
+
   const totalRevenue = displayData.reduce((sum, item) => sum + item.revenue, 0);
   const totalSales = displayData.reduce((sum, item) => sum + item.sales, 0);
   const averageDailyRevenue = displayData.length ? totalRevenue / displayData.length : 0;
-  
-  const chartData = displayData.map((item) => {
+
+  const chartData = displayData.map(item => {
     const date = new Date(item.date);
     let dateLabel = '';
-    
+
     if (period === '7') {
       dateLabel = date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
     } else if (period === 'monthly') {
@@ -102,13 +98,13 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
     } else {
       dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-    
+
     return {
       date: dateLabel,
       revenue: item.revenue,
       sales: item.sales,
       invoices: item.invoices,
-      fullDate: date,
+      fullDate: date
     };
   });
 
@@ -120,14 +116,14 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
             <CardTitle className="text-base">Sales performance</CardTitle>
             <CardDescription>Revenue tracking and analysis</CardDescription>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex flex-wrap gap-2">
               {[
                 { value: '7' as const, label: '7 days', disabled: false },
                 { value: '30' as const, label: '30 days', disabled: !data30Days },
                 { value: 'monthly' as const, label: '12 months', disabled: !dataMonthly },
-                { value: 'custom' as const, label: 'Custom', disabled: false },
+                { value: 'custom' as const, label: 'Custom', disabled: false }
               ].map(({ value, label, disabled }) => (
                 <button
                   key={value}
@@ -135,19 +131,19 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
                   onClick={() => setPeriod(value)}
                   disabled={disabled}
                   className={cn(
-                    "inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
+                    'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer',
                     period === value
-                      ? "bg-secondary text-secondary-foreground shadow-sm"
+                      ? 'bg-secondary text-secondary-foreground shadow-sm'
                       : disabled
-                      ? "bg-muted/20 text-muted-foreground/50 cursor-not-allowed"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted/80"
+                        ? 'bg-muted/20 text-muted-foreground/50 cursor-not-allowed'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted/80'
                   )}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            
+
             {period === 'custom' && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -162,9 +158,9 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
                   <CalendarComponent
                     mode="range"
                     selected={{ from: dateRange.from, to: dateRange.to }}
-                    onSelect={(range) => setDateRange({ from: range?.from, to: range?.to })}
+                    onSelect={range => setDateRange({ from: range?.from, to: range?.to })}
                     numberOfMonths={2}
-                    disabled={(date) => date > new Date()}
+                    disabled={date => date > new Date()}
                   />
                 </PopoverContent>
               </Popover>
@@ -172,7 +168,7 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {isLoadingCustom && (
           <div className="h-[250px] sm:h-[350px] flex items-center justify-center">
@@ -182,7 +178,7 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
             </div>
           </div>
         )}
-        
+
         {!isLoadingCustom && (
           <div className="space-y-6">
             <ChartContainer config={chartConfig} className="h-[300px] sm:h-[340px] w-full">
@@ -203,17 +199,12 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
                   axisLine={false}
                   tickMargin={10}
                   width={84}
-                  tickFormatter={(value) => formatCurrency(value as number)}
+                  tickFormatter={value => formatCurrency(value as number)}
                   fontSize={12}
                   tick={{ fill: '#6b7280' }}
                 />
                 <ChartTooltip content={<SalesTooltip />} />
-                <Bar
-                  dataKey="revenue"
-                  fill="var(--color-revenue)"
-                  radius={[6, 6, 2, 2]}
-                  maxBarSize={36}
-                />
+                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[6, 6, 2, 2]} maxBarSize={36} />
               </BarChart>
             </ChartContainer>
 
@@ -223,13 +214,13 @@ export function SalesChart({ data, data30Days, dataMonthly }: SalesChartProps) {
                 <div className="text-lg font-medium text-foreground">{formatCurrency(totalRevenue)}</div>
                 <div className="text-xs text-muted-foreground mt-1">{displayData.length} days</div>
               </div>
-              
+
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Total sales</div>
                 <div className="text-lg font-medium text-foreground">{totalSales.toLocaleString()}</div>
                 <div className="text-xs text-muted-foreground mt-1">{displayData.length} days</div>
               </div>
-              
+
               <div>
                 <div className="text-xs text-muted-foreground mb-1">Daily average</div>
                 <div className="text-lg font-medium text-foreground">{formatCurrency(averageDailyRevenue)}</div>

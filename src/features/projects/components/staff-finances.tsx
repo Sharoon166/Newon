@@ -17,7 +17,8 @@ function CircularProgress({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value));
   const offset = circumference - (clamped / 100) * circumference;
   const trackColor = 'stroke-muted';
-  const progressColor = clamped === 100 ? 'stroke-green-600' : clamped > 0 ? 'stroke-blue-600' : 'stroke-muted-foreground/40';
+  const progressColor =
+    clamped === 100 ? 'stroke-green-600' : clamped > 0 ? 'stroke-blue-600' : 'stroke-muted-foreground/40';
 
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
@@ -70,12 +71,10 @@ export default async function StaffFinances({ projectId }: StaffFinancesProps) {
       <CardHeader className="space-y-6">
         <div>
           <CardTitle className="text-xl">Staff Finances</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Expenses attributed to team members for this project
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Expenses attributed to team members for this project</p>
         </div>
       </CardHeader>
-      
+
       <CardContent>
         <div className="rounded-md border p-4">
           <Table>
@@ -90,7 +89,7 @@ export default async function StaffFinances({ projectId }: StaffFinancesProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => {
+              {rows.map(row => {
                 const initials =
                   row.staffName
                     .split(' ')
@@ -98,46 +97,35 @@ export default async function StaffFinances({ projectId }: StaffFinancesProps) {
                     .join('')
                     .slice(0, 2)
                     .toUpperCase() || 'U';
-                const paidPct = row.totalAmount > 0 ? Math.min(100, Math.round((row.totalPaid / row.totalAmount) * 100)) : 0;
-                
+                const paidPct =
+                  row.totalAmount > 0 ? Math.min(100, Math.round((row.totalPaid / row.totalAmount) * 100)) : 0;
+
                 return (
                   <TableRow key={row.staffId}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
-                          <AvatarFallback className="text-xs font-medium">
-                            {initials}
-                          </AvatarFallback>
+                          <AvatarFallback className="text-xs font-medium">{initials}</AvatarFallback>
                         </Avatar>
                         <div>
                           <div className="font-medium">{row.staffName}</div>
-                          {row.email && (
-                            <div className="text-sm text-muted-foreground">{row.email}</div>
-                          )}
+                          {row.email && <div className="text-sm text-muted-foreground">{row.email}</div>}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(row.totalAmount)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(row.totalPaid)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(row.remaining)}
-                    </TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(row.totalAmount)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(row.totalPaid)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(row.remaining)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end">
                         <CircularProgress value={paidPct} />
                       </div>
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {row.expenseCount}
-                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">{row.expenseCount}</TableCell>
                   </TableRow>
                 );
               })}
-              
+
               {/* Total Row */}
               <TableRow className="border-t-2 font-semibold">
                 <TableCell>
@@ -146,15 +134,9 @@ export default async function StaffFinances({ projectId }: StaffFinancesProps) {
                     <span>Total</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(totals.total)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(totals.paid)}
-                </TableCell>
-                <TableCell className="text-right text-destructive">
-                  {formatCurrency(totals.remaining)}
-                </TableCell>
+                <TableCell className="text-right">{formatCurrency(totals.total)}</TableCell>
+                <TableCell className="text-right">{formatCurrency(totals.paid)}</TableCell>
+                <TableCell className="text-right text-destructive">{formatCurrency(totals.remaining)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end">
                     <CircularProgress value={paymentRate} />

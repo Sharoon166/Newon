@@ -54,15 +54,15 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     matchQuery.purchaseDate = dateQuery;
   }
 
-if (filters?.search) {
-  matchQuery.$or = [
-    { purchaseId: { $regex: filters.search, $options: 'i' } },
-    { supplier: { $regex: filters.search, $options: 'i' } },
-    { productName: { $regex: filters.search, $options: 'i' } },  // ← Add this
-    { variantSKU: { $regex: filters.search, $options: 'i' } },  // ← Add this
-    { description: { $regex: filters.search, $options: 'i' } }    // ← Add this
-  ];
-}
+  if (filters?.search) {
+    matchQuery.$or = [
+      { purchaseId: { $regex: filters.search, $options: 'i' } },
+      { supplier: { $regex: filters.search, $options: 'i' } },
+      { productName: { $regex: filters.search, $options: 'i' } }, // ← Add this
+      { variantSKU: { $regex: filters.search, $options: 'i' } }, // ← Add this
+      { description: { $regex: filters.search, $options: 'i' } } // ← Add this
+    ];
+  }
 
   // Use paginate with populate instead of aggregate
   const result = await (PurchaseModel as mongoose.PaginateModel<IPurchase>).paginate(matchQuery, {
@@ -77,7 +77,7 @@ if (filters?.search) {
   });
 
   // Transform and serialize the results
-  const serializedDocs = result.docs.map((purchase) => {
+  const serializedDocs = result.docs.map(purchase => {
     const doc = purchase as unknown as LeanPurchase & {
       productId?: {
         _id: unknown;
@@ -95,7 +95,10 @@ if (filters?.search) {
 
     return {
       id: doc._id.toString(),
-      productId: typeof doc.productId === 'object' && doc.productId?._id ? doc.productId._id.toString() : doc.productId?.toString() || '',
+      productId:
+        typeof doc.productId === 'object' && doc.productId?._id
+          ? doc.productId._id.toString()
+          : doc.productId?.toString() || '',
       variantId: doc.variantId,
       supplier: doc.supplier,
       locationId: doc.locationId,
@@ -113,11 +116,13 @@ if (filters?.search) {
       updatedAt: doc.updatedAt?.toISOString() || '',
       productName: doc.productId?.name,
       productSupplier: doc.productId?.supplier,
-      variant: variant ? {
-        id: variant.id,
-        sku: variant.sku,
-        attributes: variant.attributes
-      } : undefined
+      variant: variant
+        ? {
+            id: variant.id,
+            sku: variant.sku,
+            attributes: variant.attributes
+          }
+        : undefined
     };
   });
 
@@ -148,8 +153,6 @@ if (filters?.search) {
     prevPage: result.prevPage || null
   };
 };
-
-
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
   await dbConnect();
@@ -346,7 +349,6 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   revalidatePath('/purchases');
   revalidatePath('/virtual-products');
 
-
   const purchaseObj = newPurchase.toObject();
   return {
     ...purchaseObj,
@@ -431,7 +433,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
           if (inventory[locationInventoryIndex].availableStock < 0) {
             inventory[locationInventoryIndex].availableStock = 0;
           }
-
         } else if (quantityDiff > 0) {
           // Add new inventory entry if quantity is increased and location doesn't exist
           inventory.push({
@@ -494,7 +495,6 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   revalidatePath('/inventory');
   revalidatePath('/purchases');
   revalidatePath('/virtual-products');
-
 
   return {
     ...updatedPurchase,
@@ -575,7 +575,6 @@ export const deletePurchase = async (id: string) => {
   revalidatePath(`/inventory/${productId}`);
   revalidatePath('/inventory');
   revalidatePath('/virtual-products');
-
 };
 
 export const getPurchasesAggregateByVariantId = async (productId: string, variantId: string) => {

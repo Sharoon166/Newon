@@ -41,17 +41,19 @@ export default function InvoiceDetailPage() {
   const deliveryNoteRef = useRef<HTMLDivElement>(null);
 
   // Check if invoice/quotation is before cutoff date and should be restricted from editing
-  const isEditRestricted = invoice ? (() => {
-    const createdDate = new Date(invoice.createdAt);
-    const cutoffDate = INVOICE_EDIT_CUTOFF_DATE;
-    console.log('Date comparison debug:', {
-      createdDate: createdDate.toISOString(),
-      cutoffDate: cutoffDate.toISOString(),
-      comparison: createdDate <= cutoffDate,
-      isEditRestricted: createdDate <= cutoffDate
-    });
-    return createdDate <= cutoffDate;
-  })() : false;
+  const isEditRestricted = invoice
+    ? (() => {
+        const createdDate = new Date(invoice.createdAt);
+        const cutoffDate = INVOICE_EDIT_CUTOFF_DATE;
+        console.log('Date comparison debug:', {
+          createdDate: createdDate.toISOString(),
+          cutoffDate: cutoffDate.toISOString(),
+          comparison: createdDate <= cutoffDate,
+          isEditRestricted: createdDate <= cutoffDate
+        });
+        return createdDate <= cutoffDate;
+      })()
+    : false;
 
   useEffect(() => {
     if (params.id) {
@@ -274,7 +276,7 @@ export default function InvoiceDetailPage() {
           items: invoice.items.map(item => ({
             id: item.productId,
             description: item.productName,
-            unit: item.unit ?? "pcs",
+            unit: item.unit ?? 'pcs',
             quantity: item.quantity,
             rate: item.unitPrice,
             amount: item.totalPrice,
@@ -347,9 +349,6 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="container mx-auto py-10">
-      <pre>
-        {JSON.stringify(invoice,null,2)}
-      </pre>
       <PageHeader
         title={`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`}
         backLink="/invoices"
@@ -413,11 +412,10 @@ export default function InvoiceDetailPage() {
               <CardContent className="flex items-center gap-2 py-4">
                 <Info className="h-5 w-5 text-amber-600" />
                 <div>
-                  <p className="font-semibold text-amber-800">
-                    Editing Restricted
-                  </p>
+                  <p className="font-semibold text-amber-800">Editing Restricted</p>
                   <p className="text-sm text-amber-700">
-                    This {invoice.type === 'invoice' ? 'invoice' : 'quotation'} was created on {format(new Date(invoice.createdAt), 'MMM dd, yyyy')} and cannot be edited.
+                    This {invoice.type === 'invoice' ? 'invoice' : 'quotation'} was created on{' '}
+                    {format(new Date(invoice.createdAt), 'MMM dd, yyyy')} and cannot be edited.
                   </p>
                 </div>
               </CardContent>

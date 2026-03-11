@@ -9,10 +9,7 @@ export async function GET() {
 
     // Find invoices that need updatingj
     const invoices = await InvoiceModel.find({
-      $or: [
-        { profit: { $exists: false } },
-        { 'items.originalRate': { $exists: false } }
-      ]
+      $or: [{ profit: { $exists: false } }, { 'items.originalRate': { $exists: false } }]
     });
 
     let updatedCount = 0;
@@ -49,7 +46,7 @@ export async function GET() {
         const update: any = {};
         if (itemsUpdated) {
           update.$set = {
-            'items': invoice.items,
+            items: invoice.items,
             updatedAt: new Date()
           };
         }
@@ -77,9 +74,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Migration error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to run migration' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to run migration' }, { status: 500 });
   }
 }

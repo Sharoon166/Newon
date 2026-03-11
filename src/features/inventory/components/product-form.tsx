@@ -146,7 +146,8 @@ const defaultValues: ProductFormValues = {
       address: '',
       isActive: true,
       order: 0
-    },{
+    },
+    {
       id: 'office',
       name: 'Office',
       address: '',

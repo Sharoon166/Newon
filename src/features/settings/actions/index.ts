@@ -30,11 +30,7 @@ export async function updatePaymentDetails(data: PaymentDetails): Promise<void> 
   try {
     await dbConnect();
 
-    await Settings.findOneAndUpdate(
-      { key: 'payment_details' },
-      { $set: { value: data } },
-      { upsert: true, new: true }
-    );
+    await Settings.findOneAndUpdate({ key: 'payment_details' }, { $set: { value: data } }, { upsert: true, new: true });
 
     revalidatePath('/settings');
   } catch (error) {
@@ -51,10 +47,7 @@ export async function getInvoiceTerms(): Promise<string[]> {
 
     if (!settings) {
       // Return default values if not found
-      return [
-        'All prices are exclusive of taxes.',
-        'No shipping charges included in above prices.'
-      ];
+      return ['All prices are exclusive of taxes.', 'No shipping charges included in above prices.'];
     }
 
     return settings.value.terms;

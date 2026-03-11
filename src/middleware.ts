@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
-  const publicRoutes = ['/auth/login', '/auth/error', '/auth/register', '/setup',];
+  const publicRoutes = ['/auth/login', '/auth/error', '/auth/register', '/setup'];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   // Get the token
@@ -42,12 +42,12 @@ export async function middleware(request: NextRequest) {
 
   // Role-based access control for staff
   if (token && token.role === 'staff') {
-    const allowedStaffRoutes = ['/inventory/staff', '/projects', '/not-allowed', '/api',];
+    const allowedStaffRoutes = ['/inventory/staff', '/projects', '/not-allowed', '/api'];
     const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
-    
+
     // Also allow access to static assets and Next.js internals
     const isStaticAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon');
-    
+
     if (!isAllowedStaffRoute && !isStaticAsset) {
       // Redirect staff to not-allowed page
       const notAllowedUrl = new URL('/not-allowed', request.url);

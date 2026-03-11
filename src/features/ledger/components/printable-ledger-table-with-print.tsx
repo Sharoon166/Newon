@@ -37,15 +37,15 @@ export function PrintableLedgerTableWithPrint({ data }: PrintableLedgerTableWith
           overflow-x: hidden !important;
         }
       }
-    `,
+    `
   });
 
   return (
     <>
       <div className="print:hidden">
-        <PageHeader title='Print Leger Report' backLink='/ledger'/>
+        <PageHeader title="Print Leger Report" backLink="/ledger" />
         <Button className="fixed bottom-4 right-8" onClick={handlePrint}>
-         <Printer /> Print as PDF
+          <Printer /> Print as PDF
         </Button>
       </div>
 

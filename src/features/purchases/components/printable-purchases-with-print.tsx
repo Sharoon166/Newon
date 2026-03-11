@@ -45,7 +45,7 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
       setIsLoading(true);
       try {
         const allPurchases = await getAllPurchases({ limit: 1_000_000 }); // to get all the purchases;
-        
+
         // Filter by date range
         const filtered = allPurchases.docs.filter(purchase => {
           const purchaseDate = new Date(purchase.purchaseDate);
@@ -53,10 +53,10 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
           from.setHours(0, 0, 0, 0);
           const to = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from!);
           to.setHours(23, 59, 59, 999);
-                    
+
           return purchaseDate >= from && purchaseDate <= to;
         });
-        
+
         setData(filtered);
       } catch (error) {
         console.error('Error fetching purchases:', error);
@@ -91,14 +91,14 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
           overflow-x: hidden !important;
         }
       }
-    `,
+    `
   });
 
   return (
     <>
       <div className="print:hidden">
-        <PageHeader icon={<Printer className='size-8' />} title="Print Purchase History Report" backLink="/purchases" />
-        
+        <PageHeader icon={<Printer className="size-8" />} title="Print Purchase History Report" backLink="/purchases" />
+
         <div className="mb-6 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Filter by Supplier:</label>
@@ -124,10 +124,7 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
                 <Button
                   variant="outline"
                   disabled={isLoading}
-                  className={cn(
-                    'w-[280px] justify-start text-left font-normal',
-                    !dateRange && 'text-muted-foreground'
-                  )}
+                  className={cn('w-[280px] justify-start text-left font-normal', !dateRange && 'text-muted-foreground')}
                 >
                   {isLoading ? (
                     <>
@@ -138,16 +135,16 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
                     <>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
-                      </>
-                    ) : (
-                      format(dateRange.from, 'LLL dd, y')
-                    )
-                  ) : (
-                    <span>Pick a date range</span>
-                  )}
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}
+                          </>
+                        ) : (
+                          format(dateRange.from, 'LLL dd, y')
+                        )
+                      ) : (
+                        <span>Pick a date range</span>
+                      )}
                     </>
                   )}
                 </Button>
@@ -164,11 +161,7 @@ export function PrintablePurchasesWithPrint({ initialData }: PrintablePurchasesW
               </PopoverContent>
             </Popover>
             {dateRange && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setDateRange(undefined)}
-              >
+              <Button variant="destructive" size="sm" onClick={() => setDateRange(undefined)}>
                 Clear
               </Button>
             )}

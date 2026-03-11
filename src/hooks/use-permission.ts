@@ -24,7 +24,7 @@ export function useIsAdmin(): boolean {
  */
 export function useCurrentUser() {
   const { data: session, status } = useSession();
-  
+
   return {
     user: session?.user,
     isLoading: status === 'loading',

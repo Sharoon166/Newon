@@ -235,13 +235,9 @@ const columns: ColumnDef<EnhancedVariants>[] = [
       return (
         <Popover>
           <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className='h-auto'
-              >
-                {inventory.length} <ChevronsUpDown />
-              </Button>
+            <Button variant="outline" size="sm" className="h-auto">
+              {inventory.length} <ChevronsUpDown />
+            </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64 p-2" align="center">
             <div className="space-y-2 divide-y-2 divide-muted">
@@ -312,7 +308,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 
 interface ProductsTableProps {
   data?: EnhancedVariants[];
-  userRole?: "admin" | "staff";
+  userRole?: 'admin' | 'staff';
 }
 
 export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
@@ -321,7 +317,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     categories: userRole !== 'staff',
-    supplier: userRole !== "staff"
+    supplier: userRole !== 'staff'
   });
   const [rowSelection, setRowSelection] = useState({});
   const [pagination, setPagination] = useState({

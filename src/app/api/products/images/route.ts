@@ -29,10 +29,10 @@ export async function POST(request: NextRequest) {
     // Fetch images for each variant
     for (const variantId of variantIds) {
       try {
-        const product = await ProductModel.findOne(
+        const product = (await ProductModel.findOne(
           { 'variants.id': variantId },
           { 'variants.$': 1 }
-        ).lean() as ProductWithVariants | null;
+        ).lean()) as ProductWithVariants | null;
 
         if (product && product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
           const variant = product.variants[0];
@@ -50,9 +50,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(imageMap);
   } catch (error) {
     console.error('Error fetching product images:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch product images' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch product images' }, { status: 500 });
   }
 }

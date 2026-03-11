@@ -1,6 +1,6 @@
 'use server';
 
-import { cloudinary } from "@/services/cloudinary/config";
+import { cloudinary } from '@/services/cloudinary/config';
 
 // import { v2 as cloudinary } from 'cloudinary';
 
@@ -18,7 +18,7 @@ export async function deleteCloudinaryImage(publicId: string) {
     }
 
     const result = await cloudinary.uploader.destroy(publicId);
-    
+
     if (result.result === 'not found') {
       throw new Error('Image not found in Cloudinary');
     }

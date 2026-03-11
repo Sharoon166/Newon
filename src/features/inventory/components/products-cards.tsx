@@ -12,7 +12,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Package, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Pencil,
+  Package,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { EnhancedVariants } from '../types';
 
@@ -46,14 +55,14 @@ function CardsPagination({
       <div className="text-sm text-muted-foreground">
         Showing {startIndex} to {endIndex} of {totalItems} {itemName}
       </div>
-      
+
       <div className="flex flex-col sm:flex-row items-center gap-2">
         {/* Page Size Selector */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Show</span>
           <Select
             value={pageSize.toString()}
-            onValueChange={(value) => {
+            onValueChange={value => {
               setPageSize(Number(value));
               setPageIndex(0);
             }}
@@ -92,12 +101,12 @@ function CardsPagination({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          
+
           {/* Page Info */}
           <div className="flex items-center justify-center min-w-[80px] text-sm">
             Page {pageIndex + 1} of {totalPages}
           </div>
-          
+
           <Button
             variant="outline"
             size="icon"
@@ -130,7 +139,7 @@ interface ProductsCardsProps {
 export function ProductsCards({ data, userRole }: ProductsCardsProps) {
   const router = useRouter();
   const isAdmin = userRole === 'admin';
-  
+
   // Pagination state
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(12); // 12 cards per page (3x4 grid)
@@ -139,7 +148,7 @@ export function ProductsCards({ data, userRole }: ProductsCardsProps) {
   // Group variants by product
   const groupedProducts = useMemo(() => {
     const groups = new Map<string, EnhancedVariants[]>();
-    
+
     data.forEach(variant => {
       const productId = variant.productId;
       if (!groups.has(productId)) {
@@ -147,7 +156,7 @@ export function ProductsCards({ data, userRole }: ProductsCardsProps) {
       }
       groups.get(productId)!.push(variant);
     });
-    
+
     return Array.from(groups.values());
   }, [data]);
 
@@ -179,12 +188,12 @@ export function ProductsCards({ data, userRole }: ProductsCardsProps) {
           const categories = firstVariant.categories;
           const description = firstVariant.description;
           const locations = firstVariant.locations;
-          
+
           const totalStock = variants.reduce((sum, v) => {
             const variantTotal = v.inventory?.reduce((s, inv) => s + inv.availableStock, 0) || v.availableStock || 0;
             return sum + variantTotal;
           }, 0);
-          
+
           const hasDisabledVariants = variants.some(v => v.disabled);
           const allVariantsDisabled = variants.every(v => v.disabled);
 
@@ -239,30 +248,25 @@ export function ProductsCards({ data, userRole }: ProductsCardsProps) {
                 </div>
 
                 {/* Description */}
-                {description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{description}</p>
-                )}
+                {description && <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{description}</p>}
 
                 {/* Variants Preview */}
                 <div className="mb-3">
-                  <div className="text-xs font-medium text-muted-foreground mb-2">
-                    Variants ({variants.length})
-                  </div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2">Variants ({variants.length})</div>
                   <div className="space-y-2 max-h-32 overflow-y-auto">
                     {variants.slice(0, 3).map(variant => {
-                      const variantStock = variant.inventory?.reduce((s, inv) => s + inv.availableStock, 0) || variant.availableStock || 0;
-                      
+                      const variantStock =
+                        variant.inventory?.reduce((s, inv) => s + inv.availableStock, 0) || variant.availableStock || 0;
+
                       return (
                         <div key={variant.id} className="flex items-center gap-2 text-xs">
                           <Avatar className="h-6 w-6 rounded">
-                            <AvatarImage 
-                              src={variant.imageFile?.cloudinaryUrl || variant.image} 
-                              alt={variant.sku} 
-                              className="object-contain" 
+                            <AvatarImage
+                              src={variant.imageFile?.cloudinaryUrl || variant.image}
+                              alt={variant.sku}
+                              className="object-contain"
                             />
-                            <AvatarFallback className="text-[10px] rounded">
-                              {productName.charAt(0)}
-                            </AvatarFallback>
+                            <AvatarFallback className="text-[10px] rounded">{productName.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="truncate font-mono">{variant.sku}</div>
@@ -303,15 +307,16 @@ export function ProductsCards({ data, userRole }: ProductsCardsProps) {
                 {/* Locations */}
                 {locations && locations.length > 0 && (
                   <div className="mt-auto pt-3 border-t">
-                    <div className="text-xs font-medium text-muted-foreground mb-1">
-                      Locations
-                    </div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">Locations</div>
                     <div className="flex flex-wrap gap-1">
-                      {locations.filter(loc => loc.isActive).slice(0, 3).map(loc => (
-                        <Badge key={loc.id} variant="secondary" className="text-xs">
-                          {loc.name}
-                        </Badge>
-                      ))}
+                      {locations
+                        .filter(loc => loc.isActive)
+                        .slice(0, 3)
+                        .map(loc => (
+                          <Badge key={loc.id} variant="secondary" className="text-xs">
+                            {loc.name}
+                          </Badge>
+                        ))}
                       {locations.filter(loc => loc.isActive).length > 3 && (
                         <Badge variant="secondary" className="text-xs">
                           +{locations.filter(loc => loc.isActive).length - 3}

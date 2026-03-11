@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
       router.push('/auth/signin?registered=true');
     } catch (error) {
-      console.error(error)
+      console.error(error);
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
@@ -67,9 +67,7 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Create your account
-          </h2>
+          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">Create your account</h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
@@ -85,7 +83,7 @@ export default function RegisterPage() {
                   id="firstName"
                   required
                   value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  onChange={e => setFormData({ ...formData, firstName: e.target.value })}
                   className="mt-1"
                 />
               </div>
@@ -95,7 +93,7 @@ export default function RegisterPage() {
                   id="lastName"
                   required
                   value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  onChange={e => setFormData({ ...formData, lastName: e.target.value })}
                   className="mt-1"
                 />
               </div>
@@ -109,7 +107,7 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={e => setFormData({ ...formData, email: e.target.value })}
                 className="mt-1"
               />
             </div>
@@ -120,7 +118,7 @@ export default function RegisterPage() {
                 id="phoneNumber"
                 type="tel"
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
                 className="mt-1"
               />
             </div>
@@ -149,7 +147,7 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 required
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
                 className="mt-1"
               />
             </div>
@@ -162,7 +160,7 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 required
                 value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
                 className="mt-1"
               />
             </div>

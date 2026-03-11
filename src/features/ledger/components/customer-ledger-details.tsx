@@ -6,14 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { LedgerEntry } from '../types';
-import {
-  ArrowLeft,
-  Printer,
-  TrendingUp,
-  Receipt,
-  DollarSign,
-  ArrowUpRight
-} from 'lucide-react';
+import { ArrowLeft, Printer, TrendingUp, Receipt, DollarSign, ArrowUpRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -83,8 +76,8 @@ export function CustomerLedgerDetails({ customerInfo, ledgerEntries, invoices, s
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between print:hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />

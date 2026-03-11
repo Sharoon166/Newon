@@ -25,11 +25,11 @@ type VariantsManagerProps = {
   productId?: string;
 };
 
-export function VariantsManager({ 
-  attributes = [], 
-  variants, 
-  locations = [], 
-  onChange, 
+export function VariantsManager({
+  attributes = [],
+  variants,
+  locations = [],
+  onChange,
   isSimpleProduct = false,
   productId
 }: VariantsManagerProps) {
@@ -44,7 +44,7 @@ export function VariantsManager({
     if (isSimpleProduct && variants.length >= 1) {
       return;
     }
-    
+
     const newVariant: ProductVariant = {
       id: `var_${uuidv4()}`,
       sku: '',
@@ -72,10 +72,10 @@ export function VariantsManager({
     setDeletingVariantId(id);
     try {
       const result = await deleteProductVariant(id);
-      
+
       if (!result.success) {
         toast.error(result.message);
-        
+
         // If deletion failed because variant was sold, offer to disable instead
         if (result.canDisable) {
           toast.info('You can disable this variant instead to hide it from new orders', {
@@ -108,9 +108,7 @@ export function VariantsManager({
   };
 
   const isAllVariantsValid = variants.every(variant => {
-    return (
-      variant.sku.length > 0
-    );
+    return variant.sku.length > 0;
   });
 
   return (
@@ -130,7 +128,7 @@ export function VariantsManager({
           ) : (
             <div className="space-y-4">
               {variants.map((variant, index) => (
-                <Card key={variant.id} className={cn("px-6 space-y-2")}>
+                <Card key={variant.id} className={cn('px-6 space-y-2')}>
                   <VariantForm
                     key={variant.id}
                     variantNumber={isSimpleProduct ? undefined : index + 1}
@@ -158,7 +156,7 @@ export function VariantsManager({
             size="sm"
             onClick={addVariant}
             className="w-full max-w-md"
-            disabled={!isAllVariantsValid || (attributes.length === 0)}
+            disabled={!isAllVariantsValid || attributes.length === 0}
           >
             <Plus className="h-4 w-4" />
             Add Another Variant

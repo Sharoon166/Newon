@@ -8,7 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,7 @@ export function StaffActions({
   id,
   isActive,
   onStatusChange,
-  onDelete,
+  onDelete
 }: {
   id: string;
   isActive: boolean;
@@ -63,14 +63,11 @@ export function StaffActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem 
-            onClick={() => setShowDeactivateDialog(true)}
-            className="cursor-pointer"
-          >
+          <DropdownMenuItem onClick={() => setShowDeactivateDialog(true)} className="cursor-pointer">
             <Power className="mr-2 h-4 w-4" />
             {isActive ? 'Deactivate' : 'Activate'}
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={() => setShowDeleteDialog(true)}
             className="text-destructive focus:text-destructive cursor-pointer"
           >
@@ -86,7 +83,7 @@ export function StaffActions({
         onOpenChange={setShowDeactivateDialog}
         title={isActive ? 'Deactivate Staff Member' : 'Activate Staff Member'}
         description={
-          isActive 
+          isActive
             ? 'Are you sure you want to deactivate this staff member? They will no longer be able to access the system.'
             : 'Are you sure you want to activate this staff member? They will be able to access the system.'
         }
@@ -94,7 +91,7 @@ export function StaffActions({
         onConfirm={handleStatusChange}
         isProcessing={isProcessing}
         variant={isActive ? 'destructive' : 'default'}
-        icon={<Power className={cn("mr-2 h-4 w-4", isActive ? "text-destructive" : "text-green-500")} />}
+        icon={<Power className={cn('mr-2 h-4 w-4', isActive ? 'text-destructive' : 'text-green-500')} />}
       />
 
       {/* Delete Confirmation */}

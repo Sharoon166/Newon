@@ -29,8 +29,8 @@ export function NavCategories({ categories }: { categories: NavCategory[] }) {
   return (
     <>
       {categories.map(category => (
-        <SidebarGroup key={category.title} >
-          <SidebarGroupLabel className='uppercase'>{category.title}</SidebarGroupLabel>
+        <SidebarGroup key={category.title}>
+          <SidebarGroupLabel className="uppercase">{category.title}</SidebarGroupLabel>
           <SidebarMenu>
             {category.items.map(item => (
               <SidebarMenuItem key={item.name}>

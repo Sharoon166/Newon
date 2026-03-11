@@ -125,7 +125,9 @@ export function VariantPurchaseHistoryButton({
                   Total Purchased
                   {selectedLocation !== 'all' && ' (Filtered)'}
                 </CardTitle>
-                <CardContent className="p-0 text-2xl font-semibold mt-2">{totalPurchased?.toLocaleString()}</CardContent>
+                <CardContent className="p-0 text-2xl font-semibold mt-2">
+                  {totalPurchased?.toLocaleString()}
+                </CardContent>
               </Card>
               <Card className="p-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -156,7 +158,10 @@ export function VariantPurchaseHistoryButton({
                       const locationName = location?.name || (locationId === 'unassigned' ? 'Unassigned' : locationId);
 
                       return (
-                        <div key={locationId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                        <div
+                          key={locationId}
+                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
+                        >
                           <div>
                             <div className="font-medium">{locationName}</div>
                             <div className="text-sm text-muted-foreground">

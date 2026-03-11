@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
-});
+  });
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (error) {
-      console.error("Error during login: ", error);
+      console.error('Error during login: ', error);
       toast.error('An error occurred during login');
     } finally {
       setIsLoading(false);

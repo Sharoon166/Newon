@@ -37,7 +37,7 @@ export function SettingsTabs({ paymentDetails, invoiceTerms, currentUser }: Sett
             <CardTitle>Account</CardTitle>
             <CardDescription>Manage your account settings and password</CardDescription>
           </CardHeader>
-          <CardContent className='w-full max-w-xl mx-auto'>
+          <CardContent className="w-full max-w-xl mx-auto">
             <AccountSettings currentUser={currentUser} />
           </CardContent>
         </Card>
@@ -46,10 +46,7 @@ export function SettingsTabs({ paymentDetails, invoiceTerms, currentUser }: Sett
       <TabsContent value="invoice" className="mt-6">
         <Card>
           <CardContent className="space-y-4">
-            <InvoiceSettings
-              initialPaymentDetails={paymentDetails}
-              initialTerms={invoiceTerms}
-            />
+            <InvoiceSettings initialPaymentDetails={paymentDetails} initialTerms={invoiceTerms} />
           </CardContent>
         </Card>
       </TabsContent>

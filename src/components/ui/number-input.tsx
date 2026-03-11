@@ -26,7 +26,7 @@ export function NumberInput({
   disabled,
   onKeyDown,
   onBlur,
-  onFocus,
+  onFocus
 }: NumberInputProps) {
   const [displayValue, setDisplayValue] = useState<string>('');
   const [isFocused, setIsFocused] = useState(false);
@@ -51,7 +51,7 @@ export function NumberInput({
 
     // Parse the number
     const numValue = parseFloat(inputValue);
-    
+
     // Only update if it's a valid number
     if (!isNaN(numValue)) {
       // Apply min/max constraints
@@ -62,7 +62,7 @@ export function NumberInput({
       if (max !== undefined && constrainedValue > max) {
         constrainedValue = max;
       }
-      
+
       onChange(constrainedValue);
     }
   };
@@ -78,7 +78,7 @@ export function NumberInput({
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(false);
-    
+
     // If the field is empty on blur, ensure the backend value is 0
     if (displayValue === '' || displayValue === '-') {
       onChange(0);
@@ -87,25 +87,27 @@ export function NumberInput({
       // Ensure display matches the actual value
       setDisplayValue(value === 0 ? '' : value.toString());
     }
-    
+
     onBlur?.(e);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Allow: backspace, delete, tab, escape, enter
-    if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
-        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-        (e.keyCode === 65 && e.ctrlKey === true) ||
-        (e.keyCode === 67 && e.ctrlKey === true) ||
-        (e.keyCode === 86 && e.ctrlKey === true) ||
-        (e.keyCode === 88 && e.ctrlKey === true) ||
-        // Allow: home, end, left, right
-        (e.keyCode >= 35 && e.keyCode <= 39)) {
+    if (
+      [8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
+      // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+      (e.keyCode === 65 && e.ctrlKey === true) ||
+      (e.keyCode === 67 && e.ctrlKey === true) ||
+      (e.keyCode === 86 && e.ctrlKey === true) ||
+      (e.keyCode === 88 && e.ctrlKey === true) ||
+      // Allow: home, end, left, right
+      (e.keyCode >= 35 && e.keyCode <= 39)
+    ) {
       return;
     }
-    
+
     // Ensure that it is a number and stop the keypress
-    if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+    if ((e.shiftKey || e.keyCode < 48 || e.keyCode > 57) && (e.keyCode < 96 || e.keyCode > 105)) {
       // Allow decimal point for float inputs
       if (step !== 1 && e.keyCode === 190) {
         // Only allow one decimal point
@@ -120,7 +122,7 @@ export function NumberInput({
       }
       e.preventDefault();
     }
-    
+
     onKeyDown?.(e);
   };
 

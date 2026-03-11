@@ -14,7 +14,7 @@ export default async function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title='Inventory Management' description='View and manage your product inventory'>
+      <PageHeader title="Inventory Management" description="View and manage your product inventory">
         <Button asChild>
           <Link href="/inventory/add" className="inline-flex items-center gap-2 group">
             Add Product <ArrowRight className="size-4 group-hover:translate-x-1 transition" />

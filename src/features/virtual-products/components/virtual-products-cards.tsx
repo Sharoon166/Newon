@@ -32,14 +32,14 @@ export function VirtualProductsCards({ data }: VirtualProductsCardsProps) {
     if (!selectedProduct) return;
 
     const result = await deleteVirtualProduct(selectedProduct.id!);
-    
+
     if (result.success) {
       toast.success('Virtual product deleted successfully');
       router.refresh();
     } else {
       toast.error(result.error);
     }
-    
+
     setDeleteDialogOpen(false);
     setSelectedProduct(null);
   };
@@ -79,7 +79,7 @@ export function VirtualProductsCards({ data }: VirtualProductsCardsProps) {
                     <DropdownMenuItem
                       onClick={async () => {
                         const result = await toggleVirtualProductDisabled(product.id!);
-                        
+
                         if (result.success) {
                           toast.success(result.data.disabled ? 'Product disabled' : 'Product enabled');
                           router.refresh();
@@ -186,7 +186,9 @@ export function VirtualProductsCards({ data }: VirtualProductsCardsProps) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Est. Profit:</span>
-                  <span className={`font-semibold ${(product.estimatedProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <span
+                    className={`font-semibold ${(product.estimatedProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                  >
                     {formatCurrency(product.estimatedProfit || 0)}
                   </span>
                 </div>

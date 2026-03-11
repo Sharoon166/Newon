@@ -2,10 +2,7 @@
 
 // These are simplified versions of the full Invoice type for template rendering
 
-
-
 export type TemplateItem = {
-
   id: string;
 
   description: string;
@@ -25,13 +22,9 @@ export type TemplateItem = {
   purchaseId?: string;
 
   imageUrl?: string;
-
 };
 
-
-
 export type TemplateCompanyDetails = {
-
   name: string;
 
   address: string;
@@ -47,13 +40,9 @@ export type TemplateCompanyDetails = {
   email: string;
 
   website?: string;
-
 };
 
-
-
 export type TemplateClientDetails = {
-
   name: string;
 
   company?: string;
@@ -69,25 +58,17 @@ export type TemplateClientDetails = {
   email?: string;
 
   phone?: string;
-
 };
 
-
-
 export type TemplatePaymentDetails = {
-
   bankName: string;
 
   accountNumber: string;
 
   iban: string;
-
 };
 
-
-
 export type InvoiceTemplateData = {
-
   logo?: string;
 
   company: TemplateCompanyDetails;
@@ -129,13 +110,9 @@ export type InvoiceTemplateData = {
   market?: 'newon' | 'waymor';
 
   customerId?: string;
-
 };
 
-
-
 export type QuotationTemplateData = {
-
   logo?: string;
 
   company: TemplateCompanyDetails;
@@ -169,6 +146,4 @@ export type QuotationTemplateData = {
   market?: 'newon' | 'waymor';
 
   customerId?: string;
-
 };
-

@@ -94,6 +94,7 @@ npm run create-admin     # Create initial admin user
 ## Environment Variables
 
 Required in `.env.local`:
+
 - `MONGODB_URI` - MongoDB connection string
 - `NEXTAUTH_URL` - Application URL
 - `NEXTAUTH_SECRET` - JWT secret key

@@ -19,7 +19,7 @@ interface EditInvoicePageProps {
 export default async function EditInvoicePage({ params }: EditInvoicePageProps) {
   try {
     const { id } = await params;
-    
+
     // Fetch the invoice
     const invoice = await getInvoice(id);
 
@@ -33,10 +33,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
     if (!editCheck.allowed) {
       return (
         <div className="container mx-auto py-10">
-          <PageHeader
-            title={`Edit ${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'}`}
-            backLink='/invoices'
-          />
+          <PageHeader title={`Edit ${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'}`} backLink="/invoices" />
           <Alert variant="destructive" className="mt-6">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Cannot Edit</AlertTitle>
@@ -49,7 +46,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
     // Restore stock if needed (so form shows correct available quantities)
     if (editCheck.requiresStockRestore && invoice.stockDeducted) {
       const { restoreInvoiceStock } = await import('@/features/invoices/actions');
-      await restoreInvoiceStock(id,true); // Skip revalidation during render
+      await restoreInvoiceStock(id, true); // Skip revalidation during render
     }
 
     // Fetch all required data (AFTER stock restoration so we get updated quantities)
@@ -62,12 +59,9 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
       getInvoiceTerms()
     ]);
 
-
     return (
       <div className="container mx-auto py-10">
-        <PageHeader
-          title={`Edit ${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`}
-        />
+        <PageHeader title={`Edit ${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} ${invoice.invoiceNumber}`} />
 
         <div className="mt-6">
           <EditInvoiceFormWrapper

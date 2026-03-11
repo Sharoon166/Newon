@@ -11,11 +11,12 @@ export default function UnauthorizedPage() {
         <div className="flex justify-center">
           <ShieldAlert className="h-24 w-24 text-red-500" />
         </div>
-        
+
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Access Denied</h2>
           <p className="mt-4 text-gray-600">
-            You don&apos;t have permission to access this resource. Please contact your administrator if you believe this is an error.
+            You don&apos;t have permission to access this resource. Please contact your administrator if you believe
+            this is an error.
           </p>
         </div>
 

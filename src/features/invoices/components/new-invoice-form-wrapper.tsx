@@ -118,151 +118,164 @@ export function NewInvoiceFormWrapper({
   // Stable empty function for onPreview
   const handlePreview = useCallback(() => {}, []);
 
-  const handleSaveInvoice = useCallback(async (formData: FormData) => {
-    // Note: invoiceNumber is not included in documentData - it will be auto-generated to avoid race conditions
-    const documentData: FormData = {
-      ...formData
-    };
-
-    try {
-      setIsLoading(true);
-      const subtotal = documentData.items.reduce((sum: number, item) => sum + item.amount, 0);
-
-      const discountAmount =
-        documentData.discountType === 'percentage' ? (subtotal * documentData.discount) / 100 : documentData.discount;
-
-      const taxAmount = (subtotal * documentData.taxRate) / 100;
-      const totalAmount = subtotal + taxAmount - discountAmount;
-      const isInvoice = documentType === 'invoice';
-
-      // Generate a unique customer ID if not provided
-      const customerId =
-        documentData.customerId ||
-        `manual-${
-          documentData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') ||
-          documentData.client.phone?.replace(/[^0-9]/g, '') ||
-          documentData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
-        }`;
-
-      // Create payments array if paid amount is provided
-      const paidAmount = isInvoice ? documentData.paid || 0 : 0;
-      const payments = paidAmount > 0 ? [{
-        amount: paidAmount,
-        method: 'cash' as const,
-        date: new Date(documentData.date),
-        reference: 'Initial payment',
-        notes: 'Payment recorded during invoice creation'
-      }] : [];
-
-      // Check if invoice has custom items
-      // An item is custom if:
-      // 1. It has no productId (custom item)
-      // 2. It has productId === 'manual-entry' (manually entered)
-      // 3. The rate has been modified from the original rate
-      const hasCustomItems = documentData.items.some(
-        item => !item.productId || 
-                item.productId === 'manual-entry' || 
-                (item.saleRate !== undefined && item.rate !== item.saleRate)
-      );
-
-      const createData = {
-        type: documentType,
-        date: new Date(documentData.date),
-        dueDate: isInvoice && documentData.dueDate ? new Date(documentData.dueDate) : undefined,
-        validUntil: !isInvoice && documentData.validUntil ? new Date(documentData.validUntil) : undefined,
-        billingType: (documentData.billingType || 'retail') as 'retail' | 'wholesale',
-        market: (documentData.market || 'newon') as 'newon' | 'waymor',
-        customerId,
-        customerName: documentData.client.name,
-        customerCompany: documentData.client.company || undefined,
-        customerEmail: documentData.client.email || undefined,
-        customerPhone: documentData.client.phone || undefined,
-        customerAddress: documentData.client.address || undefined,
-        customerCity: documentData.client.city || undefined,
-        customerState: documentData.client.state || undefined,
-        customerZip: documentData.client.zip || undefined,
-        items: documentData.items.map(item => ({
-          productId: item.productId || 'manual-entry',
-          productName: item.description,
-          variantId: item.variantId,
-          variantSKU: item.variantSKU,
-          ...(item.isVirtualProduct && {
-            virtualProductId: item.virtualProductId,
-            isVirtualProduct: true,
-            componentBreakdown: item.componentBreakdown,
-            totalComponentCost: item.totalComponentCost,
-            totalCustomExpenses: item.totalCustomExpenses
-          }),
-          ...(item.customExpenses && item.customExpenses.length > 0 && {
-            customExpenses: item.customExpenses.map(expense => ({
-              name: expense.name,
-              amount: expense.clientCost,
-              actualCost: expense.actualCost,
-              clientCost: expense.clientCost,
-              category: expense.category,
-              description: expense.description
-            })),
-            totalCustomExpenses: item.totalCustomExpenses
-          }),
-          quantity: item.quantity,
-          unit: item.unit || 'pcs',
-          unitPrice: item.rate,
-          discountType: undefined,
-          discountValue: undefined,
-          discountAmount: 0,
-          totalPrice: item.amount,
-          purchaseId: item.purchaseId,
-          originalRate: item.originalRate
-        })),
-        subtotal,
-        discountType: documentData.discountType as 'fixed' | 'percentage' | undefined,
-        discountValue: documentData.discount,
-        discountAmount,
-        gstType: documentData.taxRate > 0 ? ('percentage' as const) : undefined,
-        gstValue: documentData.taxRate,
-        gstAmount: taxAmount,
-        totalAmount,
-        status: documentType === 'quotation' ? ('draft' as const) : ('pending' as const),
-        paidAmount,
-        balanceAmount: totalAmount - paidAmount,
-        payments,
-        description: documentData.description,
-        notes: documentData.notes,
-        termsAndConditions: documentData.terms,
-        amountInWords: documentData.amountInWords,
-        profit: documentData.profit || 0,
-        custom: hasCustomItems,
-        createdBy: 'system-user',
-        // Project-specific fields
-        ...(fromProject && {
-          stockDeducted: false,
-          projectId: projectId
-        })
+  const handleSaveInvoice = useCallback(
+    async (formData: FormData) => {
+      // Note: invoiceNumber is not included in documentData - it will be auto-generated to avoid race conditions
+      const documentData: FormData = {
+        ...formData
       };
 
-      const result = await createInvoice(createData);
-      toast.info(
-        `${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`
-      );
-      
-      // Route to the correct tab based on document type
-      const targetUrl = documentType === 'quotation' ? '/invoices?tab=quotations' : '/invoices';
-      router.push(targetUrl);
-    } catch (error) {
-      console.error('Error saving document:', error);
-      toast.error(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [documentType, router, fromProject, projectId]);
+      try {
+        setIsLoading(true);
+        const subtotal = documentData.items.reduce((sum: number, item) => sum + item.amount, 0);
 
-  const handleTabChange = useCallback((value: string) => {
-    const newType = value as DocumentType;
-    setDocumentType(newType);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', newType);
-    router.push(`/invoices/new?${params.toString()}`, { scroll: false });
-  }, [searchParams, router]);
+        const discountAmount =
+          documentData.discountType === 'percentage' ? (subtotal * documentData.discount) / 100 : documentData.discount;
+
+        const taxAmount = (subtotal * documentData.taxRate) / 100;
+        const totalAmount = subtotal + taxAmount - discountAmount;
+        const isInvoice = documentType === 'invoice';
+
+        // Generate a unique customer ID if not provided
+        const customerId =
+          documentData.customerId ||
+          `manual-${
+            documentData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') ||
+            documentData.client.phone?.replace(/[^0-9]/g, '') ||
+            documentData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+          }`;
+
+        // Create payments array if paid amount is provided
+        const paidAmount = isInvoice ? documentData.paid || 0 : 0;
+        const payments =
+          paidAmount > 0
+            ? [
+                {
+                  amount: paidAmount,
+                  method: 'cash' as const,
+                  date: new Date(documentData.date),
+                  reference: 'Initial payment',
+                  notes: 'Payment recorded during invoice creation'
+                }
+              ]
+            : [];
+
+        // Check if invoice has custom items
+        // An item is custom if:
+        // 1. It has no productId (custom item)
+        // 2. It has productId === 'manual-entry' (manually entered)
+        // 3. The rate has been modified from the original rate
+        const hasCustomItems = documentData.items.some(
+          item =>
+            !item.productId ||
+            item.productId === 'manual-entry' ||
+            (item.saleRate !== undefined && item.rate !== item.saleRate)
+        );
+
+        const createData = {
+          type: documentType,
+          date: new Date(documentData.date),
+          dueDate: isInvoice && documentData.dueDate ? new Date(documentData.dueDate) : undefined,
+          validUntil: !isInvoice && documentData.validUntil ? new Date(documentData.validUntil) : undefined,
+          billingType: (documentData.billingType || 'retail') as 'retail' | 'wholesale',
+          market: (documentData.market || 'newon') as 'newon' | 'waymor',
+          customerId,
+          customerName: documentData.client.name,
+          customerCompany: documentData.client.company || undefined,
+          customerEmail: documentData.client.email || undefined,
+          customerPhone: documentData.client.phone || undefined,
+          customerAddress: documentData.client.address || undefined,
+          customerCity: documentData.client.city || undefined,
+          customerState: documentData.client.state || undefined,
+          customerZip: documentData.client.zip || undefined,
+          items: documentData.items.map(item => ({
+            productId: item.productId || 'manual-entry',
+            productName: item.description,
+            variantId: item.variantId,
+            variantSKU: item.variantSKU,
+            ...(item.isVirtualProduct && {
+              virtualProductId: item.virtualProductId,
+              isVirtualProduct: true,
+              componentBreakdown: item.componentBreakdown,
+              totalComponentCost: item.totalComponentCost,
+              totalCustomExpenses: item.totalCustomExpenses
+            }),
+            ...(item.customExpenses &&
+              item.customExpenses.length > 0 && {
+                customExpenses: item.customExpenses.map(expense => ({
+                  name: expense.name,
+                  amount: expense.clientCost,
+                  actualCost: expense.actualCost,
+                  clientCost: expense.clientCost,
+                  category: expense.category,
+                  description: expense.description
+                })),
+                totalCustomExpenses: item.totalCustomExpenses
+              }),
+            quantity: item.quantity,
+            unit: item.unit || 'pcs',
+            unitPrice: item.rate,
+            discountType: undefined,
+            discountValue: undefined,
+            discountAmount: 0,
+            totalPrice: item.amount,
+            purchaseId: item.purchaseId,
+            originalRate: item.originalRate
+          })),
+          subtotal,
+          discountType: documentData.discountType as 'fixed' | 'percentage' | undefined,
+          discountValue: documentData.discount,
+          discountAmount,
+          gstType: documentData.taxRate > 0 ? ('percentage' as const) : undefined,
+          gstValue: documentData.taxRate,
+          gstAmount: taxAmount,
+          totalAmount,
+          status: documentType === 'quotation' ? ('draft' as const) : ('pending' as const),
+          paidAmount,
+          balanceAmount: totalAmount - paidAmount,
+          payments,
+          description: documentData.description,
+          notes: documentData.notes,
+          termsAndConditions: documentData.terms,
+          amountInWords: documentData.amountInWords,
+          profit: documentData.profit || 0,
+          custom: hasCustomItems,
+          createdBy: 'system-user',
+          // Project-specific fields
+          ...(fromProject && {
+            stockDeducted: false,
+            projectId: projectId
+          })
+        };
+
+        const result = await createInvoice(createData);
+        toast.info(
+          `${documentType === 'invoice' ? 'Invoice' : 'Quotation'} created successfully! Number: ${result.invoiceNumber}`
+        );
+
+        // Route to the correct tab based on document type
+        const targetUrl = documentType === 'quotation' ? '/invoices?tab=quotations' : '/invoices';
+        router.push(targetUrl);
+      } catch (error) {
+        console.error('Error saving document:', error);
+        toast.error(`Failed to save ${documentType}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [documentType, router, fromProject, projectId]
+  );
+
+  const handleTabChange = useCallback(
+    (value: string) => {
+      const newType = value as DocumentType;
+      setDocumentType(newType);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', newType);
+      router.push(`/invoices/new?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, router]
+  );
 
   return (
     <Tabs value={documentType} className="w-full" onValueChange={handleTabChange}>

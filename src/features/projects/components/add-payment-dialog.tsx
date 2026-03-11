@@ -25,13 +25,7 @@ interface AddPaymentDialogProps {
   onSuccess?: () => void;
 }
 
-export function AddPaymentDialog({
-  open,
-  onOpenChange,
-  expenseId,
-  userId,
-  onSuccess
-}: AddPaymentDialogProps) {
+export function AddPaymentDialog({ open, onOpenChange, expenseId, userId, onSuccess }: AddPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [remainingAmount, setRemainingAmount] = useState(0);
@@ -101,7 +95,9 @@ export function AddPaymentDialog({
     const currentRemaining = currentDetails?.remainingAmount ?? remainingAmount;
 
     if (data.amount > currentRemaining) {
-      toast.error(`Payment amount (${formatCurrency(data.amount)}) exceeds remaining amount (${formatCurrency(currentRemaining)})`);
+      toast.error(
+        `Payment amount (${formatCurrency(data.amount)}) exceeds remaining amount (${formatCurrency(currentRemaining)})`
+      );
       setRemainingAmount(currentRemaining);
       setValue('amount', currentRemaining);
       return;
@@ -202,7 +198,10 @@ export function AddPaymentDialog({
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className={cn('w-full justify-start text-left font-normal', !paymentDate && 'text-muted-foreground')}
+                    className={cn(
+                      'w-full justify-start text-left font-normal',
+                      !paymentDate && 'text-muted-foreground'
+                    )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {paymentDate ? format(paymentDate, 'PPP') : <span>Pick a date</span>}

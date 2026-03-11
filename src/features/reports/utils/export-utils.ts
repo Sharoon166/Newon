@@ -45,7 +45,7 @@ export const exportReportsToCsv = (data: MonthlyReport[], year: number): void =>
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', `financial-report-${year}.csv`);
@@ -61,4 +61,3 @@ export const exportReportsToCsv = (data: MonthlyReport[], year: number): void =>
     toast.error('Failed to export report to CSV');
   }
 };
-

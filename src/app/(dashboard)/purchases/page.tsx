@@ -19,10 +19,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const limit = params.limit ? parseInt(params.limit) : 10;
   const search = params.search;
 
-  const [purchasesData, products] = await Promise.all([
-    getAllPurchases({ page, limit, search }),
-    getProducts()
-  ]);
+  const [purchasesData, products] = await Promise.all([getAllPurchases({ page, limit, search }), getProducts()]);
 
   return (
     <>
@@ -38,4 +35,3 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
     </>
   );
 }
-

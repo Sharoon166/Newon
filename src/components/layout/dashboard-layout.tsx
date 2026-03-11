@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { Separator } from '@/components/ui/separator';

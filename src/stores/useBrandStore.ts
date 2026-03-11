@@ -73,7 +73,7 @@ const useBrandStore = create<BrandState>()(
   persist(
     (set, get) => ({
       currentBrandId: 'newon',
-      setBrand: (id) => {
+      setBrand: id => {
         if (brands.some(brand => brand.id === id)) {
           set({ currentBrandId: id });
         }
@@ -87,7 +87,7 @@ const useBrandStore = create<BrandState>()(
       name: 'brand-storage',
       storage: createJSONStorage(() => localStorage),
       // Only persist the currentBrandId
-      partialize: (state) => ({ currentBrandId: state.currentBrandId })
+      partialize: state => ({ currentBrandId: state.currentBrandId })
     }
   )
 );

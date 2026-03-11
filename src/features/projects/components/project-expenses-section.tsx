@@ -42,10 +42,8 @@ export function ProjectExpensesSection({
       <div className="space-y-4 pt-6">
         <div className="flex flex-wrap items-center justify-between gap-8">
           <div className="space-y-1">
-          <h3 className="text-xl font-semibold">Project Expenses</h3>
-          <p className="text-sm text-muted-foreground">
-            View and manage all project expenses and payments
-          </p>
+            <h3 className="text-xl font-semibold">Project Expenses</h3>
+            <p className="text-sm text-muted-foreground">View and manage all project expenses and payments</p>
           </div>
           {canAddExpenseNow && (
             <Button onClick={() => setExpenseDialogOpen(true)}>

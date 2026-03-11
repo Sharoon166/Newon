@@ -19,9 +19,7 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{summary.totalCustomers}</div>
-          <p className="text-xs text-muted-foreground">
-            {summary.customersWithBalance} with outstanding balance
-          </p>
+          <p className="text-xs text-muted-foreground">{summary.customersWithBalance} with outstanding balance</p>
         </CardContent>
       </Card>
 
@@ -34,7 +32,9 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
           <div className="text-2xl font-bold">{formatCurrency(summary.monthlyInvoiced)}</div>
           <p className="text-xs text-muted-foreground">This month&apos;s invoices</p>
           {summary.monthlyInvoicedTrend !== 0 && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${summary.monthlyInvoicedTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`flex items-center gap-1 mt-1 text-xs ${summary.monthlyInvoicedTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
               {summary.monthlyInvoicedTrend > 0 ? (
                 <TrendingUp className="h-3 w-3" />
               ) : (
@@ -55,7 +55,9 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
           <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.monthlyReceived)}</div>
           <p className="text-xs text-muted-foreground">This month&apos;s payments</p>
           {summary.monthlyReceivedTrend !== 0 && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${summary.monthlyReceivedTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`flex items-center gap-1 mt-1 text-xs ${summary.monthlyReceivedTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
               {summary.monthlyReceivedTrend > 0 ? (
                 <TrendingUp className="h-3 w-3" />
               ) : (
@@ -97,7 +99,8 @@ export function LedgerSummaryCards({ summary }: LedgerSummaryProps) {
         <CardContent>
           <div className="text-2xl font-bold text-amber-600">{formatCurrency(summary.totalOutstanding)}</div>
           <p className="text-xs text-muted-foreground">
-            {summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}% of total invoiced
+            {summary.totalInvoiced > 0 ? ((summary.totalOutstanding / summary.totalInvoiced) * 100).toFixed(1) : '0.0'}%
+            of total invoiced
           </p>
         </CardContent>
       </Card>

@@ -19,10 +19,7 @@ async function VirtualProductsContent() {
 export default function VirtualProductsPage() {
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <PageHeader
-        title="Virtual Products"
-        description="Create and manage virtual products"
-      >
+      <PageHeader title="Virtual Products" description="Create and manage virtual products">
         <Link href="/virtual-products/add">
           <Button>
             <Plus className="h-4 w-4 mr-2" />

@@ -306,7 +306,9 @@ export function NewInvoiceForm({
         setSelectedCustomer(OTC_CUSTOMER as Customer);
         setIsToOpen(false); // Close the customer selector since we have a customer
       } else if (customers.length > 0) {
-        const customer = customers.find(c => c.customerId === initialData.customerId || c.id === initialData.customerId);
+        const customer = customers.find(
+          c => c.customerId === initialData.customerId || c.id === initialData.customerId
+        );
         if (customer) {
           setSelectedCustomer(customer);
           setIsOtcCustomer(false);
@@ -527,7 +529,7 @@ export function NewInvoiceForm({
           form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
           form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
         } else {
-          console.log({ item })
+          console.log({ item });
           // Add new virtual product
           append({
             id: uuidv4(),
@@ -1031,22 +1033,22 @@ export function NewInvoiceForm({
                     selectedCustomer.city ||
                     selectedCustomer.state ||
                     selectedCustomer.zip) && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-sm flex items-start gap-2">
-                          <MapPin className="h-4 w-4 mt-0.5" />
-                          <span>
-                            {[
-                              selectedCustomer.address,
-                              selectedCustomer.city,
-                              selectedCustomer.state,
-                              selectedCustomer.zip
-                            ]
-                              .filter(Boolean)
-                              .join(', ')}
-                          </span>
-                        </p>
-                      </div>
-                    )}
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-sm flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5" />
+                        <span>
+                          {[
+                            selectedCustomer.address,
+                            selectedCustomer.city,
+                            selectedCustomer.state,
+                            selectedCustomer.zip
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {!selectedCustomer && (
@@ -1167,11 +1169,11 @@ export function NewInvoiceForm({
                   // Get stock limit for this specific purchase (including current item's quantity)
                   const purchaseStockLimit = purchaseId
                     ? (() => {
-                      const purchase = purchases.find(p => p.purchaseId === purchaseId);
-                      if (!purchase) return 0;
+                        const purchase = purchases.find(p => p.purchaseId === purchaseId);
+                        if (!purchase) return 0;
 
-                      return purchase.remaining;
-                    })()
+                        return purchase.remaining;
+                      })()
                     : Infinity;
 
                   return (
@@ -1333,7 +1335,7 @@ export function NewInvoiceForm({
                               control={form.control}
                               name={`items.${index}.unit`}
                               render={({ field }) => (
-                                <FormItem className='flex gap-2 items-center'>
+                                <FormItem className="flex gap-2 items-center">
                                   <FormLabel className="text-xs text-muted-foreground">Unit: </FormLabel>
                                   <FormControl>
                                     <UnitSelector
@@ -1362,8 +1364,8 @@ export function NewInvoiceForm({
                                   />
                                 </InputGroup>
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  Components: {formatCurrency(item.totalComponentCost || 0)} +
-                                  Expenses: {formatCurrency(item.totalCustomExpenses || 0)}
+                                  Components: {formatCurrency(item.totalComponentCost || 0)} + Expenses:{' '}
+                                  {formatCurrency(item.totalCustomExpenses || 0)}
                                 </div>
                               </div>
                               <div>
@@ -1409,7 +1411,17 @@ export function NewInvoiceForm({
                                   )}
                                 />
                                 <div className="text-xs text-green-600 mt-1">
-                                  Profit per unit: {formatCurrency((item.rate || 0) - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)))} × {currentQuantity} = {formatCurrency(((item.rate || 0) - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) * currentQuantity)}
+                                  Profit per unit:{' '}
+                                  {formatCurrency(
+                                    (item.rate || 0) -
+                                      ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
+                                  )}{' '}
+                                  × {currentQuantity} ={' '}
+                                  {formatCurrency(
+                                    ((item.rate || 0) -
+                                      ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
+                                      currentQuantity
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1891,11 +1903,7 @@ export function NewInvoiceForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea
-                        className="min-h-[100px]"
-                        placeholder="State the terms and conditions..."
-                        {...field}
-                      />
+                      <Textarea className="min-h-[100px]" placeholder="State the terms and conditions..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

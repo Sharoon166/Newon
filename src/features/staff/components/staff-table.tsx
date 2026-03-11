@@ -76,7 +76,7 @@ export function StaffTable({ staff }: StaffTableProps) {
     if (!staffToDelete) return;
 
     if (staffToDelete.member.isActive) {
-      toast.error("Cannot delete an active member.");
+      toast.error('Cannot delete an active member.');
       return;
     }
 

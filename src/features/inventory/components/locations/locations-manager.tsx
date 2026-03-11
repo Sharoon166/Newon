@@ -33,47 +33,40 @@ type LocationsManagerProps = {
 };
 
 // Sortable Location Item Component
-const SortableLocationItem = ({ 
-  location, 
-  isEditing, 
-  onEdit, 
-  onRemove, 
-  onToggleActive 
-}: { 
+const SortableLocationItem = ({
+  location,
+  isEditing,
+  onEdit,
+  onRemove,
+  onToggleActive
+}: {
   location: ProductLocation;
   isEditing: boolean;
   onEdit: () => void;
   onRemove: (id: string) => void;
   onToggleActive: (id: string, isActive: boolean) => void;
 }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: location.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: location.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.5 : 1
   };
 
   return (
-    <div 
-      ref={setNodeRef} 
+    <div
+      ref={setNodeRef}
       style={style}
-      className={cn("flex items-center justify-between p-3 border rounded-lg cursor-pointer", {
+      className={cn('flex items-center justify-between p-3 border rounded-lg cursor-pointer', {
         'ring-2 ring-primary': isEditing,
         'opacity-70': !location.isActive
       })}
       onClick={onEdit}
     >
       <div className="flex items-center space-x-2">
-        <button 
-          type="button" 
+        <button
+          type="button"
           className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
           {...attributes}
           {...listeners}
@@ -100,7 +93,7 @@ const SortableLocationItem = ({
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-destructive hover:text-destructive"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation();
             onRemove(location.id);
           }}
@@ -116,32 +109,32 @@ const SortableLocationItem = ({
 export function LocationsManager({ locations, onChange }: LocationsManagerProps) {
   const [editingLocation, setEditingLocation] = useState<ProductLocation | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  
+
   // Initialize sensors for drag and drop
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
-      },
+        distance: 8
+      }
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
+      coordinateGetter: sortableKeyboardCoordinates
     })
   );
-  
+
   // Handle drag end event
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     if (over && active.id !== over.id) {
       const oldIndex = locations.findIndex(loc => loc.id === active.id);
       const newIndex = locations.findIndex(loc => loc.id === over.id);
-      
+
       const newLocations = arrayMove(locations, oldIndex, newIndex).map((loc, index) => ({
         ...loc,
         order: index
       }));
-      
+
       onChange(newLocations);
     }
   };
@@ -152,24 +145,20 @@ export function LocationsManager({ locations, onChange }: LocationsManagerProps)
       name: `Location ${locations.length + 1}`,
       address: '',
       isActive: true,
-      order: locations.length,
+      order: locations.length
     };
-    
+
     onChange([...locations, newLocation]);
     setEditingLocation(newLocation);
     setIsEditing(true);
   };
 
   const updateLocation = (id: string, updates: Partial<ProductLocation>) => {
-    onChange(
-      locations.map((loc) =>
-        loc.id === id ? { ...loc, ...updates } : loc
-      )
-    );
+    onChange(locations.map(loc => (loc.id === id ? { ...loc, ...updates } : loc)));
   };
 
   const removeLocation = (id: string) => {
-    onChange(locations.filter((loc) => loc.id !== id));
+    onChange(locations.filter(loc => loc.id !== id));
     if (editingLocation?.id === id) {
       setEditingLocation(null);
       setIsEditing(false);
@@ -184,13 +173,7 @@ export function LocationsManager({ locations, onChange }: LocationsManagerProps)
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Locations</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addLocation}
-          className="gap-2"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={addLocation} className="gap-2">
           <Plus className="h-4 w-4" />
           Add Location
         </Button>
@@ -200,29 +183,20 @@ export function LocationsManager({ locations, onChange }: LocationsManagerProps)
         <div className="text-center py-8 border rounded-lg bg-muted/20">
           <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-muted-foreground">No locations added yet</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="mt-2"
-            onClick={addLocation}
-          >
+          <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={addLocation}>
             Add your first location
           </Button>
         </div>
       ) : (
-        <DndContext 
+        <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
           modifiers={[restrictToVerticalAxis]}
         >
-          <SortableContext 
-            items={locations.map(loc => loc.id)}
-            strategy={verticalListSortingStrategy}
-          >
+          <SortableContext items={locations.map(loc => loc.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
-              {locations.map((location) => (
+              {locations.map(location => (
                 <SortableLocationItem
                   key={location.id}
                   location={location}
@@ -246,42 +220,30 @@ export function LocationsManager({ locations, onChange }: LocationsManagerProps)
             <h4 className="font-semibold">
               {locations.some(loc => loc.id === editingLocation.id) ? 'Edit' : 'Add'} Location
             </h4>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setIsEditing(false)}
-            >
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditing(false)}>
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </Button>
           </div>
           <div className="space-y-2 grid sm:grid-cols-2 gap-4">
-            <div className='space-y-2'>
+            <div className="space-y-2">
               <Label htmlFor="location-name">Location Name</Label>
               <Input
                 id="location-name"
                 value={editingLocation.name}
-                onChange={(e) =>
-                  setEditingLocation({ ...editingLocation, name: e.target.value })
-                }
-                onBlur={() =>
-                  updateLocation(editingLocation.id, { name: editingLocation.name })
-                }
+                onChange={e => setEditingLocation({ ...editingLocation, name: e.target.value })}
+                onBlur={() => updateLocation(editingLocation.id, { name: editingLocation.name })}
                 placeholder="e.g. Main Warehouse, Store Front, etc."
               />
             </div>
-            <div className='space-y-2'>
+            <div className="space-y-2">
               <Label htmlFor="location-address">Address (Optional)</Label>
               <Input
                 id="location-address"
                 value={editingLocation.address || ''}
-                onChange={(e) =>
-                  setEditingLocation({ ...editingLocation, address: e.target.value })
-                }
+                onChange={e => setEditingLocation({ ...editingLocation, address: e.target.value })}
                 onBlur={() =>
-                  updateLocation(editingLocation.id, { 
+                  updateLocation(editingLocation.id, {
                     address: editingLocation.address || undefined
                   })
                 }
@@ -289,26 +251,21 @@ export function LocationsManager({ locations, onChange }: LocationsManagerProps)
               />
             </div>
           </div>
-            <div className="flex justify-end space-x-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditing(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  updateLocation(editingLocation.id, editingLocation);
-                  setIsEditing(false);
-                }}
-              >
-                Save Changes
-              </Button>
-            </div>
+          <div className="flex justify-end space-x-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                updateLocation(editingLocation.id, editingLocation);
+                setIsEditing(false);
+              }}
+            >
+              Save Changes
+            </Button>
+          </div>
         </div>
       )}
     </div>

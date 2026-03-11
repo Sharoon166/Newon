@@ -49,17 +49,14 @@ async function calculateVirtuals(leanDoc: LeanProject): Promise<LeanProject> {
 
   // Fetch their paid amounts from Expense collection by projectId
   if (leanDoc.projectId) {
-    const expenses = await ExpenseModel.find({
+    const expenses = (await ExpenseModel.find({
       projectId: leanDoc.projectId,
       source: 'project'
-    }).lean() as unknown as LeanExpense[];
+    }).lean()) as unknown as LeanExpense[];
 
     // Sum up the total amounts from transactions (cash flow)
     totalExpenses = expenses.reduce((sum, expense) => {
-      const transactionSum = (expense.transactions || []).reduce(
-        (tSum: number, t) => tSum + (t.amount || 0),
-        0
-      );
+      const transactionSum = (expense.transactions || []).reduce((tSum: number, t) => tSum + (t.amount || 0), 0);
       return sum + transactionSum;
     }, 0);
   }
@@ -253,10 +250,7 @@ export async function getProjects(
                                       $cond: {
                                         // Include only inventory items: variantId present (non-empty)
                                         if: {
-                                          $gt: [
-                                            { $strLenCP: { $ifNull: ['$$this.variantId', ''] } },
-                                            0
-                                          ]
+                                          $gt: [{ $strLenCP: { $ifNull: ['$$this.variantId', ''] } }, 0]
                                         },
                                         then: {
                                           $multiply: [
@@ -425,9 +419,9 @@ export async function createProject(data: CreateProjectDto): Promise<Project> {
       .select('firstName lastName')
       .session(session)
       .lean()) as {
-        firstName: string;
-        lastName: string;
-      } | null;
+      firstName: string;
+      lastName: string;
+    } | null;
     const userName = staff ? `${staff.firstName} ${staff.lastName}` : 'System';
 
     if (savedProject.projectId) {
@@ -1087,16 +1081,16 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
       transactions:
         userRole === 'admin'
           ? [
-            {
-              amount: data.amount,
-              date: data.date,
-              source: 'cash', // Default source for auto-pay
-              notes: 'Automatically paid (Admin addition)',
-              addedBy: data.addedBy,
-              addedByName,
-              createdAt: new Date()
-            }
-          ]
+              {
+                amount: data.amount,
+                date: data.date,
+                source: 'cash', // Default source for auto-pay
+                notes: 'Automatically paid (Admin addition)',
+                addedBy: data.addedBy,
+                addedByName,
+                createdAt: new Date()
+              }
+            ]
           : []
     };
 
@@ -1118,7 +1112,7 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
       userId: data.addedBy,
       userName: addedByName,
       userRole: data.addedByRole,
-      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)} ${data.addedByRole == "admin" ? "(along with payment)" : "(pending payment)"}`,
+      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)} ${data.addedByRole == 'admin' ? '(along with payment)' : '(pending payment)'}`,
       metadata: {
         expenseId: savedExpense.expenseId,
         amount: data.amount,

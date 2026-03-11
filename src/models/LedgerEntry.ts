@@ -113,28 +113,32 @@ ledgerEntrySchema.index({ date: -1, transactionType: 1 });
 ledgerEntrySchema.index({ customerId: 1, balance: -1 });
 
 // Virtual field for amount
-ledgerEntrySchema.virtual('amount').get(function() {
+ledgerEntrySchema.virtual('amount').get(function () {
   return this.debit - this.credit;
 });
 
 // Static method to get customer balance
-ledgerEntrySchema.statics.getCustomerBalance = async function(customerId: string): Promise<number> {
+ledgerEntrySchema.statics.getCustomerBalance = async function (customerId: string): Promise<number> {
   const result = await this.aggregate([
     { $match: { customerId } },
-    { $group: {
-      _id: null,
-      totalDebit: { $sum: '$debit' },
-      totalCredit: { $sum: '$credit' }
-    }},
-    { $project: {
-      balance: { $subtract: ['$totalDebit', '$totalCredit'] }
-    }}
+    {
+      $group: {
+        _id: null,
+        totalDebit: { $sum: '$debit' },
+        totalCredit: { $sum: '$credit' }
+      }
+    },
+    {
+      $project: {
+        balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+      }
+    }
   ]);
   return result[0]?.balance || 0;
 };
 
 // Pre-save validation
-ledgerEntrySchema.pre('save', function(next) {
+ledgerEntrySchema.pre('save', function (next) {
   if (this.debit > 0 && this.credit > 0) {
     next(new Error('Entry cannot have both debit and credit'));
   }
@@ -152,6 +156,9 @@ if (mongoose.models.LedgerEntry) {
   delete mongoose.models.LedgerEntry;
 }
 
-const LedgerEntry = mongoose.model<ILedgerEntry, mongoose.PaginateModel<ILedgerEntry>>('LedgerEntry', ledgerEntrySchema);
+const LedgerEntry = mongoose.model<ILedgerEntry, mongoose.PaginateModel<ILedgerEntry>>(
+  'LedgerEntry',
+  ledgerEntrySchema
+);
 
 export default LedgerEntry;

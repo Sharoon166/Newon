@@ -30,13 +30,12 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
     redirect('/not-allowed');
   }
 
-
   try {
     const [project, staffMembers, invoicesResult] = await Promise.all([
       getProject(id, session.user.id, session.user.role),
-      getStaffMembers({ isActive: true, role: "staff" }),
+      getStaffMembers({ isActive: true, role: 'staff' }),
       getInvoices({ type: 'invoice', limit: 10000 })
-    ])
+    ]);
 
     const invoices = invoicesResult.docs;
 
@@ -55,10 +54,10 @@ async function EditProjectContent({ params }: EditProjectPageProps) {
 
         <Card>
           <CardContent className="pt-6">
-            <ProjectForm 
-              project={project} 
+            <ProjectForm
+              project={project}
               invoices={invoices}
-              staffMembers={staffMembers} 
+              staffMembers={staffMembers}
               currentUserId={session.user.id!}
             />
           </CardContent>

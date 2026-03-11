@@ -29,7 +29,21 @@ interface ICustomExpense {
   amount: number;
   actualCost: number;
   clientCost: number;
-  category: 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other';
+  category:
+    | 'materials'
+    | 'labor'
+    | 'equipment'
+    | 'transport'
+    | 'rent'
+    | 'utilities'
+    | 'fuel'
+    | 'maintenance'
+    | 'marketing'
+    | 'office-supplies'
+    | 'professional-services'
+    | 'insurance'
+    | 'taxes'
+    | 'other';
   description?: string;
   expenseId?: string;
 }
@@ -85,7 +99,18 @@ interface IInvoice extends Document {
   gstValue?: number;
   gstAmount: number;
   totalAmount: number;
-  status: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  status:
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired'
+    | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount: number;
   balanceAmount: number;
@@ -132,80 +157,101 @@ const paymentSchema = new Schema<IPayment>({
 });
 
 // Component breakdown subdocument schema
-const componentBreakdownSchema = new Schema({
-  productId: {
-    type: String,
-    required: true
+const componentBreakdownSchema = new Schema(
+  {
+    productId: {
+      type: String,
+      required: true
+    },
+    variantId: {
+      type: String,
+      required: true
+    },
+    productName: {
+      type: String,
+      required: true
+    },
+    sku: {
+      type: String,
+      required: true
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1
+    },
+    purchaseId: {
+      type: String,
+      required: true
+    },
+    unitCost: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    totalCost: {
+      type: Number,
+      required: true,
+      min: 0
+    }
   },
-  variantId: {
-    type: String,
-    required: true
-  },
-  productName: {
-    type: String,
-    required: true
-  },
-  sku: {
-    type: String,
-    required: true
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1
-  },
-  purchaseId: {
-    type: String,
-    required: true
-  },
-  unitCost: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  totalCost: {
-    type: Number,
-    required: true,
-    min: 0
-  }
-}, { _id: false });
+  { _id: false }
+);
 
 // Custom expense subdocument schema
-const customExpenseSchema = new Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
+const customExpenseSchema = new Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    actualCost: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    clientCost: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    category: {
+      type: String,
+      enum: [
+        'materials',
+        'labor',
+        'equipment',
+        'transport',
+        'rent',
+        'utilities',
+        'fuel',
+        'maintenance',
+        'marketing',
+        'office-supplies',
+        'professional-services',
+        'insurance',
+        'taxes',
+        'other'
+      ],
+      default: 'other'
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    expenseId: {
+      type: String
+    }
   },
-  amount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  actualCost: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  clientCost: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  category: {
-    type: String,
-    enum: ['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'other'],
-    default: 'other'
-  },
-  description: {
-    type: String,
-    trim: true,
-    default: ''
-  },
-  expenseId: {
-    type: String
-  }
-}, { _id: false });
+  { _id: false }
+);
 
 // Invoice item subdocument schema
 const invoiceItemSchema = new Schema<IInvoiceItem>({
@@ -410,7 +456,19 @@ const invoiceSchema = new Schema<IInvoice>(
     },
     status: {
       type: String,
-      enum: ['pending', 'paid', 'partial', 'delivered', 'cancelled', 'draft', 'sent', 'accepted', 'rejected', 'expired', 'converted'],
+      enum: [
+        'pending',
+        'paid',
+        'partial',
+        'delivered',
+        'cancelled',
+        'draft',
+        'sent',
+        'accepted',
+        'rejected',
+        'expired',
+        'converted'
+      ],
       required: true,
       default: 'pending'
     },

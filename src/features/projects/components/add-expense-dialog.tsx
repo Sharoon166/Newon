@@ -27,7 +27,14 @@ interface AddExpenseDialogProps {
   onSuccess?: () => void;
 }
 
-export function AddExpenseDialog({ open, onOpenChange, projectId, userId, userRole, onSuccess }: AddExpenseDialogProps) {
+export function AddExpenseDialog({
+  open,
+  onOpenChange,
+  projectId,
+  userId,
+  userRole,
+  onSuccess
+}: AddExpenseDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expenseDate, setExpenseDate] = useState<Date | undefined>(new Date());
 
@@ -49,12 +56,7 @@ export function AddExpenseDialog({ open, onOpenChange, projectId, userId, userRo
 
   const category = watch('category');
 
-  const onSubmit = async (data: {
-    description: string;
-    amount: number;
-    category: ExpenseCategory;
-    notes: string;
-  }) => {
+  const onSubmit = async (data: { description: string; amount: number; category: ExpenseCategory; notes: string }) => {
     if (!expenseDate) {
       toast.error('Please select an expense date');
       return;
@@ -133,7 +135,7 @@ export function AddExpenseDialog({ open, onOpenChange, projectId, userId, userRo
                 Category <span className="text-destructive">*</span>
               </Label>
               <Select value={category} onValueChange={value => setValue('category', value as ExpenseCategory)}>
-                <SelectTrigger className='w-full'>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,10 +167,7 @@ export function AddExpenseDialog({ open, onOpenChange, projectId, userId, userRo
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !expenseDate && 'text-muted-foreground'
-                  )}
+                  className={cn('w-full justify-start text-left font-normal', !expenseDate && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {expenseDate ? format(expenseDate, 'PPP') : <span>Pick a date</span>}

@@ -22,13 +22,13 @@ interface ExpensesTableWithPaymentsProps {
   onRefresh?: () => void;
 }
 
-export function ExpensesTableWithPayments({ 
-  data, 
-  projectId, 
-  userId, 
-  userRole, 
-  canDelete, 
-  onRefresh 
+export function ExpensesTableWithPayments({
+  data,
+  projectId,
+  userId,
+  userRole,
+  canDelete,
+  onRefresh
 }: ExpensesTableWithPaymentsProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -86,13 +86,13 @@ export function ExpensesTableWithPayments({
 
   const toggleRow = (expenseId: string) => {
     const newExpanded = new Set(expandedRows);
-    
+
     if (newExpanded.has(expenseId)) {
       newExpanded.delete(expenseId);
     } else {
       newExpanded.add(expenseId);
     }
-    
+
     setExpandedRows(newExpanded);
   };
 
@@ -124,7 +124,7 @@ export function ExpensesTableWithPayments({
       await deletePaymentTransaction(selectedExpenseId, selectedTransactionId, userId);
       toast.success('Payment transaction deleted successfully');
       setDeleteTransactionDialogOpen(false);
-      
+
       if (onRefresh) {
         onRefresh();
       }
@@ -168,7 +168,7 @@ export function ExpensesTableWithPayments({
                 </TableCell>
               </TableRow>
             ) : (
-              data.map((expense) => {
+              data.map(expense => {
                 const isExpanded = expandedRows.has(expense.expenseId!);
                 const canDeleteExpense = canDelete && (userRole === 'admin' || expense.addedBy === userId);
                 const canManagePayments = userRole === 'admin' && expense.expenseId;
@@ -178,16 +178,8 @@ export function ExpensesTableWithPayments({
                     <TableRow>
                       <TableCell>
                         {expense.expenseId && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleRow(expense.expenseId!)}
-                          >
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
+                          <Button variant="ghost" size="icon" onClick={() => toggleRow(expense.expenseId!)}>
+                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                           </Button>
                         )}
                       </TableCell>
@@ -196,37 +188,29 @@ export function ExpensesTableWithPayments({
                         <div>
                           <div className="font-medium">{expense.description}</div>
                           {expense.notes && (
-                            <div className="text-sm text-muted-foreground line-clamp-1">
-                              {expense.notes}
-                            </div>
+                            <div className="text-sm text-muted-foreground line-clamp-1">{expense.notes}</div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>{getCategoryBadge(expense.category)}</TableCell>
-                      <TableCell className="font-semibold">
-                        {formatCurrency(expense.amount)}
+                      <TableCell className="font-semibold">{formatCurrency(expense.amount)}</TableCell>
+                      <TableCell>
+                        <span className="font-medium text-green-600">{formatCurrency(expense.totalPaid)}</span>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium text-green-600">
-                          {formatCurrency(expense.totalPaid)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-medium ${expense.remainingAmount > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                        <span
+                          className={`font-medium ${expense.remainingAmount > 0 ? 'text-orange-600' : 'text-muted-foreground'}`}
+                        >
                           {formatCurrency(expense.remainingAmount)}
                         </span>
                       </TableCell>
                       <TableCell>
                         <div>
                           <div className="text-sm">{expense.addedByName || 'Unknown'}</div>
-                          <div className="text-xs text-muted-foreground capitalize">
-                            {expense.addedByRole}
-                          </div>
+                          <div className="text-xs text-muted-foreground capitalize">{expense.addedByRole}</div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {getPaymentStatusBadge(expense.paymentStatus)}
-                      </TableCell>
+                      <TableCell>{getPaymentStatusBadge(expense.paymentStatus)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           {canManagePayments && (
@@ -260,7 +244,7 @@ export function ExpensesTableWithPayments({
                         </div>
                       </TableCell>
                     </TableRow>
-                    
+
                     {isExpanded && (
                       <TableRow>
                         <TableCell colSpan={10} className="bg-gray-50 p-0">
@@ -275,15 +259,19 @@ export function ExpensesTableWithPayments({
                                   </div>
                                   <div className="text-right">
                                     <div className="text-xs text-muted-foreground">Paid</div>
-                                    <div className="text-sm font-semibold text-green-600">{formatCurrency(expense.totalPaid)}</div>
+                                    <div className="text-sm font-semibold text-green-600">
+                                      {formatCurrency(expense.totalPaid)}
+                                    </div>
                                   </div>
                                   <div className="text-right">
                                     <div className="text-xs text-muted-foreground">Remaining</div>
-                                    <div className="text-sm font-semibold text-orange-600">{formatCurrency(expense.remainingAmount)}</div>
+                                    <div className="text-sm font-semibold text-orange-600">
+                                      {formatCurrency(expense.remainingAmount)}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                              
+
                               {expense.transactions.length === 0 ? (
                                 <div className="text-center py-8 text-sm text-muted-foreground bg-white rounded border border-dashed">
                                   No payment transactions yet. Click the + button to add a payment.
@@ -302,7 +290,10 @@ export function ExpensesTableWithPayments({
                                     </TableHeader>
                                     <TableBody>
                                       {expense.transactions.map((transaction, idx) => (
-                                        <TableRow key={transaction.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                                        <TableRow
+                                          key={transaction.id}
+                                          className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                                        >
                                           <TableCell className="text-sm font-semibold text-green-600">
                                             {formatCurrency(transaction.amount)}
                                           </TableCell>

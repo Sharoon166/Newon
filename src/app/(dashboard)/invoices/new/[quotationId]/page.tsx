@@ -22,7 +22,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
 
   const quotation = await getInvoiceByNumber(quotationId.toUpperCase());
 
-  if (!quotation || quotation.type != "quotation") {
+  if (!quotation || quotation.type != 'quotation') {
     return notFound();
   }
 
@@ -122,7 +122,7 @@ export default async function QuotationConversionPage({ params }: QuotationConve
             customerState: quotation.customerState ?? '',
             customerZip: quotation.customerZip ?? '',
             customerId: quotation.customerId,
-            items: quotation.items.map((item) => ({
+            items: quotation.items.map(item => ({
               id: item.productId,
               productName: item.productName,
               description: item.productName,

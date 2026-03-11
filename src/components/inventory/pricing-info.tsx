@@ -9,7 +9,9 @@ interface PricingInfoProps {
 export function PricingInfo({ variant = 'default', className }: PricingInfoProps) {
   if (variant === 'compact') {
     return (
-      <div className={`border border-blue-400 rounded-lg text-xs text-blue-600 bg-blue-100/40 p-2 inline-flex items-center gap-2 ${className}`}>
+      <div
+        className={`border border-blue-400 rounded-lg text-xs text-blue-600 bg-blue-100/40 p-2 inline-flex items-center gap-2 ${className}`}
+      >
         <Lightbulb /> Pricing calculated from oldest purchase with remaining inventory (FIFO method)
       </div>
     );
@@ -31,7 +33,9 @@ export function PricingInfo({ variant = 'default', className }: PricingInfoProps
 
 export function PricingBadge({ className }: { className?: string }) {
   return (
-    <div className={`inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-current px-2 py-1 rounded-sm ${className}`}>
+    <div
+      className={`inline-flex items-center gap-1 text-xs text-blue-600 bg-blue-50 border border-current px-2 py-1 rounded-sm ${className}`}
+    >
       <Info className="h-3 w-3" />
       FIFO Pricing
     </div>

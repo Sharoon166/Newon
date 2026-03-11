@@ -22,10 +22,7 @@ export async function POST(request: NextRequest) {
     // Check if email already exists
     const existingStaff = await Staff.findOne({ email: validatedData.email });
     if (existingStaff) {
-      return NextResponse.json(
-        { error: 'Email already registered' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
     }
 
     // Create new staff
@@ -47,16 +44,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.issues },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 });
     }
 
     console.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Registration failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
   }
 }

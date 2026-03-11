@@ -18,18 +18,18 @@ export default function SetupPage() {
       try {
         setStatus('checking');
         setMessage('Checking if OTC customer exists...');
-        
+
         const result = await checkAndCreateOtcCustomer();
-        
+
         if (result.created) {
           setStatus('creating');
           setMessage('Creating OTC customer...');
           await new Promise(resolve => setTimeout(resolve, 500));
         }
-        
+
         setStatus('success');
         setMessage(result.message);
-        
+
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
           router.push('/');
@@ -48,9 +48,7 @@ export default function SetupPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">System Setup</CardTitle>
-          <CardDescription>
-            Setting up required system customers
-          </CardDescription>
+          <CardDescription>Setting up required system customers</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
@@ -70,17 +68,10 @@ export default function SetupPage() {
             </div>
           )}
 
-          {status === 'success' && (
-            <p className="text-sm text-muted-foreground">
-              Redirecting to dashboard...
-            </p>
-          )}
+          {status === 'success' && <p className="text-sm text-muted-foreground">Redirecting to dashboard...</p>}
 
           {status === 'error' && (
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="w-full"
-            >
+            <Button onClick={() => window.location.reload()} className="w-full">
               Retry Setup
             </Button>
           )}

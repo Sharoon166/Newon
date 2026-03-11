@@ -78,7 +78,7 @@ export function EnhancedProductSelector({
   const [activeTab, setActiveTab] = useState<'regular' | 'virtual'>('regular');
 
   return (
-    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'regular' | 'virtual')}>
+    <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'regular' | 'virtual')}>
       <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
         <TabsTrigger value="regular">
           <Package className="h-4 w-4 mr-2" />

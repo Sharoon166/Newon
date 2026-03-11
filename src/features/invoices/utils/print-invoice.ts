@@ -1,6 +1,10 @@
 import { toast } from 'sonner';
 
-export async function printInvoicePDF(invoiceId: string, invoiceNumber: string, type: 'invoice' | 'quotation' = 'invoice') {
+export async function printInvoicePDF(
+  invoiceId: string,
+  invoiceNumber: string,
+  type: 'invoice' | 'quotation' = 'invoice'
+) {
   try {
     const response = await fetch('/api/invoices/print', {
       method: 'POST',

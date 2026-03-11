@@ -21,7 +21,7 @@ export default async function CustomerLedgerPage({ params }: CustomerLedgerPageP
     }
 
     // Get all invoices for the customer
-    const invoicesResult = await getInvoices({ 
+    const invoicesResult = await getInvoices({
       customerId,
       limit: 1000 // Get all invoices
     });

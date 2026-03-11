@@ -67,7 +67,6 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
-    
   } catch (error) {
     console.error('Error creating product:', error);
     // Provide user-friendly error messages
@@ -281,7 +280,7 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
 
     // Calculate actual available stock from purchases (sum of remaining quantities)
     const actualAvailableStock = variantPurchases.reduce((sum, purchase) => sum + (purchase.remaining || 0), 0);
-    
+
     // Keep the original backorder value from the variant (this is managed separately)
     const actualBackorderStock = (variant.stockOnBackorder as number) || 0;
 
@@ -314,7 +313,7 @@ export const deleteProduct = async (id: string) => {
   // Check if any variant has been sold in invoices
   const InvoiceModel = (await import('@/models/Invoice')).default;
   const variantIds = product.variants.map((v: ProductVariant) => v.id);
-  
+
   const soldVariants = await InvoiceModel.findOne({
     'items.variantId': { $in: variantIds },
     type: 'invoice',
@@ -345,7 +344,6 @@ export const deleteProduct = async (id: string) => {
   revalidatePath('/virtual-products');
   revalidatePath('/invoices');
   revalidatePath('/invoices/new');
-  
 };
 
 interface DeleteVariantResult {
@@ -397,7 +395,6 @@ export const toggleVariantDisabled = async (productId: string, variantId: string
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
-    
 
     return {
       success: true,
@@ -492,7 +489,6 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
-    
 
     return {
       success: true,
@@ -521,7 +517,7 @@ export const deleteProductByName = async (name: string) => {
   // Check if any variant has been sold in invoices
   const InvoiceModel = (await import('@/models/Invoice')).default;
   const variantIds = product.variants.map((v: ProductVariant) => v.id);
-  
+
   const soldVariants = await InvoiceModel.findOne({
     'items.variantId': { $in: variantIds },
     type: 'invoice',
@@ -552,7 +548,6 @@ export const deleteProductByName = async (name: string) => {
   revalidatePath('/virtual-products');
   revalidatePath('/invoices');
   revalidatePath('/invoices/new');
-  
 };
 
 // export const updateProduct = async (id: string, data: Product) => {
@@ -646,7 +641,6 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
     revalidatePath('/virtual-products');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
-    
 
     return updateProduct;
   } catch (error) {

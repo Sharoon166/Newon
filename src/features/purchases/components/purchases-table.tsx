@@ -139,7 +139,9 @@ export function PurchasesTable({
                             : 'Delete purchase'
                         }
                       >
-                        <Trash2 className={`h-4 w-4 ${purchase.remaining < purchase.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
+                        <Trash2
+                          className={`h-4 w-4 ${purchase.remaining < purchase.quantity ? 'text-muted-foreground' : 'text-destructive'}`}
+                        />
                       </Button>
                     </div>
                   </TableCell>

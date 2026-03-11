@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 export function ExpenseMonthFilter() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [selectedMonth, setSelectedMonth] = useState<Date | undefined>(() => {
     const from = searchParams.get('dateFrom');
     if (from) {
@@ -27,11 +27,11 @@ export function ExpenseMonthFilter() {
     const params = new URLSearchParams(searchParams.toString());
     const monthStart = startOfMonth(selectedMonth);
     const monthEnd = endOfMonth(selectedMonth);
-    
+
     params.set('dateFrom', format(monthStart, 'yyyy-MM-dd'));
     params.set('dateTo', format(monthEnd, 'yyyy-MM-dd'));
     params.set('page', '1');
-    
+
     router.push(`/expenses?${params.toString()}`);
   };
 
@@ -52,20 +52,14 @@ export function ExpenseMonthFilter() {
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className={cn(
-              'justify-start text-left font-normal w-[200px]',
-              !selectedMonth && 'text-muted-foreground'
-            )}
+            className={cn('justify-start text-left font-normal w-[200px]', !selectedMonth && 'text-muted-foreground')}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {selectedMonth ? format(selectedMonth, 'MMMM yyyy') : 'Pick a month'}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <MonthPicker
-            selectedMonth={selectedMonth}
-            onMonthSelect={setSelectedMonth}
-          />
+          <MonthPicker selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} />
         </PopoverContent>
       </Popover>
 

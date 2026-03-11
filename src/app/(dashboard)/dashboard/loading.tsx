@@ -5,17 +5,14 @@ import { PageHeader } from '@/components/general/page-header';
 export default function DashboardLoading() {
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Welcome back! Here’s how your business is doing today."
-      >
+      <PageHeader title="Dashboard" description="Welcome back! Here’s how your business is doing today.">
         <div className="flex flex-wrap items-center gap-2">
           <Skeleton className="h-9 w-[100px]" />
           <Skeleton className="h-9 w-[100px]" />
           <Skeleton className="h-9 w-[100px]" />
         </div>
       </PageHeader>
-  
+
       <section className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -31,7 +28,7 @@ export default function DashboardLoading() {
             </Card>
           ))}
         </div>
-  
+
         <div className="grid gap-6">
           <Card>
             <CardHeader>
@@ -55,7 +52,7 @@ export default function DashboardLoading() {
               </div>
             </CardContent>
           </Card>
-  
+
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -79,7 +76,7 @@ export default function DashboardLoading() {
             </CardContent>
           </Card>
         </div>
-  
+
         <Card>
           <CardHeader>
             <Skeleton className="h-6 w-48" />

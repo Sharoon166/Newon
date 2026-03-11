@@ -39,7 +39,7 @@ const customerSchema = new Schema<ICustomer>(
     name: {
       type: String,
       required: [true, 'Name is required'],
-      trim: true,
+      trim: true
     },
     email: {
       type: String,
@@ -48,60 +48,60 @@ const customerSchema = new Schema<ICustomer>(
       sparse: true,
       trim: true,
       lowercase: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
+      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address']
     },
     company: {
       type: String,
-      trim: true,
+      trim: true
     },
     phone: {
       type: String,
-      trim: true,
+      trim: true
     },
     address: {
       type: String,
-      trim: true,
+      trim: true
     },
     city: {
       type: String,
-      trim: true,
+      trim: true
     },
     state: {
       type: String,
-      trim: true,
+      trim: true
     },
     zip: {
       type: String,
-      trim: true,
+      trim: true
     },
     disabled: {
       type: Boolean,
-      default: false,
+      default: false
     },
     // Financial tracking fields (to be used by future features)
     totalInvoiced: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
     totalPaid: {
       type: Number,
       default: 0,
-      min: 0,
+      min: 0
     },
     outstandingBalance: {
       type: Number,
-      default: 0,
+      default: 0
     },
     lastInvoiceDate: {
-      type: Date,
+      type: Date
     },
     lastPaymentDate: {
-      type: Date,
-    },
+      type: Date
+    }
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt fields
+    timestamps: true // Adds createdAt and updatedAt fields
   }
 );
 

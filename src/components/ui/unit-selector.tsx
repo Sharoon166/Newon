@@ -10,16 +10,16 @@ interface UnitSelectorProps {
   placeholder?: string;
 }
 
-export function UnitSelector({ 
-  value = DEFAULT_UNIT, 
-  onChange, 
+export function UnitSelector({
+  value = DEFAULT_UNIT,
+  onChange,
   disabled = false,
-  placeholder = "pcs..."
+  placeholder = 'pcs...'
 }: UnitSelectorProps) {
   return (
     <Input
       value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       disabled={disabled}
       className="w-16 h-8 text-sm"

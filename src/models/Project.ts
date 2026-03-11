@@ -41,7 +41,7 @@ const projectSchema = new Schema<IProject>(
     },
     customerId: {
       type: String,
-      required: [true, 'Customer ID is required'],
+      required: [true, 'Customer ID is required']
     },
     customerName: {
       type: String,
@@ -81,7 +81,7 @@ const projectSchema = new Schema<IProject>(
     },
     assignedStaff: {
       type: [String],
-      default: [],
+      default: []
     },
     createdBy: {
       type: String,

@@ -121,10 +121,12 @@ export function EditPaymentDialog({
               name="method"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Payment Method <span className='text-destructive'>*</span></FormLabel>
+                  <FormLabel>
+                    Payment Method <span className="text-destructive">*</span>
+                  </FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className='w-full'>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                     </FormControl>

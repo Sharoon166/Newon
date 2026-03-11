@@ -16,17 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  ArrowUpDown,
-  Eye,
-  Pencil,
-  Search,
-  MoreHorizontal,
-  Users,
-  Calendar,
-  Coins,
-  Ban
-} from 'lucide-react';
+import { ArrowUpDown, Eye, Pencil, Search, MoreHorizontal, Users, Calendar, Coins, Ban } from 'lucide-react';
 import { Project } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -170,19 +160,17 @@ export function ProjectsTable({ data, canEdit, canCancel, canViewBudget, onRefre
     ];
 
     if (canViewBudget) {
-      baseColumns.push(
-        {
-          accessorKey: 'budget',
-          header: ({ column }) => (
-            <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-              <Coins className="mr-2 h-4 w-4" />
-              Budget
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          ),
-          cell: ({ row }) => <div className="font-medium">{formatCurrency(row.getValue('budget'))}</div>
-        }
-      );
+      baseColumns.push({
+        accessorKey: 'budget',
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+            <Coins className="mr-2 h-4 w-4" />
+            Budget
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => <div className="font-medium">{formatCurrency(row.getValue('budget'))}</div>
+      });
     }
 
     baseColumns.push({

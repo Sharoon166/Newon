@@ -17,11 +17,17 @@ interface ProjectDetailsProps {
   project: Project;
   customer?: Customer;
   canViewBudget?: boolean;
-  canViewProjectInvoice?: boolean
+  canViewProjectInvoice?: boolean;
   projectInvoice?: Invoice | null;
 }
 
-export function ProjectDetails({ project, customer, canViewBudget, canViewProjectInvoice, projectInvoice }: ProjectDetailsProps) {
+export function ProjectDetails({
+  project,
+  customer,
+  canViewBudget,
+  canViewProjectInvoice,
+  projectInvoice
+}: ProjectDetailsProps) {
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { bg: string; text: string; label: string }> = {
       planning: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'Planning' },
@@ -325,65 +331,71 @@ export function ProjectDetails({ project, customer, canViewBudget, canViewProjec
           </Card>
         )}
 
-        {canViewProjectInvoice && <div className="group relative flex flex-col gap-5 p-5 border rounded-xl bg-background hover:shadow-sm transition-all">
-          <h3>Linked Invoice</h3>
-          {/* Top Row */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold tracking-tight">{projectInvoice?.invoiceNumber}</span>
+        {canViewProjectInvoice && (
+          <div className="group relative flex flex-col gap-5 p-5 border rounded-xl bg-background hover:shadow-sm transition-all">
+            <h3>Linked Invoice</h3>
+            {/* Top Row */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold tracking-tight">{projectInvoice?.invoiceNumber}</span>
 
-                <Badge variant="outline" className={'text-[11px] px-2 py-0.5 font-medium max-xs:hidden'}>
-                  {projectInvoice?.status}
-                </Badge>
-              </div>
+                  <Badge variant="outline" className={'text-[11px] px-2 py-0.5 font-medium max-xs:hidden'}>
+                    {projectInvoice?.status}
+                  </Badge>
+                </div>
 
-              <div className="text-xs text-muted-foreground">{formatDate(new Date(projectInvoice?.date ?? Date.now()))}</div>
-            </div>
-
-            <div className="text-right">
-              <div className="text-lg font-semibold tracking-tight">{formatCurrency(projectInvoice?.totalAmount)}</div>
-              <div className="text-xs text-muted-foreground">Total</div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t" />
-
-          {/* Financial Breakdown */}
-          {projectInvoice?.type === 'invoice' && (
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-muted-foreground text-xs">Paid</div>
-                <div className="font-medium">{formatCurrency(projectInvoice?.paidAmount)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDate(new Date(projectInvoice?.date ?? Date.now()))}
+                </div>
               </div>
 
               <div className="text-right">
-                <div className="text-muted-foreground text-xs">Balance</div>
-                <div
-                  className={`font-medium ${projectInvoice?.balanceAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
-                >
-                  {formatCurrency(projectInvoice?.balanceAmount)}
+                <div className="text-lg font-semibold tracking-tight">
+                  {formatCurrency(projectInvoice?.totalAmount)}
                 </div>
+                <div className="text-xs text-muted-foreground">Total</div>
               </div>
             </div>
-          )}
 
-          {/* Action */}
-          <div className="flex justify-end pt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="text-xs opacity-70 group-hover:opacity-100 transition-opacity w-full"
-            >
-              <Link href={`/invoices/${projectInvoice?.id}`}>
-                <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                View
-              </Link>
-            </Button>
+            {/* Divider */}
+            <div className="border-t" />
+
+            {/* Financial Breakdown */}
+            {projectInvoice?.type === 'invoice' && (
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground text-xs">Paid</div>
+                  <div className="font-medium">{formatCurrency(projectInvoice?.paidAmount)}</div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-muted-foreground text-xs">Balance</div>
+                  <div
+                    className={`font-medium ${projectInvoice?.balanceAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                  >
+                    {formatCurrency(projectInvoice?.balanceAmount)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action */}
+            <div className="flex justify-end pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="text-xs opacity-70 group-hover:opacity-100 transition-opacity w-full"
+              >
+                <Link href={`/invoices/${projectInvoice?.id}`}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                  View
+                </Link>
+              </Button>
+            </div>
           </div>
-        </div>}
+        )}
 
         {/* Team Members Card */}
         {project.assignedStaffDetails && project.assignedStaffDetails.length > 0 && (

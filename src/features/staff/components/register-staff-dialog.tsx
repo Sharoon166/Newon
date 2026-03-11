@@ -2,23 +2,11 @@
 
 import { useState } from 'react';
 import { registerStaff } from '@/actions/auth';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 interface RegisterStaffDialogProps {
@@ -60,7 +48,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
         toast.error(result.error || 'Failed to register staff');
       }
     } catch (error) {
-      console.log(error)
+      console.log(error);
       toast.error('An error occurred');
     } finally {
       setIsLoading(false);
@@ -72,9 +60,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Register New Staff</DialogTitle>
-          <DialogDescription>
-            Add a new staff member to the system
-          </DialogDescription>
+          <DialogDescription>Add a new staff member to the system</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -85,7 +71,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
                 id="firstName"
                 required
                 value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                onChange={e => setFormData({ ...formData, firstName: e.target.value })}
               />
             </div>
             <div>
@@ -94,7 +80,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
                 id="lastName"
                 required
                 value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                onChange={e => setFormData({ ...formData, lastName: e.target.value })}
               />
             </div>
           </div>
@@ -106,7 +92,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
               type="email"
               required
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
             />
           </div>
 
@@ -118,7 +104,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
               required
               minLength={6}
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={e => setFormData({ ...formData, password: e.target.value })}
             />
           </div>
 
@@ -128,7 +114,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
               id="phoneNumber"
               type="tel"
               value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
             />
           </div>
 
@@ -149,12 +135,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>

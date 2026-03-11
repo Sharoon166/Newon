@@ -86,14 +86,11 @@ export function VirtualProductSelector({
 
   // Calculate adjusted available quantity for virtual products
   // considering components used in current invoice items
-  const getAdjustedAvailableQuantity = useCallback(
-    (product: EnhancedVirtualProduct) => {
-      // Server already calculated availableQuantity correctly
-      // No need for client-side adjustment
-      return product.availableQuantity;
-    },
-    []
-  );
+  const getAdjustedAvailableQuantity = useCallback((product: EnhancedVirtualProduct) => {
+    // Server already calculated availableQuantity correctly
+    // No need for client-side adjustment
+    return product.availableQuantity;
+  }, []);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -556,15 +553,15 @@ export function VirtualProductSelector({
                       <Label htmlFor="expenseCategory" className="text-xs">
                         Category
                       </Label>
-                      <Select 
-                        value={newExpenseCategory} 
-                        onValueChange={(value) => setNewExpenseCategory(value as ExpenseCategory)}
+                      <Select
+                        value={newExpenseCategory}
+                        onValueChange={value => setNewExpenseCategory(value as ExpenseCategory)}
                       >
                         <SelectTrigger className="h-8 w-full">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                         <SelectContent>
-                          {EXPENSE_CATEGORIES.map((category) => (
+                          {EXPENSE_CATEGORIES.map(category => (
                             <SelectItem key={category.value} value={category.value}>
                               {category.label}
                             </SelectItem>

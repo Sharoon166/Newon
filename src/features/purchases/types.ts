@@ -89,4 +89,3 @@ export interface PaginatedPurchases {
   nextPage: number | null;
   prevPage: number | null;
 }
-

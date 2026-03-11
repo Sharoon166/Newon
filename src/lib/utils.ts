@@ -27,7 +27,7 @@ export function formatCurrency(num: number | undefined | null, compact: boolean 
     .toLocaleString('en-PK', {
       style: 'currency',
       currency: 'PKR',
-      notation: (num > 1_000_000 && compact) ? 'compact' : 'standard',
+      notation: num > 1_000_000 && compact ? 'compact' : 'standard',
       minimumFractionDigits: 0,
       maximumFractionDigits: 3
     })

@@ -38,9 +38,7 @@ If a shape is unknown, use `unknown` and narrow it properly.
 - Server actions must return structured discriminated unions:
 
 ```typescript
-type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 ```
 
 - Never return raw primitives from server actions
@@ -55,17 +53,15 @@ async function getCustomer(id: string) {
 }
 
 // ✅ GOOD
-async function getCustomer(
-  id: string
-): Promise<ActionResult<CustomerData>> {
+async function getCustomer(id: string): Promise<ActionResult<CustomerData>> {
   try {
     const customer = await Customer.findOne({ customerId: id }).lean();
     if (!customer) {
-      return { success: false, error: "Customer not found" };
+      return { success: false, error: 'Customer not found' };
     }
     return { success: true, data: customer };
   } catch (error) {
-    return { success: false, error: "Failed to fetch customer" };
+    return { success: false, error: 'Failed to fetch customer' };
   }
 }
 ```
@@ -83,13 +79,13 @@ async function getCustomer(
 ### Structure Template
 
 ```typescript
-"use server";
+'use server';
 
-import { z } from "zod";
+import { z } from 'zod';
 
 const inputSchema = z.object({
   id: z.string(),
-  name: z.string().min(1),
+  name: z.string().min(1)
 });
 
 type Input = z.infer<typeof inputSchema>;
@@ -101,7 +97,7 @@ export async function updateItem(input: Input): Promise<Output> {
     // Business logic here
     return { success: true, data: result };
   } catch (error) {
-    return { success: false, error: "Operation failed" };
+    return { success: false, error: 'Operation failed' };
   }
 }
 ```
@@ -132,11 +128,11 @@ export async function updateItem(input: Input): Promise<Output> {
 
 export default function CustomerCard({ id }: { id: string }) {
   const [customer, setCustomer] = useState(null);
-  
+
   useEffect(() => {
     fetch(`/api/customers/${id}`).then(/* ... */);
   }, [id]);
-  
+
   return <div>{/* ... */}</div>;
 }
 
@@ -215,10 +211,8 @@ Avoid "vibe-coded" UI. Avoid random spacing, arbitrary sizes, and visual noise.
 ```tsx
 // ✅ GOOD - Intentional layout
 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-  {items.map((item) => (
-    <Card key={item.id}>
-      {/* ... */}
-    </Card>
+  {items.map(item => (
+    <Card key={item.id}>{/* ... */}</Card>
   ))}
 </div>
 ```
@@ -246,9 +240,7 @@ Avoid "vibe-coded" UI. Avoid random spacing, arbitrary sizes, and visual noise.
   </CardHeader>
   <CardContent>
     <div className="text-3xl font-bold">$45,231.89</div>
-    <p className="text-sm text-muted-foreground">
-      +20.1% from last month
-    </p>
+    <p className="text-sm text-muted-foreground">+20.1% from last month</p>
   </CardContent>
 </Card>
 ```

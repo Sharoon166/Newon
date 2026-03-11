@@ -99,7 +99,7 @@ purchaseSchema.pre('save', async function (next) {
   if (this.isNew && this.remaining === undefined) {
     this.remaining = this.quantity;
   }
-  
+
   // Generate purchaseId for new purchases
   if (this.isNew && !this.purchaseId) {
     try {
@@ -110,7 +110,7 @@ purchaseSchema.pre('save', async function (next) {
       // Continue without purchaseId - it will be generated later if needed
     }
   }
-  
+
   next();
 });
 

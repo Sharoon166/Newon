@@ -415,7 +415,6 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
           .filter(item => item.customExpenses && item.customExpenses.length > 0)
           .flatMap(item => item.customExpenses || []);
 
-
         if (customExpenses.length > 0) {
           const { createInvoiceExpenses } = await import('@/features/expenses/actions');
           // Filter to only valid invoice expense categories
@@ -423,10 +422,24 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
             name: expense.name,
             actualCost: expense.actualCost,
             clientCost: expense.clientCost,
-            category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+            category: expense.category as
+              | 'materials'
+              | 'labor'
+              | 'equipment'
+              | 'transport'
+              | 'rent'
+              | 'utilities'
+              | 'fuel'
+              | 'maintenance'
+              | 'marketing'
+              | 'office-supplies'
+              | 'professional-services'
+              | 'insurance'
+              | 'taxes'
+              | 'other',
             description: expense.description
           }));
-          
+
           const expenseResult = await createInvoiceExpenses(
             (savedInvoice._id as mongoose.Types.ObjectId).toString(),
             savedInvoice.invoiceNumber,
@@ -516,11 +529,13 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
               item.componentBreakdown = allComponentPurchases;
 
               // Calculate total component cost
-              item.totalComponentCost = allComponentPurchases.reduce(
-                (sum, p) => sum + p.totalCost,
-                0
-              ) / (item.quantity || 1);
-            } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
+              item.totalComponentCost =
+                allComponentPurchases.reduce((sum, p) => sum + p.totalCost, 0) / (item.quantity || 1);
+            } else if (
+              !item.isVirtualProduct &&
+              deductionData.regularPurchases &&
+              deductionData.regularPurchases.length > 0
+            ) {
               // For regular products, store the first purchase info
               const firstPurchase = deductionData.regularPurchases[0];
               item.purchaseId = firstPurchase.purchaseId;
@@ -552,7 +567,7 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
     revalidatePath('/customers');
     revalidatePath('/projects');
     revalidatePath('/projects/add');
-    
+
     // Revalidate project page if invoice was created from a project
     if (data.projectId) {
       revalidatePath(`/projects/${data.projectId}`);
@@ -694,7 +709,9 @@ export async function deleteInvoice(id: string): Promise<void> {
 
     // Prevent deletion if invoice is linked to a project
     if (invoice.projectId) {
-      throw new Error('Cannot delete invoice linked to a project. Please remove it from the project first or cancel the invoice instead.');
+      throw new Error(
+        'Cannot delete invoice linked to a project. Please remove it from the project first or cancel the invoice instead.'
+      );
     }
 
     // Only allow deletion of draft invoices or quotations
@@ -1132,11 +1149,12 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
               item.componentBreakdown = allComponentPurchases;
 
               // Calculate total component cost
-              item.totalComponentCost = allComponentPurchases.reduce(
-                (sum, p) => sum + p.totalCost,
-                0
-              );
-            } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
+              item.totalComponentCost = allComponentPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+            } else if (
+              !item.isVirtualProduct &&
+              deductionData.regularPurchases &&
+              deductionData.regularPurchases.length > 0
+            ) {
               // For regular products, store the first purchase info
               const firstPurchase = deductionData.regularPurchases[0];
               item.purchaseId = firstPurchase.purchaseId;
@@ -1193,10 +1211,24 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
             name: expense.name,
             actualCost: expense.actualCost,
             clientCost: expense.clientCost,
-            category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+            category: expense.category as
+              | 'materials'
+              | 'labor'
+              | 'equipment'
+              | 'transport'
+              | 'rent'
+              | 'utilities'
+              | 'fuel'
+              | 'maintenance'
+              | 'marketing'
+              | 'office-supplies'
+              | 'professional-services'
+              | 'insurance'
+              | 'taxes'
+              | 'other',
             description: expense.description
           }));
-          
+
           const expenseResult = await createInvoiceExpenses(
             (savedInvoice._id as mongoose.Types.ObjectId).toString(),
             savedInvoice.invoiceNumber,
@@ -1270,9 +1302,7 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
 
     // Prevent cancellation if invoice has any payments
     if (invoice.paidAmount > 0 || (invoice.payments && invoice.payments.length > 0)) {
-      throw new Error(
-        `Cannot cancel invoice with existing payments. Please delete all payment records first.`
-      );
+      throw new Error(`Cannot cancel invoice with existing payments. Please delete all payment records first.`);
     }
 
     // Update status to cancelled
@@ -1286,10 +1316,7 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
     // Unlink from project if linked
     if (invoice.projectId) {
       const ProjectModel = (await import('@/models/Project')).default;
-      await ProjectModel.findOneAndUpdate(
-        { projectId: invoice.projectId },
-        { $unset: { invoiceId: '' } }
-      );
+      await ProjectModel.findOneAndUpdate({ projectId: invoice.projectId }, { $unset: { invoiceId: '' } });
       invoice.projectId = undefined;
     }
 
@@ -1384,7 +1411,7 @@ export async function updateInvoiceStatus(
 
     // Get the invoice to check its type
     const invoice = await InvoiceModel.findById(id);
-    
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
@@ -1447,7 +1474,7 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
     const monthStart = startOfMonth(now);
-    
+
     // Previous periods for trend calculation
     const yesterdayStart = startOfDay(subDays(now, 1));
     const yesterdayEnd = endOfDay(subDays(now, 1));
@@ -1524,7 +1551,14 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
         { $group: { _id: null, total: { $sum: '$totalAmount' } } }
       ]),
       InvoiceModel.aggregate([
-        { $match: { ...query, status: { $ne: 'cancelled' }, date: { $gte: lastMonthStart, $lte: lastMonthEnd }, profit: { $exists: true } } },
+        {
+          $match: {
+            ...query,
+            status: { $ne: 'cancelled' },
+            date: { $gte: lastMonthStart, $lte: lastMonthEnd },
+            profit: { $exists: true }
+          }
+        },
         { $group: { _id: null, total: { $sum: '$profit' } } }
       ])
     ]);
@@ -1643,11 +1677,12 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
             item.componentBreakdown = allComponentPurchases;
 
             // Calculate total component cost
-            item.totalComponentCost = allComponentPurchases.reduce(
-              (sum, p) => sum + p.totalCost,
-              0
-            );
-          } else if (!item.isVirtualProduct && deductionData.regularPurchases && deductionData.regularPurchases.length > 0) {
+            item.totalComponentCost = allComponentPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+          } else if (
+            !item.isVirtualProduct &&
+            deductionData.regularPurchases &&
+            deductionData.regularPurchases.length > 0
+          ) {
             // For regular products, store the first purchase info
             const firstPurchase = deductionData.regularPurchases[0];
             item.purchaseId = firstPurchase.purchaseId;
@@ -1752,7 +1787,11 @@ export async function canEditInvoice(invoiceId: string): Promise<{
 
     // Check if invoice is before cutoff date
     if (invoice.createdAt && new Date(invoice.createdAt) <= INVOICE_EDIT_CUTOFF_DATE) {
-      return { allowed: false, reason: 'Invoice was created before cutoff date and cannot be edited', requiresStockRestore: false };
+      return {
+        allowed: false,
+        reason: 'Invoice was created before cutoff date and cannot be edited',
+        requiresStockRestore: false
+      };
     }
 
     // Quotations can always be edited (unless cancelled)
@@ -1861,14 +1900,16 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
         );
       }
 
-      const updateData = Object.fromEntries(
-        Object.entries(processedData).filter(([, value]) => value !== undefined)
-      );
+      const updateData = Object.fromEntries(Object.entries(processedData).filter(([, value]) => value !== undefined));
 
       // Note: stockDeducted is already false from page load restoration
       // No need to set it here
 
-      const updatedInvoice = await InvoiceModel.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
+      const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      );
 
       if (!updatedInvoice) {
         throw new Error('Failed to update invoice');
@@ -1938,7 +1979,21 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
             name: expense.name,
             actualCost: expense.actualCost,
             clientCost: expense.clientCost,
-            category: expense.category as 'materials' | 'labor' | 'equipment' | 'transport' | 'rent' | 'utilities' | 'fuel' | 'maintenance' | 'marketing' | 'office-supplies' | 'professional-services' | 'insurance' | 'taxes' | 'other',
+            category: expense.category as
+              | 'materials'
+              | 'labor'
+              | 'equipment'
+              | 'transport'
+              | 'rent'
+              | 'utilities'
+              | 'fuel'
+              | 'maintenance'
+              | 'marketing'
+              | 'office-supplies'
+              | 'professional-services'
+              | 'insurance'
+              | 'taxes'
+              | 'other',
             description: expense.description
           }));
 

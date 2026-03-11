@@ -28,7 +28,7 @@ export default async function NewDocument({ searchParams }: NewDocumentProps) {
   return (
     <div className="container mx-auto py-10">
       <PageHeader title="New Invoice or Quotation" />
-      
+
       <NewInvoiceFormWrapper
         customers={customers}
         variants={variants}

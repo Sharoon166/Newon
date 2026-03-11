@@ -213,17 +213,18 @@ export function EditInvoiceFormWrapper({
               totalComponentCost: item.totalComponentCost,
               totalCustomExpenses: item.totalCustomExpenses
             }),
-            ...(item.customExpenses && item.customExpenses.length > 0 && {
-              customExpenses: item.customExpenses.map(expense => ({
-                name: expense.name,
-                amount: expense.clientCost,
-                actualCost: expense.actualCost,
-                clientCost: expense.clientCost,
-                category: expense.category,
-                description: expense.description
-              })),
-              totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
-            }),
+            ...(item.customExpenses &&
+              item.customExpenses.length > 0 && {
+                customExpenses: item.customExpenses.map(expense => ({
+                  name: expense.name,
+                  amount: expense.clientCost,
+                  actualCost: expense.actualCost,
+                  clientCost: expense.clientCost,
+                  category: expense.category,
+                  description: expense.description
+                })),
+                totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
+              }),
             quantity: item.quantity,
             unit: item.unit || 'pcs',
             unitPrice: item.rate,

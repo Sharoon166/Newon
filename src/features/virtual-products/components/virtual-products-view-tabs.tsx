@@ -15,7 +15,7 @@ export function VirtualProductsViewTabs({ virtualProducts }: VirtualProductsView
   const [viewMode, setViewMode] = useLocalStorage<'table' | 'cards'>('virtual-products-view-mode', 'table');
 
   return (
-    <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'table' | 'cards')} className="w-full">
+    <Tabs value={viewMode} onValueChange={value => setViewMode(value as 'table' | 'cards')} className="w-full">
       <div className="flex justify-between items-center mb-4">
         <TabsList>
           <TabsTrigger value="table">

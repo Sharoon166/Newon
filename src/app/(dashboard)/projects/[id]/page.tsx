@@ -2,11 +2,7 @@ import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import {
-  getProject,
-  getProjectInvoice,
-  getProjectExpensesWithTransactions
-} from '@/features/projects/actions';
+import { getProject, getProjectInvoice, getProjectExpensesWithTransactions } from '@/features/projects/actions';
 import { getProjectAuditLogs } from '@/features/projects/actions/audit';
 import { getCustomer } from '@/features/customers/actions';
 import { userHasPermission } from '@/lib/rbac';

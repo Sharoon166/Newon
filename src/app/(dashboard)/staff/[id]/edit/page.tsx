@@ -51,12 +51,8 @@ export default function EditStaffPage() {
 
   return (
     <div className="container mx-auto space-y-8">
-      <PageHeader
-        title="Edit Staff Member"
-        description="Update staff member details"
-        backLink="/staff"
-      />
-      
+      <PageHeader title="Edit Staff Member" description="Update staff member details" backLink="/staff" />
+
       <div className="mt-8 max-w-2xl mx-auto bg-white rounded-lg border p-6">
         <StaffForm initialData={staff} />
       </div>

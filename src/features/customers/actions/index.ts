@@ -78,9 +78,7 @@ export async function getCustomers(filters?: CustomerFilters & { includeDisabled
 
     const customers = await queryBuilder.lean();
 
-    return customers.map((customer: unknown) =>
-      transformLeanCustomer(customer as LeanCustomer)
-    );
+    return customers.map((customer: unknown) => transformLeanCustomer(customer as LeanCustomer));
   } catch (error) {
     console.error('Error fetching customers:', error);
     throw new Error('Failed to fetch customers');
@@ -216,12 +214,12 @@ export async function updateCustomerFinancialsOnInvoice(
       },
       { new: true }
     );
-    
+
     if (!result) {
       console.warn(`Customer ${customerId} not found for financial update`);
       return;
     }
-    
+
     // Revalidate pages that show customer financial data
     revalidatePath('/customers');
     revalidatePath(`/customers/${customerId}`);
@@ -257,12 +255,12 @@ export async function updateCustomerFinancialsOnPayment(
       },
       { new: true }
     );
-    
+
     if (!result) {
       console.warn(`Customer ${customerId} not found for financial update`);
       return;
     }
-    
+
     // Revalidate pages that show customer financial data
     revalidatePath('/customers');
     revalidatePath(`/customers/${customerId}`);
@@ -287,7 +285,7 @@ export async function reverseCustomerFinancialsOnInvoiceDelete(
 
     // First get current values to ensure we don't go negative
     const customer = await CustomerModel.findOne({ customerId });
-    
+
     if (!customer) {
       console.warn(`Customer ${customerId} not found for financial reversal`);
       return;
@@ -307,7 +305,7 @@ export async function reverseCustomerFinancialsOnInvoiceDelete(
         }
       }
     );
-    
+
     // Revalidate pages that show customer financial data
     revalidatePath('/customers');
     revalidatePath(`/customers/${customerId}`);
@@ -331,7 +329,7 @@ export async function reverseCustomerFinancialsOnPaymentDelete(
 
     // First get current values to ensure totalPaid doesn't go negative
     const customer = await CustomerModel.findOne({ customerId });
-    
+
     if (!customer) {
       console.warn(`Customer ${customerId} not found for payment reversal`);
       return;
@@ -350,7 +348,7 @@ export async function reverseCustomerFinancialsOnPaymentDelete(
         }
       }
     );
-    
+
     // Revalidate pages that show customer financial data
     revalidatePath('/customers');
     revalidatePath(`/customers/${customerId}`);
@@ -383,7 +381,7 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
 
     // Get current values to ensure no negative results
     const customer = await CustomerModel.findOne({ customerId }).session(session || null);
-    
+
     if (!customer) {
       console.warn(`Customer ${customerId} not found for financial update`);
       return;
@@ -404,7 +402,7 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
       },
       { session: session || null }
     );
-    
+
     // Revalidate pages that show customer financial data
     revalidatePath('/customers');
     revalidatePath(`/customers/${customerId}`);

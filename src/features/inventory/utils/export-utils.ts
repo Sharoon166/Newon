@@ -5,15 +5,15 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 
 // Type for the CSV export data
 export type CsvExportData = {
-  'Product': string;
-  'SKU': string;
-  'Categories': string;
+  Product: string;
+  SKU: string;
+  Categories: string;
   'Retail Price': string;
   'Purchase Price': string;
   'Wholesale Price': string;
-  'Available': number;
-  'Backorder': number;
-  'Supplier': string;
+  Available: number;
+  Backorder: number;
+  Supplier: string;
 };
 
 // Generic type for any export data
@@ -65,29 +65,29 @@ const loadImageAsBase64 = async (url: string): Promise<string | null> => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
-    
+
     // Create an image element
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    
+
     // Load the image
-    const imageLoadPromise = new Promise<string | null>((resolve) => {
+    const imageLoadPromise = new Promise<string | null>(resolve => {
       img.onload = () => {
         try {
           // Create canvas and draw image
           const canvas = document.createElement('canvas');
           canvas.width = img.width;
           canvas.height = img.height;
-          
+
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             resolve(null);
             return;
           }
-          
+
           // Draw image on canvas
           ctx.drawImage(img, 0, 0);
-          
+
           // Convert to JPEG with high quality
           const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
           resolve(jpegDataUrl);
@@ -96,22 +96,22 @@ const loadImageAsBase64 = async (url: string): Promise<string | null> => {
           resolve(null);
         }
       };
-      
+
       img.onerror = () => {
         console.warn('Failed to load image:', url);
         resolve(null);
       };
     });
-    
+
     // Set image source from blob
     const objectUrl = URL.createObjectURL(blob);
     img.src = objectUrl;
-    
+
     const result = await imageLoadPromise;
-    
+
     // Clean up object URL
     URL.revokeObjectURL(objectUrl);
-    
+
     return result;
   } catch (error) {
     console.warn('Failed to load image:', error);
@@ -126,7 +126,7 @@ const loadImageAsBase64 = async (url: string): Promise<string | null> => {
  * @param imageUrls Optional array of image URLs corresponding to each data row
  */
 export const exportToPdf = async <T extends ExportData>(
-  data: T[], 
+  data: T[],
   filename: string,
   imageUrls?: (string | null | undefined)[]
 ): Promise<void> => {
@@ -135,9 +135,7 @@ export const exportToPdf = async <T extends ExportData>(
   // Load all images as base64 if provided
   let loadedImages: (string | null)[] = [];
   if (imageUrls && imageUrls.length > 0) {
-    loadedImages = await Promise.all(
-      imageUrls.map(url => url ? loadImageAsBase64(url) : Promise.resolve(null))
-    );
+    loadedImages = await Promise.all(imageUrls.map(url => (url ? loadImageAsBase64(url) : Promise.resolve(null))));
   }
 
   const doc = new jsPDF({
@@ -175,7 +173,7 @@ export const exportToPdf = async <T extends ExportData>(
     startY: 40,
     theme: 'striped',
     columnStyles: {
-      0: { 
+      0: {
         cellWidth: loadedImages.length > 0 ? 60 : 'auto'
       }
     },
@@ -201,51 +199,42 @@ export const exportToPdf = async <T extends ExportData>(
       fillColor: [255, 255, 255]
     },
     margin: { top: 40, left: 15, right: 15 },
-    willDrawCell: (data) => {
+    willDrawCell: data => {
       // Adjust text position in first column to make room for image
       if (loadedImages.length > 0 && data.column.index === 0 && data.section === 'body') {
         const rowIndex = data.row.index;
         const imageBase64 = loadedImages[rowIndex];
-        
+
         if (imageBase64) {
           // Add left padding to push text right of the image
-          data.cell.styles.cellPadding = { 
+          data.cell.styles.cellPadding = {
             left: 16, // 12mm image + 4mm spacing
-            right: 2, 
-            top: 2, 
-            bottom: 2 
+            right: 2,
+            top: 2,
+            bottom: 2
           };
         }
       }
     },
-    didDrawCell: (data) => {
+    didDrawCell: data => {
       // Add image thumbnails in the first column
       if (loadedImages.length > 0 && data.column.index === 0 && data.section === 'body') {
         const rowIndex = data.row.index;
         const imageBase64 = loadedImages[rowIndex];
-        
+
         if (imageBase64) {
           const cellX = data.cell.x;
           const cellY = data.cell.y;
           const cellHeight = data.cell.height;
           const imgSize = 12; // 12mm thumbnail
           const padding = 2;
-          
+
           // Center image vertically in the cell
           const imgY = cellY + (cellHeight - imgSize) / 2;
-          
+
           try {
             // All images are now normalized to JPEG via canvas
-            doc.addImage(
-              imageBase64,
-              'JPEG',
-              cellX + padding,
-              imgY,
-              imgSize,
-              imgSize,
-              undefined,
-              'FAST'
-            );
+            doc.addImage(imageBase64, 'JPEG', cellX + padding, imgY, imgSize, imgSize, undefined, 'FAST');
           } catch (error) {
             // Silently fail if image can't be added
             console.warn('Failed to add image to PDF:', error);
@@ -261,12 +250,7 @@ export const exportToPdf = async <T extends ExportData>(
 
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text(
-        `Page ${pageNumber} of ${pageCount}`,
-        pageSize.width - 15,
-        pageHeight - 10,
-        { align: 'right' }
-      );
+      doc.text(`Page ${pageNumber} of ${pageCount}`, pageSize.width - 15, pageHeight - 10, { align: 'right' });
       pageNumber++;
     }
   });
@@ -279,15 +263,15 @@ export const exportToPdf = async <T extends ExportData>(
  */
 export const prepareProductExportData = (variants: EnhancedVariants[]): CsvExportData[] => {
   return variants.map(variant => ({
-    'Product': `${variant.productName}\n(${variant.sku})`,
-    'SKU': variant.sku,
-    'Categories': variant.categories.join(', '),
+    Product: `${variant.productName}\n(${variant.sku})`,
+    SKU: variant.sku,
+    Categories: variant.categories.join(', '),
     'Retail Price': `${formatCurrency(variant.retailPrice || 0) || '0.00'}`,
     'Purchase Price': `${formatCurrency(variant.purchasePrice || 0) || '0.00'}`,
     'Wholesale Price': `${formatCurrency(variant.wholesalePrice || 0) || '0.00'}`,
-    'Available': variant.availableStock,
-    'Backorder': variant.stockOnBackorder || 0,
-    'Supplier': variant.supplier || 'N/A',
+    Available: variant.availableStock,
+    Backorder: variant.stockOnBackorder || 0,
+    Supplier: variant.supplier || 'N/A'
   }));
 };
 

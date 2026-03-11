@@ -46,7 +46,7 @@ export default async function ExpensesPage({
       />
 
       <ExpenseKPIsComponent kpis={kpis} />
-      
+
       <ExpensesPageClient
         expensesData={expensesResult}
         invoiceExpensesData={invoiceExpensesResult}

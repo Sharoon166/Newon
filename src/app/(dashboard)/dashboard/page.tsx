@@ -13,14 +13,8 @@ import { getSession } from '@/lib/auth-utils';
 export const dynamic = 'force-dynamic';
 
 async function DashboardCharts() {
-  const {
-    salesTrend,
-    salesTrend30Days,
-    salesTrendMonthly,
-    profitTrend,
-    profitTrend30Days,
-    profitTrendMonthly
-  } = await getDashboardData();
+  const { salesTrend, salesTrend30Days, salesTrendMonthly, profitTrend, profitTrend30Days, profitTrendMonthly } =
+    await getDashboardData();
 
   return (
     <>
@@ -78,7 +72,7 @@ export default async function DashboardPage() {
         <MetricsCards metrics={metrics} />
       </section>
 
-      <section aria-labelledby="dashboard-charts" className='space-y-6'>
+      <section aria-labelledby="dashboard-charts" className="space-y-6">
         <h2 id="dashboard-charts" className="sr-only">
           Sales and profit trends
         </h2>

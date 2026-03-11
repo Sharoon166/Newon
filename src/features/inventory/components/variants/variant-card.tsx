@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EnhancedVariants } from '../../types';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { deleteProductByName} from '../../actions';
+import { deleteProductByName } from '../../actions';
 import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 

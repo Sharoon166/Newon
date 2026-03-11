@@ -11,9 +11,7 @@ export type LeanStaffMember = Omit<StaffMember, '_id' | '__v'> & {
   __v: number;
 };
 
-export type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+export type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
 export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMember[]> {
   try {
@@ -41,7 +39,7 @@ export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMemb
       query.isActive = filters.isActive;
     }
 
-    if(filters?.role){
+    if (filters?.role) {
       query.role = filters.role;
     }
 
@@ -166,7 +164,10 @@ export async function updateStaffMember(id: string, data: UpdateStaffDto): Promi
   }
 }
 
-export async function deleteStaffMember(id: string, staff: Omit<StaffMember, 'updatedAt' | "createdAt">): Promise<void> {
+export async function deleteStaffMember(
+  id: string,
+  staff: Omit<StaffMember, 'updatedAt' | 'createdAt'>
+): Promise<void> {
   if (staff.role === 'admin') {
     throw new Error(`Cannot delete ${staff.firstName}. He's an admin`);
   }

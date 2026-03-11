@@ -160,8 +160,8 @@ export function ExpensesPageClient({
   return (
     <>
       <div className="flex justify-end">
-          <ExpenseFilter />
-        </div>
+        <ExpenseFilter />
+      </div>
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex sm:items-center justify-between max-sm:flex-col flex-wrap gap-4">
           <InputGroup className="max-w-sm flex-1">
@@ -190,12 +190,10 @@ export function ExpensesPageClient({
             </SelectContent>
           </Select>
         </div>
-
-        
       </div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <div className='space-y-2'>
+        <div className="space-y-2">
           <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
             <TabsTrigger value="expenses">Expenses ({expensesData.totalDocs})</TabsTrigger>
             <TabsTrigger value="project-expenses">Project Expenses ({projectExpensesData.totalDocs})</TabsTrigger>

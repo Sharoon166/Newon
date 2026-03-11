@@ -118,9 +118,7 @@ export function ProjectCustomerSelector({
               )}
 
               {selectedCustomer.email && (
-                <div className="text-xs text-muted-foreground pt-2 border-t">
-                  Email: {selectedCustomer.email}
-                </div>
+                <div className="text-xs text-muted-foreground pt-2 border-t">Email: {selectedCustomer.email}</div>
               )}
               {selectedCustomer.phone && (
                 <div className="text-xs text-muted-foreground">Phone: {selectedCustomer.phone}</div>

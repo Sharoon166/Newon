@@ -45,8 +45,8 @@ export default async function CustomersPage() {
       </PageHeader>
 
       <div className="mt-6">
-        <CustomerTableWrapper 
-          initialData={customers} 
+        <CustomerTableWrapper
+          initialData={customers}
           deleteCustomerAction={deleteCustomerAction}
           toggleDisabledAction={toggleDisabledAction}
         />

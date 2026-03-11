@@ -66,9 +66,7 @@ const columns: ColumnDef<StaffProduct>[] = [
             <ImageZoom>
               <Avatar className="h-10 w-10 rounded-md">
                 <AvatarImage src={row.original.image} alt={row.original.productName} className="object-contain" />
-                <AvatarFallback className="text-sm rounded-md">
-                  {row.original.productName.charAt(0)}
-                </AvatarFallback>
+                <AvatarFallback className="text-sm rounded-md">{row.original.productName.charAt(0)}</AvatarFallback>
               </Avatar>
             </ImageZoom>
           </div>
@@ -210,9 +208,7 @@ const columns: ColumnDef<StaffProduct>[] = [
       const stock = row.original.availableStock;
       return (
         <div className="flex items-center gap-2">
-          <Badge variant={stock <= 0 ? 'destructive' : stock < 10 ? 'secondary' : 'default'}>
-            {stock}
-          </Badge>
+          <Badge variant={stock <= 0 ? 'destructive' : stock < 10 ? 'secondary' : 'default'}>{stock}</Badge>
           {stock <= 0 && <span className="text-xs text-muted-foreground">Out of stock</span>}
           {stock > 0 && stock < 10 && <span className="text-xs text-amber-600">Low stock</span>}
         </div>

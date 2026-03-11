@@ -15,11 +15,11 @@ export async function getSession() {
  */
 export async function requireAuth() {
   const session = await getSession();
-  
+
   if (!session) {
     redirect('/auth/login');
   }
-  
+
   return session;
 }
 
@@ -28,11 +28,11 @@ export async function requireAuth() {
  */
 export async function requireAdmin() {
   const session = await requireAuth();
-  
+
   if (session.user.role !== 'admin') {
     redirect('/unauthorized');
   }
-  
+
   return session;
 }
 
@@ -41,11 +41,11 @@ export async function requireAdmin() {
  */
 export async function requirePermission(permission: Permission) {
   const session = await requireAuth();
-  
+
   if (!userHasPermission(session, permission)) {
     redirect('/unauthorized');
   }
-  
+
   return session;
 }
 

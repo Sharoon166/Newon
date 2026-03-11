@@ -52,7 +52,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.staffId = user.staffId;
       }
-      
+
       // Handle session updates (when update() is called)
       if (trigger === 'update' && session) {
         if (session.user?.name) {
@@ -62,7 +62,7 @@ export const authOptions: NextAuthOptions = {
           token.email = session.user.email;
         }
       }
-      
+
       return token;
     },
     async session({ session, token }) {

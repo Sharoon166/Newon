@@ -53,11 +53,7 @@ export async function updateStaffStatus(staffId: string, isActive: boolean) {
   try {
     await dbConnect();
 
-    const staff = await Staff.findByIdAndUpdate(
-      staffId,
-      { isActive },
-      { new: true }
-    );
+    const staff = await Staff.findByIdAndUpdate(staffId, { isActive }, { new: true });
 
     if (!staff) {
       return { success: false, error: 'Staff not found' };

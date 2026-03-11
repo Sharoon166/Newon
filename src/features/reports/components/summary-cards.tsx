@@ -46,9 +46,7 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
           <div className={`text-2xl font-bold ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatCurrency(totals.profit)}
           </div>
-          <p className="text-xs text-muted-foreground">
-            {profitMargin}% profit margin
-          </p>
+          <p className="text-xs text-muted-foreground">{profitMargin}% profit margin</p>
         </CardContent>
       </Card>
 
@@ -59,9 +57,7 @@ export function SummaryCards({ totals }: SummaryCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">{formatCurrency(totals.paidAmount)}</div>
-          <p className="text-xs text-muted-foreground">
-            {collectionRate}% collection rate
-          </p>
+          <p className="text-xs text-muted-foreground">{collectionRate}% collection rate</p>
         </CardContent>
       </Card>
 

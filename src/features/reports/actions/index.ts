@@ -6,8 +6,18 @@ import Expense from '@/models/Expense';
 import type { YearlyReportData, MonthlyReport } from '../types';
 
 const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
 ];
 
 export async function getYearlyReport(year: number): Promise<YearlyReportData> {
@@ -54,7 +64,10 @@ export async function getYearlyReport(year: number): Promise<YearlyReportData> {
     ]);
 
     // Create a map for quick lookup
-    const invoiceMap = new Map<number, { invoices: number; quotations: number; revenue: number; paid: number; outstanding: number }>();
+    const invoiceMap = new Map<
+      number,
+      { invoices: number; quotations: number; revenue: number; paid: number; outstanding: number }
+    >();
     const expenseMap = new Map<number, number>();
 
     invoiceAggregation.forEach(item => {
@@ -63,7 +76,7 @@ export async function getYearlyReport(year: number): Promise<YearlyReportData> {
         invoiceMap.set(month, { invoices: 0, quotations: 0, revenue: 0, paid: 0, outstanding: 0 });
       }
       const data = invoiceMap.get(month)!;
-      
+
       if (item._id.type === 'invoice') {
         data.invoices = item.count;
         data.revenue = item.totalAmount;

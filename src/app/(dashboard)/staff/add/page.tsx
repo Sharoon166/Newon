@@ -19,7 +19,7 @@ export default function AddStaffPage() {
         description="Add a new staff member to your organization"
         backLink="/staff"
       />
-      
+
       <div className="mt-8 max-w-xl mx-auto">
         <StaffForm onSuccess={handleSuccess} />
       </div>

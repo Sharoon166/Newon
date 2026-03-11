@@ -115,9 +115,7 @@ const columns: ColumnDef<CustomerLedger>[] = [
       );
     },
     cell: ({ row }) => (
-      <div className="font-medium text-right whitespace-nowrap">
-        {formatCurrency(row.original.totalDebit)}
-      </div>
+      <div className="font-medium text-right whitespace-nowrap">{formatCurrency(row.original.totalDebit)}</div>
     ),
     minSize: 120,
     size: 140
@@ -250,7 +248,7 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
   const [balanceFilter, setBalanceFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const router = useRouter()
+  const router = useRouter();
 
   // Handle CSV export
   const handleExportCsv = () => {
@@ -259,7 +257,7 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
 
   // Handle PDF export
   const handleExportPdf = () => {
-    router.push('/ledger/print')
+    router.push('/ledger/print');
   };
 
   // Filter data based on search and filters

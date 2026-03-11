@@ -17,8 +17,8 @@ export const PAYMENT_DETAILS = {
 
 export const INVOICE_TERMS_AND_CONDITIONS = [
   'All prices are exclusive of taxes.',
-  'No shipping charges included in above prices.',
-]
+  'No shipping charges included in above prices.'
+];
 
 export const OTC_CUSTOMER = {
   id: 'otc',

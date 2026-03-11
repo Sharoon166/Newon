@@ -145,8 +145,8 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-2">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => row.original._id && deletePurchase(row.original._id)}
             disabled={row.original.remaining < row.original.quantity}
@@ -156,7 +156,9 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
                 : 'Delete purchase'
             }
           >
-            <Trash2 className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
+            <Trash2
+              className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`}
+            />
             <div className="sr-only">delete</div>
           </Button>
           <Button variant="ghost" size="icon" onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}>
@@ -217,15 +219,14 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
       Quantity: row.original.quantity,
       Remaining: row.original.remaining,
       'Unit Price': formatCurrency(row.original.unitPrice).toString(),
-      'Total Cost': formatCurrency(row.original.totalCost).toString(),
-    
+      'Total Cost': formatCurrency(row.original.totalCost).toString()
     }));
     exportToCsv(data, `purchases-${new Date().toISOString().split('T')[0]}`);
   };
 
   // Handle export to PDF
   const handleExportPdf = () => {
-    router.push("/purchases/print")
+    router.push('/purchases/print');
   };
 
   // Use debounced value for filtering

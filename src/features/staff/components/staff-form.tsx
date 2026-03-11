@@ -6,22 +6,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { StaffMember, CreateStaffDto, UpdateStaffDto } from '../types';
@@ -29,19 +16,23 @@ import { createStaffMember, updateStaffMember } from '../actions';
 
 const staffFormSchema = z.object({
   firstName: z.string().min(2, {
-    message: 'First name must be at least 2 characters.',
+    message: 'First name must be at least 2 characters.'
   }),
   lastName: z.string().min(2, {
-    message: 'Last name must be at least 2 characters.',
+    message: 'Last name must be at least 2 characters.'
   }),
   email: z.string().email({
-    message: 'Please enter a valid email address.',
+    message: 'Please enter a valid email address.'
   }),
   phoneNumber: z.string().optional(),
   role: z.string().min(1, 'Please select a role.'),
-  password: z.string().min(8, {
-    message: 'Password must be at least 8 characters.',
-  }).optional().or(z.literal('')),
+  password: z
+    .string()
+    .min(8, {
+      message: 'Password must be at least 8 characters.'
+    })
+    .optional()
+    .or(z.literal(''))
 });
 
 type StaffFormValues = z.infer<typeof staffFormSchema>;
@@ -65,39 +56,39 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
       email: initialData?.email || '',
       phoneNumber: initialData?.phoneNumber || '',
       role: initialData?.role || 'staff',
-      password: '',
-    },
+      password: ''
+    }
   });
 
   const onSubmit = async (data: StaffFormValues) => {
     try {
       setLoading(true);
-      
+
       if (isEditMode && initialData) {
         const updateData: UpdateStaffDto = { ...data };
         if (!updateData.password) {
           delete updateData.password;
         }
-        
+
         const result = await updateStaffMember(initialData.id, updateData);
-        
+
         if (!result.success) {
           toast.error(result.error);
           return;
         }
-        
+
         toast.success('Staff member updated successfully');
       } else {
         const result = await createStaffMember(data as CreateStaffDto);
-        
+
         if (!result.success) {
           toast.error(result.error);
           return;
         }
-        
+
         toast.success('Staff member created successfully');
       }
-      
+
       if (onSuccess) {
         onSuccess();
       } else {
@@ -143,7 +134,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             )}
           />
         </div>
-        
+
         <FormField
           control={form.control}
           name="email"
@@ -157,7 +148,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="phoneNumber"
@@ -171,7 +162,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="role"
@@ -180,7 +171,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
               <FormLabel>Role</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
-                  <SelectTrigger className='w-full'>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                 </FormControl>
@@ -193,7 +184,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="password"
@@ -207,12 +198,12 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
             </FormItem>
           )}
         />
-        
+
         <div className="flex justify-end space-x-4">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={() => onCancel ? onCancel() : router.push('/staff')} 
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => (onCancel ? onCancel() : router.push('/staff'))}
             disabled={loading}
           >
             Cancel

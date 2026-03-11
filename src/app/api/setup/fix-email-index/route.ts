@@ -36,7 +36,8 @@ export async function GET() {
         await customersCollection.dropIndex('email_1');
       } catch (error: unknown) {
         const err = error as { code?: number };
-        if (err.code !== 27) { // 27 = IndexNotFound
+        if (err.code !== 27) {
+          // 27 = IndexNotFound
           throw error;
         }
       }
@@ -44,8 +45,8 @@ export async function GET() {
       // Create new sparse unique index
       await customersCollection.createIndex(
         { email: 1 },
-        { 
-          unique: true, 
+        {
+          unique: true,
           sparse: true,
           name: 'email_1'
         }
@@ -73,7 +74,7 @@ export async function GET() {
       {
         success: false,
         message: 'Failed to fix email index',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );

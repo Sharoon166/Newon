@@ -8,7 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 
@@ -16,7 +16,7 @@ export function CustomerActions({
   id,
   disabled,
   onDelete,
-  onToggleDisabled,
+  onToggleDisabled
 }: {
   id: string;
   disabled?: boolean;
@@ -61,10 +61,7 @@ export function CustomerActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem 
-            onClick={handleToggleDisabled}
-            className="cursor-pointer"
-          >
+          <DropdownMenuItem onClick={handleToggleDisabled} className="cursor-pointer">
             {disabled ? (
               <>
                 <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
@@ -77,7 +74,7 @@ export function CustomerActions({
               </>
             )}
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             onClick={() => setShowDeleteDialog(true)}
             className="text-destructive focus:text-destructive cursor-pointer"
           >

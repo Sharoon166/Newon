@@ -13,11 +13,11 @@ import type { DateRange } from 'react-day-picker';
 export function ExpenseDateFilter() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [date, setDate] = useState<DateRange | undefined>(() => {
     const from = searchParams.get('dateFrom');
     const to = searchParams.get('dateTo');
-    
+
     if (from || to) {
       return {
         from: from ? new Date(from) : undefined,
@@ -29,19 +29,19 @@ export function ExpenseDateFilter() {
 
   const applyFilter = (): void => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (date?.from) {
       params.set('dateFrom', format(date.from, 'yyyy-MM-dd'));
     } else {
       params.delete('dateFrom');
     }
-    
+
     if (date?.to) {
       params.set('dateTo', format(date.to, 'yyyy-MM-dd'));
     } else {
       params.delete('dateTo');
     }
-    
+
     params.set('page', '1');
     router.push(`/expenses?${params.toString()}`);
   };

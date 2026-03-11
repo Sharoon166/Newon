@@ -128,7 +128,7 @@ export function ServerPagination({
               <SelectValue placeholder={pageSize} />
             </SelectTrigger>
             <SelectContent>
-              {pageSizeOptions.map((size) => (
+              {pageSizeOptions.map(size => (
                 <SelectItem key={size} value={`${size}`}>
                   {size}
                 </SelectItem>

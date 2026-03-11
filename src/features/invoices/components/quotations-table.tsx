@@ -276,7 +276,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
         cell: ({ row }) => {
           const quotation = row.original;
           const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
-          
+
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

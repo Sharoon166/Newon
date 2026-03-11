@@ -12,12 +12,7 @@ interface ProtectedRouteProps {
   fallback?: React.ReactNode;
 }
 
-export function ProtectedRoute({
-  children,
-  permission,
-  requireAdmin,
-  fallback
-}: ProtectedRouteProps) {
+export function ProtectedRoute({ children, permission, requireAdmin, fallback }: ProtectedRouteProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
 

@@ -80,7 +80,7 @@ export async function calculateVirtualProductFIFOCost(
       })
         .sort({ purchaseDate: 1, _id: 1 })
         .lean();
-      
+
       // Additional client-side sort to ensure consistent ordering when dates are identical
       // Sort by purchaseDate first, then by purchaseId string (e.g., PR-26-002 before PR-26-006)
       purchases.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -96,21 +96,23 @@ export async function calculateVirtualProductFIFOCost(
       });
 
       // Calculate effective remaining for each purchase (accounting for items in current invoice)
-      const purchasesWithEffectiveRemaining = purchases.map((purchase: Record<string, unknown>) => {
-        const purchaseObj = purchase as {
-          purchaseId: string;
-          remaining: number;
-          unitPrice: number;
-        };
-        const usedInInvoice = currentInvoiceItems
-          .filter(item => item.variantId === component.variantId && item.purchaseId === purchaseObj.purchaseId)
-          .reduce((sum, item) => sum + item.quantity, 0);
-        
-        return {
-          ...purchase,
-          effectiveRemaining: purchaseObj.remaining - usedInInvoice
-        };
-      }).filter((p: Record<string, unknown>) => (p.effectiveRemaining as number) > 0);
+      const purchasesWithEffectiveRemaining = purchases
+        .map((purchase: Record<string, unknown>) => {
+          const purchaseObj = purchase as {
+            purchaseId: string;
+            remaining: number;
+            unitPrice: number;
+          };
+          const usedInInvoice = currentInvoiceItems
+            .filter(item => item.variantId === component.variantId && item.purchaseId === purchaseObj.purchaseId)
+            .reduce((sum, item) => sum + item.quantity, 0);
+
+          return {
+            ...purchase,
+            effectiveRemaining: purchaseObj.remaining - usedInInvoice
+          };
+        })
+        .filter((p: Record<string, unknown>) => (p.effectiveRemaining as number) > 0);
 
       if (purchasesWithEffectiveRemaining.length === 0) {
         errors.push(`No stock available for component ${component.productId}-${component.variantId}`);
@@ -137,7 +139,7 @@ export async function calculateVirtualProductFIFOCost(
         };
 
         const allocateQty = Math.min(purchaseTyped.effectiveRemaining, remainingToAllocate);
-        
+
         allocatedPurchases.push({
           purchaseId: purchaseTyped.purchaseId,
           quantity: allocateQty,
@@ -155,7 +157,7 @@ export async function calculateVirtualProductFIFOCost(
         );
         errors.push(
           `Insufficient stock for component ${component.productId}-${component.variantId}. ` +
-          `Need: ${requiredQty}, Available: ${totalAvailable}`
+            `Need: ${requiredQty}, Available: ${totalAvailable}`
         );
         canFulfill = false;
         continue;
@@ -182,7 +184,7 @@ export async function calculateVirtualProductFIFOCost(
 
     return {
       componentBreakdown,
-      customExpenses: (vp.customExpenses || []).map((exp) => ({
+      customExpenses: (vp.customExpenses || []).map(exp => ({
         name: exp.name,
         amount: exp.amount * quantity, // Multiply by quantity
         category: exp.category,

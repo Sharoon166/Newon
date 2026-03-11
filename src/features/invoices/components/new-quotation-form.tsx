@@ -847,22 +847,22 @@ export function NewQuotationForm({
                     selectedCustomer.city ||
                     selectedCustomer.state ||
                     selectedCustomer.zip) && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-sm flex items-start gap-2">
-                          <MapPin className="h-4 w-4 mt-0.5" />
-                          <span>
-                            {[
-                              selectedCustomer.address,
-                              selectedCustomer.city,
-                              selectedCustomer.state,
-                              selectedCustomer.zip
-                            ]
-                              .filter(Boolean)
-                              .join(', ')}
-                          </span>
-                        </p>
-                      </div>
-                    )}
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-sm flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5" />
+                        <span>
+                          {[
+                            selectedCustomer.address,
+                            selectedCustomer.city,
+                            selectedCustomer.state,
+                            selectedCustomer.zip
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {isCustomCustomer && (
@@ -1230,7 +1230,7 @@ export function NewQuotationForm({
                               control={form.control}
                               name={`items.${index}.unit`}
                               render={({ field }) => (
-                                <FormItem className='flex items-center gap-2'>
+                                <FormItem className="flex items-center gap-2">
                                   <FormLabel className="text-xs text-muted-foreground">Unit: </FormLabel>
                                   <FormControl>
                                     <UnitSelector
@@ -1313,7 +1313,7 @@ export function NewQuotationForm({
                                   × {currentQuantity} ={' '}
                                   {formatCurrency(
                                     (currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
-                                    currentQuantity
+                                      currentQuantity
                                   )}
                                 </div>
                               </div>
@@ -1736,11 +1736,7 @@ export function NewQuotationForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Textarea
-                        className="min-h-[100px]"
-                        placeholder="State the terms and conditions..."
-                        {...field}
-                      />
+                      <Textarea className="min-h-[100px]" placeholder="State the terms and conditions..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

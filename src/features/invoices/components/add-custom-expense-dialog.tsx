@@ -82,43 +82,43 @@ export function AddCustomExpenseDialog({ open, onOpenChange, onAdd }: AddCustomE
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Installation Labor" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <Input placeholder="e.g., Installation Labor" {...field} />
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {EXPENSE_CATEGORIES.map(cat => (
-                            <SelectItem key={cat.value} value={cat.value}>
-                              {cat.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      <SelectContent>
+                        {EXPENSE_CATEGORIES.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -199,11 +199,7 @@ export function AddCustomExpenseDialog({ open, onOpenChange, onAdd }: AddCustomE
                   <span className="text-muted-foreground">Margin:</span>
                   <span
                     className={`font-medium ${
-                      profitMargin >= 20
-                        ? 'text-green-600'
-                        : profitMargin >= 10
-                        ? 'text-yellow-600'
-                        : 'text-red-600'
+                      profitMargin >= 20 ? 'text-green-600' : profitMargin >= 10 ? 'text-yellow-600' : 'text-red-600'
                     }`}
                   >
                     {profitMargin.toFixed(1)}%
@@ -230,11 +226,14 @@ export function AddCustomExpenseDialog({ open, onOpenChange, onAdd }: AddCustomE
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                form.handleSubmit(onSubmit)();
-              }}>
+              <Button
+                type="submit"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit(onSubmit)();
+                }}
+              >
                 Add Expense
               </Button>
             </DialogFooter>

@@ -14,23 +14,10 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage
-} from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
@@ -60,7 +47,7 @@ const formSchema = z.object({
     'other'
   ]),
   date: z.date({
-    error: 'Date is required',
+    error: 'Date is required'
   }),
   vendor: z.string().optional(),
   notes: z.string().optional()
@@ -94,13 +81,7 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   other: 'Other'
 };
 
-export function ExpenseFormDialog({
-  open,
-  onOpenChange,
-  expense,
-  userId,
-  onSuccess
-}: ExpenseFormDialogProps) {
+export function ExpenseFormDialog({ open, onOpenChange, expense, userId, onSuccess }: ExpenseFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = Boolean(expense);
 
@@ -173,9 +154,7 @@ export function ExpenseFormDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Expense' : 'Add New Expense'}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? 'Update expense details' : 'Enter expense information'}
-          </DialogDescription>
+          <DialogDescription>{isEditing ? 'Update expense details' : 'Enter expense information'}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -217,7 +196,7 @@ export function ExpenseFormDialog({
                     <FormLabel>Category</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className='w-full'>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                       </FormControl>
@@ -256,12 +235,7 @@ export function ExpenseFormDialog({
                         </FormControl>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
                       </PopoverContent>
                     </Popover>
                     <FormMessage />

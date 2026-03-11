@@ -27,7 +27,7 @@ export function YearSelector({ label = 'Year' }: YearSelectorProps) {
           <SelectValue placeholder="Select year" />
         </SelectTrigger>
         <SelectContent>
-          {years.map((year) => (
+          {years.map(year => (
             <SelectItem key={year} value={year.toString()}>
               {year}
             </SelectItem>

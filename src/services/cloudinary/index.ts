@@ -1,9 +1,8 @@
 // import type { DeleteApiResponse, UploadApiErrorResponse, UploadApiOptions, UploadApiResponse } from "cloudinary";
 // import { cloudinary } from "./config";
 
-
-// type UploadResponse = 
-//   { success: true; result?: UploadApiResponse } | 
+// type UploadResponse =
+//   { success: true; result?: UploadApiResponse } |
 //   { success: false; error: UploadApiErrorResponse };
 
 // export const uploadToCloudinary = (
@@ -26,7 +25,7 @@
 //   });
 // };
 
-// type DeleteResponse = 
+// type DeleteResponse =
 //   | { success: true; result: DeleteApiResponse }
 //   | { success: false; error: Error | unknown };
 
@@ -37,14 +36,13 @@
 //   try {
 //     // Convert single publicId to array if needed
 //     const ids = Array.isArray(publicIds) ? publicIds : [publicIds];
-    
+
 //     // Delete resources
 //     const result = await cloudinary.api.delete_resources(ids, options);
-    
+
 //     return { success: true, result };
 //   } catch (error) {
 //     console.error('Error deleting from Cloudinary:', error);
 //     return { success: false, error };
 //   }
 // };
-

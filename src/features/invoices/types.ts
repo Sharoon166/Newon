@@ -1,5 +1,16 @@
 // Invoice status type
-export type InvoiceStatus = 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+export type InvoiceStatus =
+  | 'pending'
+  | 'paid'
+  | 'partial'
+  | 'delivered'
+  | 'cancelled'
+  | 'draft'
+  | 'sent'
+  | 'accepted'
+  | 'rejected'
+  | 'expired'
+  | 'converted';
 
 // Payment interface
 export interface Payment {
@@ -85,7 +96,18 @@ export interface Invoice {
   gstValue?: number;
   gstAmount: number;
   totalAmount: number;
-  status: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  status:
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired'
+    | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount: number;
   balanceAmount: number;
@@ -132,7 +154,17 @@ export interface CreateInvoiceDto {
   gstValue?: number;
   gstAmount: number;
   totalAmount: number;
-  status?: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  status?:
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount?: number;
   balanceAmount: number;
@@ -173,7 +205,18 @@ export interface UpdateInvoiceDto {
   gstValue?: number;
   gstAmount?: number;
   totalAmount?: number;
-  status?: 'pending' | 'paid' | 'partial' | 'delivered' | 'cancelled' | 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+  status?:
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired'
+    | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount?: number;
   balanceAmount?: number;

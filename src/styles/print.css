@@ -15,9 +15,9 @@
   @page {
     size: A4 portrait;
     margin: 15mm 15mm 25mm 15mm; /* Extra bottom margin for page numbers */
-    
+
     @bottom-center {
-      content: "Page " counter(page) " of " counter(pages);
+      content: 'Page ' counter(page) ' of ' counter(pages);
       font-size: 9pt;
       color: #666;
       margin-top: 5mm;
@@ -182,30 +182,35 @@
   }
 
   /* Specific styles for invoice and quotation tables */
-  .invoice-table, .quotation-table {
+  .invoice-table,
+  .quotation-table {
     break-inside: auto !important;
     page-break-inside: auto !important;
   }
-  
+
   /* Ensure table headers repeat on each page */
-  .invoice-table thead, .quotation-table thead {
+  .invoice-table thead,
+  .quotation-table thead {
     display: table-header-group;
   }
-  
+
   /* Prevent individual table rows from breaking */
-  .invoice-table tr, .quotation-table tr {
+  .invoice-table tr,
+  .quotation-table tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  
+
   /* Allow table body to break between rows */
-  .invoice-table tbody, .quotation-table tbody {
+  .invoice-table tbody,
+  .quotation-table tbody {
     break-inside: auto;
     page-break-inside: auto;
   }
-  
+
   /* Remove any forced page breaks before tables */
-  .invoice-table-container, .quotation-table-container {
+  .invoice-table-container,
+  .quotation-table-container {
     break-before: auto !important;
     page-break-before: auto !important;
   }
@@ -216,7 +221,12 @@
   }
 
   /* Ensure proper spacing */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     page-break-after: avoid;
   }
 
@@ -270,7 +280,8 @@
   }
 
   /* Ensure proper spacing between sections */
-  .mb-8, .my-8 {
+  .mb-8,
+  .my-8 {
     margin-bottom: 0.8rem !important;
   }
 
@@ -291,16 +302,22 @@
   }
 
   /* Compact padding */
-  .p-4, .p-6, .p-8 {
+  .p-4,
+  .p-6,
+  .p-8 {
     padding: 0.5rem !important;
   }
 
-  .px-4, .px-6, .px-8 {
+  .px-4,
+  .px-6,
+  .px-8 {
     padding-left: 0.5rem !important;
     padding-right: 0.5rem !important;
   }
 
-  .py-4, .py-6, .py-8 {
+  .py-4,
+  .py-6,
+  .py-8 {
     padding-top: 0.3rem !important;
     padding-bottom: 0.3rem !important;
   }
@@ -358,7 +375,7 @@
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
-  
+
   /* Delivery notes section - prevent breaking */
   .delivery-notes-section {
     break-inside: avoid !important;
@@ -373,7 +390,7 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  
+
   /* If bottom content is too large, allow break before it */
   .print-bottom-content::before {
     content: '';
@@ -394,42 +411,42 @@
       page-break-inside: auto;
       margin-top: 1rem;
     }
-    
+
     .print-footer-section {
       break-inside: auto;
       page-break-inside: auto;
     }
-    
+
     /* Remove flexbox on mobile to prevent pagination issues */
     .print\:flex {
       display: block !important;
     }
-    
+
     .print\:flex-col {
       flex-direction: initial !important;
     }
-    
+
     /* Ensure proper page breaks on mobile */
     .invoice-table-container,
     .quotation-table-container {
       break-after: auto;
       page-break-after: auto;
     }
-    
+
     /* Prevent orphaned content */
     .print-flexible-spacer {
       display: none;
     }
-    
+
     /* Compact spacing on mobile */
     .mb-8 {
       margin-bottom: 0.5rem !important;
     }
-    
+
     .pb-8 {
       padding-bottom: 0.5rem !important;
     }
-    
+
     /* Ensure footer doesn't create extra pages */
     .print-footer-section:last-child {
       margin-bottom: 0 !important;

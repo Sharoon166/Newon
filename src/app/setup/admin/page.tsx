@@ -28,7 +28,7 @@ export default function AdminSetupPage() {
       try {
         const response = await fetch('/api/setup/create-admin');
         const data = await response.json();
-        
+
         if (data.adminExists) {
           // Admin exists, redirect to inventory
           toast.info('Admin already exists');
@@ -66,7 +66,7 @@ export default function AdminSetupPage() {
       }
 
       toast.success('Admin created successfully!');
-      
+
       // Redirect to login after 1 second
       setTimeout(() => {
         router.push('/auth/login');
@@ -102,9 +102,7 @@ export default function AdminSetupPage() {
             <ShieldCheck className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Create Admin Account</CardTitle>
           </div>
-          <CardDescription>
-            Set up the first administrator account for your system
-          </CardDescription>
+          <CardDescription>Set up the first administrator account for your system</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -197,16 +195,10 @@ export default function AdminSetupPage() {
                   <span className="sr-only">toggle password</span>
                 </InputGroupButton>
               </InputGroup>
-              <p className="text-xs text-muted-foreground">
-                Password must be at least 6 characters
-              </p>
+              <p className="text-xs text-muted-foreground">Password must be at least 6 characters</p>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isSubmitting}
-            >
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

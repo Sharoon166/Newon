@@ -159,8 +159,9 @@ export function ProductSelector({
       return;
     }
 
-    const description = `${variant.productName} - ${variant.sku}${Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
-      }`;
+    const description = `${variant.productName} - ${variant.sku}${
+      Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
+    }`;
 
     const rate =
       priceType === 'retail'
@@ -425,7 +426,9 @@ export function ProductSelector({
                           </Badge>
                           {quantityInInvoice > 0 ? (
                             <span className="text-[10px] text-muted-foreground">({quantityInInvoice} in invoice)</span>
-                          ) : <div className='h-4' />}
+                          ) : (
+                            <div className="h-4" />
+                          )}
                         </div>
                         <span className="text-sm font-bold">
                           {formatCurrency(

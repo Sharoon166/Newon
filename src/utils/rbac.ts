@@ -2,7 +2,7 @@ import { Session } from 'next-auth';
 
 export type Role = 'admin' | 'staff';
 
-export type Permission = 
+export type Permission =
   | 'view:inventory'
   | 'edit:inventory'
   | 'delete:inventory'
@@ -42,13 +42,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:settings',
     'edit:settings'
   ],
-  staff: [
-    'view:inventory',
-    'view:invoices',
-    'create:invoices',
-    'view:purchases',
-    'create:purchases'
-  ]
+  staff: ['view:inventory', 'view:invoices', 'create:invoices', 'view:purchases', 'create:purchases']
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

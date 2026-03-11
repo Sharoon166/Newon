@@ -35,10 +35,7 @@ export function ReportsTable({ data, totals }: ReportsTableProps) {
         </TableHeader>
         <TableBody>
           {data.map((row, index) => (
-            <TableRow 
-              key={row.month}
-              className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
-            >
+            <TableRow key={row.month} className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
               <TableCell className="font-medium">{row.monthName}</TableCell>
               <TableCell className="text-right tabular-nums">
                 {row.invoicesCount > 0 ? row.invoicesCount : <span className="text-muted-foreground">-</span>}
@@ -95,7 +92,9 @@ export function ReportsTable({ data, totals }: ReportsTableProps) {
             <TableCell className="text-right font-bold tabular-nums text-red-600">
               {formatCurrency(totals.expenses)}
             </TableCell>
-            <TableCell className={`text-right font-bold tabular-nums ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <TableCell
+              className={`text-right font-bold tabular-nums ${totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
               {formatCurrency(totals.profit)}
             </TableCell>
           </TableRow>

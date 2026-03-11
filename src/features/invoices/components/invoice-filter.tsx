@@ -17,13 +17,13 @@ type FilterMode = 'range' | 'month';
 export function InvoiceFilter() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [mode, setMode] = useState<FilterMode>('month');
-  
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const from = searchParams.get('dateFrom');
     const to = searchParams.get('dateTo');
-    
+
     if (from || to) {
       return {
         from: from ? new Date(from) : undefined,
@@ -43,7 +43,7 @@ export function InvoiceFilter() {
 
   const applyFilter = (): void => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     if (mode === 'month' && selectedMonth) {
       const monthStart = startOfMonth(selectedMonth);
       const monthEnd = endOfMonth(selectedMonth);
@@ -55,14 +55,14 @@ export function InvoiceFilter() {
       } else {
         params.delete('dateFrom');
       }
-      
+
       if (dateRange?.to) {
         params.set('dateTo', format(dateRange.to, 'yyyy-MM-dd'));
       } else {
         params.delete('dateTo');
       }
     }
-    
+
     router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
@@ -75,12 +75,17 @@ export function InvoiceFilter() {
     router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
-  const hasFilter = mode === 'month' ? selectedMonth !== undefined : (dateRange?.from || dateRange?.to);
-  const isApplyDisabled = mode === 'month' ? !selectedMonth : (!dateRange?.from && !dateRange?.to);
+  const hasFilter = mode === 'month' ? selectedMonth !== undefined : dateRange?.from || dateRange?.to;
+  const isApplyDisabled = mode === 'month' ? !selectedMonth : !dateRange?.from && !dateRange?.to;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <ToggleGroup type="single" value={mode} onValueChange={(value) => value && setMode(value as FilterMode)} className='*:grow max-md:w-full border'>
+      <ToggleGroup
+        type="single"
+        value={mode}
+        onValueChange={value => value && setMode(value as FilterMode)}
+        className="*:grow max-md:w-full border"
+      >
         <ToggleGroupItem value="month" aria-label="Month filter">
           Month
         </ToggleGroupItem>
@@ -94,20 +99,14 @@ export function InvoiceFilter() {
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className={cn(
-                'justify-start text-left font-normal w-[200px]',
-                !selectedMonth && 'text-muted-foreground'
-              )}
+              className={cn('justify-start text-left font-normal w-[200px]', !selectedMonth && 'text-muted-foreground')}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {selectedMonth ? format(selectedMonth, 'MMMM yyyy') : 'Pick a month'}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <MonthPicker
-              selectedMonth={selectedMonth}
-              onMonthSelect={setSelectedMonth}
-            />
+            <MonthPicker selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} />
           </PopoverContent>
         </Popover>
       ) : (
@@ -147,7 +146,7 @@ export function InvoiceFilter() {
       )}
 
       <Button onClick={applyFilter} disabled={isApplyDisabled}>
-        Apply <Filter className='size-4' />
+        Apply <Filter className="size-4" />
       </Button>
 
       {hasFilter && (

@@ -314,8 +314,7 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
     };
 
     return result;
-  } catch (error) {
-    console.error('Error fetching virtual product:', error);
+  } catch {
     return null;
   }
 };
@@ -323,7 +322,7 @@ export const getVirtualProductById = async (id: string): Promise<EnhancedVirtual
 export const updateVirtualProduct = async (
   id: string,
   data: Omit<VirtualProduct, '_id' | 'createdAt' | 'updatedAt'>
-) => {
+): Promise<void | { error: string }> => {
   try {
     await dbConnect();
 
@@ -350,14 +349,13 @@ export const updateVirtualProduct = async (
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
   } catch (error) {
-    console.error('Error updating virtual product:', error);
     if (error instanceof Error) {
       if (error.message.includes('duplicate key') || error.message.includes('E11000')) {
-        throw new Error('A virtual product with this SKU already exists');
+        return { error: 'A virtual product with this SKU already exists' };
       }
-      throw new Error(error.message);
+      return { error: 'Server error!! failed to update product' };
     }
-    throw new Error('Failed to update virtual product');
+    return { error: 'Failed to update virtual product' };
   }
 };
 
@@ -381,9 +379,9 @@ export const deleteVirtualProduct = async (id: string): Promise<ActionResult<voi
     ]);
 
     if (usedInInvoice || usedInProject) {
-      return { 
-        success: false, 
-        error: 'Cannot delete virtual product that has been used in any invoice or project. Please disable it instead.' 
+      return {
+        success: false,
+        error: 'Cannot delete virtual product that has been used in any invoice or project. Please disable it instead.'
       };
     }
 
@@ -396,9 +394,9 @@ export const deleteVirtualProduct = async (id: string): Promise<ActionResult<voi
     return { success: true, data: undefined };
   } catch (error) {
     console.error('Error deleting virtual product:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to delete virtual product' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete virtual product'
     };
   }
 };
@@ -422,9 +420,9 @@ export const toggleVirtualProductDisabled = async (id: string): Promise<ActionRe
     return { success: true, data: { disabled: virtualProduct.disabled } };
   } catch (error) {
     console.error('Error toggling virtual product:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to toggle virtual product status' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to toggle virtual product status'
     };
   }
 };

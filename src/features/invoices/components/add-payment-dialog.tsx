@@ -78,7 +78,9 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
       <DialogContent className="sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Payment</DialogTitle>
-          <DialogDescription>Record a payment for this invoice. Balance: PKR {balanceAmount.toFixed(2)}</DialogDescription>
+          <DialogDescription>
+            Record a payment for this invoice. Balance: PKR {balanceAmount.toFixed(2)}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -116,7 +118,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
                   <FormLabel>Payment Method</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className='w-full'>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                     </FormControl>

@@ -107,7 +107,7 @@ export function AttributesManager({ attributes, onChange }: AttributesManagerPro
           </p>
         </div>
       )}
-      
+
       <div className="flex justify-center">
         <Button
           type="button"
@@ -121,7 +121,6 @@ export function AttributesManager({ attributes, onChange }: AttributesManagerPro
           <Plus /> Add Attribute
         </Button>
       </div>
-
     </div>
   );
 }

@@ -12,13 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateProjectStatus } from '../actions';
 import { toast } from 'sonner';
 
@@ -29,12 +23,7 @@ interface UpdateStatusDialogProps {
   currentStatus: 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
 }
 
-export function UpdateStatusDialog({
-  open,
-  onOpenChange,
-  projectId,
-  currentStatus
-}: UpdateStatusDialogProps) {
+export function UpdateStatusDialog({ open, onOpenChange, projectId, currentStatus }: UpdateStatusDialogProps) {
   const router = useRouter();
   const [status, setStatus] = useState<'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled'>(currentStatus);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,16 +53,14 @@ export function UpdateStatusDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Update Project Status</DialogTitle>
-          <DialogDescription>
-            Change the status of this project
-          </DialogDescription>
+          <DialogDescription>Change the status of this project</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
-            <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-              <SelectTrigger id="status" className='w-full'>
+            <Select value={status} onValueChange={value => setStatus(value as typeof status)}>
+              <SelectTrigger id="status" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

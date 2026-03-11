@@ -3,15 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardMetrics } from '../types';
 import { cn, formatCurrency } from '@/lib/utils';
-import {
-  Boxes,
-  TrendingUp,
-  TrendingDown,
-  ShoppingCart,
-  Wallet,
-  Coins,
-  BarChart3,
-} from 'lucide-react';
+import { Boxes, TrendingUp, TrendingDown, ShoppingCart, Wallet, Coins, BarChart3 } from 'lucide-react';
 
 interface MetricsCardsProps {
   metrics: DashboardMetrics;
@@ -27,9 +19,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(metrics.totalStockValue)}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {metrics.totalStock.toLocaleString()} units in stock
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">{metrics.totalStock.toLocaleString()} units in stock</p>
         </CardContent>
       </Card>
 
@@ -42,12 +32,10 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
           <div className="text-2xl font-bold">{formatCurrency(metrics.dailySales)}</div>
           <p className="text-xs text-muted-foreground mt-1">Compared to yesterday</p>
           {metrics.dailySalesTrend !== 0 && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${metrics.dailySalesTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {metrics.dailySalesTrend > 0 ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : (
-                <TrendingDown className="h-3 w-3" />
-              )}
+            <div
+              className={`flex items-center gap-1 mt-1 text-xs ${metrics.dailySalesTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
+              {metrics.dailySalesTrend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               <span>{Math.abs(metrics.dailySalesTrend).toFixed(1)}% vs yesterday</span>
             </div>
           )}
@@ -63,7 +51,9 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
           <div className="text-2xl font-bold">{formatCurrency(metrics.monthlySales)}</div>
           <p className="text-xs text-muted-foreground mt-1">This month so far</p>
           {metrics.monthlySalesTrend !== 0 && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${metrics.monthlySalesTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div
+              className={`flex items-center gap-1 mt-1 text-xs ${metrics.monthlySalesTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
               {metrics.monthlySalesTrend > 0 ? (
                 <TrendingUp className="h-3 w-3" />
               ) : (
@@ -94,17 +84,17 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
           <TrendingUp className={`h-6 w-6 ${metrics.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
         </CardHeader>
         <CardContent>
-          <div className={cn("text-2xl font-bold", metrics.netProfitTrend > 0 ? 'text-green-600' : 'text-red-600')}>{formatCurrency(metrics.netProfit)}</div>
+          <div className={cn('text-2xl font-bold', metrics.netProfitTrend > 0 ? 'text-green-600' : 'text-red-600')}>
+            {formatCurrency(metrics.netProfit)}
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             Profit: {formatCurrency(metrics.monthlyProfit)} · Expenses: {formatCurrency(metrics.monthlyExpenses)}
           </p>
           {metrics.netProfitTrend !== 0 && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${metrics.netProfitTrend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {metrics.netProfitTrend > 0 ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : (
-                <TrendingDown className="h-3 w-3" />
-              )}
+            <div
+              className={`flex items-center gap-1 mt-1 text-xs ${metrics.netProfitTrend > 0 ? 'text-green-600' : 'text-red-600'}`}
+            >
+              {metrics.netProfitTrend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               <span>{Math.abs(metrics.netProfitTrend).toFixed(1)}% vs last month</span>
             </div>
           )}

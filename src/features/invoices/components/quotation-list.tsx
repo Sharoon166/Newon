@@ -9,17 +9,17 @@ import {
   getFilteredRowModel,
   useReactTable,
   getSortedRowModel,
-  getPaginationRowModel,
+  getPaginationRowModel
 } from '@tanstack/react-table';
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Invoice, InvoiceStatus } from "@/features/invoices/types";
-import { ArrowRight, Download, FileText, Search, ArrowUpDown, FileSpreadsheet } from "lucide-react";
-import Link from "next/link";
-import { formatDate, formatCurrency } from "@/lib/utils";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { TablePagination } from "@/components/general/table-pagination";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Invoice, InvoiceStatus } from '@/features/invoices/types';
+import { ArrowRight, Download, FileText, Search, ArrowUpDown, FileSpreadsheet } from 'lucide-react';
+import Link from 'next/link';
+import { formatDate, formatCurrency } from '@/lib/utils';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { TablePagination } from '@/components/general/table-pagination';
 
 const statusVariant: Partial<Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'>> = {
   draft: 'outline',
@@ -46,7 +46,7 @@ const columns: ColumnDef<Invoice>[] = [
         <div className="font-medium">{row.original.customerName}</div>
         <div className="text-sm text-muted-foreground">{row.original.invoiceNumber}</div>
       </div>
-    ),
+    )
   },
   {
     accessorKey: 'status',
@@ -55,7 +55,7 @@ const columns: ColumnDef<Invoice>[] = [
       <Badge variant={statusVariant[row.original.status] || 'secondary'}>
         {statusText[row.original.status] || row.original.status}
       </Badge>
-    ),
+    )
   },
   {
     accessorKey: 'date',
@@ -69,12 +69,12 @@ const columns: ColumnDef<Invoice>[] = [
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
-    cell: ({ row }) => formatDate(new Date(row.original.date)),
+    cell: ({ row }) => formatDate(new Date(row.original.date))
   },
   {
     accessorKey: 'validUntil',
     header: 'Expires',
-    cell: ({ row }) => row.original.validUntil ? formatDate(new Date(row.original.validUntil)) : '-',
+    cell: ({ row }) => (row.original.validUntil ? formatDate(new Date(row.original.validUntil)) : '-')
   },
   {
     accessorKey: 'totalAmount',
@@ -90,11 +90,7 @@ const columns: ColumnDef<Invoice>[] = [
         </Button>
       </div>
     ),
-    cell: ({ row }) => (
-      <div className="text-right font-medium">
-        {formatCurrency(row.original.totalAmount)}
-      </div>
-    ),
+    cell: ({ row }) => <div className="text-right font-medium">{formatCurrency(row.original.totalAmount)}</div>
   },
   {
     id: 'actions',
@@ -109,8 +105,8 @@ const columns: ColumnDef<Invoice>[] = [
           <span className="sr-only">Download</span>
         </Button>
       </div>
-    ),
-  },
+    )
+  }
 ];
 
 interface QuotationListProps {
@@ -122,7 +118,7 @@ export function QuotationList({ quotations }: QuotationListProps) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 10
   });
 
   const table = useReactTable({
@@ -131,7 +127,7 @@ export function QuotationList({ quotations }: QuotationListProps) {
     state: {
       sorting,
       globalFilter,
-      pagination,
+      pagination
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
@@ -140,7 +136,7 @@ export function QuotationList({ quotations }: QuotationListProps) {
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    globalFilterFn: 'includesString',
+    globalFilterFn: 'includesString'
   });
 
   if (quotations.length === 0) {
@@ -148,9 +144,7 @@ export function QuotationList({ quotations }: QuotationListProps) {
       <div className="text-center py-12">
         <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
         <h3 className="mt-2 text-sm font-medium text-foreground">No quotations</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Get started by creating a new quotation.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Get started by creating a new quotation.</p>
         <div className="mt-6">
           <Button asChild>
             <Link href="/invoices/new?type=quotation">
@@ -167,55 +161,40 @@ export function QuotationList({ quotations }: QuotationListProps) {
       <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Quotations</h2>
-          <p className="text-sm text-muted-foreground">
-            Recent quotations from your business
-          </p>
+          <p className="text-sm text-muted-foreground">Recent quotations from your business</p>
         </div>
         <div className="flex items-center space-x-2">
           <InputGroup className="w-full sm:w-64">
             <InputGroupInput
               placeholder="Search..."
               value={globalFilter ?? ''}
-              onChange={(e) => setGlobalFilter(e.target.value)}
+              onChange={e => setGlobalFilter(e.target.value)}
             />
             <InputGroupAddon>
               <Search className="h-4 w-4" />
             </InputGroupAddon>
           </InputGroup>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto gap-1"
-            >
+            <Button variant="outline" size="sm" className="ml-auto gap-1">
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">CSV</span>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1"
-            >
+            <Button variant="outline" size="sm" className="gap-1">
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">PDF</span>
             </Button>
-            </div>
+          </div>
         </div>
       </div>
-      
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+            {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map(header => (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
               </TableRow>
@@ -223,15 +202,10 @@ export function QuotationList({ quotations }: QuotationListProps) {
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+              table.getRowModel().rows.map(row => (
+                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                  {row.getVisibleCells().map(cell => (
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))

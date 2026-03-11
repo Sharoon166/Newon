@@ -180,9 +180,7 @@ export async function POST(request: NextRequest) {
         yPos += 4;
       }
       if (invoice.customerCity || invoice.customerState || invoice.customerZip) {
-        const location = [invoice.customerCity, invoice.customerState, invoice.customerZip]
-          .filter(Boolean)
-          .join(', ');
+        const location = [invoice.customerCity, invoice.customerState, invoice.customerZip].filter(Boolean).join(', ');
         doc.text(location, 20, yPos);
         yPos += 4;
       }
@@ -198,19 +196,19 @@ export async function POST(request: NextRequest) {
 
     // Items Table
     yPos += 10;
-    
+
     // Fetch product images for all items
     await dbConnect();
     const productImageMap = new Map<string, string | null>();
-    
+
     for (const item of invoice.items) {
       if (item.variantId) {
         try {
-          const product = await ProductModel.findOne(
+          const product = (await ProductModel.findOne(
             { 'variants.id': item.variantId },
             { 'variants.$': 1 }
-          ).lean() as ProductWithVariants | null;
-          
+          ).lean()) as ProductWithVariants | null;
+
           if (product && product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
             const variant = product.variants[0];
             const imageUrl = variant.imageFile?.cloudinaryUrl || variant.image;
@@ -222,7 +220,7 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-    
+
     // Load all images as base64
     const loadedImages: (string | null)[] = [];
     for (const item of invoice.items) {
@@ -234,9 +232,9 @@ export async function POST(request: NextRequest) {
         loadedImages.push(null);
       }
     }
-    
+
     const hasImages = loadedImages.some(img => img !== null);
-    
+
     const tableData = invoice.items.map((item, index) => [
       (index + 1).toString(),
       item.productName + (item.variantSKU ? `\n(SKU: ${item.variantSKU})` : ''),
@@ -268,50 +266,41 @@ export async function POST(request: NextRequest) {
         4: { cellWidth: 35, halign: 'right' }
       },
       margin: { left: 20, right: 20 },
-      willDrawCell: (data) => {
+      willDrawCell: data => {
         // Adjust text position in description column to make room for image
         if (hasImages && data.column.index === 1 && data.section === 'body') {
           const rowIndex = data.row.index;
           const imageBase64 = loadedImages[rowIndex];
-          
+
           if (imageBase64) {
             // Add left padding to push text right of the image
-            data.cell.styles.cellPadding = { 
+            data.cell.styles.cellPadding = {
               left: 16, // 12mm image + 4mm spacing
-              right: 2, 
-              top: 2, 
-              bottom: 2 
+              right: 2,
+              top: 2,
+              bottom: 2
             };
           }
         }
       },
-      didDrawCell: (data) => {
+      didDrawCell: data => {
         // Add image thumbnails in the description column
         if (hasImages && data.column.index === 1 && data.section === 'body') {
           const rowIndex = data.row.index;
           const imageBase64 = loadedImages[rowIndex];
-          
+
           if (imageBase64) {
             const cellX = data.cell.x;
             const cellY = data.cell.y;
             const cellHeight = data.cell.height;
             const imgSize = 12; // 12mm thumbnail
             const padding = 2;
-            
+
             // Center image vertically in the cell
             const imgY = cellY + (cellHeight - imgSize) / 2;
-            
+
             try {
-              doc.addImage(
-                imageBase64,
-                'JPEG',
-                cellX + padding,
-                imgY,
-                imgSize,
-                imgSize,
-                undefined,
-                'FAST'
-              );
+              doc.addImage(imageBase64, 'JPEG', cellX + padding, imgY, imgSize, imgSize, undefined, 'FAST');
             } catch (error) {
               console.warn('Failed to add image to PDF:', error);
             }
@@ -365,7 +354,9 @@ export async function POST(request: NextRequest) {
         invoice.discountType === 'percentage' ? `Discount (${invoice.discountValue}%):` : 'Discount:';
       doc.text(discountLabel, labelX as number, yPos as number);
       doc.setTextColor(200, 0, 0);
-      doc.text(`-${String(formatCurrency(invoice.discountAmount))}`, valueX as number, yPos as number, { align: 'right' });
+      doc.text(`-${String(formatCurrency(invoice.discountAmount))}`, valueX as number, yPos as number, {
+        align: 'right'
+      });
       doc.setTextColor(0, 0, 0);
       yPos += 6;
     }

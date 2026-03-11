@@ -227,8 +227,9 @@ export function QuotationConversionForm({
         }
 
         // Find the purchase to get the correct cost price (originalRate) for regular products
-        const purchase = item.purchaseId && !item.isVirtualProduct ? purchases.find(p => p.purchaseId === item.purchaseId) : undefined;
-        
+        const purchase =
+          item.purchaseId && !item.isVirtualProduct ? purchases.find(p => p.purchaseId === item.purchaseId) : undefined;
+
         return {
           id: item.id,
           description: item.description || item.productName,
@@ -241,7 +242,9 @@ export function QuotationConversionForm({
           variantSKU: item.variantSKU,
           // Clear purchaseId if the purchase is depleted (only for regular products)
           purchaseId:
-            item.purchaseId && !item.isVirtualProduct && purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0
+            item.purchaseId &&
+            !item.isVirtualProduct &&
+            purchases.find(p => p.purchaseId === item.purchaseId)?.remaining === 0
               ? undefined
               : item.purchaseId,
           originalRate: purchase?.unitPrice || item.originalRate || 0,
@@ -745,18 +748,19 @@ export function QuotationConversionForm({
               totalComponentCost: item.totalComponentCost,
               totalCustomExpenses: item.totalCustomExpenses
             }),
-            ...(item.customExpenses && item.customExpenses.length > 0 && {
-              customExpenses: item.customExpenses.map(expense => ({
-                name: expense.name,
-                amount: expense.clientCost,
-                actualCost: expense.actualCost,
-                clientCost: expense.clientCost,
-                category: expense.category,
-                description: expense.description,
-                expenseId: expense.expenseId
-              })),
-              totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
-            }),
+            ...(item.customExpenses &&
+              item.customExpenses.length > 0 && {
+                customExpenses: item.customExpenses.map(expense => ({
+                  name: expense.name,
+                  amount: expense.clientCost,
+                  actualCost: expense.actualCost,
+                  clientCost: expense.clientCost,
+                  category: expense.category,
+                  description: expense.description,
+                  expenseId: expense.expenseId
+                })),
+                totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
+              }),
             quantity: item.quantity,
             unit: item.unit || 'pcs',
             unitPrice: item.rate,
@@ -1152,7 +1156,7 @@ export function QuotationConversionForm({
                               control={form.control}
                               name={`items.${index}.unit`}
                               render={({ field }) => (
-                                <FormItem className='flex items-center gap-2'>
+                                <FormItem className="flex items-center gap-2">
                                   <FormLabel className="text-xs text-muted-foreground">Unit</FormLabel>
                                   <FormControl>
                                     <UnitSelector
@@ -1181,8 +1185,8 @@ export function QuotationConversionForm({
                                   />
                                 </InputGroup>
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  Components: {formatCurrency(item.totalComponentCost || 0)} + 
-                                  Expenses: {formatCurrency(item.totalCustomExpenses || 0)}
+                                  Components: {formatCurrency(item.totalComponentCost || 0)} + Expenses:{' '}
+                                  {formatCurrency(item.totalCustomExpenses || 0)}
                                 </div>
                               </div>
                               <div>
@@ -1228,7 +1232,15 @@ export function QuotationConversionForm({
                                   )}
                                 />
                                 <div className="text-xs text-green-600 mt-1">
-                                  Profit per unit: {formatCurrency(currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)))} × {currentQuantity} = {formatCurrency((currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) * currentQuantity)}
+                                  Profit per unit:{' '}
+                                  {formatCurrency(
+                                    currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
+                                  )}{' '}
+                                  × {currentQuantity} ={' '}
+                                  {formatCurrency(
+                                    (currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
+                                      currentQuantity
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1322,7 +1334,10 @@ export function QuotationConversionForm({
                                               field.onChange(numericValue);
                                               form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
                                               if (item.customExpenses && item.customExpenses[0]) {
-                                                form.setValue(`items.${index}.customExpenses.0.clientCost`, numericValue);
+                                                form.setValue(
+                                                  `items.${index}.customExpenses.0.clientCost`,
+                                                  numericValue
+                                                );
                                               }
                                             }}
                                             value={field.value || ''}
@@ -1646,7 +1661,6 @@ export function QuotationConversionForm({
             </CollapsibleContent>
           </div>
         </Collapsible>
-
 
         {/* Form Actions */}
         <div className="flex flex-col sm:flex-row justify-end gap-3 mt-8">

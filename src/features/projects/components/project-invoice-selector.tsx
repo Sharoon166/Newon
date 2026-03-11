@@ -4,7 +4,16 @@ import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import type { Invoice } from '@/features/invoices/types';
 import { formatCurrency } from '@/lib/utils';
 import { Unlink, Loader2 } from 'lucide-react';
@@ -40,7 +49,7 @@ export function ProjectInvoiceSelector({
   // Filter out OTC customers, cancelled invoices, and quotations - only show actual invoices
   const validInvoices = invoices.filter(
     invoice =>
-      (invoice.customerId !== 'otc' || invoice.customerName.toLowerCase().includes("otc")) &&
+      (invoice.customerId !== 'otc' || invoice.customerName.toLowerCase().includes('otc')) &&
       invoice.status !== 'cancelled' &&
       invoice.type === 'invoice'
   );
@@ -82,11 +91,7 @@ export function ProjectInvoiceSelector({
         Select Invoice <span className="text-destructive">*</span>
       </Label>
       <div className="flex gap-2">
-        <Select
-          value={selectedInvoice?.id || ''}
-          onValueChange={handleInvoiceChange}
-          disabled={disabled}
-        >
+        <Select value={selectedInvoice?.id || ''} onValueChange={handleInvoiceChange} disabled={disabled}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select an invoice..." />
           </SelectTrigger>
@@ -96,7 +101,9 @@ export function ProjectInvoiceSelector({
                 <div className="flex flex-col">
                   <span>
                     {invoice.invoiceNumber} - {invoice.customerName}
-                    <span className="text-muted-foreground">{invoice.customerCompany && ` (${invoice.customerCompany})`}</span>
+                    <span className="text-muted-foreground">
+                      {invoice.customerCompany && ` (${invoice.customerCompany})`}
+                    </span>
                   </span>
                   {invoice.projectId && invoice.projectId !== projectId && (
                     <span className="text-[10px] text-destructive font-medium uppercase">
@@ -148,9 +155,9 @@ export function ProjectInvoiceSelector({
           <AlertDialogHeader>
             <AlertDialogTitle>Unlink Invoice from Project?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will unlink invoice <span className="font-semibold">{selectedInvoice?.invoiceNumber}</span> from this project.
-              All custom expenses from the invoice will be recreated in the Expense collection.
-              You can then select a different invoice for this project.
+              This will unlink invoice <span className="font-semibold">{selectedInvoice?.invoiceNumber}</span> from this
+              project. All custom expenses from the invoice will be recreated in the Expense collection. You can then
+              select a different invoice for this project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

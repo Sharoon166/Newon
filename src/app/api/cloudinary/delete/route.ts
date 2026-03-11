@@ -5,7 +5,7 @@ import { v2 as cloudinary } from 'cloudinary';
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 export async function DELETE(request: Request) {
@@ -14,28 +14,19 @@ export async function DELETE(request: Request) {
     const publicId = searchParams.get('publicId');
 
     if (!publicId) {
-      return NextResponse.json(
-        { message: 'Missing publicId parameter' },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: 'Missing publicId parameter' }, { status: 400 });
     }
 
     // Delete the image from Cloudinary
     const result = await cloudinary.uploader.destroy(publicId);
 
     if (result.result === 'not found') {
-      return NextResponse.json(
-        { message: 'Image not found in Cloudinary' },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: 'Image not found in Cloudinary' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting image from Cloudinary:', error);
-    return NextResponse.json(
-      { message: 'Failed to delete image from Cloudinary' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Failed to delete image from Cloudinary' }, { status: 500 });
   }
 }

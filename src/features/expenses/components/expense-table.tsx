@@ -68,18 +68,14 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
       cell: ({ row }) => (
         <div>
           <div className="font-medium">{row.original.description}</div>
-          {row.original.vendor && (
-            <div className="text-sm text-muted-foreground">{row.original.vendor}</div>
-          )}
+          {row.original.vendor && <div className="text-sm text-muted-foreground">{row.original.vendor}</div>}
         </div>
       )
     },
     {
       accessorKey: 'category',
       header: 'Category',
-      cell: ({ row }) => (
-        <div className="text-sm">{categoryLabels[row.original.category as ExpenseCategory]}</div>
-      )
+      cell: ({ row }) => <div className="text-sm">{categoryLabels[row.original.category as ExpenseCategory]}</div>
     },
     {
       accessorKey: 'amount',
@@ -120,10 +116,7 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
             header: 'Status',
             cell: ({ row }: { row: { original: Expense } }) => {
               const totalAmount = row.original.amount;
-              const paidAmount = (row.original.transactions || []).reduce(
-                (sum, t) => sum + (t.amount || 0),
-                0
-              );
+              const paidAmount = (row.original.transactions || []).reduce((sum, t) => sum + (t.amount || 0), 0);
               if (paidAmount >= totalAmount && totalAmount > 0) {
                 return (
                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
@@ -221,7 +214,7 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: getSortedRowModel()
   });
 
   return (
@@ -244,9 +237,7 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
               table.getRowModel().rows.map(row => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
                   {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))

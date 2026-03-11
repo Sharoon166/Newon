@@ -32,12 +32,10 @@ export function ExpenseKPIsComponent({ kpis }: ExpenseKPIsProps) {
           <div className="text-2xl font-bold">{formatCurrency(kpis.dailyExpenses)}</div>
           <p className="text-xs text-muted-foreground">Today&apos;s expenses</p>
           {kpis.dailyExpensesTrend !== 0 && (
-            <div className={`flex items-center gap-1 mt-1 text-xs ${kpis.dailyExpensesTrend > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {kpis.dailyExpensesTrend > 0 ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : (
-                <TrendingDown className="h-3 w-3" />
-              )}
+            <div
+              className={`flex items-center gap-1 mt-1 text-xs ${kpis.dailyExpensesTrend > 0 ? 'text-red-600' : 'text-green-600'}`}
+            >
+              {kpis.dailyExpensesTrend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               <span>{Math.abs(kpis.dailyExpensesTrend).toFixed(1)}% vs yesterday</span>
             </div>
           )}

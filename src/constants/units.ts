@@ -17,7 +17,7 @@ export const PREDEFINED_UNITS = [
   { value: 'custom', label: 'Custom...' }
 ] as const;
 
-export type UnitValue = typeof PREDEFINED_UNITS[number]['value'];
+export type UnitValue = (typeof PREDEFINED_UNITS)[number]['value'];
 
 export function getUnitLabel(value: string): string {
   const unit = PREDEFINED_UNITS.find(u => u.value === value);

@@ -4,13 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { PurchasesTable } from './purchases-table';
 import { Purchase } from '../types';
@@ -31,7 +25,7 @@ export function PurchasesManager({
   variantId,
   variants = [],
   locations = [],
-  suppliers = [],
+  suppliers = []
 }: PurchasesManagerProps) {
   const router = useRouter();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -114,9 +108,10 @@ export function PurchasesManager({
   // Calculate summary stats for filtered purchases
   const totalPurchased = filteredPurchases.reduce((sum, p) => sum + p.quantity, 0);
   const totalCost = filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0);
-  const averageUnitPrice = filteredPurchases.length > 0
-    ? filteredPurchases.reduce((sum, p) => sum + p.unitPrice, 0) / filteredPurchases.length
-    : 0;
+  const averageUnitPrice =
+    filteredPurchases.length > 0
+      ? filteredPurchases.reduce((sum, p) => sum + p.unitPrice, 0) / filteredPurchases.length
+      : 0;
 
   // Extract unique suppliers from purchases and product supplier
   // const uniqueSuppliers = Array.from(
@@ -127,11 +122,11 @@ export function PurchasesManager({
   // ).filter(Boolean);
 
   return (
-    <div 
+    <div
       className="space-y-6"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-      onSubmit={(e) => {
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
+      onSubmit={e => {
         e.preventDefault();
         e.stopPropagation();
       }}
@@ -139,28 +134,16 @@ export function PurchasesManager({
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Purchased
-          </CardTitle>
-          <CardContent className="p-0 text-2xl font-semibold mt-2">
-            {totalPurchased?.toLocaleString()}
-          </CardContent>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Total Purchased</CardTitle>
+          <CardContent className="p-0 text-2xl font-semibold mt-2">{totalPurchased?.toLocaleString()}</CardContent>
         </Card>
         <Card className="p-4">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Cost
-          </CardTitle>
-          <CardContent className="p-0 text-2xl font-semibold mt-2">
-            {formatCurrency(totalCost)}
-          </CardContent>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Total Cost</CardTitle>
+          <CardContent className="p-0 text-2xl font-semibold mt-2">{formatCurrency(totalCost)}</CardContent>
         </Card>
         <Card className="p-4">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Average Unit Price
-          </CardTitle>
-          <CardContent className="p-0 text-2xl font-semibold mt-2">
-            {formatCurrency(averageUnitPrice)}
-          </CardContent>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Average Unit Price</CardTitle>
+          <CardContent className="p-0 text-2xl font-semibold mt-2">{formatCurrency(averageUnitPrice)}</CardContent>
         </Card>
       </div>
 
@@ -169,7 +152,8 @@ export function PurchasesManager({
         <div className="flex-1">
           <h3 className="text-lg font-semibold">Purchase History</h3>
           <p className="text-sm text-muted-foreground">
-            Manage purchase records for {selectedVariantId && selectedVariantId !== 'all' ? 'this variant' : 'this product'}
+            Manage purchase records for{' '}
+            {selectedVariantId && selectedVariantId !== 'all' ? 'this variant' : 'this product'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -180,7 +164,7 @@ export function PurchasesManager({
               </label>
               <Select
                 value={selectedVariantId}
-                onValueChange={(value) => {
+                onValueChange={value => {
                   setSelectedVariantId(value);
                 }}
               >
@@ -189,13 +173,11 @@ export function PurchasesManager({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All variants</SelectItem>
-                  {variants.map((variant) => {
+                  {variants.map(variant => {
                     const attrString = Object.entries(variant.attributes || {})
                       .map(([, value]) => value)
                       .join(', ');
-                    const displayText = attrString 
-                      ? `${variant.sku} (${attrString})`
-                      : variant.sku;
+                    const displayText = attrString ? `${variant.sku} (${attrString})` : variant.sku;
                     return (
                       <SelectItem key={variant.id} value={variant.id}>
                         {displayText}
@@ -213,7 +195,7 @@ export function PurchasesManager({
               </label>
               <Select
                 value={selectedLocationId}
-                onValueChange={(value) => {
+                onValueChange={value => {
                   setSelectedLocationId(value);
                 }}
               >
@@ -222,7 +204,7 @@ export function PurchasesManager({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All locations</SelectItem>
-                  {locations.map((location) => (
+                  {locations.map(location => (
                     <SelectItem key={location.id} value={location.id}>
                       {location.name}
                     </SelectItem>
@@ -233,15 +215,15 @@ export function PurchasesManager({
             </div>
           )}
         </div>
-        <Button 
+        <Button
           type="button"
-          onClick={(e) => {
+          onClick={e => {
             e.preventDefault();
             e.stopPropagation();
             e.nativeEvent.stopImmediatePropagation();
             handleAddClick(e);
           }}
-          onMouseDown={(e) => {
+          onMouseDown={e => {
             if (e.button === 0) {
               e.preventDefault();
             }
@@ -255,9 +237,7 @@ export function PurchasesManager({
 
       {/* Purchases Table */}
       {loading ? (
-        <div className="text-center py-8 text-muted-foreground">
-          Loading purchases...
-        </div>
+        <div className="text-center py-8 text-muted-foreground">Loading purchases...</div>
       ) : (
         <PurchasesTable
           purchases={filteredPurchases}
@@ -282,4 +262,3 @@ export function PurchasesManager({
     </div>
   );
 }
-

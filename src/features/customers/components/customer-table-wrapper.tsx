@@ -42,9 +42,7 @@ export function CustomerTableWrapper({
 
       if (result.success) {
         setData(prevData =>
-          prevData.map(customer =>
-            customer.id === id ? { ...customer, disabled: !customer.disabled } : customer
-          )
+          prevData.map(customer => (customer.id === id ? { ...customer, disabled: !customer.disabled } : customer))
         );
       } else {
         throw new Error(result.error);
@@ -59,11 +57,11 @@ export function CustomerTableWrapper({
     router.push(`/customers/${id}/edit`);
   };
 
-  const actions = (row: Row<Customer>) => ( 
-    <CustomerActions 
-      id={row.original.id} 
+  const actions = (row: Row<Customer>) => (
+    <CustomerActions
+      id={row.original.id}
       disabled={row.original.disabled}
-      onDelete={() => handleDelete(row.original.customerId || 'otc')} 
+      onDelete={() => handleDelete(row.original.customerId || 'otc')}
       onToggleDisabled={() => handleToggleDisabled(row.original.customerId || 'otc')}
     />
   );

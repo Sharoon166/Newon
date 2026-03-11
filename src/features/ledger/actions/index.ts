@@ -47,9 +47,7 @@ function transformLeanEntry(leanDoc: LeanLedgerEntry): LedgerEntry {
   } as LedgerEntry;
 }
 
-export async function getLedgerEntries(
-  filters?: LedgerFilters
-): Promise<PaginatedLedgerEntries> {
+export async function getLedgerEntries(filters?: LedgerFilters): Promise<PaginatedLedgerEntries> {
   try {
     await dbConnect();
 
@@ -91,10 +89,7 @@ export async function getLedgerEntries(
       if (filters.maxAmount !== undefined) {
         amountQuery.$lte = filters.maxAmount;
       }
-      query.$or = [
-        { debit: amountQuery },
-        { credit: amountQuery }
-      ];
+      query.$or = [{ debit: amountQuery }, { credit: amountQuery }];
     }
 
     const page = filters?.page || 1;
@@ -107,9 +102,7 @@ export async function getLedgerEntries(
       lean: true
     });
 
-    const transformedEntries = result.docs.map((entry: unknown) => 
-      transformLeanEntry(entry as LeanLedgerEntry)
-    );
+    const transformedEntries = result.docs.map((entry: unknown) => transformLeanEntry(entry as LeanLedgerEntry));
 
     return {
       docs: transformedEntries,
@@ -128,9 +121,7 @@ export async function getLedgerEntries(
   }
 }
 
-export async function getCustomerLedgers(
-  filters?: LedgerFilters
-): Promise<PaginatedCustomerLedgers> {
+export async function getCustomerLedgers(filters?: LedgerFilters): Promise<PaginatedCustomerLedgers> {
   try {
     await dbConnect();
 
@@ -217,10 +208,8 @@ export async function getCustomerLedgers(
         // Check if it's a valid MongoDB ObjectId (24 hex characters)
         return /^[0-9a-fA-F]{24}$/.test(id);
       });
-    
-    const customers = customerIds.length > 0 
-      ? await CustomerModel.find({ _id: { $in: customerIds } }).lean()
-      : [];
+
+    const customers = customerIds.length > 0 ? await CustomerModel.find({ _id: { $in: customerIds } }).lean() : [];
     const customerMap = new Map(customers.map(c => [c._id.toString(), c]));
 
     const ledgers: CustomerLedger[] = aggregateResult.map(result => {
@@ -281,7 +270,7 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
     const InvoiceModel = (await import('@/models/Invoice')).default;
     const cancelledInvoices = await InvoiceModel.find({ status: 'cancelled' }).select('_id').lean();
     const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -456,9 +445,7 @@ export async function getLedgerSummary(): Promise<LedgerSummary> {
   }
 }
 
-export async function getCustomerLedgerEntries(
-  customerId: string
-): Promise<LedgerEntry[]> {
+export async function getCustomerLedgerEntries(customerId: string): Promise<LedgerEntry[]> {
   try {
     await dbConnect();
 
@@ -473,19 +460,14 @@ export async function getCustomerLedgerEntries(
       $or: [
         { transactionType: { $nin: ['invoice', 'payment'] } },
         {
-          $and: [
-            { transactionType: { $in: ['invoice', 'payment'] } },
-            { transactionId: { $nin: cancelledInvoiceIds } }
-          ]
+          $and: [{ transactionType: { $in: ['invoice', 'payment'] } }, { transactionId: { $nin: cancelledInvoiceIds } }]
         }
       ]
     })
       .sort({ date: -1, createdAt: -1 })
       .lean();
 
-    return entries.map((entry: unknown) => 
-      transformLeanEntry(entry as LeanLedgerEntry)
-    );
+    return entries.map((entry: unknown) => transformLeanEntry(entry as LeanLedgerEntry));
   } catch (error) {
     console.error(`Error fetching ledger entries for customer ${customerId}:`, error);
     throw new Error('Failed to fetch customer ledger entries');
@@ -505,14 +487,11 @@ async function getCustomerBalanceBeforeDate(customerId: string, date: Date, crea
     $or: [
       { transactionType: { $nin: ['invoice', 'payment'] } },
       {
-        $and: [
-          { transactionType: { $in: ['invoice', 'payment'] } },
-          { transactionId: { $nin: cancelledInvoiceIds } }
-        ]
+        $and: [{ transactionType: { $in: ['invoice', 'payment'] } }, { transactionId: { $nin: cancelledInvoiceIds } }]
       }
     ]
   };
-  
+
   if (createdAt) {
     // Get balance before this specific entry (by date and creation time)
     matchCondition.$and = [
@@ -530,23 +509,24 @@ async function getCustomerBalanceBeforeDate(customerId: string, date: Date, crea
     delete matchCondition.$or;
   } else {
     // Get balance before this date
-    matchCondition.$and = [
-      matchCondition.$or ? { $or: matchCondition.$or } : {},
-      { date: { $lt: date } }
-    ];
+    matchCondition.$and = [matchCondition.$or ? { $or: matchCondition.$or } : {}, { date: { $lt: date } }];
     delete matchCondition.$or;
   }
-  
+
   const result = await LedgerEntryModel.aggregate([
     { $match: matchCondition },
-    { $group: {
-      _id: null,
-      totalDebit: { $sum: '$debit' },
-      totalCredit: { $sum: '$credit' }
-    }},
-    { $project: {
-      balance: { $subtract: ['$totalDebit', '$totalCredit'] }
-    }}
+    {
+      $group: {
+        _id: null,
+        totalDebit: { $sum: '$debit' },
+        totalCredit: { $sum: '$credit' }
+      }
+    },
+    {
+      $project: {
+        balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+      }
+    }
   ]);
   return result[0]?.balance || 0;
 }
@@ -559,8 +539,8 @@ export async function getCustomerBalance(customerId: string): Promise<number> {
   const cancelledInvoiceIds = cancelledInvoices.map(inv => inv._id.toString());
 
   const result = await LedgerEntryModel.aggregate([
-    { 
-      $match: { 
+    {
+      $match: {
         customerId,
         // Exclude cancelled invoice entries and their payments
         $or: [
@@ -572,29 +552,31 @@ export async function getCustomerBalance(customerId: string): Promise<number> {
             ]
           }
         ]
-      } 
+      }
     },
-    { $group: {
-      _id: null,
-      totalDebit: { $sum: '$debit' },
-      totalCredit: { $sum: '$credit' }
-    }},
-    { $project: {
-      balance: { $subtract: ['$totalDebit', '$totalCredit'] }
-    }}
+    {
+      $group: {
+        _id: null,
+        totalDebit: { $sum: '$debit' },
+        totalCredit: { $sum: '$credit' }
+      }
+    },
+    {
+      $project: {
+        balance: { $subtract: ['$totalDebit', '$totalCredit'] }
+      }
+    }
   ]);
   return result[0]?.balance || 0;
 }
 
-export async function createLedgerEntry(
-  data: CreateLedgerEntryDto
-): Promise<LedgerEntry> {
+export async function createLedgerEntry(data: CreateLedgerEntryDto): Promise<LedgerEntry> {
   try {
     await dbConnect();
 
     // Get previous balance for the customer at this point in time
     const previousBalance = await getCustomerBalanceBeforeDate(data.customerId, data.date);
-    
+
     // Calculate new balance
     const newBalance = previousBalance + data.debit - data.credit;
 
@@ -636,18 +618,16 @@ export async function createLedgerEntry(
   }
 }
 
-export async function createLedgerEntryFromInvoice(
-  invoiceData: {
-    id: string;
-    invoiceNumber: string;
-    customerId: string;
-    customerName: string;
-    customerCompany?: string;
-    date: Date;
-    totalAmount: number;
-    createdBy: string;
-  }
-): Promise<LedgerEntry> {
+export async function createLedgerEntryFromInvoice(invoiceData: {
+  id: string;
+  invoiceNumber: string;
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  date: Date;
+  totalAmount: number;
+  createdBy: string;
+}): Promise<LedgerEntry> {
   try {
     const entry = await createLedgerEntry({
       customerId: invoiceData.customerId,
@@ -670,19 +650,17 @@ export async function createLedgerEntryFromInvoice(
   }
 }
 
-export async function createLedgerEntryFromPayment(
-  paymentData: {
-    id: string;
-    customerId: string;
-    customerName: string;
-    customerCompany?: string;
-    date: Date;
-    amount: number;
-    method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
-    reference?: string;
-    createdBy: string;
-  }
-): Promise<LedgerEntry> {
+export async function createLedgerEntryFromPayment(paymentData: {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  date: Date;
+  amount: number;
+  method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
+  reference?: string;
+  createdBy: string;
+}): Promise<LedgerEntry> {
   try {
     // Generate unique transaction number for this payment
     // Count existing payment entries for this invoice to create unique number
@@ -690,10 +668,10 @@ export async function createLedgerEntryFromPayment(
       transactionType: 'payment',
       transactionId: paymentData.id
     });
-    
+
     const paymentNumber = existingPayments + 1;
     const transactionNumber = `PAY-${paymentData.id.slice(-6).toUpperCase()}-${paymentNumber}`;
-    
+
     const entry = await createLedgerEntry({
       customerId: paymentData.customerId,
       customerName: paymentData.customerName,
@@ -747,10 +725,10 @@ export async function updateLedgerEntryFromInvoice(
     // Update the entry
     entry.debit = newDebit;
     entry.description = `Invoice ${invoiceData.invoiceNumber}`;
-    
+
     // Use the helper function to get balance before this entry (excludes cancelled invoices)
     const balanceBefore = await getCustomerBalanceBeforeDate(entry.customerId, entry.date, entry.createdAt);
-    
+
     // New balance = balance before this entry + this entry's debit - this entry's credit
     entry.balance = balanceBefore + entry.debit - entry.credit;
 
@@ -834,17 +812,15 @@ export async function deleteLedgerEntryFromInvoice(invoiceId: string): Promise<v
   }
 }
 
-export async function updateLedgerEntryFromPayment(
-  paymentData: {
-    invoiceId: string;
-    paymentIndex: number;
-    oldAmount: number;
-    newAmount: number;
-    newDate: Date;
-    newMethod: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
-    newReference?: string;
-  }
-): Promise<void> {
+export async function updateLedgerEntryFromPayment(paymentData: {
+  invoiceId: string;
+  paymentIndex: number;
+  oldAmount: number;
+  newAmount: number;
+  newDate: Date;
+  newMethod: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
+  newReference?: string;
+}): Promise<void> {
   try {
     await dbConnect();
 
@@ -877,7 +853,7 @@ export async function updateLedgerEntryFromPayment(
 
     // Use the helper function to get balance before this entry (excludes cancelled invoices)
     const balanceBefore = await getCustomerBalanceBeforeDate(entry.customerId, entry.date, entry.createdAt);
-    
+
     // New balance = balance before this entry + this entry's debit - this entry's credit
     entry.balance = balanceBefore + entry.debit - entry.credit;
 
@@ -910,12 +886,10 @@ export async function updateLedgerEntryFromPayment(
   }
 }
 
-export async function deleteLedgerEntryFromPayment(
-  paymentData: {
-    invoiceId: string;
-    paymentIndex: number;
-  }
-): Promise<void> {
+export async function deleteLedgerEntryFromPayment(paymentData: {
+  invoiceId: string;
+  paymentIndex: number;
+}): Promise<void> {
   try {
     await dbConnect();
 

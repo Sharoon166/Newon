@@ -54,7 +54,11 @@ export async function deductPurchaseStock(purchaseId: string, quantity: number):
  * @param quantity - The quantity to restore
  * @param skipRevalidation - Skip revalidatePath calls (for use during server component render)
  */
-export async function restorePurchaseStock(purchaseId: string, quantity: number, skipRevalidation = false): Promise<void> {
+export async function restorePurchaseStock(
+  purchaseId: string,
+  quantity: number,
+  skipRevalidation = false
+): Promise<void> {
   try {
     await dbConnect();
 
@@ -84,13 +88,11 @@ export async function restorePurchaseStock(purchaseId: string, quantity: number,
  * Handles both regular products and virtual products
  * Tracks actual purchases used for accurate cost tracking
  * Supports full rollback on errors
- * 
+ *
  * @param items - Array of items with purchaseId, quantity, and virtual product info
  * @returns Result with success status, errors, and actual deductions made
  */
-export async function deductStockForInvoice(
-  items: StockDeductionInput[]
-): Promise<StockDeductionResult> {
+export async function deductStockForInvoice(items: StockDeductionInput[]): Promise<StockDeductionResult> {
   const errors: string[] = [];
   const actualDeductions: ItemDeduction[] = [];
   const deductionsToRollback: DeductionToRollback[] = [];
@@ -117,7 +119,7 @@ export async function deductStockForInvoice(
           // Deduct stock for each component and track actual usage
           for (const component of (virtualProduct as unknown as VirtualProduct).components) {
             const requiredQty = component.quantity * item.quantity;
-            
+
             // Get product details for this component
             const product = await ProductModel.findById(component.productId).lean();
             if (!product) {
@@ -135,18 +137,18 @@ export async function deductStockForInvoice(
             }
 
             const productDoc = product as unknown as LeanProductDoc;
-            const variant = productDoc.variants?.find((v) => v.id === component.variantId);
-            
+            const variant = productDoc.variants?.find(v => v.id === component.variantId);
+
             const productName = productDoc.name;
             const sku = variant?.sku || 'N/A';
-            
+
             // Find purchases for this component variant (FIFO)
             const purchases = await PurchaseModel.find({
               productId: component.productId,
               variantId: component.variantId,
               remaining: { $gt: 0 }
             }).sort({ purchaseDate: 1, _id: 1 }); // FIFO - oldest first, then by _id for consistency
-            
+
             // Additional client-side sort to ensure consistent ordering when dates are identical
             purchases.sort((a, b) => {
               const dateA = new Date(a.purchaseDate).getTime();
@@ -160,12 +162,12 @@ export async function deductStockForInvoice(
 
             const purchasesUsed: PurchaseUsage[] = [];
             let remainingToDeduct = requiredQty;
-            
+
             for (const purchase of purchases) {
               if (remainingToDeduct <= 0) break;
-              
+
               const deductQty = Math.min(purchase.remaining, remainingToDeduct);
-              
+
               // Track this purchase usage
               purchasesUsed.push({
                 purchaseId: purchase.purchaseId,
@@ -173,13 +175,13 @@ export async function deductStockForInvoice(
                 unitCost: purchase.unitPrice,
                 totalCost: deductQty * purchase.unitPrice
               });
-              
+
               // Track for rollback
               deductionsToRollback.push({
                 purchaseId: purchase.purchaseId,
                 quantity: deductQty
               });
-              
+
               // Deduct from purchase
               purchase.remaining -= deductQty;
               await purchase.save();
@@ -189,7 +191,7 @@ export async function deductStockForInvoice(
             if (remainingToDeduct > 0) {
               throw new Error(
                 `Insufficient stock for component ${productName} (${sku}). ` +
-                `Needed: ${requiredQty}, Short by: ${remainingToDeduct}`
+                  `Needed: ${requiredQty}, Short by: ${remainingToDeduct}`
               );
             }
 
@@ -210,7 +212,6 @@ export async function deductStockForInvoice(
             virtualProductId: item.virtualProductId,
             componentBreakdown
           });
-
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           errors.push(`Virtual product ${item.virtualProductId}: ${errorMessage}`);
@@ -230,17 +231,19 @@ export async function deductStockForInvoice(
           if (purchase.remaining < item.quantity) {
             throw new Error(
               `Insufficient stock in purchase ${item.purchaseId}. ` +
-              `Available: ${purchase.remaining}, Requested: ${item.quantity}`
+                `Available: ${purchase.remaining}, Requested: ${item.quantity}`
             );
           }
 
           // Track regular purchase usage
-          const regularPurchases: PurchaseUsage[] = [{
-            purchaseId: purchase.purchaseId,
-            quantity: item.quantity,
-            unitCost: purchase.unitPrice,
-            totalCost: item.quantity * purchase.unitPrice
-          }];
+          const regularPurchases: PurchaseUsage[] = [
+            {
+              purchaseId: purchase.purchaseId,
+              quantity: item.quantity,
+              unitCost: purchase.unitPrice,
+              totalCost: item.quantity * purchase.unitPrice
+            }
+          ];
 
           // Track for rollback
           deductionsToRollback.push({
@@ -260,7 +263,6 @@ export async function deductStockForInvoice(
             variantId: item.variantId,
             regularPurchases
           });
-
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           errors.push(`${item.purchaseId}: ${errorMessage}`);
@@ -280,11 +282,10 @@ export async function deductStockForInvoice(
       errors: [],
       actualDeductions
     };
-
   } catch (error) {
     // Rollback all deductions made so far
     console.error('Stock deduction failed, rolling back...', error);
-    
+
     for (const deduction of deductionsToRollback) {
       try {
         const purchase = await PurchaseModel.findOne({ purchaseId: deduction.purchaseId });
@@ -312,8 +313,8 @@ export async function deductStockForInvoice(
  * @param skipRevalidation - Skip revalidatePath calls (for use during server component render)
  */
 export async function restoreStockForInvoice(
-  items: Array<{ 
-    purchaseId?: string; 
+  items: Array<{
+    purchaseId?: string;
     quantity: number;
     isVirtualProduct?: boolean;
     virtualProductId?: string;
@@ -341,7 +342,7 @@ export async function restoreStockForInvoice(
           for (const component of item.componentBreakdown) {
             try {
               const purchase = await PurchaseModel.findOne({ purchaseId: component.purchaseId });
-              
+
               if (!purchase) {
                 errors.push(`Purchase ${component.purchaseId} not found for restoration`);
                 continue;
@@ -357,9 +358,9 @@ export async function restoreStockForInvoice(
         } else {
           // Fallback: Use virtual product definition (old invoices without componentBreakdown)
           const VirtualProductModel = (await import('@/models/VirtualProduct')).default;
-          
+
           await dbConnect();
-          
+
           const virtualProduct = await VirtualProductModel.findById(item.virtualProductId).lean();
           if (!virtualProduct) {
             errors.push(`Virtual product ${item.virtualProductId} not found`);
@@ -369,7 +370,7 @@ export async function restoreStockForInvoice(
           // Restore stock for each component using LIFO
           for (const component of (virtualProduct as unknown as VirtualProduct).components) {
             const restoreQty = component.quantity * item.quantity;
-            
+
             // Find purchases for this component variant (most recent first for restoration)
             const purchases = await PurchaseModel.find({
               productId: component.productId,
@@ -377,13 +378,13 @@ export async function restoreStockForInvoice(
             }).sort({ purchaseDate: -1 }); // LIFO for restoration
 
             let remainingToRestore = restoreQty;
-            
+
             for (const purchase of purchases) {
               if (remainingToRestore <= 0) break;
-              
+
               const maxRestore = purchase.quantity - purchase.remaining;
               const restoreAmount = Math.min(maxRestore, remainingToRestore);
-              
+
               if (restoreAmount > 0) {
                 purchase.remaining += restoreAmount;
                 await purchase.save();
@@ -394,7 +395,7 @@ export async function restoreStockForInvoice(
             if (remainingToRestore > 0) {
               errors.push(
                 `Could not fully restore stock for component ${component.productId}-${component.variantId}. ` +
-                `Attempted: ${restoreQty}, Restored: ${restoreQty - remainingToRestore}`
+                  `Attempted: ${restoreQty}, Restored: ${restoreQty - remainingToRestore}`
               );
             }
           }

@@ -11,26 +11,19 @@ export default function NotAllowedPage() {
             <ShieldAlert className="h-16 w-16 text-destructive" />
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Access Denied</h1>
-          <p className="text-muted-foreground text-lg">
-            You don&apos;t have permission to access this page.
-          </p>
+          <p className="text-muted-foreground text-lg">You don&apos;t have permission to access this page.</p>
         </div>
 
         <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-          <p>
-            Your account has limited access. If you believe this is an error, 
-            please contact your administrator.
-          </p>
+          <p>Your account has limited access. If you believe this is an error, please contact your administrator.</p>
         </div>
 
         <div className="pt-4">
           <Button asChild size="lg">
-            <Link href="/inventory/staff">
-              Go to Inventory
-            </Link>
+            <Link href="/inventory/staff">Go to Inventory</Link>
           </Button>
         </div>
       </div>

@@ -16,10 +16,7 @@ interface EditVirtualProductPageProps {
 }
 
 export default async function EditVirtualProductPage({ params }: EditVirtualProductPageProps) {
-  const [virtualProduct, variants] = await Promise.all([
-    getVirtualProductById(params.id),
-    getProducts()
-  ]);
+  const [virtualProduct, variants] = await Promise.all([getVirtualProductById(params.id), getProducts()]);
 
   if (!virtualProduct) {
     notFound();
@@ -27,16 +24,9 @@ export default async function EditVirtualProductPage({ params }: EditVirtualProd
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <PageHeader
-        title="Edit Virtual Product"
-        description={`Editing: ${virtualProduct.name}`}
-      />
+      <PageHeader title="Edit Virtual Product" description={`Editing: ${virtualProduct.name}`} />
 
-      <VirtualProductForm
-        initialData={virtualProduct}
-        variants={variants}
-        mode="edit"
-      />
+      <VirtualProductForm initialData={virtualProduct} variants={variants} mode="edit" />
     </div>
   );
 }

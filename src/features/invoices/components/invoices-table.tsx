@@ -88,7 +88,6 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
     router.push(`?${params.toString()}`, { scroll: false });
   }, [debouncedSearchValue, router, searchParams]);
 
-
   const handleRefresh = () => {
     if (onRefresh) {
       onRefresh();
@@ -364,7 +363,7 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
         cell: ({ row }) => {
           const invoice = row.original;
           const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
-          
+
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -545,7 +544,7 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
           </Table>
         </div>
 
-        <ServerPagination 
+        <ServerPagination
           currentPage={invoicesData.page || 1}
           totalPages={invoicesData.totalPages}
           totalDocs={invoicesData.totalDocs}
@@ -565,7 +564,9 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
           selectedInvoice?.projectId
             ? `This ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} is linked to a project and cannot be cancelled. Please manage it through the project page.`
             : `Are you sure you want to cancel ${selectedInvoice?.type === 'invoice' ? 'invoice' : 'quotation'} ${selectedInvoice?.invoiceNumber}? ${
-                selectedInvoice?.stockDeducted ? 'Stock will be restored to inventory.' : 'This will mark it as cancelled.'
+                selectedInvoice?.stockDeducted
+                  ? 'Stock will be restored to inventory.'
+                  : 'This will mark it as cancelled.'
               }`
         }
         confirmText={selectedInvoice?.projectId ? undefined : 'Cancel Invoice'}

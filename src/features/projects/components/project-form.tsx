@@ -27,12 +27,7 @@ interface ProjectFormProps {
   currentUserId: string;
 }
 
-export function ProjectForm({
-  project,
-  invoices,
-  staffMembers,
-  currentUserId,
-}: ProjectFormProps) {
+export function ProjectForm({ project, invoices, staffMembers, currentUserId }: ProjectFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [startDate, setStartDate] = useState<Date | undefined>(

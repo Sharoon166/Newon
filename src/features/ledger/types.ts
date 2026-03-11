@@ -1,6 +1,6 @@
 /**
  * Ledger Types
- * 
+ *
  * This file defines the types for the ledger management system.
  * The ledger tracks customer transactions, payments, and outstanding balances.
  */
@@ -13,7 +13,7 @@ export type PaymentMethod = 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'up
 
 /**
  * LedgerEntry - Individual transaction in the ledger
- * 
+ *
  * Fields added:
  * - id: Unique identifier for the ledger entry
  * - customerId: Reference to the customer
@@ -57,7 +57,7 @@ export interface LedgerEntry {
 
 /**
  * CustomerLedger - Aggregated ledger data for a customer
- * 
+ *
  * Fields added:
  * - customerId: Reference to the customer
  * - customerName: Customer name
@@ -85,7 +85,7 @@ export interface CustomerLedger {
 
 /**
  * LedgerSummary - Summary statistics for the ledger
- * 
+ *
  * Fields added:
  * - totalCustomers: Total number of customers with ledger entries
  * - totalOutstanding: Total outstanding balance across all customers
@@ -143,7 +143,7 @@ export interface UpdateLedgerEntryDto {
 
 /**
  * LedgerFilters - Filters for querying ledger entries
- * 
+ *
  * Fields added:
  * - customerId: Filter by specific customer
  * - transactionType: Filter by transaction type

@@ -276,7 +276,7 @@ export function PurchaseForm({
         onClick={e => e.stopPropagation()}
       >
         <ScrollArea className="max-h-[75vh] -mx-4 px-4">
-          <DialogHeader className='mb-4'>
+          <DialogHeader className="mb-4">
             <DialogTitle>
               {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
               {isEditMode && purchase?.purchaseId && (
@@ -410,11 +410,7 @@ export function PurchaseForm({
                             className="text-muted-foreground hover:text-foreground transition-colors"
                             title={isEditingSupplier ? 'Reset to default' : 'Edit supplier'}
                           >
-                            {isEditingSupplier ? (
-                              <X className="h-4 w-4" />
-                            ) : (
-                              <Pencil className="h-4 w-4" />
-                            )}
+                            {isEditingSupplier ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                           </button>
                         </FormLabel>
                       </div>
@@ -425,7 +421,7 @@ export function PurchaseForm({
                             ref={supplierInputRef}
                             value={field.value}
                             onChange={field.onChange}
-                            onKeyDown={(e) => {
+                            onKeyDown={e => {
                               if (e.key === 'Enter' || e.key === 'Escape') {
                                 e.preventDefault();
                                 setIsEditingSupplier(false);
@@ -437,7 +433,7 @@ export function PurchaseForm({
                               }
                               setIsEditingSupplier(false);
                             }}
-                            onClick={(e) => {
+                            onClick={e => {
                               if (!isEditingSupplier) {
                                 e.preventDefault();
                                 setIsEditingSupplier(true);
@@ -594,9 +590,7 @@ export function PurchaseForm({
                   name="retailPrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Retail Price
-                      </FormLabel>
+                      <FormLabel>Retail Price</FormLabel>
                       <FormControl>
                         <NumberInput
                           value={field.value}
@@ -618,36 +612,33 @@ export function PurchaseForm({
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="wholesalePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Wholesale Price</FormLabel>
+                      <FormControl>
+                        <NumberInput
+                          value={field.value}
+                          onChange={value => {
+                            field.onChange(value);
+                          }}
+                          min={0}
+                          step="0.01"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-<FormField
-control={form.control}
-name="wholesalePrice"
-render={({ field }) => (
-  <FormItem>
-    <FormLabel>
-      Wholesale Price
-    </FormLabel>
-    <FormControl>
-      <NumberInput
-        value={field.value}
-        onChange={value => {
-          field.onChange(value);
-        }}
-        min={0}
-        step="0.01"
-        onKeyDown={e => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-      />
-    </FormControl>
-    <FormMessage />
-  </FormItem>
-)}
-/>
-                            
                 <FormField
                   control={form.control}
                   name="shippingCost"

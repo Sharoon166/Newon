@@ -21,15 +21,12 @@ export async function POST() {
       { upsert: true, new: true }
     );
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Settings seeded successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Settings seeded successfully'
     });
   } catch (error) {
     console.error('Error seeding settings:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to seed settings' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to seed settings' }, { status: 500 });
   }
 }

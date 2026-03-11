@@ -2,14 +2,14 @@ import mongoose from 'mongoose';
 
 // Global counter schema for all entities
 const counterSchema = new mongoose.Schema({
-  key: { 
-    type: String, 
-    required: true, 
-    unique: true 
+  key: {
+    type: String,
+    required: true,
+    unique: true
   },
-  sequence: { 
-    type: Number, 
-    default: 0 
+  sequence: {
+    type: Number,
+    default: 0
   }
 });
 
@@ -21,16 +21,12 @@ const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSche
  * @returns The next sequence number
  */
 export async function getNextSequence(key: string): Promise<number> {
-  const counter = await Counter.findOneAndUpdate(
-    { key },
-    { $inc: { sequence: 1 } },
-    { new: true, upsert: true }
-  );
-  
+  const counter = await Counter.findOneAndUpdate({ key }, { $inc: { sequence: 1 } }, { new: true, upsert: true });
+
   if (!counter) {
     throw new Error(`Failed to generate sequence for key: ${key}`);
   }
-  
+
   return counter.sequence;
 }
 
@@ -44,10 +40,10 @@ export async function generateId(prefix: string, year?: number): Promise<string>
   const currentYear = year || new Date().getFullYear();
   const yearSuffix = currentYear.toString().slice(-2);
   const key = `${prefix.toLowerCase()}-${currentYear}`;
-  
+
   const sequence = await getNextSequence(key);
   const sequenceStr = sequence.toString().padStart(3, '0');
-  
+
   return `${prefix}-${yearSuffix}-${sequenceStr}`;
 }
 

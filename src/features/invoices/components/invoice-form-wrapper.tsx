@@ -23,7 +23,7 @@ interface FormItem {
   discountAmount?: number;
   stockLocation?: string;
   originalRate?: number;
-  saleRate: number
+  saleRate: number;
 }
 
 interface ClientInfo {
@@ -72,22 +72,26 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
 
       // Transform form data to match database schema
       // Generate a unique customer ID if not provided
-      const customerId = formData.customerId || 
-        `manual-${formData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') || 
-        formData.client.phone?.replace(/[^0-9]/g, '') || 
-        formData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-      
+      const customerId =
+        formData.customerId ||
+        `manual-${
+          formData.client.email?.toLowerCase().replace(/[^a-z0-9]/g, '-') ||
+          formData.client.phone?.replace(/[^0-9]/g, '') ||
+          formData.client.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+        }`;
+
       // Check if invoice has custom items
       // An item is custom if:
       // 1. It has no productId (custom item)
       // 2. It has productId === 'manual-entry' (manually entered)
       // 3. The rate has been modified from the original rate
       const hasCustomItems = formData.items.some(
-        item => !item.productId || 
-                item.productId === 'manual-entry' || 
-                (item.saleRate !== undefined && item.rate !== item.saleRate)
+        item =>
+          !item.productId ||
+          item.productId === 'manual-entry' ||
+          (item.saleRate !== undefined && item.rate !== item.saleRate)
       );
-            
+
       const invoiceData: CreateInvoiceDto = {
         type,
         date: new Date(formData.date),
@@ -104,7 +108,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         customerCity: formData.client.city || undefined,
         customerState: formData.client.state || undefined,
         customerZip: formData.client.zip || undefined,
-        items: formData.items.map((item) => ({
+        items: formData.items.map(item => ({
           productId: item.productId || 'manual-entry',
           productName: item.description,
           variantId: item.variantId,
@@ -122,24 +126,28 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         subtotal: formData.items.reduce((sum, item) => sum + item.amount, 0),
         discountType: formData.discountType,
         discountValue: formData.discount,
-        discountAmount: formData.discountType === 'percentage' 
-          ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
-          : formData.discount,
+        discountAmount:
+          formData.discountType === 'percentage'
+            ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
+            : formData.discount,
         gstType: formData.taxRate > 0 ? 'percentage' : undefined,
         gstValue: formData.taxRate,
         gstAmount: (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100,
-        totalAmount: formData.items.reduce((sum, item) => sum + item.amount, 0) 
-          + ((formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100)
-          - (formData.discountType === 'percentage' 
+        totalAmount:
+          formData.items.reduce((sum, item) => sum + item.amount, 0) +
+          (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100 -
+          (formData.discountType === 'percentage'
             ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
             : formData.discount),
-        status: type === 'quotation' ? 'draft' : (customerId === 'otc' ? 'paid' : 'pending'),
+        status: type === 'quotation' ? 'draft' : customerId === 'otc' ? 'paid' : 'pending',
         paidAmount: formData.paid || 0,
-        balanceAmount: (formData.items.reduce((sum, item) => sum + item.amount, 0) 
-          + ((formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100)
-          - (formData.discountType === 'percentage' 
+        balanceAmount:
+          formData.items.reduce((sum, item) => sum + item.amount, 0) +
+          (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100 -
+          (formData.discountType === 'percentage'
             ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
-            : formData.discount)) - (formData.paid || 0),
+            : formData.discount) -
+          (formData.paid || 0),
         profit: formData.profit || 0,
         description: formData.description,
         notes: formData.notes,
@@ -149,7 +157,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
       };
 
       const result = await createInvoice(invoiceData);
-      
+
       toast.success(`${type === 'invoice' ? 'Invoice' : 'Quotation'} created successfully!`);
       router.push(`/invoices/${result.id}`);
     } catch (error) {

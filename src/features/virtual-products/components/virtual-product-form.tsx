@@ -25,7 +25,7 @@ import {
   ComboboxContent,
   ComboboxList,
   ComboboxItem,
-  ComboboxEmpty,
+  ComboboxEmpty
 } from '@/components/ui/combobox';
 import { formatCurrency } from '@/lib/utils';
 import { EXPENSE_CATEGORIES } from '@/features/expenses/types';
@@ -35,21 +35,43 @@ const virtualProductSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   sku: z.string().min(1, 'SKU is required'),
   description: z.string().optional(),
-  components: z.array(z.object({
-    productId: z.string(),
-    variantId: z.string(),
-    quantity: z.number().min(1, 'Quantity must be at least 1'),
-    productName: z.string(),
-    sku: z.string(),
-    image: z.string().optional(),
-    availableStock: z.number().optional()
-  })).min(1, 'At least one component is required'),
-  customExpenses: z.array(z.object({
-    name: z.string().min(1, 'Expense name is required'),
-    amount: z.number().min(0.01, 'Amount must be greater than 0'),
-    category: z.enum(['materials', 'labor', 'equipment', 'transport', 'rent', 'utilities', 'fuel', 'maintenance', 'marketing', 'office-supplies', 'professional-services', 'insurance', 'taxes', 'salary', 'other']),
-    description: z.string().optional()
-  })),
+  components: z
+    .array(
+      z.object({
+        productId: z.string(),
+        variantId: z.string(),
+        quantity: z.number().min(1, 'Quantity must be at least 1'),
+        productName: z.string(),
+        sku: z.string(),
+        image: z.string().optional(),
+        availableStock: z.number().optional()
+      })
+    )
+    .min(1, 'At least one component is required'),
+  customExpenses: z.array(
+    z.object({
+      name: z.string().min(1, 'Expense name is required'),
+      amount: z.number().min(0.01, 'Amount must be greater than 0'),
+      category: z.enum([
+        'materials',
+        'labor',
+        'equipment',
+        'transport',
+        'rent',
+        'utilities',
+        'fuel',
+        'maintenance',
+        'marketing',
+        'office-supplies',
+        'professional-services',
+        'insurance',
+        'taxes',
+        'salary',
+        'other'
+      ]),
+      description: z.string().optional()
+    })
+  ),
   basePrice: z.number().min(0.01, 'Base price must be greater than 0'),
   categories: z.array(z.string()),
   disabled: z.boolean()
@@ -91,14 +113,12 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
 
   const handleAddComponent = (variantKey: string) => {
     // variantKey format: "productName - sku"
-    const variant = availableVariants.find(v => 
-      `${v.productName} - ${v.sku}` === variantKey
-    );
-    
+    const variant = availableVariants.find(v => `${v.productName} - ${v.sku}` === variantKey);
+
     if (!variant) return;
 
     const currentComponents = form.getValues('components');
-    
+
     // Check if already added
     if (currentComponents.some(c => c.productId === variant.productId && c.variantId === variant.id)) {
       toast.error('Component already added');
@@ -121,23 +141,27 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
 
   const handleRemoveComponent = (index: number) => {
     const currentComponents = form.getValues('components');
-    form.setValue('components', currentComponents.filter((_, i) => i !== index));
+    form.setValue(
+      'components',
+      currentComponents.filter((_, i) => i !== index)
+    );
   };
 
   const handleComponentQuantityChange = (index: number, quantity: number) => {
     if (quantity < 1) return;
-    
+
     const currentComponents = form.getValues('components');
-    form.setValue('components', currentComponents.map((comp, i) =>
-      i === index ? { ...comp, quantity } : comp
-    ));
+    form.setValue(
+      'components',
+      currentComponents.map((comp, i) => (i === index ? { ...comp, quantity } : comp))
+    );
   };
 
   const handleAddCategory = () => {
     if (!categoryInput.trim()) return;
-    
+
     const currentCategories = form.getValues('categories');
-    
+
     if (currentCategories.includes(categoryInput.trim())) {
       toast.error('Category already added');
       return;
@@ -149,7 +173,10 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
 
   const handleRemoveCategory = (category: string) => {
     const currentCategories = form.getValues('categories');
-    form.setValue('categories', currentCategories.filter(c => c !== category));
+    form.setValue(
+      'categories',
+      currentCategories.filter(c => c !== category)
+    );
   };
 
   const handleAddExpense = () => {
@@ -183,7 +210,10 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
 
   const handleRemoveExpense = (index: number) => {
     const currentExpenses = form.getValues('customExpenses');
-    form.setValue('customExpenses', currentExpenses.filter((_, i) => i !== index));
+    form.setValue(
+      'customExpenses',
+      currentExpenses.filter((_, i) => i !== index)
+    );
   };
 
   const onSubmit = async (data: VirtualProductFormValues) => {
@@ -193,12 +223,16 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
         ...data,
         description: data.description || ''
       };
-      
+
       if (mode === 'create') {
         await createVirtualProduct(submitData);
         toast.success('Virtual product created successfully');
       } else {
-        await updateVirtualProduct(initialData!._id!, submitData);
+        const err = await updateVirtualProduct(initialData!._id!, submitData);
+        if (err?.error) {
+          toast.error(err.error);
+          return;
+        }
         toast.success('Virtual product updated successfully');
       }
       router.push('/virtual-products');
@@ -278,8 +312,16 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
                     <Input
                       type="number"
                       step="0.01"
-                      {...field}
-                      onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                      value={field.value === 0 ? '' : field.value}
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (value === '' || value === '-') {
+                          field.onChange(0);
+                        } else {
+                          const parsed = parseFloat(value);
+                          field.onChange(isNaN(parsed) ? 0 : parsed);
+                        }
+                      }}
                       placeholder="0.00"
                     />
                   </FormControl>
@@ -330,10 +372,7 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
               onInputValueChange={handleAddComponent}
               autoHighlight
             >
-              <ComboboxInput
-                placeholder="Search and select product variant..."
-                className="w-full"
-              />
+              <ComboboxInput placeholder="Search and select product variant..." className="w-full" />
               <ComboboxContent>
                 <ComboboxEmpty>No variants found</ComboboxEmpty>
                 <ComboboxList>
@@ -344,8 +383,8 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
                     >
                       <div className="flex items-center gap-2 flex-1">
                         <Avatar className="h-8 w-8 rounded-md">
-                          <AvatarImage 
-                            src={variant.image || variant.imageFile?.cloudinaryUrl} 
+                          <AvatarImage
+                            src={variant.image || variant.imageFile?.cloudinaryUrl}
                             alt={variant.productName}
                             className="object-contain"
                           />
@@ -406,12 +445,7 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
                             className="w-20"
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveComponent(index)}
-                        >
+                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveComponent(index)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -452,11 +486,8 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
               </div>
               <div className="space-y-2">
                 <Label htmlFor="expenseCategory">Category</Label>
-                <Select 
-                  value={expenseCategory} 
-                  onValueChange={(value) => setExpenseCategory(value as ExpenseCategory)}
-                >
-                  <SelectTrigger className='w-full'>
+                <Select value={expenseCategory} onValueChange={value => setExpenseCategory(value as ExpenseCategory)}>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -495,16 +526,12 @@ export function VirtualProductForm({ initialData, variants, mode }: VirtualProdu
                       <div className="flex-1">
                         <div className="font-medium">{expense.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)} • {formatCurrency(expense.amount)}
+                          {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)} •{' '}
+                          {formatCurrency(expense.amount)}
                           {expense.description && ` • ${expense.description}`}
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveExpense(index)}
-                      >
+                      <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveExpense(index)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>

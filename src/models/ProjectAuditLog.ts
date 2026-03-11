@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema, PaginateModel } from 'mongoose';
 import mongoosePaginate from 'mongoose-paginate-v2';
 
-export type AuditAction = 
+export type AuditAction =
   | 'project_created'
   | 'project_updated'
   | 'project_status_changed'

@@ -14,12 +14,8 @@ export default function AddCustomerPage() {
 
   return (
     <div className="container mx-auto space-y-8">
-      <PageHeader
-        title="Add Customer"
-        description="Add a new customer to your database"
-        backLink="/customers"
-      />
-      
+      <PageHeader title="Add Customer" description="Add a new customer to your database" backLink="/customers" />
+
       <div className="mt-8 max-w-xl mx-auto">
         <CustomerForm onSuccess={handleSuccess} />
       </div>

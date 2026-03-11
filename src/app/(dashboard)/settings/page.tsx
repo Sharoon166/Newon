@@ -10,23 +10,17 @@ export default async function SettingsPage() {
   const session = await requireAdmin();
 
   await dbConnect();
-  const admin = await Staff.findOne({ staffId: session.user.staffId }).lean() as IStaff | null;
+  const admin = (await Staff.findOne({ staffId: session.user.staffId }).lean()) as IStaff | null;
 
   if (!admin) {
-    redirect("/inventory")
+    redirect('/inventory');
   }
 
-  const [paymentDetails, invoiceTerms] = await Promise.all([
-    getPaymentDetails(),
-    getInvoiceTerms()
-  ]);
+  const [paymentDetails, invoiceTerms] = await Promise.all([getPaymentDetails(), getInvoiceTerms()]);
 
   return (
     <div className="container mx-auto py-6">
-      <PageHeader
-        title="Settings"
-        description="Manage your account and app preferences"
-      />
+      <PageHeader title="Settings" description="Manage your account and app preferences" />
 
       <SettingsTabs
         paymentDetails={paymentDetails}

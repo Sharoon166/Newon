@@ -3,11 +3,11 @@ import { toast } from 'sonner';
 // Type for the CSV export data
 export type CsvExportData = {
   'Purchase Date': string;
-  'Product': string;
-  'Variant': string;
-  'Supplier': string;
-  'Quantity': number;
-  'Remaining': number;
+  Product: string;
+  Variant: string;
+  Supplier: string;
+  Quantity: number;
+  Remaining: number;
   'Unit Price': string;
   'Total Cost': string;
 };
@@ -44,7 +44,7 @@ export const exportToCsv = (data: CsvExportData[], filename: string): void => {
     // Create a Blob with the CSV data
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
+
     // Create a temporary link and trigger download
     const link = document.createElement('a');
     link.setAttribute('href', url);

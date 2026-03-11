@@ -168,5 +168,4 @@ export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTempl
   );
 });
 
-DeliveryNoteTemplate.displayName
- = 'DeliveryNoteTemplate';
+DeliveryNoteTemplate.displayName = 'DeliveryNoteTemplate';

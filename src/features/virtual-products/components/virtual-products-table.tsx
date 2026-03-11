@@ -218,7 +218,7 @@ export function VirtualProductsTable({ data }: VirtualProductsTableProps) {
                 <DropdownMenuItem
                   onClick={async () => {
                     const result = await toggleVirtualProductDisabled(product.id!);
-                    
+
                     if (result.success) {
                       toast.success(result.data.disabled ? 'Product disabled' : 'Product enabled');
                       router.refresh();
@@ -289,14 +289,14 @@ export function VirtualProductsTable({ data }: VirtualProductsTableProps) {
     if (!selectedProduct) return;
 
     const result = await deleteVirtualProduct(selectedProduct.id!);
-    
+
     if (result.success) {
       toast.success('Virtual product deleted successfully');
       router.refresh();
     } else {
       toast.error(result.error);
     }
-    
+
     setDeleteDialogOpen(false);
     setSelectedProduct(null);
   };

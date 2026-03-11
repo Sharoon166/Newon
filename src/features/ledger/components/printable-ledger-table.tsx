@@ -80,9 +80,7 @@ export function PrintableLedgerTable({ data }: PrintableLedgerTableProps) {
           {/* Header */}
           <div className="border-b-4 border-gray-900 pb-4 mb-4 print:pb-2 print:mb-3">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2 print:text-2xl print:mb-1">
-                LEDGER REPORT
-              </h1>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2 print:text-2xl print:mb-1">LEDGER REPORT</h1>
               <p className="text-sm text-gray-600 print:text-xs">Generated on: {formatDate(new Date())}</p>
               <p className="text-sm text-gray-600 print:text-xs">Total Customers: {data.length}</p>
             </div>

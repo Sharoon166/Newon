@@ -14,7 +14,18 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, ChevronUp, Search, ExternalLink, Download, FileSpreadsheet, Trash2, Plus, Edit2, AlertCircle } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Search,
+  ExternalLink,
+  Download,
+  FileSpreadsheet,
+  Trash2,
+  Plus,
+  Edit2,
+  AlertCircle
+} from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases } from '../types';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -237,12 +248,7 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEditClick(row.original)}
-            title="Edit purchase"
-          >
+          <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
             <Edit2 className="h-4 w-4" />
           </Button>
           <Button
@@ -256,7 +262,9 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
                 : 'Delete purchase'
             }
           >
-            <Trash2 className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`} />
+            <Trash2
+              className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`}
+            />
           </Button>
           <Button
             variant="ghost"
@@ -277,7 +285,7 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: getSortedRowModel()
   });
 
   const handleExportCsv = () => {
@@ -316,11 +324,7 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => setAddPurchaseOpen(true)}
-              disabled={products.length === 0}
-              className="grow"
-            >
+            <Button onClick={() => setAddPurchaseOpen(true)} disabled={products.length === 0} className="grow">
               <Plus className="mr-2 h-4 w-4" />
               Add Purchase
             </Button>

@@ -17,12 +17,7 @@ interface LinkInvoiceDialogProps {
   onSuccess: () => void;
 }
 
-export function LinkInvoiceDialog({
-  open,
-  onOpenChange,
-  projectId,
-  onSuccess
-}: LinkInvoiceDialogProps) {
+export function LinkInvoiceDialog({ open, onOpenChange, projectId, onSuccess }: LinkInvoiceDialogProps) {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,19 +67,14 @@ export function LinkInvoiceDialog({
             <Input
               id="invoiceNumber"
               value={invoiceNumber}
-              onChange={(e) => setInvoiceNumber(e.target.value)}
+              onChange={e => setInvoiceNumber(e.target.value)}
               placeholder="INV-2026-0001"
               disabled={isSubmitting}
             />
           </div>
 
           <div className="flex gap-2 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
