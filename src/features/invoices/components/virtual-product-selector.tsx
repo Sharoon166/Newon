@@ -644,8 +644,8 @@ export function VirtualProductSelector({
                   <span>
                     {formatCurrency(
                       customPrice -
-                        (selectedProduct.estimatedComponentCost +
-                          editableExpenses.reduce((sum, e) => sum + e.amount, 0))
+                      (selectedProduct.estimatedComponentCost +
+                        editableExpenses.reduce((sum, e) => sum + e.amount, 0))
                     )}
                   </span>
                 </div>

@@ -175,20 +175,26 @@ export function ExpensesPageClient({
             </InputGroupAddon>
           </InputGroup>
 
-          <Select value={categoryFilter} onValueChange={handleCategoryChange}>
-            <SelectTrigger className="w-[200px]">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="Filter by category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {Object.entries(categoryLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={categoryFilter} onValueChange={handleCategoryChange}>
+              <SelectTrigger className="w-[200px]">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {Object.entries(categoryLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button className="grow" onClick={() => setIsFormOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Expense
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -199,12 +205,6 @@ export function ExpensesPageClient({
             <TabsTrigger value="project-expenses">Project Expenses ({projectExpensesData.totalDocs})</TabsTrigger>
             <TabsTrigger value="invoice-expenses">Invoice Expenses ({invoiceExpensesData.totalDocs})</TabsTrigger>
           </TabsList>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button className="grow" onClick={() => setIsFormOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Expense
-            </Button>
-          </div>
         </div>
 
         <TabsContent value="expenses" className="space-y-4">

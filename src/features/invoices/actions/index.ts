@@ -11,7 +11,8 @@ import {
   UpdateInvoiceDto,
   AddPaymentDto,
   InvoiceFilters,
-  PaginatedInvoices
+  PaginatedInvoices,
+  AdditionalCharge
 } from '../types';
 import { calculateInvoiceProfit } from '../utils/calculate-profit';
 
@@ -88,17 +89,17 @@ interface LeanInvoice {
   gstAmount: number;
   totalAmount: number;
   status:
-    | 'pending'
-    | 'paid'
-    | 'partial'
-    | 'delivered'
-    | 'cancelled'
-    | 'draft'
-    | 'sent'
-    | 'accepted'
-    | 'rejected'
-    | 'expired'
-    | 'converted';
+  | 'pending'
+  | 'paid'
+  | 'partial'
+  | 'delivered'
+  | 'cancelled'
+  | 'draft'
+  | 'sent'
+  | 'accepted'
+  | 'rejected'
+  | 'expired'
+  | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount: number;
   balanceAmount: number;
@@ -111,6 +112,7 @@ interface LeanInvoice {
   convertedInvoiceId?: string;
   description?: string;
   profit?: number;
+  additionalCharges: AdditionalCharge[];
   custom?: boolean;
   createdBy: string;
   projectId?: string;
@@ -201,6 +203,7 @@ function transformInvoice(doc: LeanInvoice): Invoice {
     custom: doc.custom || false,
     createdBy: doc.createdBy,
     projectId: doc.projectId,
+    additionalCharges: doc.additionalCharges,
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt,
     updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt
   } as Invoice;

@@ -79,6 +79,10 @@ interface FormData {
   paid?: number;
   profit?: number;
   amountInWords?: string;
+  additionalCharges?: Array<{
+    description: string;
+    value: number;
+  }>;
 }
 
 interface EditInvoiceFormWrapperProps {
@@ -108,7 +112,7 @@ export function EditInvoiceFormWrapper({
   const [isLoading, setIsLoading] = useState(false);
 
   // Stable empty function for onPreview
-  const handlePreview = useCallback(() => {}, []);
+  const handlePreview = useCallback(() => { }, []);
 
   // Transform invoice to form data
   const initialData: Partial<FormData> = {
@@ -163,7 +167,8 @@ export function EditInvoiceFormWrapper({
     description: invoice.description,
     notes: invoice.notes,
     terms: invoice.termsAndConditions,
-    profit: invoice.profit
+    profit: invoice.profit,
+    additionalCharges: invoice.additionalCharges
   };
 
   const handleSaveInvoice = useCallback(
@@ -176,7 +181,8 @@ export function EditInvoiceFormWrapper({
           formData.discountType === 'percentage' ? (subtotal * formData.discount) / 100 : formData.discount;
 
         const taxAmount = (subtotal * formData.taxRate) / 100;
-        const totalAmount = subtotal + taxAmount - discountAmount;
+        const additionalChargesTotal = formData.additionalCharges?.reduce((sum, charge) => sum + charge.value, 0) || 0;
+        const totalAmount = subtotal + taxAmount - discountAmount + additionalChargesTotal;
 
         // Check if invoice has custom items
         const hasCustomItems = formData.items.some(
@@ -215,16 +221,16 @@ export function EditInvoiceFormWrapper({
             }),
             ...(item.customExpenses &&
               item.customExpenses.length > 0 && {
-                customExpenses: item.customExpenses.map(expense => ({
-                  name: expense.name,
-                  amount: expense.clientCost,
-                  actualCost: expense.actualCost,
-                  clientCost: expense.clientCost,
-                  category: expense.category,
-                  description: expense.description
-                })),
-                totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
-              }),
+              customExpenses: item.customExpenses.map(expense => ({
+                name: expense.name,
+                amount: expense.clientCost,
+                actualCost: expense.actualCost,
+                clientCost: expense.clientCost,
+                category: expense.category,
+                description: expense.description
+              })),
+              totalCustomExpenses: item.customExpenses.reduce((sum, exp) => sum + exp.actualCost, 0)
+            }),
             quantity: item.quantity,
             unit: item.unit || 'pcs',
             unitPrice: item.rate,
@@ -243,13 +249,16 @@ export function EditInvoiceFormWrapper({
           gstValue: formData.taxRate,
           gstAmount: taxAmount,
           totalAmount,
-          balanceAmount: totalAmount - invoice.paidAmount,
+          balanceAmount: totalAmount - (formData.profit || 0),
           description: formData.description,
           notes: formData.notes,
           termsAndConditions: formData.terms,
-          amountInWords: formData.amountInWords,
-          // Don't send profit - let updateInvoiceFull recalculate it
-          custom: hasCustomItems
+          custom: hasCustomItems,
+          additionalCharges: formData.additionalCharges?.map(charge => ({
+            description: charge.description,
+            value: charge.value
+          })),
+          createdBy: invoice.createdBy
         };
 
         await updateInvoiceFull(invoice.id, updateData);

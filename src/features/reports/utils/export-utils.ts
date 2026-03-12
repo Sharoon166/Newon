@@ -9,8 +9,9 @@ export type ReportCsvData = {
   Revenue: string;
   Paid: string;
   Outstanding: string;
+  'Gross Profit': string;
   Expenses: string;
-  Profit: string;
+  'Net Profit': string;
 };
 
 export const exportReportsToCsv = (data: MonthlyReport[], year: number): void => {
@@ -27,8 +28,9 @@ export const exportReportsToCsv = (data: MonthlyReport[], year: number): void =>
       Revenue: formatCurrency(report.revenue, false),
       Paid: formatCurrency(report.paidAmount, false),
       Outstanding: formatCurrency(report.outstandingAmount, false),
+      'Gross Profit': formatCurrency(report.grossProfit, false),
       Expenses: formatCurrency(report.expenses, false),
-      Profit: formatCurrency(report.profit, false)
+      'Net Profit': formatCurrency(report.profit, false)
     }));
 
     const headers = Object.keys(csvData[0]);

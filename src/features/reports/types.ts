@@ -6,6 +6,7 @@ export interface MonthlyReport {
   quotationsCount: number;
   revenue: number;
   expenses: number;
+  grossProfit: number;
   profit: number;
   paidAmount: number;
   outstandingAmount: number;
@@ -19,6 +20,7 @@ export interface YearlyReportData {
     quotationsCount: number;
     revenue: number;
     expenses: number;
+    grossProfit: number;
     profit: number;
     paidAmount: number;
     outstandingAmount: number;

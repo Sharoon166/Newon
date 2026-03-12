@@ -54,6 +54,10 @@ interface InvoiceFormData {
   description?: string;
   notes?: string;
   terms?: string;
+  additionalCharges?: Array<{
+    description: string;
+    value: number;
+  }>;
 }
 
 interface InvoiceFormWrapperProps {
@@ -138,7 +142,8 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
           (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100 -
           (formData.discountType === 'percentage'
             ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
-            : formData.discount),
+            : formData.discount) +
+          (formData.additionalCharges?.reduce((sum, charge) => sum + charge.value, 0) || 0),
         status: type === 'quotation' ? 'draft' : customerId === 'otc' ? 'paid' : 'pending',
         paidAmount: formData.paid || 0,
         balanceAmount:
@@ -146,13 +151,15 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
           (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.taxRate) / 100 -
           (formData.discountType === 'percentage'
             ? (formData.items.reduce((sum, item) => sum + item.amount, 0) * formData.discount) / 100
-            : formData.discount) -
+            : formData.discount) +
+          (formData.additionalCharges?.reduce((sum, charge) => sum + charge.value, 0) || 0) -
           (formData.paid || 0),
         profit: formData.profit || 0,
         description: formData.description,
         notes: formData.notes,
         termsAndConditions: formData.terms,
         custom: hasCustomItems,
+        additionalCharges: formData.additionalCharges,
         createdBy: userId
       };
 

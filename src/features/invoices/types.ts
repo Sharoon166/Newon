@@ -45,6 +45,12 @@ export interface CustomExpense {
   expenseId?: string;
 }
 
+// Additional charges interface
+export interface AdditionalCharge {
+  description: string;
+  value: number;
+}
+
 // Invoice item interface
 export interface InvoiceItem {
   productId: string;
@@ -124,6 +130,7 @@ export interface Invoice {
   custom: boolean;
   createdBy: string;
   projectId?: string; // Link to project if invoice was generated from project
+  additionalCharges?: AdditionalCharge[];
   createdAt: string | Date;
   updatedAt: string | Date;
 }
@@ -179,6 +186,7 @@ export interface CreateInvoiceDto {
   custom?: boolean;
   createdBy: string;
   projectId?: string; // Link to project if invoice was generated from project
+  additionalCharges?: AdditionalCharge[];
 }
 
 // Update Invoice DTO
@@ -230,6 +238,7 @@ export interface UpdateInvoiceDto {
   description?: string;
   profit?: number;
   custom?: boolean;
+  additionalCharges?: AdditionalCharge[];
 }
 
 // Add Payment DTO

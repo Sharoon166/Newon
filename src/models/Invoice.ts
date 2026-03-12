@@ -30,20 +30,20 @@ interface ICustomExpense {
   actualCost: number;
   clientCost: number;
   category:
-    | 'materials'
-    | 'labor'
-    | 'equipment'
-    | 'transport'
-    | 'rent'
-    | 'utilities'
-    | 'fuel'
-    | 'maintenance'
-    | 'marketing'
-    | 'office-supplies'
-    | 'professional-services'
-    | 'insurance'
-    | 'taxes'
-    | 'other';
+  | 'materials'
+  | 'labor'
+  | 'equipment'
+  | 'transport'
+  | 'rent'
+  | 'utilities'
+  | 'fuel'
+  | 'maintenance'
+  | 'marketing'
+  | 'office-supplies'
+  | 'professional-services'
+  | 'insurance'
+  | 'taxes'
+  | 'other';
   description?: string;
   expenseId?: string;
 }
@@ -100,17 +100,17 @@ interface IInvoice extends Document {
   gstAmount: number;
   totalAmount: number;
   status:
-    | 'pending'
-    | 'paid'
-    | 'partial'
-    | 'delivered'
-    | 'cancelled'
-    | 'draft'
-    | 'sent'
-    | 'accepted'
-    | 'rejected'
-    | 'expired'
-    | 'converted';
+  | 'pending'
+  | 'paid'
+  | 'partial'
+  | 'delivered'
+  | 'cancelled'
+  | 'draft'
+  | 'sent'
+  | 'accepted'
+  | 'rejected'
+  | 'expired'
+  | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount: number;
   balanceAmount: number;
@@ -127,6 +127,10 @@ interface IInvoice extends Document {
   custom: boolean;
   createdBy: string;
   projectId?: string; // Link to project if invoice was generated from project
+  additionalCharges?: Array<{
+    description: string;
+    value: number;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -531,6 +535,24 @@ const invoiceSchema = new Schema<IInvoice>(
     projectId: {
       type: String,
       index: true
+    },
+    additionalCharges: {
+      type: [
+        {
+          _id: false,
+          description: {
+            type: String,
+            required: true,
+            trim: true
+          },
+          value: {
+            type: Number,
+            required: true,
+            min: 0
+          }
+        }
+      ],
+      default: []
     }
   },
   {

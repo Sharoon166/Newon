@@ -110,6 +110,11 @@ export type InvoiceTemplateData = {
   market?: 'newon' | 'waymor';
 
   customerId?: string;
+
+  additionalCharges?: Array<{
+    description: string;
+    value: number;
+  }>;
 };
 
 export type QuotationTemplateData = {
@@ -146,4 +151,9 @@ export type QuotationTemplateData = {
   market?: 'newon' | 'waymor';
 
   customerId?: string;
+
+  additionalCharges?: Array<{
+    description: string;
+    value: number;
+  }>;
 };

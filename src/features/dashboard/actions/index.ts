@@ -135,7 +135,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       ]),
 
       ExpenseModel.aggregate([
-        { $match: { date: { $gte: monthStart } } },
+        { $match: { date: { $gte: monthStart }, source: "manual" } },
         {
           $addFields: {
             paidTx: {

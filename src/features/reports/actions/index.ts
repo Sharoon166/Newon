@@ -27,64 +27,94 @@ export async function getYearlyReport(year: number): Promise<YearlyReportData> {
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year, 11, 31, 23, 59, 59);
 
-    // Aggregate invoices by month
+    // Aggregate invoices by month (only invoices, not quotations, exclude cancelled)
     const invoiceAggregation = await Invoice.aggregate([
       {
         $match: {
-          date: { $gte: startDate, $lte: endDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            month: { $month: '$date' },
-            type: '$type'
-          },
-          count: { $sum: 1 },
-          totalAmount: { $sum: '$totalAmount' },
-          paidAmount: { $sum: '$paidAmount' },
-          balanceAmount: { $sum: '$balanceAmount' }
-        }
-      }
-    ]);
-
-    // Aggregate expenses by month
-    const expenseAggregation = await Expense.aggregate([
-      {
-        $match: {
-          date: { $gte: startDate, $lte: endDate }
+          date: { $gte: startDate, $lte: endDate },
+          type: 'invoice',
+          status: { $ne: 'cancelled' }
         }
       },
       {
         $group: {
           _id: { $month: '$date' },
-          totalExpenses: { $sum: '$amount' }
+          count: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' },
+          paidAmount: { $sum: '$paidAmount' },
+          balanceAmount: { $sum: '$balanceAmount' },
+          profit: { $sum: { $ifNull: ['$profit', 0] } }
+        }
+      }
+    ]);
+
+    // Aggregate quotations by month (only for counting)
+    const quotationAggregation = await Invoice.aggregate([
+      {
+        $match: {
+          date: { $gte: startDate, $lte: endDate },
+          type: 'quotation'
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$date' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Aggregate expenses by month (only manual expenses)
+    const expenseAggregation = await Expense.aggregate([
+      {
+        $match: {
+          date: { $gte: startDate, $lte: endDate },
+          source: 'manual' // Only include manual expenses
+        }
+      },
+      {
+        $addFields: {
+          paidTx: {
+            $reduce: {
+              input: { $ifNull: ['$transactions', []] },
+              initialValue: 0,
+              in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { $month: '$date' },
+          totalExpenses: {
+            $sum: {
+              $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
+            }
+          }
         }
       }
     ]);
 
     // Create a map for quick lookup
-    const invoiceMap = new Map<
-      number,
-      { invoices: number; quotations: number; revenue: number; paid: number; outstanding: number }
-    >();
+    const invoiceMap = new Map<number, { invoices: number; revenue: number; paid: number; outstanding: number; profit: number }>();
+    const quotationMap = new Map<number, number>();
     const expenseMap = new Map<number, number>();
 
     invoiceAggregation.forEach(item => {
-      const month = item._id.month;
+      const month = item._id;
       if (!invoiceMap.has(month)) {
-        invoiceMap.set(month, { invoices: 0, quotations: 0, revenue: 0, paid: 0, outstanding: 0 });
+        invoiceMap.set(month, { invoices: 0, revenue: 0, paid: 0, outstanding: 0, profit: 0 });
       }
       const data = invoiceMap.get(month)!;
+      data.invoices = item.count;
+      data.revenue = item.revenue;
+      data.paid = item.paidAmount;
+      data.outstanding = item.balanceAmount;
+      data.profit = item.profit;
+    });
 
-      if (item._id.type === 'invoice') {
-        data.invoices = item.count;
-        data.revenue = item.totalAmount;
-        data.paid = item.paidAmount;
-        data.outstanding = item.balanceAmount;
-      } else if (item._id.type === 'quotation') {
-        data.quotations = item.count;
-      }
+    quotationAggregation.forEach(item => {
+      quotationMap.set(item._id, item.count);
     });
 
     expenseAggregation.forEach(item => {
@@ -98,25 +128,27 @@ export async function getYearlyReport(year: number): Promise<YearlyReportData> {
       quotationsCount: 0,
       revenue: 0,
       expenses: 0,
+      grossProfit: 0,
       profit: 0,
       paidAmount: 0,
       outstandingAmount: 0
     };
 
     for (let month = 1; month <= 12; month++) {
-      const invoiceData = invoiceMap.get(month) || { invoices: 0, quotations: 0, revenue: 0, paid: 0, outstanding: 0 };
+      const invoiceData = invoiceMap.get(month) || { invoices: 0, revenue: 0, paid: 0, outstanding: 0, profit: 0 };
+      const quotations = quotationMap.get(month) || 0;
       const expenses = expenseMap.get(month) || 0;
-      const profit = invoiceData.revenue - expenses;
 
       const report: MonthlyReport = {
         month,
         year,
         monthName: MONTH_NAMES[month - 1],
         invoicesCount: invoiceData.invoices,
-        quotationsCount: invoiceData.quotations,
+        quotationsCount: quotations,
         revenue: invoiceData.revenue,
         expenses,
-        profit,
+        grossProfit: invoiceData.profit, // Gross profit before expenses
+        profit: invoiceData.profit - expenses, // Net profit after expenses
         paidAmount: invoiceData.paid,
         outstandingAmount: invoiceData.outstanding
       };
@@ -125,10 +157,11 @@ export async function getYearlyReport(year: number): Promise<YearlyReportData> {
 
       // Update totals
       totals.invoicesCount += invoiceData.invoices;
-      totals.quotationsCount += invoiceData.quotations;
+      totals.quotationsCount += quotations;
       totals.revenue += invoiceData.revenue;
       totals.expenses += expenses;
-      totals.profit += profit;
+      totals.grossProfit += invoiceData.profit; // Accumulate gross profit
+      totals.profit += invoiceData.profit - expenses; // Accumulate net profit
       totals.paidAmount += invoiceData.paid;
       totals.outstandingAmount += invoiceData.outstanding;
     }

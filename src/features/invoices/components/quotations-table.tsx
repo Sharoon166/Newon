@@ -24,7 +24,6 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
 import {
   Search,
@@ -373,7 +372,7 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
-          <InputGroup>
+          <InputGroup className='max-w-sm'>
             <InputGroupAddon>
               <Search className="h-4 w-4" />
             </InputGroupAddon>
@@ -381,45 +380,10 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
               placeholder="Search by quotation number, customer name, email..."
               value={globalFilter ?? ''}
               onChange={e => setGlobalFilter(String(e.target.value))}
+              className='truncate'
             />
           </InputGroup>
         </div>
-
-        <Select
-          value={(table.getColumn('status')?.getFilterValue() as string) ?? 'all'}
-          onValueChange={value => {
-            table.getColumn('status')?.setFilterValue(value === 'all' ? undefined : value);
-          }}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="sent">Sent</SelectItem>
-            <SelectItem value="accepted">Accepted</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-            <SelectItem value="converted">Converted</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={(table.getColumn('market')?.getFilterValue() as string) ?? 'all'}
-          onValueChange={value => {
-            table.getColumn('market')?.setFilterValue(value === 'all' ? undefined : value);
-          }}
-        >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Filter by market" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Markets</SelectItem>
-            <SelectItem value="newon">Newon</SelectItem>
-            <SelectItem value="waymor">Waymor</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Table */}

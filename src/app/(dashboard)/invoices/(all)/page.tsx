@@ -18,6 +18,8 @@ interface InvoicesPageProps {
     page?: string;
     limit?: string;
     search?: string;
+    status?: string;
+    market?: string;
   }>;
 }
 
@@ -28,10 +30,12 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   const page = params.page ? parseInt(params.page) : 1;
   const limit = params.limit ? parseInt(params.limit) : 10;
   const search = params.search;
+  const status = params.status === 'all' ? undefined : params.status as 'pending' | 'paid' | 'overdue' | 'cancelled' | 'draft' | undefined;
+  const market = params.market === 'all' ? undefined : params.market as 'newon' | 'waymor' | undefined;
 
   const [invoicesData, quotationsData, stats] = await Promise.all([
-    getInvoices({ type: 'invoice', page, limit, dateFrom, dateTo, search }),
-    getInvoices({ type: 'quotation', limit: 1000 }),
+    getInvoices({ type: 'invoice', page, limit, dateFrom, dateTo, search, status, market }),
+    getInvoices({ type: 'quotation', limit: 1000, dateFrom, dateTo, search, status, market }),
     getInvoiceStats({ dateFrom, dateTo })
   ]);
 

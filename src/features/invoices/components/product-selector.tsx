@@ -159,9 +159,8 @@ export function ProductSelector({
       return;
     }
 
-    const description = `${variant.productName} - ${variant.sku}${
-      Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
-    }`;
+    const description = `${variant.productName} - ${variant.sku}${Object.keys(variant.attributes || {}).length > 0 ? ` (${Object.values(variant.attributes).join(', ')})` : ''
+      }`;
 
     const rate =
       priceType === 'retail'

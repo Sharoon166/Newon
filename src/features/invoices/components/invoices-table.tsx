@@ -37,7 +37,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MoreHorizontal } from 'lucide-react';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { AddPaymentDialog } from './add-payment-dialog';
@@ -454,15 +453,12 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
     }
   });
 
-  const uniqueStatuses = Array.from(new Set(invoices.map(inv => inv.status)));
-  const uniqueMarkets = Array.from(new Set(invoices.map(inv => inv.market)));
-
   return (
     <>
       <div className="space-y-4">
         {/* Filters Row 1 */}
         <div className="flex flex-wrap items-center gap-4">
-          <InputGroup className="w-sm grow">
+          <InputGroup className="max-w-sm grow">
             <InputGroupAddon>
               <Search />
             </InputGroupAddon>
@@ -472,42 +468,6 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
               onChange={e => setSearchValue(e.target.value)}
             />
           </InputGroup>
-          <Select
-            value={(table.getColumn('status')?.getFilterValue() as string[])?.join(',') || 'all'}
-            onValueChange={value => {
-              table.getColumn('status')?.setFilterValue(value === 'all' ? undefined : [value]);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              {uniqueStatuses.map(status => (
-                <SelectItem key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={(table.getColumn('market')?.getFilterValue() as string[])?.join(',') || 'all'}
-            onValueChange={value => {
-              table.getColumn('market')?.setFilterValue(value === 'all' ? undefined : [value]);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by market" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Markets</SelectItem>
-              {uniqueMarkets.map(market => (
-                <SelectItem key={market} value={market}>
-                  {market}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Table */}

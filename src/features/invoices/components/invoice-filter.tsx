@@ -11,6 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CalendarIcon, Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DateRange } from 'react-day-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type FilterMode = 'range' | 'month';
 
@@ -41,6 +42,14 @@ export function InvoiceFilter() {
     return undefined;
   });
 
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(() =>
+    searchParams.get('status') || undefined
+  );
+
+  const [selectedMarket, setSelectedMarket] = useState<string | undefined>(() =>
+    searchParams.get('market') || undefined
+  );
+
   const applyFilter = (): void => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -63,20 +72,45 @@ export function InvoiceFilter() {
       }
     }
 
+    // Set status and market filters
+    if (selectedStatus) {
+      params.set('status', selectedStatus);
+    } else {
+      params.delete('status');
+    }
+
+    if (selectedMarket) {
+      params.set('market', selectedMarket);
+    } else {
+      params.delete('market');
+    }
+
+    // Preserve existing search parameter
+    const existingSearch = searchParams.get('search');
+    if (existingSearch) {
+      params.set('search', existingSearch);
+    } else {
+      params.delete('search');
+    }
+
     router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
   const clearFilter = (): void => {
     setDateRange(undefined);
     setSelectedMonth(undefined);
+    setSelectedStatus('all');
+    setSelectedMarket('all');
     const params = new URLSearchParams(searchParams.toString());
     params.delete('dateFrom');
     params.delete('dateTo');
+    params.delete('status');
+    params.delete('market');
     router.push(`/invoices?${params.toString()}`, { scroll: false });
   };
 
-  const hasFilter = mode === 'month' ? selectedMonth !== undefined : dateRange?.from || dateRange?.to;
-  const isApplyDisabled = mode === 'month' ? !selectedMonth : !dateRange?.from && !dateRange?.to;
+  const hasFilter = (mode === 'month' ? selectedMonth !== undefined : dateRange?.from || dateRange?.to) || (selectedStatus && selectedStatus != "all") || (selectedMarket && selectedMarket != "all");
+  const isApplyDisabled = !hasFilter;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -144,6 +178,39 @@ export function InvoiceFilter() {
           </PopoverContent>
         </Popover>
       )}
+
+      {/* Status Filter */}
+      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="All Statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="paid">Paid</SelectItem>
+          <SelectItem value="partial">Partial</SelectItem>
+          <SelectItem value="delivered">Delivered</SelectItem>
+          <SelectItem value="cancelled">Cancelled</SelectItem>
+          <SelectItem value="draft">Draft</SelectItem>
+          <SelectItem value="sent">Sent</SelectItem>
+          <SelectItem value="accepted">Accepted</SelectItem>
+          <SelectItem value="rejected">Rejected</SelectItem>
+          <SelectItem value="expired">Expired</SelectItem>
+          <SelectItem value="converted">Converted</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Market Filter */}
+      <Select value={selectedMarket} onValueChange={setSelectedMarket}>
+        <SelectTrigger className="w-[120px]">
+          <SelectValue placeholder="All Markets" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Markets</SelectItem>
+          <SelectItem value="newon">Newon</SelectItem>
+          <SelectItem value="waymor">Waymor</SelectItem>
+        </SelectContent>
+      </Select>
 
       <Button onClick={applyFilter} disabled={isApplyDisabled}>
         Apply <Filter className="size-4" />

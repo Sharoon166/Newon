@@ -79,6 +79,10 @@ interface FormData {
   paid?: number;
   profit?: number;
   amountInWords?: string;
+  additionalCharges?: Array<{
+    description: string;
+    value: number;
+  }>;
 }
 
 interface NewInvoiceFormWrapperProps {
@@ -133,7 +137,8 @@ export function NewInvoiceFormWrapper({
           documentData.discountType === 'percentage' ? (subtotal * documentData.discount) / 100 : documentData.discount;
 
         const taxAmount = (subtotal * documentData.taxRate) / 100;
-        const totalAmount = subtotal + taxAmount - discountAmount;
+        const additionalChargesTotal = documentData.additionalCharges?.reduce((sum, charge) => sum + charge.value, 0) || 0;
+        const totalAmount = subtotal + taxAmount - discountAmount + additionalChargesTotal;
         const isInvoice = documentType === 'invoice';
 
         // Generate a unique customer ID if not provided
@@ -240,6 +245,10 @@ export function NewInvoiceFormWrapper({
           amountInWords: documentData.amountInWords,
           profit: documentData.profit || 0,
           custom: hasCustomItems,
+          additionalCharges: documentData.additionalCharges?.map(charge => ({
+            description: charge.description,
+            value: charge.value
+          })),
           createdBy: 'system-user',
           // Project-specific fields
           ...(fromProject && {

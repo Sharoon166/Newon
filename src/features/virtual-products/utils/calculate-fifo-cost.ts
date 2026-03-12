@@ -157,7 +157,7 @@ export async function calculateVirtualProductFIFOCost(
         );
         errors.push(
           `Insufficient stock for component ${component.productId}-${component.variantId}. ` +
-            `Need: ${requiredQty}, Available: ${totalAvailable}`
+          `Need: ${requiredQty}, Available: ${totalAvailable}`
         );
         canFulfill = false;
         continue;

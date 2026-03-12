@@ -137,8 +137,9 @@ export function PrintableReports({ reportData }: PrintableReportsProps) {
                 <th className="border p-1 text-right font-semibold">Revenue</th>
                 <th className="border p-1 text-right font-semibold">Paid</th>
                 <th className="border p-1 text-right font-semibold">Outstanding</th>
+                <th className="border p-1 text-right font-semibold">Gross Profit</th>
                 <th className="border p-1 text-right font-semibold">Expenses</th>
-                <th className="border p-1 text-right font-semibold">Profit</th>
+                <th className="border p-1 text-right font-semibold">Net Profit</th>
               </tr>
             </thead>
             <tbody>
@@ -159,6 +160,9 @@ export function PrintableReports({ reportData }: PrintableReportsProps) {
                   </td>
                   <td className="border p-1 text-right tabular-nums text-orange-600">
                     {row.outstandingAmount > 0 ? formatCurrency(row.outstandingAmount) : '-'}
+                  </td>
+                  <td className="border p-1 text-right tabular-nums text-blue-600">
+                    {row.grossProfit > 0 ? formatCurrency(row.grossProfit) : row.grossProfit < 0 ? formatCurrency(row.grossProfit) : '-'}
                   </td>
                   <td className="border p-1 text-right tabular-nums text-red-600">
                     {row.expenses > 0 ? formatCurrency(row.expenses) : '-'}
@@ -182,6 +186,9 @@ export function PrintableReports({ reportData }: PrintableReportsProps) {
                 </td>
                 <td className="border p-1 text-right tabular-nums text-orange-600">
                   {formatCurrency(reportData.totals.outstandingAmount)}
+                </td>
+                <td className={`border p-1 text-right tabular-nums ${reportData.totals.grossProfit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                  {formatCurrency(reportData.totals.grossProfit)}
                 </td>
                 <td className="border p-1 text-right tabular-nums text-red-600">
                   {formatCurrency(reportData.totals.expenses)}

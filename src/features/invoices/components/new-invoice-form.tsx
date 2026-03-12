@@ -148,6 +148,14 @@ const invoiceFormSchema = z.object({
   description: z.string().optional(),
   notes: z.string().optional(),
   terms: z.string().optional(),
+  additionalCharges: z
+    .array(
+      z.object({
+        description: z.string().min(1, 'Description is required'),
+        value: z.number().min(0, 'Value must be 0 or greater')
+      })
+    )
+    .optional(),
   paymentDetails: z.object({
     bankName: z.string(),
     accountNumber: z.string(),
@@ -238,6 +246,7 @@ export function NewInvoiceForm({
       profit: 0,
       description: initialData?.description || '',
       notes: initialData?.notes || '',
+      additionalCharges: initialData?.additionalCharges || [],
       terms:
         initialData?.terms ||
         (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')),
@@ -323,6 +332,11 @@ export function NewInvoiceForm({
     name: 'items'
   });
 
+  const { fields: additionalChargesFields, append: appendAdditionalCharge, remove: removeAdditionalCharge } = useFieldArray({
+    control: form.control,
+    name: 'additionalCharges'
+  });
+
   // Helper function to get available stock for an item
   const getAvailableStock = (variantId?: string) => {
     if (!variantId) return Infinity; // No limit if no variant ID
@@ -381,9 +395,11 @@ export function NewInvoiceForm({
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
   const discountType = form.watch('discountType');
+  const additionalCharges = form.watch('additionalCharges') || [];
   const taxAmount = (subtotal * taxRate) / 100;
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
-  const total = subtotal + taxAmount - discountAmount;
+  const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.value, 0);
+  const total = subtotal + taxAmount - discountAmount + additionalChargesTotal;
 
   // Calculate profit in real-time
   const items = form.watch('items');
@@ -1033,22 +1049,22 @@ export function NewInvoiceForm({
                     selectedCustomer.city ||
                     selectedCustomer.state ||
                     selectedCustomer.zip) && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm flex items-start gap-2">
-                        <MapPin className="h-4 w-4 mt-0.5" />
-                        <span>
-                          {[
-                            selectedCustomer.address,
-                            selectedCustomer.city,
-                            selectedCustomer.state,
-                            selectedCustomer.zip
-                          ]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </span>
-                      </p>
-                    </div>
-                  )}
+                      <div className="mt-3 pt-3 border-t">
+                        <p className="text-sm flex items-start gap-2">
+                          <MapPin className="h-4 w-4 mt-0.5" />
+                          <span>
+                            {[
+                              selectedCustomer.address,
+                              selectedCustomer.city,
+                              selectedCustomer.state,
+                              selectedCustomer.zip
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </span>
+                        </p>
+                      </div>
+                    )}
                 </div>
               )}
               {!selectedCustomer && (
@@ -1169,11 +1185,11 @@ export function NewInvoiceForm({
                   // Get stock limit for this specific purchase (including current item's quantity)
                   const purchaseStockLimit = purchaseId
                     ? (() => {
-                        const purchase = purchases.find(p => p.purchaseId === purchaseId);
-                        if (!purchase) return 0;
+                      const purchase = purchases.find(p => p.purchaseId === purchaseId);
+                      if (!purchase) return 0;
 
-                        return purchase.remaining;
-                      })()
+                      return purchase.remaining;
+                    })()
                     : Infinity;
 
                   return (
@@ -1414,13 +1430,13 @@ export function NewInvoiceForm({
                                   Profit per unit:{' '}
                                   {formatCurrency(
                                     (item.rate || 0) -
-                                      ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
+                                    ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
                                   )}{' '}
                                   × {currentQuantity} ={' '}
                                   {formatCurrency(
                                     ((item.rate || 0) -
                                       ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
-                                      currentQuantity
+                                    currentQuantity
                                   )}
                                 </div>
                               </div>
@@ -1692,6 +1708,93 @@ export function NewInvoiceForm({
                   />
                 </div>
                 <span className="font-medium">- {formatCurrency(discountAmount)}</span>
+              </div>
+
+              {/* Additional Charges Section */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Additional Charges:</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendAdditionalCharge({ description: '', value: 0 })}
+                    className="h-8"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Charge
+                  </Button>
+                </div>
+                
+                {additionalChargesFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-2 items-center">
+                    <FormField
+                      control={form.control}
+                      name={`additionalCharges.${index}.description`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupInput
+                                placeholder="Charge description"
+                                {...field}
+                                className="h-8 text-sm"
+                              />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`additionalCharges.${index}.value`}
+                      render={({ field }) => (
+                        <FormItem className="w-32">
+                          <FormControl>
+                            <InputGroup>
+                              <InputGroupAddon>Rs</InputGroupAddon>
+                              <InputGroupInput
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                {...field}
+                                className="h-8 text-sm text-right"
+                                onChange={e => {
+                                  const numericString = e.target.value.replace(/[^0-9.]/g, '');
+                                  const numericValue = parseFloat(numericString);
+                                  if (!isNaN(numericValue) && numericValue >= 0) {
+                                    field.onChange(numericValue);
+                                  } else if (e.target.value === '') {
+                                    field.onChange(0);
+                                  }
+                                }}
+                                value={field.value || ''}
+                              />
+                            </InputGroup>
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeAdditionalCharge(index)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {additionalChargesFields.length > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground font-medium">Additional Charges Total:</span>
+                    <span className="font-medium">{formatCurrency(additionalChargesTotal)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Additional fields from original design */}
