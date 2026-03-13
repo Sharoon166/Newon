@@ -362,6 +362,7 @@ export async function reverseCustomerFinancialsOnPaymentDelete(
 
 /**
  * Update customer financial fields when invoice amount is updated
+ * Handles both amount changes within same customer and customer transfers
  */
 export async function updateCustomerFinancialsOnInvoiceUpdate(
   customerId: string,
@@ -374,11 +375,6 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
   try {
     await dbConnect();
 
-    // Calculate differences
-    const invoiceDiff = newTotalAmount - oldTotalAmount;
-    const paidDiff = newPaidAmount - oldPaidAmount;
-    const outstandingDiff = invoiceDiff - paidDiff;
-
     // Get current values to ensure no negative results
     const customer = await CustomerModel.findOne({ customerId }).session(session || null);
 
@@ -387,21 +383,69 @@ export async function updateCustomerFinancialsOnInvoiceUpdate(
       return;
     }
 
-    const newTotalInvoiced = Math.max(0, customer.totalInvoiced + invoiceDiff);
-    const newTotalPaid = Math.max(0, customer.totalPaid + paidDiff);
-    const newOutstandingBalance = customer.outstandingBalance + outstandingDiff;
+    // Calculate differences
+    const invoiceDiff = newTotalAmount - oldTotalAmount;
+    const paidDiff = newPaidAmount - oldPaidAmount;
+    const outstandingDiff = invoiceDiff - paidDiff;
 
-    await CustomerModel.findOneAndUpdate(
-      { customerId },
-      {
-        $set: {
-          totalInvoiced: newTotalInvoiced,
-          totalPaid: newTotalPaid,
-          outstandingBalance: newOutstandingBalance
-        }
-      },
-      { session: session || null }
-    );
+    // Handle customer transfer (when oldAmount > 0 and newAmount = 0)
+    // This means we're removing an invoice from this customer
+    if (oldTotalAmount > 0 && newTotalAmount === 0) {
+      // Remove entire invoice from this customer
+      const newTotalInvoiced = Math.max(0, customer.totalInvoiced - oldTotalAmount);
+      const newTotalPaid = Math.max(0, customer.totalPaid - oldPaidAmount);
+      const newOutstandingBalance = Math.max(0, customer.outstandingBalance - (oldTotalAmount - oldPaidAmount));
+
+      await CustomerModel.findOneAndUpdate(
+        { customerId },
+        {
+          $set: {
+            totalInvoiced: newTotalInvoiced,
+            totalPaid: newTotalPaid,
+            outstandingBalance: newOutstandingBalance
+          }
+        },
+        { session: session || null }
+      );
+    }
+    // Handle adding invoice to customer (when oldAmount = 0 and newAmount > 0)
+    // This means we're adding an invoice to this customer
+    else if (oldTotalAmount === 0 && newTotalAmount > 0) {
+      // Add entire invoice to this customer
+      const newTotalInvoiced = customer.totalInvoiced + newTotalAmount;
+      const newTotalPaid = customer.totalPaid + newPaidAmount;
+      const newOutstandingBalance = customer.outstandingBalance + (newTotalAmount - newPaidAmount);
+
+      await CustomerModel.findOneAndUpdate(
+        { customerId },
+        {
+          $set: {
+            totalInvoiced: newTotalInvoiced,
+            totalPaid: newTotalPaid,
+            outstandingBalance: newOutstandingBalance
+          }
+        },
+        { session: session || null }
+      );
+    }
+    // Handle regular amount updates within same customer
+    else {
+      const newTotalInvoiced = Math.max(0, customer.totalInvoiced + invoiceDiff);
+      const newTotalPaid = Math.max(0, customer.totalPaid + paidDiff);
+      const newOutstandingBalance = customer.outstandingBalance + outstandingDiff;
+
+      await CustomerModel.findOneAndUpdate(
+        { customerId },
+        {
+          $set: {
+            totalInvoiced: newTotalInvoiced,
+            totalPaid: newTotalPaid,
+            outstandingBalance: newOutstandingBalance
+          }
+        },
+        { session: session || null }
+      );
+    }
 
     // Revalidate pages that show customer financial data
     revalidatePath('/customers');

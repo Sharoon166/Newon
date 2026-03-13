@@ -294,105 +294,50 @@ export async function getExpenseKPIs(filters?: { dateFrom?: Date; dateTo?: Date 
     }
 
     const [totalResult, dailyResult, yesterdayResult, categoryResult, countResult] = await Promise.all([
+      // Total expenses - only manual source
       ExpenseModel.aggregate([
-        { $match: { ...(Object.keys(dateFilter).length > 0 ? dateFilter : {}) } },
-        {
-          $addFields: {
-            paidTx: {
-              $reduce: {
-                input: { $ifNull: ['$transactions', []] },
-                initialValue: 0,
-                in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
-              }
-            }
-          }
-        },
+        { $match: { source: 'manual', ...(Object.keys(dateFilter).length > 0 ? dateFilter : {}) } },
         {
           $group: {
             _id: null,
-            total: {
-              $sum: {
-                $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
-              }
-            }
+            total: { $sum: { $ifNull: ['$amount', 0] } }
           }
         }
       ]),
+      // Daily expenses - only manual source
       ExpenseModel.aggregate([
-        { $match: { date: { $gte: startOfDay, $lte: endOfDay }, ...dateFilter } },
-        {
-          $addFields: {
-            paidTx: {
-              $reduce: {
-                input: { $ifNull: ['$transactions', []] },
-                initialValue: 0,
-                in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
-              }
-            }
-          }
-        },
+        { $match: { source: 'manual', date: { $gte: startOfDay, $lte: endOfDay }, ...dateFilter } },
         {
           $group: {
             _id: null,
-            total: {
-              $sum: {
-                $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
-              }
-            }
+            total: { $sum: { $ifNull: ['$amount', 0] } }
           }
         }
       ]),
+      // Yesterday expenses - only manual source
       ExpenseModel.aggregate([
-        { $match: { date: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
-        {
-          $addFields: {
-            paidTx: {
-              $reduce: {
-                input: { $ifNull: ['$transactions', []] },
-                initialValue: 0,
-                in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
-              }
-            }
-          }
-        },
+        { $match: { source: 'manual', date: { $gte: yesterdayStart, $lte: yesterdayEnd } } },
         {
           $group: {
             _id: null,
-            total: {
-              $sum: {
-                $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
-              }
-            }
+            total: { $sum: { $ifNull: ['$amount', 0] } }
           }
         }
       ]),
+      // Top category - only manual source
       ExpenseModel.aggregate([
-        { $match: { ...(Object.keys(dateFilter).length > 0 ? dateFilter : {}) } },
-        {
-          $addFields: {
-            paidTx: {
-              $reduce: {
-                input: { $ifNull: ['$transactions', []] },
-                initialValue: 0,
-                in: { $add: ['$$value', { $ifNull: ['$$this.amount', 0] }] }
-              }
-            }
-          }
-        },
+        { $match: { source: 'manual', ...(Object.keys(dateFilter).length > 0 ? dateFilter : {}) } },
         {
           $group: {
             _id: '$category',
-            total: {
-              $sum: {
-                $cond: [{ $eq: ['$source', 'project'] }, '$paidTx', { $ifNull: ['$amount', 0] }]
-              }
-            }
+            total: { $sum: { $ifNull: ['$amount', 0] } }
           }
         },
         { $sort: { total: -1 } },
         { $limit: 1 }
       ]),
-      ExpenseModel.countDocuments({ ...dateFilter })
+      // Count - only manual source
+      ExpenseModel.countDocuments({ source: 'manual', ...dateFilter })
     ]);
 
     const dailyExpenses = dailyResult[0]?.total || 0;

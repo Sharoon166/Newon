@@ -1851,198 +1851,410 @@ export async function updateInvoiceFull(id: string, data: UpdateInvoiceDto): Pro
   try {
     await dbConnect();
 
-    // Check if editing is allowed
+    // ============================================================
+    // STEP 1: Gate checks
+    // ============================================================
     const editCheck = await canEditInvoice(id);
     if (!editCheck.allowed) {
       throw new Error(editCheck.reason || 'Invoice cannot be edited');
     }
+    const needsStockRededuction = editCheck.requiresStockRestore;
 
-    // Get the original invoice
+    // ============================================================
+    // STEP 2: Fetch and snapshot the original
+    // ============================================================
     const originalInvoice = await InvoiceModel.findById(id);
     if (!originalInvoice) {
       throw new Error('Invoice not found');
     }
+    const originalSnapshot = originalInvoice.toObject();
 
-    // Use editCheck to determine if stock needs to be re-deducted
-    // (not originalInvoice.stockDeducted, which is false after page load restoration)
-    const needsStockRededuction = editCheck.requiresStockRestore;
+    // ============================================================
+    // STEP 3: Merge the full update object
+    // ============================================================
+    // If customer is changing, accept all fields including undefined
+    // to properly clear old customer data (e.g., company name, phone)
+    // Otherwise, filter out undefined to preserve original values
+    const customerIsChanging = 
+      data.customerId !== undefined && 
+      data.customerId !== originalSnapshot.customerId;
+    
+    let merged;
+    if (customerIsChanging) {
+      // Customer is changing - accept all fields including undefined
+      merged = { ...originalSnapshot, ...data };
+    } else {
+      // Customer not changing - filter out undefined to preserve original values
+      const filteredData = Object.fromEntries(
+        Object.entries(data).filter(([, value]) => value !== undefined)
+      );
+      merged = { ...originalSnapshot, ...filteredData };
+    }
 
-    // Note: Stock restoration is now handled when navigating to edit page
-    // We only need to handle the update and re-deduction here
+    // ============================================================
+    // STEP 4: Process derived fields on the merged object
+    // ============================================================
+    const { dateStringToUTC } = await import('@/lib/utils');
 
-    try {
-      // Step 1: Update the invoice with new data
-      const { dateStringToUTC } = await import('@/lib/utils');
-      const processedData = { ...data };
-      if (processedData.date && typeof processedData.date === 'string') {
-        processedData.date = dateStringToUTC(processedData.date);
-      }
-      if (processedData.dueDate && typeof processedData.dueDate === 'string') {
-        processedData.dueDate = dateStringToUTC(processedData.dueDate);
-      }
-      if (processedData.validUntil && typeof processedData.validUntil === 'string') {
-        processedData.validUntil = dateStringToUTC(processedData.validUntil);
-      }
+    // Convert date strings to UTC
+    if (merged.date && typeof merged.date === 'string') {
+      merged.date = dateStringToUTC(merged.date);
+    }
+    if (merged.dueDate && typeof merged.dueDate === 'string') {
+      merged.dueDate = dateStringToUTC(merged.dueDate);
+    }
+    if (merged.validUntil && typeof merged.validUntil === 'string') {
+      merged.validUntil = dateStringToUTC(merged.validUntil);
+    }
 
-      // Recalculate profit if items or discount changed
-      if (data.items || data.discountAmount !== undefined) {
-        const items = data.items || originalInvoice.items;
-        const discountAmount = data.discountAmount !== undefined ? data.discountAmount : originalInvoice.discountAmount;
+    // Recalculate profit from items and discount
+    merged.profit = calculateInvoiceProfit(
+      merged.items.map(item => ({
+        rate: item.unitPrice,
+        originalRate: item.originalRate,
+        quantity: item.quantity,
+        customExpenses: item.customExpenses,
+        isVirtualProduct: item.isVirtualProduct,
+        totalComponentCost: item.totalComponentCost,
+        totalCustomExpenses: item.totalCustomExpenses
+      })),
+      merged.discountAmount
+    );
 
-        processedData.profit = calculateInvoiceProfit(
-          items.map(item => ({
-            rate: item.unitPrice,
-            originalRate: item.originalRate,
-            quantity: item.quantity,
-            customExpenses: item.customExpenses,
-            isVirtualProduct: item.isVirtualProduct,
-            totalComponentCost: item.totalComponentCost,
-            totalCustomExpenses: item.totalCustomExpenses
-          })),
-          discountAmount
+    // Recalculate totalAmount and balanceAmount including additionalCharges
+    const additionalChargesTotal = (merged.additionalCharges || []).reduce((sum, charge) => sum + charge.value, 0);
+    merged.totalAmount = merged.subtotal - merged.discountAmount + merged.gstAmount + additionalChargesTotal;
+    merged.balanceAmount = merged.totalAmount - merged.paidAmount;
+
+    // ============================================================
+    // STEP 5: Write to DB once
+    // ============================================================
+    const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
+      id,
+      { $set: merged },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedInvoice) {
+      throw new Error('Failed to update invoice');
+    }
+
+    // ============================================================
+    // STEP 6: Re-deduct stock if needed
+    // ============================================================
+    if (needsStockRededuction && updatedInvoice.type === 'invoice') {
+      try {
+        await deductInvoiceStock(id);
+      } catch (stockError) {
+        console.error('Failed to re-deduct stock after update:', stockError);
+        throw new Error(
+          `Invoice updated but stock re-deduction failed: ${(stockError as Error).message}. Please manually deduct stock.`
         );
       }
+    }
 
-      const updateData = Object.fromEntries(Object.entries(processedData).filter(([, value]) => value !== undefined));
+    // ============================================================
+    // STEP 7: Resolve the customer transition case
+    // ============================================================
+    const customerChanged = updatedInvoice.customerId !== originalSnapshot.customerId;
+    const amountsChanged = updatedInvoice.totalAmount !== originalSnapshot.totalAmount;
+    const oldCustomerIsOTC = originalSnapshot.customerId === 'otc';
+    const newCustomerIsOTC = updatedInvoice.customerId === 'otc';
 
-      // Note: stockDeducted is already false from page load restoration
-      // No need to set it here
+    if (customerChanged || amountsChanged) {
+      try {
+        const { updateCustomerFinancialsOnInvoiceUpdate } = await import('@/features/customers/actions');
 
-      const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
-        id,
-        { $set: updateData },
-        { new: true, runValidators: true }
-      );
-
-      if (!updatedInvoice) {
-        throw new Error('Failed to update invoice');
+        if (customerChanged) {
+          if (!oldCustomerIsOTC && !newCustomerIsOTC) {
+            // Case 1: Real → Real customer
+            // Remove from old customer
+            await updateCustomerFinancialsOnInvoiceUpdate(
+              originalSnapshot.customerId,
+              originalSnapshot.totalAmount,
+              0,
+              originalSnapshot.paidAmount,
+              0
+            );
+            // Add to new customer
+            await updateCustomerFinancialsOnInvoiceUpdate(
+              updatedInvoice.customerId,
+              0,
+              updatedInvoice.totalAmount,
+              0,
+              updatedInvoice.paidAmount
+            );
+          } else if (!oldCustomerIsOTC && newCustomerIsOTC) {
+            // Case 2: Real → OTC
+            // Remove from old customer financials
+            await updateCustomerFinancialsOnInvoiceUpdate(
+              originalSnapshot.customerId,
+              originalSnapshot.totalAmount,
+              0,
+              originalSnapshot.paidAmount,
+              0
+            );
+            // OTC payment will be created in Step 8
+          } else if (oldCustomerIsOTC && !newCustomerIsOTC) {
+            // Case 3: OTC → Real
+            // AUTO-OTC payments will be purged in Step 8, so paidAmount will become 0
+            // Add to new customer financials with 0 paid amount
+            await updateCustomerFinancialsOnInvoiceUpdate(
+              updatedInvoice.customerId,
+              0,
+              updatedInvoice.totalAmount,
+              0,
+              0 // paidAmount will be 0 after AUTO-OTC payment deletion
+            );
+          }
+          // Case 4: OTC → OTC (no customer change, handled by amounts changed below)
+        } else if (amountsChanged) {
+          // Same customer, amounts changed
+          if (!newCustomerIsOTC) {
+            await updateCustomerFinancialsOnInvoiceUpdate(
+              updatedInvoice.customerId,
+              originalSnapshot.totalAmount,
+              updatedInvoice.totalAmount,
+              originalSnapshot.paidAmount,
+              updatedInvoice.paidAmount
+            );
+          }
+          // If OTC, payment reconciliation in Step 8 will handle it
+        }
+      } catch (customerError) {
+        console.error('Error updating customer financials:', customerError);
       }
+    }
 
-      // Step 2: Re-deduct stock if it was originally deducted
-      if (needsStockRededuction && updatedInvoice.type === 'invoice') {
+    // ============================================================
+    // STEP 8: Reconcile payments
+    // ============================================================
+    if (updatedInvoice.type === 'invoice') {
+      if (newCustomerIsOTC) {
         try {
-          await deductInvoiceStock(id);
-        } catch (stockError) {
-          // If re-deduction fails, we need to handle it gracefully
-          console.error('Failed to re-deduct stock after update:', stockError);
-          throw new Error(
-            `Invoice updated but stock re-deduction failed: ${(stockError as Error).message}. Please manually deduct stock.`
-          );
+          // Delete all existing payments manually (avoid ledger operations for OTC)
+          const paymentCount = updatedInvoice.payments.length;
+          for (let i = paymentCount - 1; i >= 0; i--) {
+            const deletedPaymentAmount = updatedInvoice.payments[i].amount;
+            updatedInvoice.payments.splice(i, 1);
+            updatedInvoice.paidAmount -= deletedPaymentAmount;
+          }
+          
+          // Recalculate amounts
+          updatedInvoice.paidAmount = 0;
+          updatedInvoice.balanceAmount = updatedInvoice.totalAmount;
+
+          // Create single AUTO-OTC payment
+          updatedInvoice.payments.push({
+            amount: updatedInvoice.totalAmount,
+            method: 'cash',
+            date: new Date(),
+            notes: 'OTC customer auto-payment',
+            reference: 'AUTO-OTC'
+          });
+          updatedInvoice.paidAmount = updatedInvoice.totalAmount;
+          updatedInvoice.balanceAmount = 0;
+          updatedInvoice.status = 'paid';
+          
+          await updatedInvoice.save();
+        } catch (paymentError) {
+          console.error('Error managing OTC payment records:', paymentError);
+          // Fallback: Update amounts directly
+          updatedInvoice.payments = [{
+            amount: updatedInvoice.totalAmount,
+            method: 'cash',
+            date: new Date(),
+            notes: 'OTC customer auto-payment',
+            reference: 'AUTO-OTC'
+          }];
+          updatedInvoice.paidAmount = updatedInvoice.totalAmount;
+          updatedInvoice.balanceAmount = 0;
+          updatedInvoice.status = 'paid';
+          await updatedInvoice.save();
+        }
+      } else if (oldCustomerIsOTC && !newCustomerIsOTC) {
+        // Purge AUTO-OTC payments when leaving OTC
+        try {
+          // Remove AUTO-OTC payments directly without ledger operations
+          const paymentsToKeep = updatedInvoice.payments.filter(p => p.reference !== 'AUTO-OTC');
+          const removedAmount = updatedInvoice.payments
+            .filter(p => p.reference === 'AUTO-OTC')
+            .reduce((sum, p) => sum + p.amount, 0);
+          
+          updatedInvoice.payments = paymentsToKeep;
+          updatedInvoice.paidAmount -= removedAmount;
+          updatedInvoice.balanceAmount = updatedInvoice.totalAmount - updatedInvoice.paidAmount;
+          
+          // Update status
+          if (updatedInvoice.balanceAmount <= 0 && updatedInvoice.paidAmount > 0) {
+            updatedInvoice.status = 'paid';
+          } else if (updatedInvoice.paidAmount > 0) {
+            updatedInvoice.status = 'partial';
+          } else {
+            updatedInvoice.status = 'pending';
+          }
+          
+          await updatedInvoice.save();
+        } catch (paymentError) {
+          console.error('Error purging AUTO-OTC payments:', paymentError);
         }
       }
+    }
 
-      // Step 3: Handle OTC customer payment status
-      if (updatedInvoice.customerId === 'otc' && updatedInvoice.type === 'invoice') {
-        // For OTC customers, automatically set paid amount to total and mark as paid
-        updatedInvoice.paidAmount = updatedInvoice.totalAmount;
-        updatedInvoice.balanceAmount = 0;
-        updatedInvoice.status = 'paid';
-        await updatedInvoice.save();
-      }
+    // ============================================================
+    // STEP 9: Update the ledger entry
+    // ============================================================
+    if (updatedInvoice.type === 'invoice') {
+      try {
+        const { 
+          updateLedgerEntryFromInvoice, 
+          deleteLedgerEntryFromInvoice, 
+          createLedgerEntryFromInvoice,
+          createLedgerEntryFromPayment
+        } = await import('@/features/ledger/actions');
+        const { deleteLedgerEntryFromPayment } = await import('@/features/ledger/actions');
 
-      // Update ledger entry if this is an invoice and total amount changed
-      if (updatedInvoice.type === 'invoice' && data.totalAmount !== undefined) {
-        try {
-          const { updateLedgerEntryFromInvoice } = await import('@/features/ledger/actions');
+        if (customerChanged) {
+          // Customer changed: delete old ledger entries and create new ones
+          if (!oldCustomerIsOTC) {
+            // Delete invoice ledger entry from old customer
+            await deleteLedgerEntryFromInvoice((updatedInvoice._id as mongoose.Types.ObjectId).toString());
+            
+            // Delete all payment ledger entries from old customer
+            const originalPaymentCount = originalSnapshot.payments.length;
+            for (let i = originalPaymentCount - 1; i >= 0; i--) {
+              try {
+                await deleteLedgerEntryFromPayment({
+                  invoiceId: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+                  paymentIndex: i
+                });
+              } catch (paymentLedgerError) {
+                console.error(`Error deleting payment ledger entry ${i}:`, paymentLedgerError);
+              }
+            }
+          }
+          
+          if (!newCustomerIsOTC) {
+            // Create invoice ledger entry for new customer
+            await createLedgerEntryFromInvoice({
+              id: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+              invoiceNumber: updatedInvoice.invoiceNumber,
+              customerId: updatedInvoice.customerId,
+              customerName: updatedInvoice.customerName,
+              customerCompany: updatedInvoice.customerCompany,
+              date: updatedInvoice.date,
+              totalAmount: updatedInvoice.totalAmount,
+              createdBy: updatedInvoice.createdBy
+            });
+            
+            // Create payment ledger entries for new customer (excluding AUTO-OTC payments)
+            for (const payment of updatedInvoice.payments) {
+              if (payment.reference !== 'AUTO-OTC') {
+                try {
+                  await createLedgerEntryFromPayment({
+                    id: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+                    customerId: updatedInvoice.customerId,
+                    customerName: updatedInvoice.customerName,
+                    customerCompany: updatedInvoice.customerCompany,
+                    date: payment.date,
+                    amount: payment.amount,
+                    method: payment.method,
+                    reference: payment.reference,
+                    createdBy: updatedInvoice.createdBy
+                  });
+                } catch (paymentLedgerError) {
+                  console.error('Error creating payment ledger entry:', paymentLedgerError);
+                }
+              }
+            }
+          }
+        } else if (amountsChanged && !newCustomerIsOTC) {
+          // Same customer (not OTC), amount changed: update existing ledger entry
           await updateLedgerEntryFromInvoice({
             id: (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
             invoiceNumber: updatedInvoice.invoiceNumber,
             totalAmount: updatedInvoice.totalAmount
           });
-        } catch (ledgerError) {
-          console.error('Error updating ledger entry:', ledgerError);
         }
-
-        // Update customer financials if amounts changed
-        if (data.totalAmount !== undefined || data.paidAmount !== undefined) {
-          try {
-            const { updateCustomerFinancialsOnInvoiceUpdate } = await import('@/features/customers/actions');
-            await updateCustomerFinancialsOnInvoiceUpdate(
-              updatedInvoice.customerId,
-              originalInvoice.totalAmount,
-              updatedInvoice.totalAmount,
-              originalInvoice.paidAmount,
-              updatedInvoice.paidAmount
-            );
-          } catch (customerError) {
-            console.error('Error updating customer financials:', customerError);
-          }
-        }
+      } catch (ledgerError) {
+        console.error('Error updating ledger entry:', ledgerError);
       }
+    }
 
-      // Sync expense records if items changed (only for invoices)
-      if (updatedInvoice.type === 'invoice' && data.items) {
-        try {
-          const customExpenses = data.items
-            .filter(item => item.customExpenses && item.customExpenses.length > 0)
-            .flatMap(item => item.customExpenses || []);
+    // ============================================================
+    // STEP 10: Sync expense records
+    // ============================================================
+    if (updatedInvoice.type === 'invoice' && data.items) {
+      try {
+        const customExpenses = data.items
+          .filter(item => item.customExpenses && item.customExpenses.length > 0)
+          .flatMap(item => item.customExpenses || []);
 
-          // Filter to only valid invoice expense categories
-          const validCustomExpenses = customExpenses.map(expense => ({
-            name: expense.name,
-            actualCost: expense.actualCost,
-            clientCost: expense.clientCost,
-            category: expense.category as
-              | 'materials'
-              | 'labor'
-              | 'equipment'
-              | 'transport'
-              | 'rent'
-              | 'utilities'
-              | 'fuel'
-              | 'maintenance'
-              | 'marketing'
-              | 'office-supplies'
-              | 'professional-services'
-              | 'insurance'
-              | 'taxes'
-              | 'other',
-            description: expense.description
-          }));
+        const validCustomExpenses = customExpenses.map(expense => ({
+          name: expense.name,
+          actualCost: expense.actualCost,
+          clientCost: expense.clientCost,
+          category: expense.category as
+            | 'materials'
+            | 'labor'
+            | 'equipment'
+            | 'transport'
+            | 'rent'
+            | 'utilities'
+            | 'fuel'
+            | 'maintenance'
+            | 'marketing'
+            | 'office-supplies'
+            | 'professional-services'
+            | 'insurance'
+            | 'taxes'
+            | 'other',
+          description: expense.description
+        }));
 
-          const { syncInvoiceExpenses } = await import('@/features/expenses/actions');
-          const expenseResult = await syncInvoiceExpenses(
-            (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
-            updatedInvoice.invoiceNumber,
-            updatedInvoice.date,
-            validCustomExpenses,
-            updatedInvoice.createdBy,
-            updatedInvoice.projectId
-          );
+        const { syncInvoiceExpenses } = await import('@/features/expenses/actions');
+        const expenseResult = await syncInvoiceExpenses(
+          (updatedInvoice._id as mongoose.Types.ObjectId).toString(),
+          updatedInvoice.invoiceNumber,
+          updatedInvoice.date,
+          validCustomExpenses,
+          updatedInvoice.createdBy,
+          updatedInvoice.projectId
+        );
 
-          if (expenseResult.success && expenseResult.data.length > 0) {
-            let expenseIndex = 0;
-            for (const item of updatedInvoice.items) {
-              if (item.customExpenses && item.customExpenses.length > 0) {
-                for (let i = 0; i < item.customExpenses.length; i++) {
-                  item.customExpenses[i].expenseId = expenseResult.data[expenseIndex];
-                  expenseIndex++;
-                }
+        if (expenseResult.success && expenseResult.data.length > 0) {
+          let expenseIndex = 0;
+          for (const item of updatedInvoice.items) {
+            if (item.customExpenses && item.customExpenses.length > 0) {
+              for (let i = 0; i < item.customExpenses.length; i++) {
+                item.customExpenses[i].expenseId = expenseResult.data[expenseIndex];
+                expenseIndex++;
               }
             }
-            await updatedInvoice.save();
           }
-        } catch (expenseError) {
-          console.error('Error syncing invoice expenses:', expenseError);
-          // Continue - invoice is updated but expense sync failed
+          await updatedInvoice.save();
         }
+      } catch (expenseError) {
+        console.error('Error syncing invoice expenses:', expenseError);
       }
-
-      revalidatePath('/invoices');
-      revalidatePath(`/invoices/${id}`);
-      revalidatePath('/dashboard');
-      revalidatePath('/ledger');
-      revalidatePath('/customers');
-      revalidatePath('/purchases');
-      revalidatePath('/inventory');
-      revalidatePath('/projects');
-
-      return transformInvoice(updatedInvoice.toObject() as unknown as LeanInvoice);
-    } catch (updateError) {
-      // If update failed, stock is already restored from page load
-      // User can navigate back to detail page where they can manually re-deduct if needed
-      throw updateError;
     }
+
+    // ============================================================
+    // STEP 11: Revalidate paths
+    // ============================================================
+    revalidatePath('/invoices');
+    revalidatePath(`/invoices/${id}`);
+    revalidatePath('/dashboard');
+    revalidatePath('/ledger');
+    revalidatePath('/customers');
+    revalidatePath('/purchases');
+    revalidatePath('/inventory');
+    revalidatePath('/projects');
+
+    // ============================================================
+    // STEP 12: Return
+    // ============================================================
+    return transformInvoice(updatedInvoice.toObject() as unknown as LeanInvoice);
   } catch (error) {
     console.error(`Error in full invoice update ${id}:`, error);
     throw new Error((error as Error).message || 'Failed to update invoice');
