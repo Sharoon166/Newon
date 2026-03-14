@@ -9,6 +9,7 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { ExpenseCategory } from '@/features/expenses/types';
+import type { InvoiceItem } from '../types';
 
 interface EnhancedProductSelectorProps {
   label?: string;
@@ -64,6 +65,7 @@ interface EnhancedProductSelectorProps {
     totalCustomExpenses?: number;
   }) => void;
   skipStockValidation?: boolean;
+  restoredItems?: InvoiceItem[];
 }
 
 export function EnhancedProductSelector({
@@ -73,7 +75,8 @@ export function EnhancedProductSelector({
   purchases,
   currentItems = [],
   onAddItem,
-  skipStockValidation = false
+  skipStockValidation = false,
+  restoredItems
 }: EnhancedProductSelectorProps) {
   const [activeTab, setActiveTab] = useState<'regular' | 'virtual'>('regular');
 
@@ -98,6 +101,7 @@ export function EnhancedProductSelector({
           currentItems={currentItems.filter(item => !item.virtualProductId)}
           onAddItem={onAddItem}
           skipStockValidation={skipStockValidation}
+          restoredItems={restoredItems?.filter(item => !item.virtualProductId)}
         />
       </TabsContent>
 

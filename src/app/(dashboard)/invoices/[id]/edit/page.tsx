@@ -43,13 +43,9 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
       );
     }
 
-    // Restore stock if needed (so form shows correct available quantities)
-    if (editCheck.requiresStockRestore && invoice.stockDeducted) {
-      const { restoreInvoiceStock } = await import('@/features/invoices/actions');
-      await restoreInvoiceStock(id, true); // Skip revalidation during render
-    }
-
-    // Fetch all required data (AFTER stock restoration so we get updated quantities)
+    // Fetch all required data — stock is NOT restored here.
+    // The selector simulates restoration client-side via originalItems.
+    // updateInvoiceFull owns the full restore → re-deduct cycle on save.
     const [customers, variants, purchases, virtualProducts, paymentDetails, invoiceTermsData] = await Promise.all([
       getCustomers({ limit: 1000, includeDisabled: false }),
       getProducts(),
@@ -73,6 +69,7 @@ export default async function EditInvoicePage({ params }: EditInvoicePageProps) 
             paymentDetails={paymentDetails}
             invoiceTerms={invoiceTermsData}
             requiresStockRestore={editCheck.requiresStockRestore}
+            originalItems={invoice.items}
             warning={editCheck.warning}
           />
         </div>

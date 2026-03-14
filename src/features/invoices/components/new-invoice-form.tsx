@@ -45,6 +45,7 @@ import { EnhancedProductSelector } from './enhanced-product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
+import type { InvoiceItem } from '../types';
 import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/constants';
 import { toast } from 'sonner';
 import { NewonInvoiceTemplate } from './invoice-template';
@@ -177,7 +178,8 @@ export function NewInvoiceForm({
   initialData,
   fromProject = false,
   projectId,
-  isEditMode = false
+  isEditMode = false,
+  restoredItems
 }: {
   isLoading: boolean;
   onPreview: (data: InvoiceFormValues) => void;
@@ -192,6 +194,7 @@ export function NewInvoiceForm({
   fromProject?: boolean;
   projectId?: string;
   isEditMode?: boolean;
+  restoredItems?: InvoiceItem[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isOtcCustomer, setIsOtcCustomer] = useState(false);
@@ -1135,6 +1138,7 @@ export function NewInvoiceForm({
                   purchases={purchases}
                   currentItems={form.watch('items')}
                   onAddItem={handleAddItemFromSelector}
+                  restoredItems={restoredItems}
                 />
               </div>
             )}

@@ -1940,13 +1940,30 @@ export async function updateInvoiceFull(
       throw new Error('Failed to update invoice');
     }
     // ============================================================
-    // STEP 6: Re-deduct stock if needed
+    // STEP 6: Restore old stock then re-deduct with new items
     // ============================================================
     if (needsStockRededuction && updatedInvoice.type === 'invoice') {
       try {
+        // Restore the original stock first (stock was never restored at page load)
+        if (originalSnapshot.stockDeducted && originalSnapshot.items.length > 0) {
+          const { restoreStockForInvoice } = await import('@/features/purchases/actions/stock');
+          await restoreStockForInvoice(
+            originalSnapshot.items.map((item: LeanInvoiceItem) => ({
+              purchaseId: item.purchaseId,
+              quantity: item.quantity,
+              isVirtualProduct: item.isVirtualProduct,
+              virtualProductId: item.virtualProductId,
+              componentBreakdown: item.componentBreakdown
+            })),
+            true // skipRevalidation — paths revalidated in Step 11
+          );
+          // Mark stockDeducted = false so deductInvoiceStock's guard doesn't block re-deduction
+          await InvoiceModel.findByIdAndUpdate(id, { $set: { stockDeducted: false } });
+        }
+        // Re-deduct with the updated items
         await deductInvoiceStock(id);
       } catch (stockError) {
-        console.error('Failed to re-deduct stock after update:', stockError);
+        console.error('Failed to restore/re-deduct stock after update:', stockError);
         // Still continue
       }
     }

@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
+import type { InvoiceItem } from '../types';
 import { toast } from 'sonner';
 
 interface ProductSelectorProps {
@@ -35,6 +36,7 @@ interface ProductSelectorProps {
     purchaseId?: string;
   }) => void;
   skipStockValidation?: boolean; // For quotations - allow any quantity
+  restoredItems?: InvoiceItem[];
 }
 
 export function ProductSelector({
@@ -43,7 +45,8 @@ export function ProductSelector({
   purchases,
   currentItems = [],
   onAddItem,
-  skipStockValidation = false
+  skipStockValidation = false,
+  restoredItems = []
 }: ProductSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -106,9 +109,14 @@ export function ProductSelector({
       const quantityUsedInInvoice = currentItems
         .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
         .reduce((sum, item) => sum + item.quantity, 0);
+      // Add back quantities from original invoice items whose stock was deducted
+      // but not yet physically restored (simulates restoration client-side)
+      const quantityRestoredFromOriginal = restoredItems
+        .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
+        .reduce((sum, item) => sum + item.quantity, 0);
       return {
         ...purchase,
-        effectiveRemaining: purchase.remaining - quantityUsedInInvoice
+        effectiveRemaining: purchase.remaining - quantityUsedInInvoice + quantityRestoredFromOriginal
       };
     });
 
@@ -277,9 +285,20 @@ export function ProductSelector({
           className="grid grid-flow-dense @md:grid-cols-2 xl:@xl:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
         >
           {filteredVariants.map((variant, index) => {
-            // Get all purchases for this variant, sorted by FIFO
+            // Get all purchases for this variant, sorted by FIFO.
+            // Include purchases with remaining=0 if restoredItems would make them available again.
+            const restoredQtyByPurchase = restoredItems.reduce<Record<string, number>>((acc, item) => {
+              if (item.variantId === variant.id && item.purchaseId) {
+                acc[item.purchaseId] = (acc[item.purchaseId] ?? 0) + item.quantity;
+              }
+              return acc;
+            }, {});
             const allVariantPurchases = purchases
-              .filter(p => p.productId === variant.productId && p.variantId === variant.id && p.remaining > 0)
+              .filter(p =>
+                p.productId === variant.productId &&
+                p.variantId === variant.id &&
+                (p.remaining > 0 || (restoredQtyByPurchase[p.purchaseId] ?? 0) > 0)
+              )
               .sort((a, b) => {
                 const dateA = new Date(a.purchaseDate).getTime();
                 const dateB = new Date(b.purchaseDate).getTime();
@@ -294,9 +313,12 @@ export function ProductSelector({
               const quantityUsedInInvoice = currentItems
                 .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
                 .reduce((sum, item) => sum + item.quantity, 0);
+              const quantityRestoredFromOriginal = restoredItems
+                .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
+                .reduce((sum, item) => sum + item.quantity, 0);
               return {
                 ...purchase,
-                effectiveRemaining: purchase.remaining - quantityUsedInInvoice
+                effectiveRemaining: purchase.remaining - quantityUsedInInvoice + quantityRestoredFromOriginal
               };
             });
             // Filter to only purchases with effective remaining > 0

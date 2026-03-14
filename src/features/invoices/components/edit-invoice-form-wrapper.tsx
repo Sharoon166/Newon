@@ -95,6 +95,7 @@ interface EditInvoiceFormWrapperProps {
   paymentDetails: PaymentDetails;
   invoiceTerms: string[];
   requiresStockRestore: boolean;
+  originalItems: Invoice['items'];
   warning?: string;
 }
 
@@ -107,6 +108,7 @@ export function EditInvoiceFormWrapper({
   paymentDetails,
   invoiceTerms,
   requiresStockRestore,
+  originalItems,
   warning
 }: EditInvoiceFormWrapperProps) {
   const router = useRouter();
@@ -305,6 +307,7 @@ export function EditInvoiceFormWrapper({
           invoiceTerms={invoiceTerms}
           initialData={initialData}
           isEditMode={true}
+          restoredItems={requiresStockRestore ? originalItems : undefined}
         />
       ) : (
         <NewQuotationForm
