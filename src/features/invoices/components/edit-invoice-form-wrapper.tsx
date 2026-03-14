@@ -12,6 +12,7 @@ import type { Purchase } from '@/features/purchases/types';
 import type { PaymentDetails } from '@/features/settings/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 
@@ -184,6 +185,14 @@ export function EditInvoiceFormWrapper({
         const additionalChargesTotal = formData.additionalCharges?.reduce((sum, charge) => sum + charge.value, 0) || 0;
         const totalAmount = subtotal + taxAmount - discountAmount + additionalChargesTotal;
 
+        // Prevent total from dropping below already paid amount
+        if (invoice.type === 'invoice' && invoice.paidAmount > 0 && totalAmount < invoice.paidAmount) {
+          toast.error(
+            `Total amount (${formatCurrency(totalAmount)}) cannot be less than the amount already paid (${formatCurrency(invoice.paidAmount)})`
+          );
+          return;
+        }
+
         // Check if invoice has custom items
         const hasCustomItems = formData.items.some(
           item =>
@@ -261,7 +270,7 @@ export function EditInvoiceFormWrapper({
           createdBy: invoice.createdBy
         };
 
-        await updateInvoiceFull(invoice.id, updateData);
+        await updateInvoiceFull(invoice.id, updateData, requiresStockRestore);
         toast.success(`${invoice.type === 'invoice' ? 'Invoice' : 'Quotation'} updated successfully!`);
         router.refresh(); // Clear client-side cache
         router.push(`/invoices/${invoice.id}`);
