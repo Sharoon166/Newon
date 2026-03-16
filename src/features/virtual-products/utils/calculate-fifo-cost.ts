@@ -28,6 +28,8 @@ export interface VirtualProductCostBreakdown {
   totalCost: number;
   canFulfill: boolean;
   errors: string[];
+  /** Actual DB remaining per purchaseId as seen during this FIFO run — use to correct stale client-side stock display */
+  actualPurchaseRemaining: Record<string, number>;
 }
 
 /**
@@ -40,7 +42,16 @@ export interface VirtualProductCostBreakdown {
 export async function calculateVirtualProductFIFOCost(
   virtualProductId: string,
   quantity: number,
-  currentInvoiceItems: Array<{ variantId?: string; purchaseId?: string; quantity: number }> = []
+  currentInvoiceItems: Array<{
+    variantId?: string;
+    purchaseId?: string;
+    quantity: number;
+    componentBreakdown?: Array<{ variantId: string; purchaseId: string; quantity: number }>;
+  }> = [],
+  restoredItems: Array<{
+    virtualProductId?: string;
+    componentBreakdown?: Array<{ variantId: string; purchaseId: string; quantity: number }>;
+  }> = []
 ): Promise<VirtualProductCostBreakdown> {
   try {
     await dbConnect();
@@ -67,6 +78,7 @@ export async function calculateVirtualProductFIFOCost(
     const componentBreakdown: ComponentBreakdown[] = [];
     const errors: string[] = [];
     let canFulfill = true;
+    const actualPurchaseRemaining: Record<string, number> = {};
 
     // For each component, find FIFO purchases
     for (const component of vp.components) {
@@ -95,7 +107,8 @@ export async function calculateVirtualProductFIFOCost(
         return idA.localeCompare(idB);
       });
 
-      // Calculate effective remaining for each purchase (accounting for items in current invoice)
+      // Calculate effective remaining for each purchase (accounting for items in current invoice,
+      // and adding back stock from restoredItems whose deduction hasn't been physically reversed yet)
       const purchasesWithEffectiveRemaining = purchases
         .map((purchase: Record<string, unknown>) => {
           const purchaseObj = purchase as {
@@ -103,13 +116,35 @@ export async function calculateVirtualProductFIFOCost(
             remaining: number;
             unitPrice: number;
           };
+          // Record actual DB remaining for this purchase so client can correct stale prop data
+          actualPurchaseRemaining[purchaseObj.purchaseId] = purchaseObj.remaining;
           const usedInInvoice = currentInvoiceItems
             .filter(item => item.variantId === component.variantId && item.purchaseId === purchaseObj.purchaseId)
-            .reduce((sum, item) => sum + item.quantity, 0);
+            .reduce((sum, item) => sum + item.quantity, 0)
+            + currentInvoiceItems
+            .filter(item => item.componentBreakdown !== undefined)
+            .reduce((sum, item) => {
+              return sum + (item.componentBreakdown ?? [])
+                .filter(b => b.variantId === component.variantId && b.purchaseId === purchaseObj.purchaseId)
+                .reduce((s, b) => s + b.quantity, 0);
+            }, 0);
+
+          // Add back component quantities from restored (original) invoice items
+          const restoredQty = restoredItems.reduce((sum, restoredItem) => {
+            if (!restoredItem.componentBreakdown) return sum;
+            return (
+              sum +
+              restoredItem.componentBreakdown
+                .filter(
+                  b => b.variantId === component.variantId && b.purchaseId === purchaseObj.purchaseId
+                )
+                .reduce((s, b) => s + b.quantity, 0)
+            );
+          }, 0);
 
           return {
             ...purchase,
-            effectiveRemaining: purchaseObj.remaining - usedInInvoice
+            effectiveRemaining: purchaseObj.remaining - usedInInvoice + restoredQty
           };
         })
         .filter((p: Record<string, unknown>) => (p.effectiveRemaining as number) > 0);
@@ -186,7 +221,7 @@ export async function calculateVirtualProductFIFOCost(
       componentBreakdown,
       customExpenses: (vp.customExpenses || []).map(exp => ({
         name: exp.name,
-        amount: exp.amount * quantity, // Multiply by quantity
+        amount: exp.amount * quantity,
         category: exp.category,
         description: exp.description
       })),
@@ -194,7 +229,8 @@ export async function calculateVirtualProductFIFOCost(
       totalCustomExpenses,
       totalCost: totalComponentCost + totalCustomExpenses,
       canFulfill,
-      errors
+      errors,
+      actualPurchaseRemaining
     };
   } catch (error) {
     console.error('Error calculating virtual product FIFO cost:', error);

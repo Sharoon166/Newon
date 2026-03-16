@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Layers } from 'lucide-react';
 import { ProductSelector } from './product-selector';
@@ -80,6 +80,47 @@ export function EnhancedProductSelector({
 }: EnhancedProductSelectorProps) {
   const [activeTab, setActiveTab] = useState<'regular' | 'virtual'>('regular');
 
+  // Single source of truth: effective remaining stock per purchaseId.
+  // Starts from DB remaining, subtracts all invoice consumption (regular items
+  // and VP component breakdowns), adds back restored items.
+  const effectiveStockByPurchase = useMemo((): Map<string, number> => {
+    const map = new Map<string, number>();
+
+    // Seed from DB remaining
+    for (const p of purchases) {
+      map.set(p.purchaseId, p.remaining);
+    }
+
+    // Add back restored items (stock deducted in DB but not yet physically restored)
+    if (restoredItems) {
+      for (const item of restoredItems) {
+        if (!item.virtualProductId && item.purchaseId) {
+          map.set(item.purchaseId, (map.get(item.purchaseId) ?? 0) + item.quantity);
+        }
+        if (item.componentBreakdown) {
+          for (const comp of item.componentBreakdown) {
+            map.set(comp.purchaseId, (map.get(comp.purchaseId) ?? 0) + comp.quantity);
+          }
+        }
+      }
+    }
+
+    // Subtract regular items in current invoice
+    for (const item of currentItems) {
+      if (!item.virtualProductId && item.purchaseId) {
+        map.set(item.purchaseId, (map.get(item.purchaseId) ?? 0) - item.quantity);
+      }
+      // Subtract VP component consumption
+      if (item.componentBreakdown) {
+        for (const comp of item.componentBreakdown) {
+          map.set(comp.purchaseId, (map.get(comp.purchaseId) ?? 0) - comp.quantity);
+        }
+      }
+    }
+
+    return map;
+  }, [purchases, currentItems, restoredItems]);
+
   return (
     <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'regular' | 'virtual')}>
       <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
@@ -98,10 +139,10 @@ export function EnhancedProductSelector({
           label={label}
           variants={variants}
           purchases={purchases}
+          effectiveStockByPurchase={effectiveStockByPurchase}
           currentItems={currentItems.filter(item => !item.virtualProductId)}
           onAddItem={onAddItem}
           skipStockValidation={skipStockValidation}
-          restoredItems={restoredItems?.filter(item => !item.virtualProductId)}
         />
       </TabsContent>
 
@@ -109,9 +150,12 @@ export function EnhancedProductSelector({
         <VirtualProductSelector
           label={label}
           virtualProducts={virtualProducts}
+          purchases={purchases}
+          effectiveStockByPurchase={effectiveStockByPurchase}
           currentItems={currentItems}
           onAddItem={onAddItem}
           skipStockValidation={skipStockValidation}
+          restoredItems={restoredItems?.filter(item => !!item.virtualProductId)}
         />
       </TabsContent>
     </Tabs>

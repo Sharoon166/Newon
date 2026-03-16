@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -55,6 +55,10 @@ export function ProjectForm({ project, invoices, staffMembers, currentUserId }: 
       status: (project?.status as ProjectStatus) || 'planning'
     }
   });
+
+  useEffect(() => {
+    setValue("budget", selectedInvoice?.totalAmount ?? 0)
+  }, [selectedInvoice]);
 
   const status = watch('status');
 

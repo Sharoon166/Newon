@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,6 +44,7 @@ import { EnhancedProductSelector } from './enhanced-product-selector';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
+import type { InvoiceItem } from '../types';
 import { INVOICE_TERMS_AND_CONDITIONS } from '@/constants';
 import { toast } from 'sonner';
 import { QuotationTemplate } from './quotation-template';
@@ -144,7 +145,8 @@ export function NewQuotationForm({
   initialData,
   fromProject = false,
   projectId,
-  isEditMode = false
+  isEditMode = false,
+  restoredItems
 }: {
   isLoading: boolean;
   onPreview: (data: QuotationFormValues) => void;
@@ -158,6 +160,7 @@ export function NewQuotationForm({
   fromProject?: boolean;
   projectId?: string;
   isEditMode?: boolean;
+  restoredItems?: InvoiceItem[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomCustomer, setIsCustomCustomer] = useState(false);
@@ -286,7 +289,8 @@ export function NewQuotationForm({
     }
   }, [initialData?.customerId, customers]);
 
-  const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
+  const items = useWatch({ control: form.control, name: 'items' });
+  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
   const discountType = form.watch('discountType');
@@ -297,7 +301,6 @@ export function NewQuotationForm({
   const total = subtotal + taxAmount - discountAmount + additionalChargesTotal;
 
   // Calculate profit in real-time
-  const items = form.watch('items');
   const totalCost = items.reduce((sum, item) => {
     let itemCost = 0;
 
@@ -418,11 +421,22 @@ export function NewQuotationForm({
         const existingVirtualItemIndex = fields.findIndex(field => field.virtualProductId === item.virtualProductId);
 
         if (existingVirtualItemIndex !== -1) {
-          // Virtual product exists, update its quantity
-          const existingItem = form.watch(`items.${existingVirtualItemIndex}`);
+          // Virtual product exists — replace with new FIFO breakdown for updated total quantity
+          const existingItem = form.getValues(`items.${existingVirtualItemIndex}`);
           const newQuantity = existingItem.quantity + item.quantity;
-          form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
-          form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
+          form.setValue(
+            `items.${existingVirtualItemIndex}`,
+            {
+              ...existingItem,
+              quantity: newQuantity,
+              amount: newQuantity * existingItem.rate,
+              componentBreakdown: item.componentBreakdown,
+              totalComponentCost: item.totalComponentCost,
+              totalCustomExpenses: item.totalCustomExpenses,
+              originalRate: item.originalRate
+            },
+            { shouldDirty: true }
+          );
         } else {
           // Add new virtual product
           append({
@@ -1096,8 +1110,9 @@ export function NewQuotationForm({
                   variants={variants}
                   virtualProducts={virtualProducts}
                   purchases={purchases}
-                  currentItems={form.watch('items')}
+                  currentItems={items}
                   onAddItem={handleAddItemFromSelector}
+                  restoredItems={restoredItems}
                 />
               </div>
             )}

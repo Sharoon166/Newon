@@ -190,7 +190,7 @@ export function EditInvoiceFormWrapper({
         // Prevent total from dropping below already paid amount
         if (invoice.type === 'invoice' && invoice.paidAmount > 0 && totalAmount < invoice.paidAmount) {
           toast.error(
-            `Total amount (${formatCurrency(totalAmount)}) cannot be less than the amount already paid (${formatCurrency(invoice.paidAmount)})`
+            `Total amount (${formatCurrency(totalAmount)}) cannot be less than the amount already paid (${formatCurrency(invoice.paidAmount)}). Edit partial payments before editing this invoice.`
           );
           return;
         }
@@ -307,7 +307,8 @@ export function EditInvoiceFormWrapper({
           invoiceTerms={invoiceTerms}
           initialData={initialData}
           isEditMode={true}
-          restoredItems={requiresStockRestore ? originalItems : undefined}
+          existingPaidAmount={invoice.paidAmount ?? 0}
+          restoredItems={originalItems}
         />
       ) : (
         <NewQuotationForm
@@ -321,6 +322,7 @@ export function EditInvoiceFormWrapper({
           invoiceTerms={invoiceTerms}
           initialData={initialData}
           isEditMode={true}
+          restoredItems={originalItems}
         />
       )}
     </div>

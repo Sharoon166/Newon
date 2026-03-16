@@ -198,7 +198,9 @@ export function ExpensesPageClient({
         </div>
       </div>
 
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
+      <ExpenseTable mode="manual" expensesData={expensesData} onEdit={handleEdit} onDelete={handleDelete} />
+
+      {/* <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="space-y-2">
           <TabsList className="max-sm:flex-col max-sm:w-full max-sm:*:w-full h-full">
             <TabsTrigger value="expenses">Expenses ({expensesData.totalDocs})</TabsTrigger>
@@ -236,7 +238,7 @@ export function ExpensesPageClient({
           </div>
           <ExpenseTable mode="invoice" expensesData={invoiceExpensesData} onEdit={handleEdit} onDelete={handleDelete} />
         </TabsContent>
-      </Tabs>
+      </Tabs> */}
 
       <ExpenseFormDialog
         open={isFormOpen}

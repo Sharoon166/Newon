@@ -18,6 +18,7 @@ interface ProductSelectorProps {
   label?: string;
   variants: EnhancedVariants[];
   purchases: Purchase[];
+  effectiveStockByPurchase?: Map<string, number>;
   currentItems?: Array<{
     variantId?: string;
     quantity: number;
@@ -35,7 +36,7 @@ interface ProductSelectorProps {
     originalRate?: number;
     purchaseId?: string;
   }) => void;
-  skipStockValidation?: boolean; // For quotations - allow any quantity
+  skipStockValidation?: boolean;
   restoredItems?: InvoiceItem[];
 }
 
@@ -43,6 +44,7 @@ export function ProductSelector({
   label = 'Add to Invoice',
   variants,
   purchases,
+  effectiveStockByPurchase,
   currentItems = [],
   onAddItem,
   skipStockValidation = false,
@@ -88,82 +90,43 @@ export function ProductSelector({
   };
 
   const handleAddToInvoice = (variant: EnhancedVariants) => {
-    // Get all purchases for this variant, sorted by FIFO
-    // For quotations (skipStockValidation), include all purchases even if out of stock
     const allVariantPurchases = purchases
-      .filter(
-        p => p.productId === variant.productId && p.variantId === variant.id && (skipStockValidation || p.remaining > 0)
-      )
+      .filter(p => {
+        if (p.productId !== variant.productId || p.variantId !== variant.id) return false;
+        if (skipStockValidation) return true;
+        const effective = effectiveStockByPurchase
+          ? (effectiveStockByPurchase.get(p.purchaseId) ?? p.remaining)
+          : p.remaining;
+        return effective > 0;
+      })
       .sort((a, b) => {
         const dateA = new Date(a.purchaseDate).getTime();
         const dateB = new Date(b.purchaseDate).getTime();
-        if (dateA !== dateB) {
-          return dateA - dateB;
-        }
-        // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+        if (dateA !== dateB) return dateA - dateB;
         return a.purchaseId.localeCompare(b.purchaseId);
       });
 
-    // Calculate effective remaining for each purchase based on items in invoice
-    const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
-      const quantityUsedInInvoice = currentItems
-        .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      // Add back quantities from original invoice items whose stock was deducted
-      // but not yet physically restored (simulates restoration client-side)
-      const quantityRestoredFromOriginal = restoredItems
-        .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
-        .reduce((sum, item) => sum + item.quantity, 0);
-      return {
-        ...purchase,
-        effectiveRemaining: purchase.remaining - quantityUsedInInvoice + quantityRestoredFromOriginal
-      };
-    });
-
-    // Filter to only purchases with effective remaining > 0 (or all purchases for quotations)
-    const variantPurchases = skipStockValidation
-      ? purchasesWithEffectiveRemaining
-      : purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
+    const variantPurchases = allVariantPurchases.map(p => ({
+      ...p,
+      effectiveRemaining: effectiveStockByPurchase
+        ? (effectiveStockByPurchase.get(p.purchaseId) ?? p.remaining)
+        : p.remaining
+    }));
 
     const firstPurchase = variantPurchases[0];
     const quantity = getVariantQuantity(variant.id);
-    // FIFO: Only use stock from the first purchase
-    const available = firstPurchase?.remaining || 0;
+    const remainingAvailable = firstPurchase?.effectiveRemaining ?? 0;
 
-    // Calculate quantity already in invoice for this variant from the SAME purchase
-    const quantityInInvoice = currentItems
-      .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
-      .reduce((sum, item) => sum + item.quantity, 0);
-
-    // Calculate remaining available stock after accounting for items in invoice from SAME purchase
-    const remainingAvailable = firstPurchase?.effectiveRemaining || 0;
-
-    // Validation checks
-    if (available === 0) {
-      toast.error('Out of stock', {
-        description: `${variant.productName} is currently out of stock.`
-      });
+    if (!skipStockValidation && remainingAvailable <= 0) {
+      toast.error('Out of stock', { description: `${variant.productName} is currently out of stock.` });
       return;
     }
-
-    if (remainingAvailable <= 0) {
-      toast.error('All stock already in invoice', {
-        description: `All ${available} units of ${variant.productName} are already added to the invoice.`
-      });
+    if (!skipStockValidation && quantity > remainingAvailable) {
+      toast.error('Insufficient stock', { description: `Only ${remainingAvailable} units available.` });
       return;
     }
-
-    if (quantity > remainingAvailable) {
-      toast.error('Insufficient stock', {
-        description: `Only ${remainingAvailable} more units available (${quantityInInvoice} already in invoice).`
-      });
-      return;
-    }
-
     if (quantity <= 0) {
-      toast.error('Invalid quantity', {
-        description: 'Quantity must be greater than 0.'
-      });
+      toast.error('Invalid quantity', { description: 'Quantity must be greater than 0.' });
       return;
     }
 
@@ -285,54 +248,32 @@ export function ProductSelector({
           className="grid grid-flow-dense @md:grid-cols-2 xl:@xl:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
         >
           {filteredVariants.map((variant, index) => {
-            // Get all purchases for this variant, sorted by FIFO.
-            // Include purchases with remaining=0 if restoredItems would make them available again.
-            const restoredQtyByPurchase = restoredItems.reduce<Record<string, number>>((acc, item) => {
-              if (item.variantId === variant.id && item.purchaseId) {
-                acc[item.purchaseId] = (acc[item.purchaseId] ?? 0) + item.quantity;
-              }
-              return acc;
-            }, {});
-            const allVariantPurchases = purchases
-              .filter(p =>
-                p.productId === variant.productId &&
-                p.variantId === variant.id &&
-                (p.remaining > 0 || (restoredQtyByPurchase[p.purchaseId] ?? 0) > 0)
-              )
+            const variantPurchasesForCard = purchases
+              .filter(p => {
+                if (p.productId !== variant.productId || p.variantId !== variant.id) return false;
+                const effective = effectiveStockByPurchase
+                  ? (effectiveStockByPurchase.get(p.purchaseId) ?? p.remaining)
+                  : p.remaining;
+                return effective > 0;
+              })
               .sort((a, b) => {
                 const dateA = new Date(a.purchaseDate).getTime();
                 const dateB = new Date(b.purchaseDate).getTime();
-                if (dateA !== dateB) {
-                  return dateA - dateB;
-                }
-                // If dates are equal, sort by purchaseId string (e.g., PR-26-002 before PR-26-006)
+                if (dateA !== dateB) return dateA - dateB;
                 return a.purchaseId.localeCompare(b.purchaseId);
-              });
-            // Calculate effective remaining for each purchase based on items in invoice
-            const purchasesWithEffectiveRemaining = allVariantPurchases.map(purchase => {
-              const quantityUsedInInvoice = currentItems
-                .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
-                .reduce((sum, item) => sum + item.quantity, 0);
-              const quantityRestoredFromOriginal = restoredItems
-                .filter(item => item.variantId === variant.id && item.purchaseId === purchase.purchaseId)
-                .reduce((sum, item) => sum + item.quantity, 0);
-              return {
-                ...purchase,
-                effectiveRemaining: purchase.remaining - quantityUsedInInvoice + quantityRestoredFromOriginal
-              };
-            });
-            // Filter to only purchases with effective remaining > 0
-            const variantPurchasesForCard = purchasesWithEffectiveRemaining.filter(p => p.effectiveRemaining > 0);
+              })
+              .map(p => ({
+                ...p,
+                effectiveRemaining: effectiveStockByPurchase
+                  ? (effectiveStockByPurchase.get(p.purchaseId) ?? p.remaining)
+                  : p.remaining
+              }));
+
             const firstPurchase = variantPurchasesForCard[0];
-
-            // FIFO: Only show stock from the first purchase with available stock
-            // const available = firstPurchase?.remaining || 0;
-
-            // Only count items from the SAME purchase when calculating remaining stock
+            const remainingAvailable = firstPurchase?.effectiveRemaining ?? 0;
             const quantityInInvoice = currentItems
               .filter(item => item.variantId === variant.id && item.purchaseId === firstPurchase?.purchaseId)
               .reduce((sum, item) => sum + item.quantity, 0);
-            const remainingAvailable = firstPurchase?.effectiveRemaining || 0;
             const quantity = getVariantQuantity(variant.id);
             return (
               <Card key={`${variant.productId}-${variant.id}`} className="p-3 transition-all hover:shadow-md">

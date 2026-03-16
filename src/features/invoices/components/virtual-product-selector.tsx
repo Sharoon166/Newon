@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Search, Package, Plus, Minus, Info, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,12 +12,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { formatCurrency } from '@/lib/utils';
 import type { EnhancedVirtualProduct, CustomExpense } from '@/features/virtual-products/types';
+import type { Purchase } from '@/features/purchases/types';
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from '@/features/expenses/types';
 import { toast } from 'sonner';
 
 interface VirtualProductSelectorProps {
   label?: string;
   virtualProducts: EnhancedVirtualProduct[];
+  purchases: Purchase[];
+  effectiveStockByPurchase: Map<string, number>;
   currentItems?: Array<{
     virtualProductId?: string;
     variantId?: string;
@@ -27,6 +30,18 @@ interface VirtualProductSelectorProps {
       variantId: string;
       productName: string;
       sku: string;
+      quantity: number;
+      purchaseId: string;
+      unitCost: number;
+      totalCost: number;
+    }>;
+  }>;
+  restoredItems?: Array<{
+    virtualProductId?: string;
+    quantity: number;
+    componentBreakdown?: Array<{
+      productId: string;
+      variantId: string;
       quantity: number;
       purchaseId: string;
       unitCost: number;
@@ -68,13 +83,30 @@ interface VirtualProductSelectorProps {
 export function VirtualProductSelector({
   label = 'Add to Invoice',
   virtualProducts,
+  purchases,
+  effectiveStockByPurchase,
   currentItems = [],
+  restoredItems = [],
   onAddItem,
   skipStockValidation = false
 }: VirtualProductSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  // Always-current refs so async handlers never close over stale props
+  const currentItemsRef = useRef(currentItems);
+  const restoredItemsRef = useRef(restoredItems);
+  const effectiveStockRef = useRef(effectiveStockByPurchase);
+  useEffect(() => {
+    currentItemsRef.current = currentItems;
+  }, [currentItems]);
+  useEffect(() => {
+    restoredItemsRef.current = restoredItems;
+  }, [restoredItems]);
+  useEffect(() => {
+    effectiveStockRef.current = effectiveStockByPurchase;
+  }, [effectiveStockByPurchase]);
   const [selectedProduct, setSelectedProduct] = useState<EnhancedVirtualProduct | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [customPrice, setCustomPrice] = useState(0);
@@ -83,14 +115,37 @@ export function VirtualProductSelector({
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [newExpenseCategory, setNewExpenseCategory] = useState<ExpenseCategory>('other');
   const [newExpenseDescription, setNewExpenseDescription] = useState('');
+  // Snapshot of existing invoice qty for the selected VP, captured at dialog-open time.
+  // Avoids stale-closure issues when currentItems prop hasn't re-rendered yet.
+  const [existingQtyAtOpen, setExistingQtyAtOpen] = useState(0);
 
-  // Calculate adjusted available quantity for virtual products
-  // considering components used in current invoice items
-  const getAdjustedAvailableQuantity = useCallback((product: EnhancedVirtualProduct) => {
-    // Server already calculated availableQuantity correctly
-    // No need for client-side adjustment
-    return product.availableQuantity;
-  }, []);
+  // Compute total effective stock for a given variantId from a given purchase map.
+  // Accepts the map explicitly so callers can pass either the live prop (for render)
+  // or the ref (for async handlers where the prop may be stale).
+  const getEffectiveVariantStock = useCallback(
+    (variantId: string, stockMap: Map<string, number>): number => {
+      let total = 0;
+      for (const [purchaseId, remaining] of stockMap) {
+        const purchase = purchases.find(p => p.purchaseId === purchaseId && p.variantId === variantId);
+        if (purchase) total += Math.max(0, remaining);
+      }
+      return total;
+    },
+    [purchases]
+  );
+
+  // Real-time available quantity using the provided stock map.
+  const getAdjustedAvailableQuantity = useCallback(
+    (product: EnhancedVirtualProduct, stockMap: Map<string, number>): number => {
+      const maxFromStock = product.components.reduce((min, comp) => {
+        const stock = getEffectiveVariantStock(comp.variantId, stockMap);
+        return Math.min(min, Math.floor(stock / comp.quantity));
+      }, Infinity);
+
+      return maxFromStock === Infinity ? 0 : maxFromStock;
+    },
+    [getEffectiveVariantStock]
+  );
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -126,7 +181,7 @@ export function VirtualProductSelector({
 
   const handleOpenDialog = (product: EnhancedVirtualProduct) => {
     const quantity = getProductQuantity(product.id!);
-    const available = product.availableQuantity;
+    const available = getAdjustedAvailableQuantity(product, effectiveStockByPurchase);
 
     // Check stock availability
     if (!skipStockValidation && available < quantity) {
@@ -134,8 +189,8 @@ export function VirtualProductSelector({
       return;
     }
 
-    // Don't check if already added - allow updating quantity like product selector
-
+    const existingItem = currentItemsRef.current.find(item => item.virtualProductId === product.id);
+    setExistingQtyAtOpen(existingItem?.quantity ?? 0);
     setSelectedProduct(product);
     setCustomPrice(product.basePrice);
     setEditableExpenses([...product.customExpenses]);
@@ -177,7 +232,7 @@ export function VirtualProductSelector({
   const handleConfirmAdd = async () => {
     if (!selectedProduct) return;
 
-    const quantity = getProductQuantity(selectedProduct.id!);
+    const deltaQuantity = getProductQuantity(selectedProduct.id!);
 
     if (customPrice <= 0) {
       toast.error('Price must be greater than 0');
@@ -188,7 +243,19 @@ export function VirtualProductSelector({
     try {
       const { calculateVirtualProductFIFOCost } = await import('@/features/virtual-products/utils/calculate-fifo-cost');
 
-      const costBreakdown = await calculateVirtualProductFIFOCost(selectedProduct.id!, quantity, currentItems);
+      // Determine total quantity using snapshot captured at dialog-open time (avoids stale prop/ref)
+      const totalQuantity = existingQtyAtOpen + deltaQuantity;
+
+      // Exclude the existing VP item's component breakdown from currentItems so FIFO
+      // recomputes from scratch for the full total quantity without double-counting.
+      const itemsWithoutThisVP = currentItemsRef.current.filter(item => item.virtualProductId !== selectedProduct.id);
+
+      const costBreakdown = await calculateVirtualProductFIFOCost(
+        selectedProduct.id!,
+        totalQuantity,
+        itemsWithoutThisVP,
+        restoredItemsRef.current
+      );
 
       if (!costBreakdown.canFulfill) {
         toast.error('Insufficient stock for components', {
@@ -210,7 +277,11 @@ export function VirtualProductSelector({
       });
 
       const totalComponentCost = costBreakdown.totalComponentCost;
-      const totalCustomExpenses = editableExpenses.reduce((sum, exp) => sum + exp.amount, 0) * quantity;
+      const totalCustomExpenses = editableExpenses.reduce((sum, exp) => sum + exp.amount, 0) * totalQuantity;
+
+      // Store per-unit costs (form multiplies by quantity for profit calculation)
+      const perUnitComponentCost = totalQuantity > 0 ? totalComponentCost / totalQuantity : 0;
+      const perUnitCustomExpenses = editableExpenses.reduce((sum, exp) => sum + exp.amount, 0);
 
       onAddItem({
         virtualProductId: selectedProduct.id!,
@@ -218,22 +289,21 @@ export function VirtualProductSelector({
         productName: selectedProduct.name,
         sku: selectedProduct.sku,
         description: selectedProduct.name,
-        quantity,
+        quantity: deltaQuantity,
         rate: customPrice,
         saleRate: customPrice,
-        originalRate: totalComponentCost + totalCustomExpenses,
-        // Add breakdown data
+        originalRate: perUnitComponentCost + perUnitCustomExpenses,
         componentBreakdown: componentBreakdownWithDetails,
         customExpenses: editableExpenses.map(exp => ({
           name: exp.name,
-          amount: exp.amount * quantity,
-          actualCost: exp.amount * quantity,
-          clientCost: exp.amount * quantity,
+          amount: exp.amount * totalQuantity,
+          actualCost: exp.amount * totalQuantity,
+          clientCost: exp.amount * totalQuantity,
           category: exp.category,
           description: exp.description || ''
         })),
-        totalComponentCost,
-        totalCustomExpenses
+        totalComponentCost: perUnitComponentCost,
+        totalCustomExpenses: perUnitCustomExpenses
       });
 
       // Reset and close
@@ -241,9 +311,7 @@ export function VirtualProductSelector({
       setDialogOpen(false);
       setSelectedProduct(null);
 
-      // Check if product already exists in invoice to show appropriate message
-      const existingItem = currentItems.find(item => item.virtualProductId === selectedProduct.id);
-      if (existingItem) {
+      if (existingQtyAtOpen > 0) {
         toast.success(`Updated ${selectedProduct.name} quantity in invoice`);
       } else {
         toast.success(`Added ${selectedProduct.name} to invoice`);
@@ -292,7 +360,7 @@ export function VirtualProductSelector({
           ) : (
             filteredProducts.map(product => {
               const quantity = getProductQuantity(product.id!);
-              const available = getAdjustedAvailableQuantity(product);
+              const available = getAdjustedAvailableQuantity(product, effectiveStockByPurchase);
               const isLowStock = available < 5;
               const isOutOfStock = available === 0;
               const inInvoice = currentItems.find(item => item.virtualProductId === product.id);
@@ -349,24 +417,10 @@ export function VirtualProductSelector({
                           <div className="space-y-2">
                             <h4 className="font-semibold text-sm">Components</h4>
                             {product.components.map((comp, idx) => {
-                              // Calculate component usage in current invoice
-                              const componentUsage = currentItems.reduce((total, item) => {
-                                if (item.variantId === comp.variantId) {
-                                  return total + (item.quantity || 0);
-                                }
-                                if (item.virtualProductId && item.componentBreakdown) {
-                                  const breakdown = item.componentBreakdown;
-                                  const matchingComponent = breakdown.find(b => b.variantId === comp.variantId);
-                                  if (matchingComponent) {
-                                    return total + matchingComponent.quantity;
-                                  }
-                                }
-                                return total;
-                              }, 0);
-                              const remainingStock = comp.availableStock - componentUsage;
-                              // Check if this virtual product itself is in the invoice
-                              const thisVPInInvoice = currentItems.find(item => item.virtualProductId === product.id);
-                              const thisVPUsage = thisVPInInvoice ? (thisVPInInvoice.quantity || 0) * comp.quantity : 0;
+                              const effectiveStock = getEffectiveVariantStock(comp.variantId, effectiveStockByPurchase);
+                              const consumedByThisVP = currentItems
+                                .filter(item => item.virtualProductId === product.id)
+                                .reduce((sum, item) => sum + item.quantity * comp.quantity, 0);
                               return (
                                 <div key={idx} className="text-xs border-b pb-2 last:border-0">
                                   <div className="font-medium">{comp.productName}</div>
@@ -374,13 +428,9 @@ export function VirtualProductSelector({
                                   <div className="flex justify-between mt-1">
                                     <span>Qty per unit: {comp.quantity}</span>
                                     <span>
-                                      Stock: {remainingStock}
-                                      {componentUsage > 0 && (
-                                        <span className="text-orange-600">
-                                          {' '}
-                                          ({componentUsage} in invoice
-                                          {thisVPUsage > 0 && `, ${thisVPUsage} from this VP`})
-                                        </span>
+                                      Stock: {effectiveStock}
+                                      {consumedByThisVP > 0 && (
+                                        <span className="text-orange-600"> ({consumedByThisVP} in invoice)</span>
                                       )}
                                     </span>
                                   </div>
@@ -449,7 +499,7 @@ export function VirtualProductSelector({
                     <Button
                       type="button"
                       onClick={() => handleOpenDialog(product)}
-                      disabled={isOutOfStock && !skipStockValidation}
+                      disabled={!skipStockValidation && quantity > available}
                       className="grow"
                       size="sm"
                     >
@@ -479,20 +529,24 @@ export function VirtualProductSelector({
               <div>
                 <h4 className="font-semibold text-sm mb-2">Components (FIFO)</h4>
                 <div className="space-y-2">
-                  {selectedProduct.components.map((comp, idx) => (
-                    <div key={idx} className="text-sm border rounded p-2">
-                      <div className="flex justify-between">
-                        <span className="font-medium">{comp.productName}</span>
-                        <span className="text-muted-foreground">SKU: {comp.sku}</span>
+                  {selectedProduct.components.map((comp, idx) => {
+                    const effectiveStock = getEffectiveVariantStock(comp.variantId, effectiveStockByPurchase);
+                    const neededQty = comp.quantity * getProductQuantity(selectedProduct.id!);
+                    return (
+                      <div key={idx} className="text-sm border rounded p-2">
+                        <div className="flex justify-between">
+                          <span className="font-medium">{comp.productName}</span>
+                          <span className="text-muted-foreground">SKU: {comp.sku}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>Need: {neededQty}</span>
+                          <span className={effectiveStock < neededQty ? 'text-destructive font-medium' : ''}>
+                            Available: {effectiveStock}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>
-                          Qty: {comp.quantity} × {getProductQuantity(selectedProduct.id!)}
-                        </span>
-                        <span>Stock: {comp.availableStock}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -644,8 +698,8 @@ export function VirtualProductSelector({
                   <span>
                     {formatCurrency(
                       customPrice -
-                      (selectedProduct.estimatedComponentCost +
-                        editableExpenses.reduce((sum, e) => sum + e.amount, 0))
+                        (selectedProduct.estimatedComponentCost +
+                          editableExpenses.reduce((sum, e) => sum + e.amount, 0))
                     )}
                   </span>
                 </div>

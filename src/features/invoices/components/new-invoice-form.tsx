@@ -1,7 +1,7 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useEffect, useCallback } from 'react';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -179,6 +179,7 @@ export function NewInvoiceForm({
   fromProject = false,
   projectId,
   isEditMode = false,
+  existingPaidAmount = 0,
   restoredItems
 }: {
   isLoading: boolean;
@@ -194,6 +195,7 @@ export function NewInvoiceForm({
   fromProject?: boolean;
   projectId?: string;
   isEditMode?: boolean;
+  existingPaidAmount?: number;
   restoredItems?: InvoiceItem[];
 }) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -244,7 +246,7 @@ export function NewInvoiceForm({
       discount: initialData?.discount ?? 0,
       discountType: initialData?.discountType || 'fixed',
       amountInWords: 'Zero Rupees Only',
-      paid: initialData?.paid ?? 0,
+      paid: initialData?.paid ?? existingPaidAmount,
       remainingPayment: 0,
       profit: 0,
       description: initialData?.description || '',
@@ -340,58 +342,64 @@ export function NewInvoiceForm({
     name: 'additionalCharges'
   });
 
-  // Helper function to get available stock for an item
-  const getAvailableStock = (variantId?: string) => {
-    if (!variantId) return Infinity; // No limit if no variant ID
-
-    const variantPurchases = purchases.filter(p => p.variantId === variantId && p.remaining > 0);
-
-    return variantPurchases.reduce((sum, p) => sum + p.remaining, 0);
-  };
-
-  // Helper function to get available quantity for virtual products
-  const getVirtualProductAvailableQuantity = (virtualProductId?: string) => {
-    if (!virtualProductId) return Infinity;
-
-    const virtualProduct = virtualProducts.find(vp => vp.id === virtualProductId);
-    if (!virtualProduct) return 0;
-
-    let minAvailable = virtualProduct.availableQuantity;
-
-    // Check if this virtual product is already in the invoice
-    const currentItems = form.watch('items');
-    const virtualProductInInvoice = currentItems.find(item => item.virtualProductId === virtualProductId);
-    if (virtualProductInInvoice) {
-      // Reduce available quantity by the amount already in invoice
-      minAvailable = Math.max(0, minAvailable - (virtualProductInInvoice.quantity || 0));
+  // Mirrors EnhancedProductSelector's effectiveStockByPurchase — single source of truth
+  // for available stock used by both the selector and the items table stepper.
+  const currentItemsForStock = useWatch({ control: form.control, name: 'items' });
+  const effectiveStockByPurchase = useMemo((): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (const p of purchases) {
+      map.set(p.purchaseId, p.remaining);
     }
-
-    // Check each component to see if it's been used in the invoice
-    virtualProduct.components.forEach(component => {
-      // Find all invoice items that use this component
-      const componentUsage = currentItems.reduce((total, item) => {
-        // Check if this is a regular product item matching the component
-        if (item.variantId === component.variantId) {
-          return total + (item.quantity || 0);
+    if (restoredItems) {
+      for (const item of restoredItems) {
+        if (!item.virtualProductId && item.purchaseId) {
+          map.set(item.purchaseId, (map.get(item.purchaseId) ?? 0) + item.quantity);
         }
-        // Check if this is a virtual product item that contains this component
-        if (item.virtualProductId && item.componentBreakdown) {
-          const breakdown = item.componentBreakdown;
-          const matchingComponent = breakdown.find(b => b.variantId === component.variantId);
-          if (matchingComponent) {
-            return total + matchingComponent.quantity;
+        if (item.componentBreakdown) {
+          for (const comp of item.componentBreakdown) {
+            map.set(comp.purchaseId, (map.get(comp.purchaseId) ?? 0) + comp.quantity);
           }
         }
-        return total;
-      }, 0);
+      }
+    }
+    for (const item of currentItemsForStock) {
+      if (!item.virtualProductId && item.purchaseId) {
+        map.set(item.purchaseId, (map.get(item.purchaseId) ?? 0) - item.quantity);
+      }
+      if (item.componentBreakdown) {
+        for (const comp of item.componentBreakdown) {
+          map.set(comp.purchaseId, (map.get(comp.purchaseId) ?? 0) - comp.quantity);
+        }
+      }
+    }
+    return map;
+  }, [purchases, currentItemsForStock, restoredItems]);
 
-      // Calculate how many virtual products can be made with remaining component stock
-      const remainingComponentStock = component.availableStock - componentUsage;
-      const possibleUnits = Math.floor(remainingComponentStock / component.quantity);
-      minAvailable = Math.min(minAvailable, possibleUnits);
-    });
+  // Available stock for a variant — sums effective remaining across all purchases for that variant.
+  const getAvailableStock = (variantId?: string): number => {
+    if (!variantId) return Infinity;
+    let total = 0;
+    for (const [purchaseId, remaining] of effectiveStockByPurchase) {
+      const purchase = purchases.find(p => p.purchaseId === purchaseId && p.variantId === variantId);
+      if (purchase) total += Math.max(0, remaining);
+    }
+    return total;
+  };
 
-    return Math.max(0, minAvailable);
+  // Available VP quantity — min of floor(componentEffectiveStock / compQty) across all components.
+  const getVirtualProductAvailableQuantity = (virtualProductId?: string): number => {
+    if (!virtualProductId) return Infinity;
+    const virtualProduct = virtualProducts.find(vp => vp.id === virtualProductId);
+    if (!virtualProduct) return 0;
+    const max = virtualProduct.components.reduce((min, comp) => {
+      let compStock = 0;
+      for (const [purchaseId, remaining] of effectiveStockByPurchase) {
+        const purchase = purchases.find(p => p.purchaseId === purchaseId && p.variantId === comp.variantId);
+        if (purchase) compStock += Math.max(0, remaining);
+      }
+      return Math.min(min, Math.floor(compStock / comp.quantity));
+    }, Infinity);
+    return max === Infinity ? 0 : max;
   };
 
   const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
@@ -443,7 +451,7 @@ export function NewInvoiceForm({
   }, [isOtcCustomer, total, paid, form]);
 
   // Calculate grand total (invoice total - paid amount)
-  const grandTotal = Math.max(0, total - paid);
+  const grandTotal = Math.max(0, total - (isEditMode ? existingPaidAmount : paid));
 
   // Update remaining payment and amount in words when grandTotal changes
   useEffect(() => {
@@ -542,11 +550,22 @@ export function NewInvoiceForm({
         const existingVirtualItemIndex = fields.findIndex(field => field.virtualProductId === item.virtualProductId);
 
         if (existingVirtualItemIndex !== -1) {
-          // Virtual product exists, update its quantity
-          const existingItem = form.watch(`items.${existingVirtualItemIndex}`);
+          // Virtual product exists — replace with new FIFO breakdown for updated total quantity
+          const existingItem = form.getValues(`items.${existingVirtualItemIndex}`);
           const newQuantity = existingItem.quantity + item.quantity;
-          form.setValue(`items.${existingVirtualItemIndex}.quantity`, newQuantity);
-          form.setValue(`items.${existingVirtualItemIndex}.amount`, newQuantity * existingItem.rate);
+          form.setValue(
+            `items.${existingVirtualItemIndex}`,
+            {
+              ...existingItem,
+              quantity: newQuantity,
+              amount: newQuantity * existingItem.rate,
+              componentBreakdown: item.componentBreakdown,
+              totalComponentCost: item.totalComponentCost,
+              totalCustomExpenses: item.totalCustomExpenses,
+              originalRate: item.originalRate
+            },
+            { shouldDirty: true }
+          );
         } else {
           console.log({ item });
           // Add new virtual product
@@ -1136,7 +1155,7 @@ export function NewInvoiceForm({
                   variants={variants}
                   virtualProducts={virtualProducts}
                   purchases={purchases}
-                  currentItems={form.watch('items')}
+                  currentItems={currentItemsForStock}
                   onAddItem={handleAddItemFromSelector}
                   restoredItems={restoredItems}
                 />
@@ -1189,11 +1208,11 @@ export function NewInvoiceForm({
                   // Get stock limit for this specific purchase (including current item's quantity)
                   const purchaseStockLimit = purchaseId
                     ? (() => {
-                      const purchase = purchases.find(p => p.purchaseId === purchaseId);
-                      if (!purchase) return 0;
-
-                      return purchase.remaining;
-                    })()
+                        const effective = effectiveStockByPurchase.get(purchaseId) ?? 0;
+                        const currentQty = form.watch(`items.${index}.quantity`) ?? 0;
+                        // Add back this item's own quantity since the map already subtracted it
+                        return Math.max(0, effective + currentQty);
+                      })()
                     : Infinity;
 
                   return (
@@ -1826,32 +1845,38 @@ export function NewInvoiceForm({
                         <span className="text-xs max-sm:hidden text-orange-600">(Full payment required)</span>
                       )}
                     </span>
-                    <FormField
-                      control={form.control}
-                      name="paid"
-                      render={({ field }) => (
-                        <FormItem className="w-24">
-                          <FormControl>
-                            <InputGroup>
-                              <InputGroupAddon>Rs</InputGroupAddon>
-                              <InputGroupInput
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                {...field}
-                                className="h-8 text-sm"
-                                onChange={e => handleNumericInput(e, field, 'paid')}
-                                value={field.value || ''}
-                                disabled={isOtcCustomer}
-                                readOnly={isOtcCustomer}
-                              />
-                            </InputGroup>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                    {isEditMode ? (
+                      <span className="text-sm text-muted-foreground">(from partial payments)</span>
+                    ) : (
+                      <FormField
+                        control={form.control}
+                        name="paid"
+                        render={({ field }) => (
+                          <FormItem className="w-24">
+                            <FormControl>
+                              <InputGroup>
+                                <InputGroupAddon>Rs</InputGroupAddon>
+                                <InputGroupInput
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  {...field}
+                                  className="h-8 text-sm"
+                                  onChange={e => handleNumericInput(e, field, 'paid')}
+                                  value={field.value || ''}
+                                  disabled={isOtcCustomer}
+                                  readOnly={isOtcCustomer}
+                                />
+                              </InputGroup>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
-                  <span className="text-green-600">{formatCurrency(paid)}</span>
+                  <span className="text-green-600">
+                    {isEditMode ? formatCurrency(existingPaidAmount) : formatCurrency(paid)}
+                  </span>
                 </div>
 
                 <div className="flex justify-between items-center">
