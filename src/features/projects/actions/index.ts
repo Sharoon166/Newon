@@ -419,9 +419,9 @@ export async function createProject(data: CreateProjectDto): Promise<Project> {
       .select('firstName lastName')
       .session(session)
       .lean()) as {
-      firstName: string;
-      lastName: string;
-    } | null;
+        firstName: string;
+        lastName: string;
+      } | null;
     const userName = staff ? `${staff.firstName} ${staff.lastName}` : 'System';
 
     if (savedProject.projectId) {
@@ -686,8 +686,6 @@ export async function getProjectStaffFinances(projectId: string): Promise<StaffF
 }
 
 export async function unlinkInvoiceFromProject(projectId: string, invoiceNumberOrId: string): Promise<void> {
-  const session = await mongoose.startSession();
-  session.startTransaction();
 
   let customExpensesToRecreate: Array<{
     name: string;
@@ -698,18 +696,22 @@ export async function unlinkInvoiceFromProject(projectId: string, invoiceNumberO
   }> = [];
   let invoiceData: { id: string; invoiceNumber: string; date: Date; createdBy: string } | null = null;
 
+  await dbConnect();
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    await dbConnect();
-
     // Find by either invoiceNumber or _id
     const invoiceQuery = mongoose.isValidObjectId(invoiceNumberOrId)
       ? { _id: invoiceNumberOrId }
       : { invoiceNumber: invoiceNumberOrId };
 
-    const [project, invoice] = await Promise.all([
-      ProjectModel.findOne({ projectId }).session(session).lean(),
-      InvoiceModel.findOne(invoiceQuery).session(session).lean()
-    ]);
+    const project = await ProjectModel.findOne({ projectId })
+      .session(session)
+      .lean();
+
+    const invoice = await InvoiceModel.findOne(invoiceQuery)
+      .session(session)
+      .lean();
 
     if (!project) throw new Error('Project not found');
     if (!invoice) throw new Error('Invoice not found');
@@ -1081,16 +1083,16 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
       transactions:
         userRole === 'admin'
           ? [
-              {
-                amount: data.amount,
-                date: data.date,
-                source: 'cash', // Default source for auto-pay
-                notes: 'Automatically paid (Admin addition)',
-                addedBy: data.addedBy,
-                addedByName,
-                createdAt: new Date()
-              }
-            ]
+            {
+              amount: data.amount,
+              date: data.date,
+              source: 'cash', // Default source for auto-pay
+              notes: 'Automatically paid (Admin addition)',
+              addedBy: data.addedBy,
+              addedByName,
+              createdAt: new Date()
+            }
+          ]
           : []
     };
 

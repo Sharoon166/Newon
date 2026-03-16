@@ -86,7 +86,7 @@ export function ProjectActions({
         onOpenChange={setCancelDialogOpen}
         onConfirm={handleCancel}
         title="Cancel Project"
-        description={`Are you sure you want to cancel project "${projectTitle}"? This will delete all project expenses, unlink the invoice, and recreate the invoice expenses in the Expense collection.`}
+        description={`Are you sure you want to cancel project "${projectTitle}"? This will delete all project expenses and unlink the invoice`}
         confirmText="Cancel Project"
         variant="destructive"
         isProcessing={isCancelling}
