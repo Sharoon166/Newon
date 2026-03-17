@@ -39,6 +39,13 @@ export function calculateInvoiceProfit(items: ItemWithProfit[], discountAmount: 
         return sum + itemProfit;
       }
 
+      // For regular items with custom expenses, use actualCost as the cost basis
+      if (item.customExpenses && item.customExpenses.length > 0) {
+        const customCost = item.customExpenses.reduce((s, e) => s + e.actualCost, 0);
+        const itemProfit = (item.rate * item.quantity) - (customCost * item.quantity);
+        return sum + itemProfit;
+      }
+
       // For regular items, calculate profit from rate vs originalRate
       const costPrice = item.originalRate ?? 0;
       const sellingPrice = item.rate;
@@ -51,3 +58,4 @@ export function calculateInvoiceProfit(items: ItemWithProfit[], discountAmount: 
   // Return profit (can be negative if selling at a loss)
   return finalProfit;
 }
+
