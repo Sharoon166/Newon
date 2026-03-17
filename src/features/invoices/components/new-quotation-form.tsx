@@ -309,6 +309,10 @@ export function NewQuotationForm({
       const componentCost = item.totalComponentCost || 0;
       const customExpensesCost = item.totalCustomExpenses || 0;
       itemCost = (componentCost + customExpensesCost) * (item.quantity || 1);
+    } else if (item.customExpenses && item.customExpenses.length > 0) {
+      // For items with customExpenses, use actualCost sum (originalRate may be stale)
+      const customCost = item.customExpenses.reduce((s: number, e: { actualCost: number }) => s + e.actualCost, 0);
+      itemCost = customCost * (item.quantity || 1);
     } else if (item.originalRate !== undefined && item.originalRate !== null) {
       // For regular products, use originalRate * quantity
       itemCost = item.originalRate * (item.quantity || 1);
@@ -1189,9 +1193,9 @@ export function NewQuotationForm({
                         </Button>
                       </div>
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-12">Qty:</span>
+                        <div className="flex max-xs:flex-col xs:items-center gap-2">
                           <div className="flex items-center gap-1 flex-1">
+                          <span className="text-xs text-muted-foreground w-12">Qty:</span>
                             <Button
                               type="button"
                               variant="outline"

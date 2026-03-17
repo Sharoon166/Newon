@@ -40,6 +40,21 @@ const purchaseFormSchema = z.object({
   shippingCost: z.number().min(0, 'Shipping cost must be non-negative'),
   purchaseDate: z.string().min(1, 'Purchase date is required'),
   notes: z.string().optional()
+}).superRefine((data, ctx) => {
+  if (data.retailPrice > 0 && data.unitPrice > data.retailPrice) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Base price cannot be greater than retail price',
+      path: ['unitPrice']
+    });
+  }
+  if (data.wholesalePrice > 0 && data.unitPrice > data.wholesalePrice) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Base price cannot be greater than wholesale price',
+      path: ['unitPrice']
+    });
+  }
 });
 
 type PurchaseFormValues = z.infer<typeof purchaseFormSchema>;

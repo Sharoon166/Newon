@@ -337,7 +337,11 @@ export function NewInvoiceForm({
     name: 'items'
   });
 
-  const { fields: additionalChargesFields, append: appendAdditionalCharge, remove: removeAdditionalCharge } = useFieldArray({
+  const {
+    fields: additionalChargesFields,
+    append: appendAdditionalCharge,
+    remove: removeAdditionalCharge
+  } = useFieldArray({
     control: form.control,
     name: 'additionalCharges'
   });
@@ -422,8 +426,11 @@ export function NewInvoiceForm({
       const componentCost = item.totalComponentCost || 0;
       const customExpensesCost = item.totalCustomExpenses || 0;
       itemCost = (componentCost + customExpensesCost) * (item.quantity || 1);
+    } else if (item.customExpenses && item.customExpenses.length > 0) {
+      // Use actualCost from customExpenses
+      const customCost = item.customExpenses.reduce((s, e) => s + e.actualCost, 0);
+      itemCost = customCost * (item.quantity || 1);
     } else if (item.originalRate !== undefined && item.originalRate !== null) {
-      // For regular products, use originalRate * quantity
       itemCost = item.originalRate * (item.quantity || 1);
     }
 
@@ -1071,22 +1078,22 @@ export function NewInvoiceForm({
                     selectedCustomer.city ||
                     selectedCustomer.state ||
                     selectedCustomer.zip) && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-sm flex items-start gap-2">
-                          <MapPin className="h-4 w-4 mt-0.5" />
-                          <span>
-                            {[
-                              selectedCustomer.address,
-                              selectedCustomer.city,
-                              selectedCustomer.state,
-                              selectedCustomer.zip
-                            ]
-                              .filter(Boolean)
-                              .join(', ')}
-                          </span>
-                        </p>
-                      </div>
-                    )}
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-sm flex items-start gap-2">
+                        <MapPin className="h-4 w-4 mt-0.5" />
+                        <span>
+                          {[
+                            selectedCustomer.address,
+                            selectedCustomer.city,
+                            selectedCustomer.state,
+                            selectedCustomer.zip
+                          ]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {!selectedCustomer && (
@@ -1254,9 +1261,9 @@ export function NewInvoiceForm({
                         </Button>
                       </div>
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-12">Qty:</span>
+                        <div className="flex max-xs:flex-col xs:items-center gap-2">
                           <div className="flex items-center gap-1 flex-1">
+                            <span className="text-xs text-muted-foreground w-12">Qty:</span>
                             <Button
                               type="button"
                               variant="outline"
@@ -1453,13 +1460,13 @@ export function NewInvoiceForm({
                                   Profit per unit:{' '}
                                   {formatCurrency(
                                     (item.rate || 0) -
-                                    ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
+                                      ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
                                   )}{' '}
                                   × {currentQuantity} ={' '}
                                   {formatCurrency(
                                     ((item.rate || 0) -
                                       ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
-                                    currentQuantity
+                                      currentQuantity
                                   )}
                                 </div>
                               </div>
@@ -1748,7 +1755,7 @@ export function NewInvoiceForm({
                     Add Charge
                   </Button>
                 </div>
-                
+
                 {additionalChargesFields.map((field, index) => (
                   <div key={field.id} className="flex gap-2 items-center">
                     <FormField
@@ -1758,11 +1765,7 @@ export function NewInvoiceForm({
                         <FormItem className="flex-1">
                           <FormControl>
                             <InputGroup>
-                              <InputGroupInput
-                                placeholder="Charge description"
-                                {...field}
-                                className="h-8 text-sm"
-                              />
+                              <InputGroupInput placeholder="Charge description" {...field} className="h-8 text-sm" />
                             </InputGroup>
                           </FormControl>
                           <FormMessage className="text-xs" />
@@ -1811,7 +1814,7 @@ export function NewInvoiceForm({
                     </Button>
                   </div>
                 ))}
-                
+
                 {additionalChargesFields.length > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground font-medium">Additional Charges Total:</span>

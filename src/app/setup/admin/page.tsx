@@ -32,7 +32,7 @@ export default function AdminSetupPage() {
         if (data.adminExists) {
           // Admin exists, redirect to inventory
           toast.info('Admin already exists');
-          router.push('/inventory');
+          // router.push('/inventory');
         } else {
           setIsLoading(false);
         }
