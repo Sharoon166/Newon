@@ -12,7 +12,8 @@ import type {
   ExpenseFilters,
   PaginatedExpenses,
   ExpenseKPIs,
-  LeanExpense
+  LeanExpense,
+  ExpenseCategory
 } from '../types';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
@@ -56,6 +57,7 @@ const createExpenseSchema = z.object({
     'professional-services',
     'insurance',
     'taxes',
+    'salary',
     'other'
   ]),
   date: z.date(),

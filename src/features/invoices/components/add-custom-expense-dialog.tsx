@@ -30,6 +30,7 @@ const customExpenseSchema = z.object({
     'professional-services',
     'insurance',
     'taxes',
+    'salary',
     'other'
   ]),
   description: z.string().optional()

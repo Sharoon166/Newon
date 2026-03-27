@@ -64,13 +64,13 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
             )}
 
             <div className="text-muted-foreground text-sm print:text-xs">
-              <p className="max-w-sm">{invoiceData.company.address}</p>
+              <p className="max-w-sm">{invoiceBrand.address}</p>
               <p>
-                {invoiceData.company.city} {invoiceData.company.state} {invoiceData.company.zip}
+                {invoiceBrand.city} {invoiceBrand.state} {invoiceBrand.zip}
               </p>
-              {invoiceData.company.phone && <p>{invoiceData.company.phone}</p>}
-              {invoiceData.company.email && <p>{invoiceData.company.email}</p>}
-              {invoiceData.company.website && <p>{invoiceData.company.website}</p>}
+              {invoiceBrand.phone && <p>{invoiceBrand.phone}</p>}
+              {invoiceBrand.email && <p>{invoiceBrand.email}</p>}
+              {invoiceBrand.website && <p>{invoiceBrand.website}</p>}
               {invoiceBrand?.ntnNo && (
                 <p>
                   <span className="font-semibold">NTN#:</span> {invoiceBrand.ntnNo}
@@ -144,9 +144,9 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                 <th className="p-3 print:py-2 border text-right">Qty</th>
                 {invoiceData.market === 'waymor' ? (
                   <>
-                    <th className="p-3 print:py-2 border text-right print:w-24">Rate <span className="block text-xs">(Ex-GST)</span></th>
-                    <th className="p-3 print:py-2 border text-right print:w-24">Rate <span className="block text-xs">(Inc-GST)</span></th>
-                    <th className="p-3 print:py-2 border text-right print:w-24">Amount <span className="block text-xs">(Ex-GST)</span></th>
+                    <th className="p-3 print:py-2 border text-right print:w-24">Unit Price</th>
+                    <th className="p-3 print:py-2 border text-right print:w-24">Value <span className="block text-xs">(Ex-GST)</span></th>
+                    <th className="p-3 print:py-2 border text-right print:w-24">GST</th>
                     <th className="p-3 print:py-2 border text-right print:w-24">Amount <span className="block text-xs">(Inc-GST)</span></th>
                   </>
                 ) : (
@@ -177,8 +177,8 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                   {invoiceData.market === 'waymor' ? (
                     <>
                       <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.rate)}</td>
-                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.rate * (1 + invoiceData.taxRate / 100))}</td>
                       <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.amount)}</td>
+                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.amount * (invoiceData.taxRate / 100))}</td>
                       <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap font-medium">{formatCurrency(item.amount * (1 + invoiceData.taxRate / 100))}</td>
                     </>
                   ) : (

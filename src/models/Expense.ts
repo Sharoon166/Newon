@@ -114,6 +114,7 @@ const expenseSchema = new Schema<IExpense>(
         'professional-services',
         'insurance',
         'taxes',
+        'salary',
         'other'
       ]
     },
