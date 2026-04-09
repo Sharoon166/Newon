@@ -302,6 +302,7 @@ export default function InvoiceDetailPage() {
           paid: invoice.paidAmount,
           remainingPayment: invoice.balanceAmount,
           amountInWords: `${convertToWords(Math.round(invoice.balanceAmount + (invoice.balanceAmount > 0 ? 0 : 0)))} Rupees Only`,
+          additionalCharges: invoice.additionalCharges,
           billingType: invoice.billingType,
           market: invoice.market,
           customerId: invoice.customerId
@@ -346,7 +347,8 @@ export default function InvoiceDetailPage() {
           amountInWords: `${convertToWords(Math.round(invoice.totalAmount))} Rupees Only`,
           billingType: invoice.billingType,
           market: invoice.market,
-          customerId: invoice.customerId
+          customerId: invoice.customerId,
+          additionalCharges: invoice.additionalCharges
         } as QuotationTemplateData);
 
   return (
