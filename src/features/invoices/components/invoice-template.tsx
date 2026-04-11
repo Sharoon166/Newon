@@ -39,15 +39,20 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
     return (
       <div
         ref={ref}
-        className={`max-w-4xl mx-auto bg-white ${isMobileView
+        className={`max-w-4xl mx-auto bg-white ${
+          isMobileView
             ? 'p-4 border-0 shadow-none'
             : 'p-8 not-print:border rounded-lg shadow-sm print:shadow-none print:p-4 print:flex print:flex-col'
-          }`}
+        }`}
       >
+        <div aria-label="heading" className="text-primary text-center  text-3xl font-semibold">
+          Sale Invoice
+        </div>
         {/* Header */}
         <div
-          className={`flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center ${isMobileView ? 'mb-4 pb-4' : 'mb-8 print:mb-2 pb-8 print:pb-2'
-            } border-b print-no-break`}
+          className={`flex flex-col sm:flex-row print:flex-row justify-between items-start md:items-center ${
+            isMobileView ? 'mb-4 pb-4' : 'mb-8 print:mb-2 pb-8 print:pb-2'
+          } border-b print-no-break`}
         >
           <div className="mb-6 md:mb-0 print:mb-0">
             {invoiceBrand?.logo ? (
@@ -145,9 +150,13 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                 {invoiceData.market === 'waymor' ? (
                   <>
                     <th className="p-3 print:py-2 border text-right print:w-24">Unit Price</th>
-                    <th className="p-3 print:py-2 border text-right print:w-24">Value <span className="block text-xs">(Ex-GST)</span></th>
+                    <th className="p-3 print:py-2 border text-right print:w-24">
+                      Value <span className="block text-xs">(Ex-GST)</span>
+                    </th>
                     <th className="p-3 print:py-2 border text-right print:w-24">GST</th>
-                    <th className="p-3 print:py-2 border text-right print:w-24">Amount <span className="block text-xs">(Inc-GST)</span></th>
+                    <th className="p-3 print:py-2 border text-right print:w-24">
+                      Amount <span className="block text-xs">(Inc-GST)</span>
+                    </th>
                   </>
                 ) : (
                   <>
@@ -176,15 +185,27 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                   <td className="p-3 print:py-2 border text-right">{item.quantity}</td>
                   {invoiceData.market === 'waymor' ? (
                     <>
-                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.rate)}</td>
-                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.amount)}</td>
-                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">{formatCurrency(item.amount * (invoiceData.taxRate / 100))}</td>
-                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap font-medium">{formatCurrency(item.amount * (1 + invoiceData.taxRate / 100))}</td>
+                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">
+                        {formatCurrency(item.rate)}
+                      </td>
+                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">
+                        {formatCurrency(item.amount)}
+                      </td>
+                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap">
+                        {formatCurrency(item.amount * (invoiceData.taxRate / 100))}
+                      </td>
+                      <td className="p-3 print:py-2 border text-right print:w-24 print:text-wrap font-medium">
+                        {formatCurrency(item.amount * (1 + invoiceData.taxRate / 100))}
+                      </td>
                     </>
                   ) : (
                     <>
-                      <td className="p-3 print:py-2 border text-right print:w-32 print:text-wrap">{formatCurrency(item.rate)}</td>
-                      <td className="p-3 print:py-2 border text-right print:w-32 print:text-wrap font-medium">{formatCurrency(item.amount)}</td>
+                      <td className="p-3 print:py-2 border text-right print:w-32 print:text-wrap">
+                        {formatCurrency(item.rate)}
+                      </td>
+                      <td className="p-3 print:py-2 border text-right print:w-32 print:text-wrap font-medium">
+                        {formatCurrency(item.amount)}
+                      </td>
                     </>
                   )}
                 </tr>
