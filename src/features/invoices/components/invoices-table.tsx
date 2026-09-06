@@ -58,9 +58,10 @@ import { ServerPagination } from '@/components/general/server-pagination';
 interface InvoicesTableProps {
   invoicesData: PaginatedInvoices;
   onRefresh?: () => void;
+  userRole?: 'admin' | 'staff';
 }
 
-export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
+export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTableProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -191,7 +192,9 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
         },
         cell: ({ row }) => (
           <div className="font-medium flex items-center gap-2">
-            {row.getValue('invoiceNumber')}
+            <Link href={`/invoices/${row.original.id}`} className="hover:underline">
+              {row.getValue('invoiceNumber')}
+            </Link>
             {row.original.custom && <Copyright className="text-primary" />}
           </div>
         )
@@ -357,86 +360,90 @@ export function InvoicesTable({ invoicesData, onRefresh }: InvoicesTableProps) {
           return value.includes(row.getValue(id));
         }
       },
-      {
-        id: 'actions',
-        cell: ({ row }) => {
-          const invoice = row.original;
-          const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
+      ...(userRole !== 'staff'
+        ? [
+            {
+              id: 'actions' as const,
+              cell: ({ row }: { row: { original: Invoice } }) => {
+                const invoice = row.original;
+                const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
 
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <Link href={`/invoices/${invoice.id}`}>
-                  <DropdownMenuItem>
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuItem
-                  hidden
-                  disabled={downloadingPDF === invoice.id}
-                  onClick={async () => {
-                    setDownloadingPDF(invoice.id);
-                    await printInvoicePDF(invoice.id, invoice.invoiceNumber, invoice.type);
-                    setDownloadingPDF(null);
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
-                </DropdownMenuItem>
-                {invoice.status !== 'cancelled' && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        router.push(`/invoices/${invoice.id}/edit`);
-                      }}
-                      disabled={isEditRestricted}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <Link href={`/invoices/${invoice.id}`}>
+                        <DropdownMenuItem>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                      </Link>
                       <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedInvoice(invoice);
-                          setPaymentDialogOpen(true);
+                        hidden
+                        disabled={downloadingPDF === invoice.id}
+                        onClick={async () => {
+                          setDownloadingPDF(invoice.id);
+                          await printInvoicePDF(invoice.id, invoice.invoiceNumber, invoice.type);
+                          setDownloadingPDF(null);
                         }}
                       >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Payment
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
                       </DropdownMenuItem>
-                    )}
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  disabled={invoice.status === 'cancelled' || invoice.status === 'paid' || !!invoice.projectId}
-                  onClick={() => {
-                    setSelectedInvoice(invoice);
-                    setCancelDialogOpen(true);
-                  }}
-                >
-                  <Ban className="h-4 w-4 mr-2" />
-                  Cancel
-                  {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
-                  {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
-                  {invoice.projectId && <span className="ml-2 text-xs">(Project invoice)</span>}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        }
-      }
+                      {invoice.status !== 'cancelled' && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              router.push(`/invoices/${invoice.id}/edit`);
+                            }}
+                            disabled={isEditRestricted}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setPaymentDialogOpen(true);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Payment
+                            </DropdownMenuItem>
+                          )}
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        disabled={invoice.status === 'cancelled' || invoice.status === 'paid' || !!invoice.projectId}
+                        onClick={() => {
+                          setSelectedInvoice(invoice);
+                          setCancelDialogOpen(true);
+                        }}
+                      >
+                        <Ban className="h-4 w-4 mr-2" />
+                        Cancel
+                        {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
+                        {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
+                        {invoice.projectId && <span className="ml-2 text-xs">(Project invoice)</span>}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
+            }
+          ]
+        : [])
     ],
-    []
+    [userRole]
   );
 
   const table = useReactTable({

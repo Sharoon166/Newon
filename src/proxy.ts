@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes that don't require authentication
@@ -42,7 +42,14 @@ export async function middleware(request: NextRequest) {
 
   // Role-based access control for staff
   if (token && token.role === 'staff') {
-    const allowedStaffRoutes = ['/inventory/staff', '/projects', '/not-allowed', '/api'];
+    const allowedStaffRoutes = [
+      '/inventory/staff',
+      '/projects',
+      '/invoices',
+      '/purchases',
+      '/not-allowed',
+      '/api'
+    ];
     const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
 
     // Also allow access to static assets and Next.js internals

@@ -140,6 +140,11 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    origin: {
+      type: String,
+      enum: ['imported', 'local'],
+      default: 'local'
+    },
     attributes: {
       type: [productAttributeSchema],
       default: []

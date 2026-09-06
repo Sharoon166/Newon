@@ -9,6 +9,9 @@ interface IPayment {
   date: Date;
   reference?: string;
   notes?: string;
+  sourceType?: 'general' | 'invoice';
+  sourcePaymentId?: string;
+  sourcePaymentNumber?: string;
 }
 
 // Component breakdown for virtual products
@@ -156,6 +159,16 @@ const paymentSchema = new Schema<IPayment>({
     type: String
   },
   notes: {
+    type: String
+  },
+  sourceType: {
+    type: String,
+    enum: ['general', 'invoice']
+  },
+  sourcePaymentId: {
+    type: String
+  },
+  sourcePaymentNumber: {
     type: String
   }
 });

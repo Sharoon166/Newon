@@ -18,9 +18,10 @@ interface PaymentsListProps {
   payments: Payment[];
   onUpdate: () => void;
   isCancelled?: boolean;
+  canEdit?: boolean;
 }
 
-export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = false }: PaymentsListProps) {
+export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = false, canEdit = true }: PaymentsListProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPaymentIndex, setSelectedPaymentIndex] = useState<number | null>(null);
@@ -67,6 +68,17 @@ export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = fals
 
   const selectedPayment = selectedPaymentIndex !== null ? payments[selectedPaymentIndex] : null;
 
+  const getSourceBadge = (payment: Payment) => {
+    if (payment.sourceType === 'general' && payment.sourcePaymentNumber) {
+      return (
+        <Badge variant="outline" className="font-mono text-xs">
+          {payment.sourcePaymentNumber}
+        </Badge>
+      );
+    }
+    return <span className="text-muted-foreground text-xs">Direct</span>;
+  };
+
   return (
     <>
       <Table>
@@ -77,8 +89,9 @@ export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = fals
             <TableHead>Amount</TableHead>
             <TableHead>Method</TableHead>
             <TableHead>Reference</TableHead>
+            <TableHead>Source</TableHead>
             <TableHead>Notes</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            {canEdit && <TableHead className="text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -89,40 +102,43 @@ export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = fals
               <TableCell className="font-medium">{formatCurrency(payment.amount)}</TableCell>
               <TableCell>{getPaymentMethodBadge(payment.method)}</TableCell>
               <TableCell>{payment.reference || '-'}</TableCell>
+              <TableCell>{getSourceBadge(payment)}</TableCell>
               <TableCell className="max-w-xs truncate">{payment.notes || '-'}</TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setSelectedPaymentIndex(index);
-                      setEditDialogOpen(true);
-                    }}
-                    disabled={isCancelled}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setSelectedPaymentIndex(index);
-                      setDeleteDialogOpen(true);
-                    }}
-                    disabled={isCancelled}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </TableCell>
+              {canEdit && (
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedPaymentIndex(index);
+                        setEditDialogOpen(true);
+                      }}
+                      disabled={isCancelled}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedPaymentIndex(index);
+                        setDeleteDialogOpen(true);
+                      }}
+                      disabled={isCancelled}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
       </Table>
 
       <ConfirmationDialog
-        open={deleteDialogOpen}
+        open={canEdit && deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         title="Delete Payment"
@@ -132,7 +148,7 @@ export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = fals
         isProcessing={isDeleting}
       />
 
-      {selectedPayment && selectedPaymentIndex !== null && (
+      {canEdit && selectedPayment && selectedPaymentIndex !== null && (
         <EditPaymentDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}

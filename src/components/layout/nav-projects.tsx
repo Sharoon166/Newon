@@ -30,11 +30,11 @@ export function NavCategories({ categories }: { categories: NavCategory[] }) {
     <>
       {categories.map(category => (
         <SidebarGroup key={category.title}>
-          <SidebarGroupLabel className="uppercase">{category.title}</SidebarGroupLabel>
+          <SidebarGroupLabel className="uppercase tracking-widest font-mono">{category.title}</SidebarGroupLabel>
           <SidebarMenu>
             {category.items.map(item => (
               <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton asChild isActive={pathname.includes(item.url)} className="">
+                <SidebarMenuButton asChild isActive={pathname.includes(item.url)}>
                   <Link href={item.url}>
                     <item.icon className="size-4" />
                     <span>{item.name}</span>

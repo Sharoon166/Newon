@@ -16,9 +16,9 @@ import { VariantActions } from '@/features/inventory/components/variants/variant
 import type { ProductAttribute, ProductLocation, ProductVariant } from '@/features/inventory/types';
 
 interface ProductDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 interface EnhancedProductVariant extends ProductVariant {
@@ -34,6 +34,7 @@ interface ProductWithPricing {
   name: string;
   description?: string;
   supplier: string;
+  origin?: 'imported' | 'local';
   categories: string[];
   locations?: ProductLocation[];
   attributes?: ProductAttribute[];
@@ -159,6 +160,13 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               <div>
                 <div className="text-sm font-medium mb-2">Supplier</div>
                 <div className="text-sm text-muted-foreground">{product.supplier || 'Not specified'}</div>
+              </div>
+
+              <div>
+                <div className="text-sm font-medium mb-2">Origin</div>
+                <Badge variant={product.origin === 'imported' ? 'secondary' : 'outline'} className="font-medium capitalize">
+                  {product.origin === 'imported' ? 'Imported' : 'Local'}
+                </Badge>
               </div>
 
               {product.categories && product.categories.length > 0 && (

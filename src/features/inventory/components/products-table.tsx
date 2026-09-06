@@ -223,6 +223,23 @@ const columns: ColumnDef<EnhancedVariants>[] = [
     size: 120
   },
   {
+    accessorKey: 'origin',
+    header: () => <div className="text-sm font-medium">Origin</div>,
+    cell: ({ row }) => {
+      const origin = row.original.origin;
+      return (
+        <Badge
+          variant={origin === 'imported' ? 'secondary' : 'outline'}
+          className="font-medium capitalize"
+        >
+          {origin === 'imported' ? 'Imported' : 'Local'}
+        </Badge>
+      );
+    },
+    minSize: 90,
+    size: 100
+  },
+  {
     accessorKey: 'inventory',
     header: () => <div className="text-sm font-medium text-center">Locations</div>,
     cell: ({ row }) => {

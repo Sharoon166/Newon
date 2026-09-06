@@ -3,9 +3,9 @@ import { getProductById } from '@/features/inventory/actions';
 import { ProductForm } from '@/features/inventory/components/product-form';
 
 interface EditProductPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
@@ -138,6 +138,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     // Set default values for required fields
     name: String(product.name || ''),
     supplier: String(product.supplier || ''),
+    origin: (product.origin === 'imported' ? 'imported' : 'local') as 'imported' | 'local',
     description: String(product.description || '')
   };
 

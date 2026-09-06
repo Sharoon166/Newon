@@ -60,6 +60,9 @@ interface LeanPayment {
   date: Date | string;
   reference?: string;
   notes?: string;
+  sourceType?: 'general' | 'invoice';
+  sourcePaymentId?: string;
+  sourcePaymentNumber?: string;
 }
 
 interface LeanInvoice {
@@ -804,7 +807,11 @@ export async function deleteInvoice(id: string): Promise<void> {
 }
 
 // Add payment to invoice
-export async function addPayment(invoiceId: string, payment: AddPaymentDto): Promise<Invoice> {
+export async function addPayment(
+  invoiceId: string,
+  payment: AddPaymentDto,
+  options?: { skipFinancialUpdate?: boolean }
+): Promise<Invoice> {
   try {
     await dbConnect();
 
@@ -825,7 +832,16 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
     }
 
     // Add payment to payments array
-    invoice.payments.push(payment);
+    invoice.payments.push({
+      amount: payment.amount,
+      method: payment.method,
+      date: payment.date,
+      reference: payment.reference,
+      notes: payment.notes,
+      sourceType: payment.sourceType,
+      sourcePaymentId: payment.sourcePaymentId,
+      sourcePaymentNumber: payment.sourcePaymentNumber
+    });
 
     // Update paid amount
     invoice.paidAmount += payment.amount;
@@ -863,13 +879,16 @@ export async function addPayment(invoiceId: string, payment: AddPaymentDto): Pro
       // Continue - payment is recorded but ledger entry failed
     }
 
-    // Update customer financial fields
-    try {
-      const { updateCustomerFinancialsOnPayment } = await import('@/features/customers/actions');
-      await updateCustomerFinancialsOnPayment(invoice.customerId, payment.amount, payment.date);
-    } catch (customerError) {
-      console.error('Error updating customer financials:', customerError);
-      // Continue - payment is recorded but customer update failed
+    // Update customer financial fields (skip when allocating from a general payment's unallocated
+    // balance, because the customer financials were already updated when the unallocated entry was created)
+    if (!options?.skipFinancialUpdate) {
+      try {
+        const { updateCustomerFinancialsOnPayment } = await import('@/features/customers/actions');
+        await updateCustomerFinancialsOnPayment(invoice.customerId, payment.amount, payment.date);
+      } catch (customerError) {
+        console.error('Error updating customer financials:', customerError);
+        // Continue - payment is recorded but customer update failed
+      }
     }
 
     revalidatePath('/invoices');
@@ -907,6 +926,15 @@ export async function updatePayment(
     }
 
     const oldPayment = invoice.payments[paymentIndex];
+
+    // Block edits on payments sourced from general payments — the GP owns the amount.
+    // Users should delete/reallocate via the Payments screen instead.
+    if (oldPayment.sourceType === 'general') {
+      throw new Error(
+        'This payment was allocated from a general payment and cannot be edited directly. ' +
+        'Go to Payments Received to manage this allocation.'
+      );
+    }
 
     // Update the payment
     invoice.payments[paymentIndex] = updatedPayment as never;
@@ -990,7 +1018,10 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
     }
 
     // Store payment amount before deletion for customer update
-    const deletedPaymentAmount = invoice.payments[paymentIndex].amount;
+    const deletedPayment = invoice.payments[paymentIndex];
+    const deletedPaymentAmount = deletedPayment.amount;
+    const paymentSourceType = deletedPayment.sourceType;
+    const paymentSourcePaymentId = deletedPayment.sourcePaymentId;
 
     // Delete ledger entry BEFORE removing from invoice (so we can still find it by index)
     try {
@@ -1031,6 +1062,29 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
     } catch (customerError) {
       console.error('Error reversing customer payment:', customerError);
       // Continue - payment is deleted but customer update failed
+    }
+
+    // If this payment came from a general payment, reconcile it by removing the
+    // allocation for this invoice and recomputing allocated/unallocated amounts.
+    if (paymentSourceType === 'general' && paymentSourcePaymentId) {
+      try {
+        const GeneralPaymentModel = (await import('@/models/GeneralPayment')).default;
+        const generalPayment = await GeneralPaymentModel.findById(paymentSourcePaymentId);
+        if (generalPayment) {
+          const remainingAllocations = (generalPayment.allocations || []).filter(
+            (a: { invoiceId: string }) => a.invoiceId !== invoiceId
+          );
+          const newAllocatedAmount = remainingAllocations.reduce((sum: number, a: { amount: number }) => sum + a.amount, 0);
+          generalPayment.allocations = remainingAllocations;
+          generalPayment.allocatedAmount = newAllocatedAmount;
+          generalPayment.unallocatedAmount = Math.max(0, generalPayment.amount - newAllocatedAmount);
+          await generalPayment.save();
+          revalidatePath('/payments');
+        }
+      } catch (gpError) {
+        console.error('Error reconciling general payment after invoice payment deletion:', gpError);
+        // Continue - invoice payment is deleted even if general payment reconciliation failed
+      }
     }
 
     revalidatePath('/invoices');

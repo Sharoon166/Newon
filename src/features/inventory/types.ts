@@ -53,6 +53,7 @@ export interface ProductType {
   id: string;
   name: string;
   supplier: string;
+  origin: 'imported' | 'local';
   categories: string[];
   description: string;
   locations: ProductLocation[]; // Available locations for this product
@@ -76,6 +77,7 @@ export interface InventoryItem {
 export interface EnhancedVariants extends ProductVariant {
   productName: string;
   supplier: string;
+  origin: 'imported' | 'local';
   categories: string[];
   description: string;
   productId: string;

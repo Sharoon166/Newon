@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { categories } from '../data';
@@ -85,6 +86,7 @@ const productFormSchema = z
     }),
     description: z.string().optional(),
     supplier: z.string().min(1, 'Enter supplier information'),
+    origin: z.enum(['imported', 'local']),
     locations: z.array(
       z.object({
         id: z.string(),
@@ -137,6 +139,7 @@ type ProductFormValues = z.infer<typeof productFormSchema>;
 const defaultValues: ProductFormValues = {
   name: '',
   supplier: '',
+  origin: 'local',
   description: '',
   hasVariants: false,
   locations: [
@@ -535,6 +538,27 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                         <FormControl>
                           <Input placeholder="Enter supplier info" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="origin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Origin</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select origin" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="local">Local</SelectItem>
+                            <SelectItem value="imported">Imported</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -19,7 +19,8 @@ import {
   ReceiptText,
   Wallet,
   BriefcaseBusiness,
-  FileBarChart
+  FileBarChart,
+  HandCoins
 } from 'lucide-react';
 
 import {
@@ -46,6 +47,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
+import { ScrollArea } from '../ui/scroll-area';
 
 const data = {
   navSecondary: [
@@ -98,6 +100,11 @@ const data = {
           name: 'Invoices & Quotations',
           url: '/invoices',
           icon: ReceiptText
+        },
+        {
+          name: 'Payments Received',
+          url: '/payments',
+          icon: HandCoins
         },
         {
           name: 'Ledger',
@@ -222,11 +229,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="#">
+              <a href="#" className='bg-white'>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button type="button" className="bg-white p-2 -m-2 truncate w-full text-left">
+                      <button type="button" className="bg-white p-2 -m-2 truncate w-full text-left focus:outline-0">
                         <div className="flex items-center gap-3 cursor-pointer group">
                           <div className={cn('flex aspect-square p-1 size-8 items-center justify-center')}>
                             <Image
@@ -325,10 +332,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+      <ScrollArea className='h-[80dvh]'>
       <SidebarContent>
         <NavCategories categories={visibleCategories} />
         {visibleSecondary.length > 0 && <NavSecondary items={visibleSecondary} className="mt-auto" />}
       </SidebarContent>
+        
+      </ScrollArea>
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>

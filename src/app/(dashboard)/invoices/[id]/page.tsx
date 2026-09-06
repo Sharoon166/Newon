@@ -26,10 +26,13 @@ import { QuotationTemplate } from '@/features/invoices/components/quotation-temp
 import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
 import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
+import { usePermission } from '@/hooks/use-permission';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const canEdit = usePermission('edit:invoices');
+  const canAddPayment = canEdit;
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -358,38 +361,42 @@ export default function InvoiceDetailPage() {
         backLink="/invoices"
       >
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild disabled={invoice.status === 'cancelled' || isEditRestricted}>
-            <Link href={isEditRestricted ? '#' : `/invoices/${invoice.id}/edit`}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Link>
-          </Button>
+          {canEdit && (
+            <Button variant="outline" asChild disabled={invoice.status === 'cancelled' || isEditRestricted}>
+              <Link href={isEditRestricted ? '#' : `/invoices/${invoice.id}/edit`}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Link>
+            </Button>
+          )}
 
-          <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={isEditRestricted}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Update Status
-          </Button>
+          {canEdit && (
+            <Button variant="outline" onClick={() => setStatusDialogOpen(true)} disabled={isEditRestricted}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Update Status
+            </Button>
+          )}
 
-          {invoice.type === 'invoice' && invoice.balanceAmount > 0 && invoice.status !== 'cancelled' && (
+          {canAddPayment && invoice.type === 'invoice' && invoice.balanceAmount > 0 && invoice.status !== 'cancelled' && (
             <Button onClick={() => setPaymentDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Payment
             </Button>
           )}
 
-          {invoice.type === 'invoice' && !invoice.stockDeducted && (
+          {canEdit && invoice.type === 'invoice' && !invoice.stockDeducted && (
             <Button variant="outline" onClick={handleDeductStock} hidden>
               Deduct Stock
             </Button>
           )}
 
-          {invoice.type === 'invoice' && invoice.stockDeducted && invoice.status === 'cancelled' && (
+          {canEdit && invoice.type === 'invoice' && invoice.stockDeducted && invoice.status === 'cancelled' && (
             <Button variant="outline" onClick={handleRestoreStock} hidden>
               Restore Stock
             </Button>
           )}
 
-          {invoice.type === 'quotation' && !invoice.convertedToInvoice && invoice.status === 'accepted' && (
+          {canEdit && invoice.type === 'quotation' && !invoice.convertedToInvoice && invoice.status === 'accepted' && (
             <Button asChild>
               <Link href={`/invoices/new/${invoice.invoiceNumber}`}>
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -707,6 +714,7 @@ export default function InvoiceDetailPage() {
                   payments={invoice.payments}
                   onUpdate={fetchInvoice}
                   isCancelled={invoice.status === 'cancelled'}
+                  canEdit={canEdit}
                 />
               </CardContent>
             </Card>
@@ -718,22 +726,26 @@ export default function InvoiceDetailPage() {
 
       {invoice && (
         <>
-          <AddPaymentDialog
-            open={paymentDialogOpen}
-            onOpenChange={setPaymentDialogOpen}
-            invoiceId={invoice.id}
-            balanceAmount={invoice.balanceAmount}
-            onSuccess={fetchInvoice}
-          />
+          {canAddPayment && (
+            <AddPaymentDialog
+              open={paymentDialogOpen}
+              onOpenChange={setPaymentDialogOpen}
+              invoiceId={invoice.id}
+              balanceAmount={invoice.balanceAmount}
+              onSuccess={fetchInvoice}
+            />
+          )}
 
-          <UpdateStatusDialog
-            open={statusDialogOpen}
-            onOpenChange={setStatusDialogOpen}
-            invoiceId={invoice.id}
-            currentStatus={invoice.status}
-            type={invoice.type}
-            onSuccess={fetchInvoice}
-          />
+          {canEdit && (
+            <UpdateStatusDialog
+              open={statusDialogOpen}
+              onOpenChange={setStatusDialogOpen}
+              invoiceId={invoice.id}
+              currentStatus={invoice.status}
+              type={invoice.type}
+              onSuccess={fetchInvoice}
+            />
+          )}
         </>
       )}
 

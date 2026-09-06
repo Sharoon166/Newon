@@ -12,9 +12,9 @@ import { notFound } from 'next/navigation';
 import { convertToWords } from '@/features/invoices/utils';
 
 interface QuotationConversionPageProps {
-  params: {
+  params: Promise<{
     quotationId: string;
-  };
+  }>;
 }
 
 export default async function QuotationConversionPage({ params }: QuotationConversionPageProps) {

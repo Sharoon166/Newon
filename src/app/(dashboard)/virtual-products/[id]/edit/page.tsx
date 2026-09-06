@@ -10,13 +10,14 @@ export const metadata = {
 };
 
 interface EditVirtualProductPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default async function EditVirtualProductPage({ params }: EditVirtualProductPageProps) {
-  const [virtualProduct, variants] = await Promise.all([getVirtualProductById(params.id), getProducts()]);
+  const { id } = await params;
+  const [virtualProduct, variants] = await Promise.all([getVirtualProductById(id), getProducts()]);
 
   if (!virtualProduct) {
     notFound();

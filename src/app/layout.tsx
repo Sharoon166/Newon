@@ -1,5 +1,13 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import {
+  Geist,
+  Geist_Mono,
+  Montserrat,
+  Manrope,
+  Reddit_Mono,
+  Poppins,
+  Eczar
+} from 'next/font/google';
 import './globals.css';
 import '@/styles/print.css';
 import { Toaster } from '@/components/ui/sonner';
@@ -13,6 +21,33 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
+  subsets: ['latin']
+});
+
+const montserrat = Montserrat({
+  variable: '--font-montserrat',
+  subsets: ['latin']
+});
+
+const manrope = Manrope({
+  variable: '--font-manrope',
+  subsets: ['latin']
+});
+
+const redditMono = Reddit_Mono({
+  variable: '--font-reddit-mono',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700']
+});
+
+const poppins = Poppins({
+  variable: '--font-poppins',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700']
+});
+
+const eczar = Eczar({
+  variable: '--font-eczar',
   subsets: ['latin']
 });
 
@@ -33,7 +68,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${manrope.variable} ${redditMono.variable} ${poppins.variable} ${eczar.variable} antialiased bg-background text-foreground`}
+      >
         <SessionProvider>
           {children}
           <Toaster

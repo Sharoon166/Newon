@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
 import { getProducts } from '@/features/inventory/actions';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
+import { getSession } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const limit = params.limit ? parseInt(params.limit) : 10;
   const search = params.search;
 
+  const session = await getSession();
+
   const [purchasesData, products] = await Promise.all([getAllPurchases({ page, limit, search }), getProducts()]);
 
   return (
@@ -30,7 +33,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
       {/* Purchases Table with Actions */}
       <div className="mt-6">
-        <PurchasesTableWithActions purchasesData={purchasesData} products={products} />
+        <PurchasesTableWithActions purchasesData={purchasesData} products={products} userRole={session?.user?.role} />
       </div>
     </>
   );

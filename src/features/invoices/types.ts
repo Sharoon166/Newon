@@ -20,6 +20,9 @@ export interface Payment {
   date: string | Date; // Can be string (from DB) or Date (for forms)
   reference?: string;
   notes?: string;
+  sourceType?: 'general' | 'invoice';
+  sourcePaymentId?: string;
+  sourcePaymentNumber?: string;
 }
 
 // Component breakdown for virtual products
@@ -248,6 +251,9 @@ export interface AddPaymentDto {
   date: Date;
   reference?: string;
   notes?: string;
+  sourceType?: 'general' | 'invoice';
+  sourcePaymentId?: string;
+  sourcePaymentNumber?: string;
 }
 
 // Invoice filters

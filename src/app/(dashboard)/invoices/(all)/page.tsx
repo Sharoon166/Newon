@@ -1,5 +1,6 @@
 import { getInvoices, getInvoiceStats } from '@/features/invoices/actions';
 import { PageHeader } from '@/components/general/page-header';
+import { checkPermission, getSession } from '@/lib/auth-utils';
 import { Button } from '@/components/ui/button';
 import { Plus, FileText, Receipt, TrendingUp, TrendingDown, ShoppingCart, Coins, Wallet, XCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -33,24 +34,28 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   const status = params.status === 'all' ? undefined : params.status as 'pending' | 'paid' | 'overdue' | 'cancelled' | 'draft' | undefined;
   const market = params.market === 'all' ? undefined : params.market as 'newon' | 'waymor' | undefined;
 
-  const [invoicesData, quotationsData, stats] = await Promise.all([
+  const [invoicesData, quotationsData, stats, session, canCreate] = await Promise.all([
     getInvoices({ type: 'invoice', page, limit, dateFrom, dateTo, search, status, market }),
     getInvoices({ type: 'quotation', limit: 1000, dateFrom, dateTo, search, status, market }),
-    getInvoiceStats({ dateFrom, dateTo })
+    getInvoiceStats({ dateFrom, dateTo }),
+    getSession(),
+    checkPermission('create:invoices')
   ]);
 
   return (
     <>
       <div className="container mx-auto py-10">
         <PageHeader title="Invoices & Quotations" description="View and manage your invoies and quotations">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild>
-              <Link href="/invoices/new">
-                <Plus className="h-4 w-4 mr-2" />
-                New
-              </Link>
-            </Button>
-          </div>
+          {canCreate && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild>
+                <Link href="/invoices/new">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New
+                </Link>
+              </Button>
+            </div>
+          )}
         </PageHeader>
 
         {/* Stats Cards */}
@@ -175,11 +180,11 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
           </TabsList>
 
           <TabsContent value="invoices">
-            <InvoicesTable invoicesData={invoicesData} />
+            <InvoicesTable invoicesData={invoicesData} userRole={session?.user?.role} />
           </TabsContent>
 
           <TabsContent value="quotations">
-            <QuotationsTable quotations={quotationsData.docs} />
+            <QuotationsTable quotations={quotationsData.docs} userRole={session?.user?.role} />
           </TabsContent>
         </Tabs>
       </div>

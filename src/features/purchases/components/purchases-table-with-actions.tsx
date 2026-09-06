@@ -50,9 +50,11 @@ export interface EnhancedPurchase extends Purchase {
 interface PurchasesTableWithActionsProps {
   purchasesData: PaginatedPurchases;
   products: EnhancedVariants[];
+  userRole?: 'admin' | 'staff';
 }
 
-export function PurchasesTableWithActions({ purchasesData, products }: PurchasesTableWithActionsProps) {
+export function PurchasesTableWithActions({ purchasesData, products, userRole }: PurchasesTableWithActionsProps) {
+  const isAdmin = userRole !== 'staff';
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -248,24 +250,28 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
-            <Edit2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleDeleteClick(row.original)}
-            disabled={row.original.remaining < row.original.quantity}
-            title={
-              row.original.remaining < row.original.quantity
-                ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
-                : 'Delete purchase'
-            }
-          >
-            <Trash2
-              className={`h-4 w-4 ${row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}`}
-            />
-          </Button>
+          {isAdmin && (
+            <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
+              <Edit2 className="h-4 w-4" />
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDeleteClick(row.original)}
+              disabled={row.original.remaining < row.original.quantity}
+              title={
+                row.original.remaining < row.original.quantity
+                  ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
+                  : 'Delete purchase'
+              }
+            >
+              <Trash2
+                className={row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}
+              />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -324,10 +330,12 @@ export function PurchasesTableWithActions({ purchasesData, products }: Purchases
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setAddPurchaseOpen(true)} disabled={products.length === 0} className="grow">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Purchase
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => setAddPurchaseOpen(true)} disabled={products.length === 0} className="grow">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Purchase
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="gap-1" onClick={handleExportCsv}>
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">CSV</span>

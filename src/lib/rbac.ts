@@ -70,7 +70,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:client-financials',
     'view:project-invoices'
   ],
-  staff: ['view:inventory', 'view:projects', 'add:expenses']
+  staff: ['view:inventory', 'view:projects', 'add:expenses', 'view:invoices', 'view:purchases']
 };
 
 /**

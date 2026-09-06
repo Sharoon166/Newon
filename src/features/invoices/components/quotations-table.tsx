@@ -56,9 +56,10 @@ import { printInvoicePDF } from '../utils/print-invoice';
 interface QuotationsTableProps {
   quotations: Invoice[];
   onRefresh?: () => void;
+  userRole?: 'admin' | 'staff';
 }
 
-export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps) {
+export function QuotationsTable({ quotations, onRefresh, userRole }: QuotationsTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -142,7 +143,9 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
         },
         cell: ({ row }) => (
           <div className="font-medium flex items-center gap-2">
-            {row.original.invoiceNumber}
+            <Link href={`/invoices/${row.original.id}`} className="hover:underline">
+              {row.original.invoiceNumber}
+            </Link>
             {row.original.custom && <Copyright className="text-primary" />}
           </div>
         )
@@ -270,79 +273,83 @@ export function QuotationsTable({ quotations, onRefresh }: QuotationsTableProps)
           return value.includes(row.getValue(id));
         }
       },
-      {
-        id: 'actions',
-        cell: ({ row }) => {
-          const quotation = row.original;
-          const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
+      ...(userRole !== 'staff'
+        ? [
+            {
+              id: 'actions' as const,
+              cell: ({ row }: { row: { original: Invoice } }) => {
+                const quotation = row.original;
+                const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
 
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <Link href={`/invoices/${quotation.id}`}>
-                  <DropdownMenuItem>
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuItem
-                  hidden
-                  disabled={downloadingPDF === quotation.id}
-                  onClick={async () => {
-                    setDownloadingPDF(quotation.id);
-                    await printInvoicePDF(quotation.id, quotation.invoiceNumber, quotation.type);
-                    setDownloadingPDF(null);
-                  }}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {downloadingPDF === quotation.id ? 'Generating...' : 'Download PDF'}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    router.push(`/invoices/${quotation.id}/edit`);
-                  }}
-                  disabled={quotation.status === 'cancelled' || quotation.status === 'converted' || isEditRestricted}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSelectedQuotation(quotation);
-                    setStatusDialogOpen(true);
-                  }}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Update Status
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  disabled={quotation.status === 'cancelled' || quotation.status === 'converted'}
-                  onClick={() => {
-                    setSelectedQuotation(quotation);
-                    setCancelDialogOpen(true);
-                  }}
-                >
-                  <Ban className="h-4 w-4 mr-2" />
-                  Cancel
-                  {quotation.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
-                  {quotation.status === 'converted' && <span className="ml-2 text-xs">(Converted to invoice)</span>}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        }
-      }
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <Link href={`/invoices/${quotation.id}`}>
+                        <DropdownMenuItem>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                      </Link>
+                      <DropdownMenuItem
+                        hidden
+                        disabled={downloadingPDF === quotation.id}
+                        onClick={async () => {
+                          setDownloadingPDF(quotation.id);
+                          await printInvoicePDF(quotation.id, quotation.invoiceNumber, quotation.type);
+                          setDownloadingPDF(null);
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {downloadingPDF === quotation.id ? 'Generating...' : 'Download PDF'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          router.push(`/invoices/${quotation.id}/edit`);
+                        }}
+                        disabled={quotation.status === 'cancelled' || quotation.status === 'converted' || isEditRestricted}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setSelectedQuotation(quotation);
+                          setStatusDialogOpen(true);
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Update Status
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        disabled={quotation.status === 'cancelled' || quotation.status === 'converted'}
+                        onClick={() => {
+                          setSelectedQuotation(quotation);
+                          setCancelDialogOpen(true);
+                        }}
+                      >
+                        <Ban className="h-4 w-4 mr-2" />
+                        Cancel
+                        {quotation.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
+                        {quotation.status === 'converted' && <span className="ml-2 text-xs">(Converted to invoice)</span>}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
+            }
+          ]
+        : [])
     ],
-    []
+    [userRole]
   );
 
   const table = useReactTable({
