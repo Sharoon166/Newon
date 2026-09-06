@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
-import { getProducts } from '@/features/inventory/actions';
+import { getProductsBasic } from '@/features/inventory/actions';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
 import { getSession } from '@/lib/auth-utils';
 
@@ -22,7 +22,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
   const session = await getSession();
 
-  const [purchasesData, products] = await Promise.all([getAllPurchases({ page, limit, search }), getProducts()]);
+  const [purchasesData, products] = await Promise.all([getAllPurchases({ page, limit, search }), getProductsBasic()]);
 
   return (
     <>

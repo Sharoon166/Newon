@@ -2,18 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import ProductModel from '@/models/Product';
 
-interface ProductVariant {
-  id: string;
-  image?: string;
-  imageFile?: {
-    cloudinaryUrl?: string;
-  };
-}
-
-interface ProductWithVariants {
-  variants: ProductVariant[];
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { variantIds } = await request.json();
@@ -24,26 +12,21 @@ export async function POST(request: NextRequest) {
 
     await dbConnect();
 
+    const products = await ProductModel.find(
+      { 'variants.id': { $in: variantIds } },
+      { variants: 1 }
+    ).lean();
+
     const imageMap: Record<string, string | null> = {};
-
-    // Fetch images for each variant
     for (const variantId of variantIds) {
-      try {
-        const product = (await ProductModel.findOne(
-          { 'variants.id': variantId },
-          { 'variants.$': 1 }
-        ).lean()) as ProductWithVariants | null;
+      imageMap[variantId] = null;
+    }
 
-        if (product && product.variants && Array.isArray(product.variants) && product.variants.length > 0) {
-          const variant = product.variants[0];
-          const imageUrl = variant.imageFile?.cloudinaryUrl || variant.image || null;
-          imageMap[variantId] = imageUrl;
-        } else {
-          imageMap[variantId] = null;
+    for (const product of products) {
+      for (const variant of product.variants || []) {
+        if (variantIds.includes(variant.id)) {
+          imageMap[variant.id] = variant.imageFile?.cloudinaryUrl || variant.image || null;
         }
-      } catch (error) {
-        console.warn(`Failed to fetch image for variant ${variantId}:`, error);
-        imageMap[variantId] = null;
       }
     }
 

@@ -1,12 +1,8 @@
 import type { Metadata } from 'next';
 import {
-  Geist,
-  Geist_Mono,
-  Montserrat,
+  JetBrains_Mono,
   Manrope,
   Reddit_Mono,
-  Poppins,
-  Eczar,
   Tenor_Sans
 } from 'next/font/google';
 import './globals.css';
@@ -15,18 +11,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { AlertCircle } from 'lucide-react';
 import { SessionProvider } from '@/components/auth/session-provider';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin']
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin']
-});
-
-const montserrat = Montserrat({
-  variable: '--font-montserrat',
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
   subsets: ['latin']
 });
 
@@ -39,17 +25,6 @@ const redditMono = Reddit_Mono({
   variable: '--font-reddit-mono',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700']
-});
-
-const poppins = Poppins({
-  variable: '--font-poppins',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700']
-});
-
-const eczar = Eczar({
-  variable: '--font-eczar',
-  subsets: ['latin']
 });
 
 const tenorSans = Tenor_Sans({
@@ -76,7 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${montserrat.variable} ${manrope.variable} ${redditMono.variable} ${poppins.variable} ${eczar.variable} ${tenorSans.variable} antialiased bg-background text-foreground`}
+        className={`${jetbrainsMono.variable} ${manrope.variable} ${redditMono.variable} ${tenorSans.variable} antialiased bg-background text-foreground`}
       >
         <SessionProvider>
           {children}

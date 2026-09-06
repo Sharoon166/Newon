@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/general/page-header';
 import { VirtualProductForm } from '@/features/virtual-products/components/virtual-product-form';
-import { getProducts } from '@/features/inventory/actions';
+import { getProductsBasic } from '@/features/inventory/actions';
 
 export const metadata = {
   title: 'Add Virtual Product',
@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 export default async function AddVirtualProductPage() {
-  const variants = await getProducts();
+  const variants = await getProductsBasic();
 
   return (
     <div className="container mx-auto py-6 space-y-6">

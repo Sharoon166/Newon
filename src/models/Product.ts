@@ -183,6 +183,7 @@ productSchema.index({
   name: 'text',
   'variants.sku': 'text'
 });
+productSchema.index({ 'variants.id': 1 })
 
 // Note: We don't use a unique index on variants.sku because variants are embedded documents
 // and MongoDB unique indexes don't work well with arrays of embedded documents.

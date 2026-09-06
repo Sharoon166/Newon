@@ -166,6 +166,94 @@ export const getProductsForStaff = async (): Promise<
   return enhancedData;
 };
 
+// Lightweight version — no purchase fetch, no pricing computation.
+// Use on pages that only need variant info (names, SKUs, locations, attributes).
+export const getProductsBasic = async (): Promise<EnhancedVariants[]> => {
+  await dbConnect();
+
+  const data = await ProductModel.aggregate([
+    {
+      $unwind: {
+        path: '$variants',
+        preserveNullAndEmptyArrays: false
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        productId: { $toString: '$_id' },
+        productName: '$name',
+        supplier: '$supplier',
+        origin: '$origin',
+        categories: '$categories',
+        description: '$description',
+        hasVariants: '$hasVariants',
+        locations: {
+          $map: {
+            input: '$locations',
+            as: 'loc',
+            in: {
+              id: '$$loc.id',
+              name: '$$loc.name',
+              address: '$$loc.address',
+              isActive: '$$loc.isActive',
+              order: '$$loc.order'
+            }
+          }
+        },
+        id: '$variants.id',
+        sku: '$variants.sku',
+        disabled: '$variants.disabled',
+        attributes: '$variants.attributes',
+        image: '$variants.image',
+        imageFile: '$variants.imageFile',
+        availableStock: '$variants.availableStock',
+        stockOnBackorder: '$variants.stockOnBackorder',
+        inventory: {
+          $map: {
+            input: { $ifNull: ['$variants.inventory', []] },
+            as: 'inv',
+            in: {
+              $mergeObjects: [
+                '$$inv',
+                {
+                  location: {
+                    $let: {
+                      vars: {
+                        foundLoc: {
+                          $arrayElemAt: [
+                            {
+                              $filter: {
+                                input: '$locations',
+                                as: 'loc',
+                                cond: { $eq: ['$$loc.id', '$$inv.locationId'] }
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      in: {
+                        id: '$$foundLoc.id',
+                        name: '$$foundLoc.name',
+                        address: '$$foundLoc.address',
+                        isActive: '$$foundLoc.isActive',
+                        order: '$$foundLoc.order'
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]);
+
+  return data as unknown as EnhancedVariants[];
+};
+
 export const getProducts = async (): Promise<EnhancedVariants[]> => {
   await dbConnect();
 

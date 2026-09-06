@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { PageHeader } from '@/components/general/page-header';
 import { VirtualProductForm } from '@/features/virtual-products/components/virtual-product-form';
 import { getVirtualProductById } from '@/features/virtual-products/actions';
-import { getProducts } from '@/features/inventory/actions';
+import { getProductsBasic } from '@/features/inventory/actions';
 
 export const metadata = {
   title: 'Edit Virtual Product',
@@ -17,7 +17,7 @@ interface EditVirtualProductPageProps {
 
 export default async function EditVirtualProductPage({ params }: EditVirtualProductPageProps) {
   const { id } = await params;
-  const [virtualProduct, variants] = await Promise.all([getVirtualProductById(id), getProducts()]);
+  const [virtualProduct, variants] = await Promise.all([getVirtualProductById(id), getProductsBasic()]);
 
   if (!virtualProduct) {
     notFound();

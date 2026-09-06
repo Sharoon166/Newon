@@ -146,7 +146,7 @@ function Sidebar({
   variant?: 'sidebar' | 'floating' | 'inset';
   collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile, toggleSidebar } = useSidebar();
 
   if (collapsible === 'none') {
     return (
@@ -228,6 +228,15 @@ function Sidebar({
         >
           {children}
         </div>
+        <button
+          data-sidebar="collapse-trigger"
+          aria-label="Toggle Sidebar"
+          onClick={toggleSidebar}
+          className="absolute top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border bg-background shadow-md transition-colors hover:bg-accent hover:text-accent-foreground right-0 translate-x-1/2"
+        >
+          <PanelLeftIcon className="h-4 w-4" />
+          <span className="sr-only">Toggle Sidebar</span>
+        </button>
       </div>
     </div>
   );

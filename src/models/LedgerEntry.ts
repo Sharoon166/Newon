@@ -111,6 +111,7 @@ ledgerEntrySchema.index({ customerId: 1, date: -1 });
 ledgerEntrySchema.index({ customerEmail: 1, date: -1 });
 ledgerEntrySchema.index({ date: -1, transactionType: 1 });
 ledgerEntrySchema.index({ customerId: 1, balance: -1 });
+ledgerEntrySchema.index({ transactionType: 1, transactionId: 1 })
 
 // Virtual field for amount
 ledgerEntrySchema.virtual('amount').get(function () {

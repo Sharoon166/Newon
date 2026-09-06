@@ -234,23 +234,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button type="button" className="bg-white p-2 -m-2 truncate w-full text-left focus:outline-0">
-                        <div className="flex items-center gap-3 cursor-pointer group">
-                          <div className={cn('flex aspect-square p-1 size-8 items-center justify-center')}>
-                            <Image
-                              unoptimized
-                              unselectable="on"
-                              height={100}
-                              width={100}
-                              src={currentBrand.logo ?? '/logo.png'}
-                              alt={`${currentBrand.displayName}`}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-xs">
-                              <div className="truncate font-medium group-hover:underline">
-                                {currentBrand.displayName}
-                              </div>
-                              <div className="truncate text-xs text-muted-foreground">{currentBrand.address}</div>
+                          <div className="flex items-center gap-3 cursor-pointer group">
+                            <div className={cn('flex aspect-square p-1 size-8 items-center justify-center')}>
+                              <Image
+                                unoptimized
+                                unselectable="on"
+                                height={100}
+                                width={100}
+                                src={currentBrand.logo ?? '/logo.png'}
+                                alt={`${currentBrand.displayName}`}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs">
+                                <h2 className="text-sm truncate font-bold group-hover:underline" suppressHydrationWarning>
+                                  {currentBrand.displayName}
+                                </h2>
+                                <div className="truncate text-xs text-muted-foreground" suppressHydrationWarning>{currentBrand.address}</div>
                             </div>
                             <ChevronsUpDown className="ml-1 size-4 opacity-50" />
                           </div>
