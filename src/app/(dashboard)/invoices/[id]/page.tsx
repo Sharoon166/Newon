@@ -27,6 +27,7 @@ import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
 import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
 import { usePermission } from '@/hooks/use-permission';
+import { groupItemsByVariant } from '@/features/invoices/utils/group-items';
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -277,19 +278,29 @@ export default function InvoiceDetailPage() {
               : invoice.dueDate.toISOString()
             : '',
 
-          items: invoice.items.map(item => ({
-            id: item.productId,
-            description: item.productName,
-            unit: item.unit ?? 'pcs',
-            quantity: item.quantity,
-            rate: item.unitPrice,
-            amount: item.totalPrice,
-            productId: item.productId,
-            variantId: item.variantId,
-            variantSKU: item.variantSKU,
-            purchaseId: item.purchaseId,
-            imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
-          })),
+          items: (() => {
+            // Group items by variantId for display (same product from different batches = one line)
+            const grouped = groupItemsByVariant(
+              invoice.items.map(item => ({
+                ...item,
+                rate: item.unitPrice,
+                amount: item.totalPrice
+              }))
+            );
+            return grouped.map(group => ({
+              id: group.productId || group.variantId,
+              description: group.description,
+              unit: group.unit,
+              quantity: group.totalQuantity,
+              rate: group.unifiedRate,
+              amount: group.totalAmount,
+              productId: group.productId,
+              variantId: group.variantId,
+              variantSKU: group.variantSKU,
+              purchaseId: group.batches[0]?.purchaseId,
+              imageUrl: group.variantId ? productImages.get(group.variantId) : undefined
+            }));
+          })(),
 
           taxRate: invoice.gstValue || 0,
           discount: invoice.discountValue,
@@ -330,18 +341,27 @@ export default function InvoiceDetailPage() {
               ? invoice.validUntil
               : invoice.validUntil.toISOString()
             : '',
-          items: invoice.items.map(item => ({
-            id: item.productId,
-            description: item.productName,
-            quantity: item.quantity,
-            rate: item.unitPrice,
-            amount: item.totalPrice,
-            productId: item.productId,
-            variantId: item.variantId,
-            variantSKU: item.variantSKU,
-            purchaseId: item.purchaseId,
-            imageUrl: item.variantId ? productImages.get(item.variantId) : undefined
-          })),
+          items: (() => {
+            const grouped = groupItemsByVariant(
+              invoice.items.map(item => ({
+                ...item,
+                rate: item.unitPrice,
+                amount: item.totalPrice
+              }))
+            );
+            return grouped.map(group => ({
+              id: group.productId || group.variantId,
+              description: group.description,
+              quantity: group.totalQuantity,
+              rate: group.unifiedRate,
+              amount: group.totalAmount,
+              productId: group.productId,
+              variantId: group.variantId,
+              variantSKU: group.variantSKU,
+              purchaseId: group.batches[0]?.purchaseId,
+              imageUrl: group.variantId ? productImages.get(group.variantId) : undefined
+            }));
+          })(),
           taxRate: invoice.gstValue || 0,
           discount: invoice.discountValue,
           discountType: invoice.discountType || 'fixed',

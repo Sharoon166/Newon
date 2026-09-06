@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import {
   Percent,
   NotebookTabs as NotebookTabsIcon,
   ChevronsUpDown,
+  ChevronDown,
+  ChevronRight,
   Package,
   Save,
   Calendar as CalendarIcon,
@@ -33,11 +35,13 @@ import type { Purchase } from '@/features/purchases/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { ComponentBreakdown, CustomExpense } from '../types';
 import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { EnhancedProductSelector } from './enhanced-product-selector';
 import { v4 as uuidv4 } from 'uuid';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 import { UnitSelector } from '@/components/ui/unit-selector';
+import { groupItemsByVariant, buildEffectiveStockByPurchase, type GroupedInvoiceItem } from '../utils/group-items';
+import { Badge } from '@/components/ui/badge';
 
 const invoiceFormSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -186,6 +190,7 @@ export function QuotationConversionForm({
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState<string>('Loading...');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCustomExpenseDialogOpen, setIsCustomExpenseDialogOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Fetch next invoice number on mount
   useEffect(() => {
@@ -275,7 +280,16 @@ export function QuotationConversionForm({
     name: 'items'
   });
 
-  const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
+  const watchedItems = useWatch({ control: form.control, name: 'items' }) as InvoiceFormValues['items'];
+  const groupedItems = groupItemsByVariant(watchedItems || []);
+  const subtotal = watchedItems.reduce((sum, item) => sum + item.amount, 0);
+
+  // Effective stock per purchase (remaining - form consumption) — same source of
+  // truth as the product selector, drives FIFO batch advance.
+  const effectiveStockByPurchase = useMemo(
+    (): Map<string, number> => buildEffectiveStockByPurchase(purchases, watchedItems || []),
+    [purchases, watchedItems]
+  );
   const taxRate = form.watch('taxRate');
   const discount = form.watch('discount');
   const discountType = form.watch('discountType');
@@ -283,9 +297,127 @@ export function QuotationConversionForm({
   const discountAmount = discountType === 'percentage' ? (subtotal * discount) / 100 : discount;
   const total = subtotal + taxAmount - discountAmount;
 
+  const toggleGroupExpand = (key: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleGroupedPriceChange = (group: GroupedInvoiceItem, newRate: number) => {
+    for (const batch of group.batches) {
+      const currentQty = form.getValues(`items.${batch.fieldIndex}.quantity`);
+      form.setValue(`items.${batch.fieldIndex}.rate`, newRate);
+      form.setValue(`items.${batch.fieldIndex}.amount`, newRate * currentQty);
+    }
+  };
+
+  const handleGroupedQuantityChange = (group: GroupedInvoiceItem, newTotalQty: number) => {
+    if (newTotalQty < 1) return;
+    const diff = newTotalQty - group.totalQuantity;
+    if (diff === 0) return;
+
+    if (diff > 0) {
+      let toAdd = diff;
+      for (const batch of group.batches) {
+        if (toAdd <= 0) break;
+        const currentQty = form.getValues(`items.${batch.fieldIndex}.quantity`);
+        const headroom = !batch.purchaseId
+          ? Infinity
+          : (effectiveStockByPurchase.get(batch.purchaseId) ?? Infinity);
+        const increase = Math.min(toAdd, headroom);
+        if (increase <= 0) continue;
+        form.setValue(`items.${batch.fieldIndex}.quantity`, currentQty + increase);
+        form.setValue(`items.${batch.fieldIndex}.amount`, (currentQty + increase) * batch.rate);
+        toAdd -= increase;
+      }
+      if (toAdd > 0) {
+        const usedPurchaseIds = new Set(group.batches.map(b => b.purchaseId).filter(Boolean));
+        const unusedPurchases = purchases
+          .filter(p => p.variantId === group.variantId && !usedPurchaseIds.has(p.purchaseId))
+          .sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
+        for (const purchase of unusedPurchases) {
+          if (toAdd <= 0) break;
+          const available = effectiveStockByPurchase.get(purchase.purchaseId) ?? 0;
+          if (available <= 0) continue;
+          const increase = Math.min(toAdd, available);
+          const existingRate = group.batches[0]?.rate;
+          const refPurchase = purchases.find(p => p.purchaseId === group.batches[0]?.purchaseId);
+          const useRetail = refPurchase ? existingRate === refPurchase.retailPrice : true;
+          const rate = useRetail ? (purchase.retailPrice || 0) : (purchase.wholesalePrice || 0);
+          append({
+            id: uuidv4(),
+            description: group.description,
+            quantity: increase,
+            unit: group.unit || 'pcs',
+            rate,
+            amount: increase * rate,
+            productId: group.productId,
+            variantId: group.variantId,
+            variantSKU: group.variantSKU,
+            purchaseId: purchase.purchaseId,
+            originalRate: purchase.unitPrice,
+            saleRate: rate,
+          });
+          toAdd -= increase;
+        }
+      }
+      if (toAdd > 0) {
+        toast.error('Stock exhausted', {
+          description: `No more stock available for ${group.description}.`
+        });
+      }
+      return;
+    }
+
+    let remaining = Math.abs(diff);
+    const toRemove: number[] = [];
+    for (let i = group.batches.length - 1; i >= 0 && remaining > 0; i--) {
+      const batch = group.batches[i];
+      const currentQty = form.getValues(`items.${batch.fieldIndex}.quantity`);
+      const consume = Math.min(currentQty, remaining);
+      if (consume <= 0) continue;
+      const newQty = currentQty - consume;
+      if (newQty === 0) {
+        toRemove.push(batch.fieldIndex);
+      } else {
+        form.setValue(`items.${batch.fieldIndex}.quantity`, newQty);
+        form.setValue(`items.${batch.fieldIndex}.amount`, newQty * batch.rate);
+      }
+      remaining -= consume;
+    }
+    toRemove.sort((a, b) => b - a);
+    for (const idx of toRemove) {
+      remove(idx);
+    }
+  };
+
+  const exhaustedGroupKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const group of groupedItems) {
+      let exhausted = true;
+      for (const batch of group.batches) {
+        if (batch.purchaseId) {
+          if ((effectiveStockByPurchase.get(batch.purchaseId) ?? Infinity) > 0) { exhausted = false; break; }
+        } else { exhausted = false; break; }
+      }
+      if (exhausted) {
+        const used = new Set(group.batches.map(b => b.purchaseId).filter(Boolean));
+        for (const p of purchases) {
+          if (p.variantId === group.variantId && !used.has(p.purchaseId) && (effectiveStockByPurchase.get(p.purchaseId) ?? 0) > 0) {
+            exhausted = false; break;
+          }
+        }
+      }
+      if (exhausted) keys.add(group.key);
+    }
+    return keys;
+  }, [groupedItems, purchases, effectiveStockByPurchase]);
+
   // Calculate profit in real-time
-  const items = form.watch('items');
-  const totalCost = items.reduce((sum, item) => {
+  const totalCost = watchedItems.reduce((sum, item) => {
     let itemCost = 0;
 
     // For virtual products, use component cost + custom expenses
@@ -924,7 +1056,7 @@ export function QuotationConversionForm({
                   <ShoppingCart className="h-5 w-5" />
                   <h2 className="text-lg font-semibold flex items-center gap-2">Items</h2>
                 </div>
-                <h3 className="text-sm mb-4 flex items-center gap-2 text-muted-foreground">
+                <h3 className="font-sans text-sm mb-4 flex items-center gap-2 text-muted-foreground">
                   Add Products or Custom Items
                 </h3>
               </div>
@@ -991,187 +1123,129 @@ export function QuotationConversionForm({
                 </div>
               )}
 
-              {/* Card view */}
+              {/* Card view for grouped items */}
               <div className="divide-y">
-                {fields.map((item, index) => {
-                  const currentQuantity = form.watch(`items.${index}.quantity`) || 0;
-                  const currentRate = form.watch(`items.${index}.rate`) || 0;
-                  const variantId = form.watch(`items.${index}.variantId`);
-                  const purchaseId = form.watch(`items.${index}.purchaseId`);
-                  const availableStock = getAvailableStock(variantId);
+                {groupedItems.map((group, groupIndex) => {
+                  const availableStock = getAvailableStock(group.variantId);
 
-                  // Get stock limit for this specific purchase
-                  const purchaseStockLimit = purchaseId
-                    ? (() => {
-                        const purchase = purchases.find(p => p.purchaseId === purchaseId);
-                        if (!purchase) return 0;
-
-                        // The max this item can have is simply the purchase's remaining stock
-                        // No need to add current quantity since 'remaining' already represents available stock
-                        return purchase.remaining;
-                      })()
-                    : Infinity;
+                  const firstBatchField = group.batches[0];
+                  const vpTotalComponentCost = group.isVirtualProduct
+                    ? (form.watch(`items.${firstBatchField.fieldIndex}.totalComponentCost`) || 0)
+                    : 0;
+                  const vpTotalCustomExpenses = group.isVirtualProduct
+                    ? (form.watch(`items.${firstBatchField.fieldIndex}.totalCustomExpenses`) || 0)
+                    : 0;
+                  const vpActualCost = vpTotalComponentCost + vpTotalCustomExpenses;
+                  const vpProfitPerUnit = group.unifiedRate - vpActualCost;
 
                   return (
-                    <div key={item.id} className="p-4 hover:bg-muted/30 transition-colors">
+                    <div key={group.key} className="p-4 hover:bg-muted/30 transition-colors">
+                      {/* Group header */}
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-start gap-2 flex-1">
                           <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
-                            #{index + 1}
+                            #{groupIndex + 1}
                           </span>
                           <div className="flex-1">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.description`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        placeholder="Item description (e.g., Labor, Fuel, etc.)"
-                                        {...field}
-                                        className="text-sm"
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
+                            <div className="font-medium text-sm">{group.description}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {group.variantSKU && (
+                                <Badge variant="secondary" className="text-xs">
+                                  SKU: {group.variantSKU}
+                                </Badge>
                               )}
-                            />
+                              {group.batches.length > 1 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {group.batches.length} batches
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                Stock: {availableStock === Infinity ? 'N/A' : availableStock}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => remove(index)}
-                          className="h-8 w-8 -mt-1"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {group.batches.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => toggleGroupExpand(group.key)}
+                          >
+                            {expandedGroups.has(group.key) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const indices = group.batches
+                                .map(b => b.fieldIndex)
+                                .sort((a, b) => b - a);
+                              for (const idx of indices) {
+                                remove(idx);
+                              }
+                            }}
+                            className="h-8 w-8 -mt-1"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Group content */}
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-12">Qty:</span>
+                        {/* Quantity */}
+                        <div className="flex max-xs:flex-col xs:items-center gap-2">
                           <div className="flex items-center gap-1 flex-1">
+                            <span className="text-xs text-muted-foreground w-12">Qty:</span>
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => {
-                                const newQuantity = Math.max(1, currentQuantity - 1);
-                                form.setValue(`items.${index}.quantity`, newQuantity);
-                                form.setValue(`items.${index}.amount`, newQuantity * currentRate);
-                              }}
-                              disabled={currentQuantity <= 1}
+                              onClick={() => handleGroupedQuantityChange(group, group.totalQuantity - 1)}
+                              disabled={group.totalQuantity <= 1}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.quantity`}
-                              render={({ field }) => (
-                                <FormItem className="flex-1">
-                                  <FormControl>
-                                    <InputGroup>
-                                      <InputGroupInput
-                                        type="number"
-                                        min="1"
-                                        max={
-                                          purchaseId
-                                            ? purchaseStockLimit < Infinity
-                                              ? purchaseStockLimit
-                                              : undefined
-                                            : availableStock < Infinity
-                                              ? availableStock
-                                              : undefined
-                                        }
-                                        step="1"
-                                        {...field}
-                                        className="h-8 text-sm text-center"
-                                        onChange={e => {
-                                          const value = e.target.value;
-                                          if (value === '') {
-                                            field.onChange(1);
-                                            form.setValue(`items.${index}.amount`, 1 * currentRate);
-                                            return;
-                                          }
-                                          const numericValue = parseInt(value, 10);
-                                          if (isNaN(numericValue) || numericValue < 1) {
-                                            toast.error('Invalid quantity', {
-                                              description: 'Quantity must be at least 1'
-                                            });
-                                            field.onChange(1);
-                                            form.setValue(`items.${index}.amount`, 1 * currentRate);
-                                            return;
-                                          }
-                                          const maxStock = purchaseId ? purchaseStockLimit : availableStock;
-                                          if (numericValue > maxStock) {
-                                            toast.error('Insufficient stock', {
-                                              description: purchaseId
-                                                ? `Only ${maxStock} units available in this purchase`
-                                                : `Only ${maxStock} units available`
-                                            });
-                                            field.onChange(maxStock);
-                                            form.setValue(`items.${index}.amount`, maxStock * currentRate);
-                                            return;
-                                          }
-                                          field.onChange(numericValue);
-                                          form.setValue(`items.${index}.amount`, numericValue * currentRate);
-                                        }}
-                                        value={field.value || ''}
-                                      />
-                                    </InputGroup>
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
+                            <InputGroup>
+                              <InputGroupInput
+                                type="number"
+                                min="1"
+                                value={group.totalQuantity}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (!isNaN(val) && val >= 1) {
+                                    handleGroupedQuantityChange(group, val);
+                                  }
+                                }}
+                                className="h-8 text-sm text-center"
+                              />
+                            </InputGroup>
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => {
-                                const newQuantity = currentQuantity + 1;
-                                const maxStock = purchaseId ? purchaseStockLimit : availableStock;
-                                if (newQuantity > maxStock) {
-                                  toast.error('Insufficient stock', {
-                                    description: purchaseId
-                                      ? `Only ${maxStock} units available in this purchase`
-                                      : `Only ${maxStock} units available`
-                                  });
-                                  return;
-                                }
-                                form.setValue(`items.${index}.quantity`, newQuantity);
-                                form.setValue(`items.${index}.amount`, newQuantity * currentRate);
-                              }}
-                              disabled={currentQuantity >= (purchaseId ? purchaseStockLimit : availableStock)}
+                              disabled={exhaustedGroupKeys.has(group.key)}
+                              onClick={() => handleGroupedQuantityChange(group, group.totalQuantity + 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
-                          </div>
-                          <div>
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.unit`}
-                              render={({ field }) => (
-                                <FormItem className="flex items-center gap-2">
-                                  <FormLabel className="text-xs text-muted-foreground">Unit</FormLabel>
-                                  <FormControl>
-                                    <UnitSelector
-                                      value={field.value}
-                                      onChange={field.onChange}
-                                      placeholder="Enter unit"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
+                            <span className="text-xs text-muted-foreground ml-1">{group.unit}</span>
                           </div>
                         </div>
-                        {item.isVirtualProduct ? (
-                          // For virtual products, show actual cost (read-only) and selling price (editable)
+
+                        {/* Pricing */}
+                        {group.isVirtualProduct ? (
                           <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3 text-sm">
                               <div>
@@ -1179,235 +1253,85 @@ export function QuotationConversionForm({
                                 <InputGroup>
                                   <InputGroupInput
                                     type="number"
-                                    value={(item.totalComponentCost || 0) + (item.totalCustomExpenses || 0)}
+                                    value={vpActualCost}
                                     disabled
                                     className="h-8 text-sm bg-muted"
                                   />
                                 </InputGroup>
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  Components: {formatCurrency(item.totalComponentCost || 0)} + Expenses:{' '}
-                                  {formatCurrency(item.totalCustomExpenses || 0)}
+                                  Components: {formatCurrency(vpTotalComponentCost)} + Expenses:{' '}
+                                  {formatCurrency(vpTotalCustomExpenses)}
                                 </div>
                               </div>
                               <div>
                                 <div className="text-xs text-muted-foreground mb-1">Selling Price</div>
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.rate`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormControl>
-                                        <InputGroup>
-                                          <InputGroupInput
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            {...field}
-                                            className="h-8 text-sm"
-                                            onChange={e => {
-                                              const value = e.target.value;
-                                              if (value === '') {
-                                                field.onChange(0);
-                                                form.setValue(`items.${index}.amount`, 0);
-                                                return;
-                                              }
-                                              const numericValue = parseFloat(value);
-                                              if (isNaN(numericValue) || numericValue < 0) {
-                                                toast.error('Invalid price', {
-                                                  description: 'Selling price must be 0 or greater'
-                                                });
-                                                field.onChange(0);
-                                                form.setValue(`items.${index}.amount`, 0);
-                                                return;
-                                              }
-                                              field.onChange(numericValue);
-                                              form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                            }}
-                                            value={field.value || ''}
-                                          />
-                                        </InputGroup>
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
+                                <InputGroup>
+                                  <InputGroupInput
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={group.unifiedRate}
+                                    onChange={e => {
+                                      const val = parseFloat(e.target.value);
+                                      if (!isNaN(val) && val >= 0) {
+                                        handleGroupedPriceChange(group, val);
+                                      }
+                                    }}
+                                    className="h-8 text-sm"
+                                  />
+                                </InputGroup>
                                 <div className="text-xs text-green-600 mt-1">
-                                  Profit per unit:{' '}
-                                  {formatCurrency(
-                                    currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))
-                                  )}{' '}
-                                  × {currentQuantity} ={' '}
-                                  {formatCurrency(
-                                    (currentRate - ((item.totalComponentCost || 0) + (item.totalCustomExpenses || 0))) *
-                                      currentQuantity
-                                  )}
+                                  Profit per unit: {formatCurrency(vpProfitPerUnit)} × {group.totalQuantity} ={' '}
+                                  {formatCurrency(vpProfitPerUnit * group.totalQuantity)}
                                 </div>
                               </div>
                             </div>
                             <div className="text-right">
                               <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
-                              <div className="font-semibold">
-                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
-                              </div>
-                            </div>
-                          </div>
-                        ) : item.customExpenses && item.customExpenses.length > 0 ? (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                              <div>
-                                <div className="text-xs text-muted-foreground mb-1">Actual Cost</div>
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.customExpenses.0.actualCost`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormControl>
-                                        <InputGroup>
-                                          <InputGroupInput
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            {...field}
-                                            className="h-8 text-sm"
-                                            onChange={e => {
-                                              const value = e.target.value;
-                                              if (value === '') {
-                                                field.onChange(0);
-                                                form.setValue(`items.${index}.totalCustomExpenses`, 0);
-                                                form.setValue(`items.${index}.originalRate`, 0);
-                                                return;
-                                              }
-                                              const numericValue = parseFloat(value);
-                                              if (isNaN(numericValue) || numericValue < 0) {
-                                                toast.error('Invalid cost', {
-                                                  description: 'Actual cost must be 0 or greater'
-                                                });
-                                                field.onChange(0);
-                                                form.setValue(`items.${index}.totalCustomExpenses`, 0);
-                                                form.setValue(`items.${index}.originalRate`, 0);
-                                                return;
-                                              }
-                                              field.onChange(numericValue);
-                                              form.setValue(`items.${index}.totalCustomExpenses`, numericValue);
-                                              form.setValue(`items.${index}.originalRate`, numericValue);
-                                            }}
-                                            value={field.value || ''}
-                                          />
-                                        </InputGroup>
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                              <div>
-                                <div className="text-xs text-muted-foreground mb-1">Client Cost</div>
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.rate`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormControl>
-                                        <InputGroup>
-                                          <InputGroupInput
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            {...field}
-                                            className="h-8 text-sm"
-                                            onChange={e => {
-                                              const value = e.target.value;
-                                              if (value === '') {
-                                                field.onChange(0);
-                                                form.setValue(`items.${index}.amount`, 0);
-                                                return;
-                                              }
-                                              const numericValue = parseFloat(value);
-                                              if (isNaN(numericValue) || numericValue < 0) {
-                                                toast.error('Invalid cost', {
-                                                  description: 'Client cost must be 0 or greater'
-                                                });
-                                                field.onChange(0);
-                                                form.setValue(`items.${index}.amount`, 0);
-                                                return;
-                                              }
-                                              field.onChange(numericValue);
-                                              form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                              if (item.customExpenses && item.customExpenses[0]) {
-                                                form.setValue(
-                                                  `items.${index}.customExpenses.0.clientCost`,
-                                                  numericValue
-                                                );
-                                              }
-                                            }}
-                                            value={field.value || ''}
-                                          />
-                                        </InputGroup>
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-xs text-muted-foreground mb-1">Total Amount</div>
-                              <div className="font-semibold">
-                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
-                              </div>
+                              <div className="font-semibold">{formatCurrency(group.totalAmount)}</div>
                             </div>
                           </div>
                         ) : (
                           <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
                               <div className="text-xs text-muted-foreground mb-1">Rate</div>
-                              <FormField
-                                control={form.control}
-                                name={`items.${index}.rate`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormControl>
-                                      <InputGroup>
-                                        <InputGroupInput
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          {...field}
-                                          className="h-8 text-sm"
-                                          onChange={e => {
-                                            const value = e.target.value;
-                                            if (value === '') {
-                                              field.onChange(0);
-                                              form.setValue(`items.${index}.amount`, 0);
-                                              return;
-                                            }
-                                            const numericValue = parseFloat(value);
-                                            if (isNaN(numericValue) || numericValue < 0) {
-                                              toast.error('Invalid rate', {
-                                                description: 'Rate must be 0 or greater'
-                                              });
-                                              field.onChange(0);
-                                              form.setValue(`items.${index}.amount`, 0);
-                                              return;
-                                            }
-                                            field.onChange(numericValue);
-                                            form.setValue(`items.${index}.amount`, numericValue * currentQuantity);
-                                          }}
-                                          value={field.value || ''}
-                                        />
-                                      </InputGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
+                              <InputGroup>
+                                <InputGroupInput
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={group.unifiedRate}
+                                  onChange={e => {
+                                    const val = parseFloat(e.target.value);
+                                    if (!isNaN(val) && val >= 0) {
+                                      handleGroupedPriceChange(group, val);
+                                    }
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </InputGroup>
                             </div>
                             <div className="text-right">
                               <div className="text-xs text-muted-foreground mb-1">Amount</div>
-                              <div className="font-semibold">
-                                {formatCurrency(form.watch(`items.${index}.amount`) || 0)}
-                              </div>
+                              <div className="font-semibold">{formatCurrency(group.totalAmount)}</div>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Batch breakdown (when expanded) */}
+                        {expandedGroups.has(group.key) && group.batches.length > 1 && (
+                          <div className="border rounded-md p-3 bg-muted/20 space-y-1">
+                            <div className="text-xs font-semibold text-muted-foreground mb-2">Batch Breakdown</div>
+                            {group.batches.map((batch, batchIdx) => (
+                              <div key={batchIdx} className="flex items-center gap-3 text-xs">
+                                <span className="text-muted-foreground">
+                                  {batch.purchaseId || `Batch ${batchIdx + 1}`}
+                                </span>
+                                <span>Qty: {batch.quantity}</span>
+                                <span>Rate: {formatCurrency(batch.rate)}</span>
+                                <span>Amount: {formatCurrency(batch.amount)}</span>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>

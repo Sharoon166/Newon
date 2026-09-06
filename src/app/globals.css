@@ -40,7 +40,7 @@
   --sidebar-ring: oklch(0.6716 0.1368 48.513);
   --font-sans:  'Manrope', 'Reddit Mono', ui-monospace, monospace;
   /*--font-sans: 'Fira Code', 'Geist Mono', ui-monospace, monospace;*/
-  --font-serif: 'Eczar', serif;
+  --font-serif: 'Tenor Sans', 'Eczar', serif;
   --font-mono: "JetBrains Mono", monospace;
   /*--font-mono: JetBrains Mono, monospace;*/
   --radius: 0.75rem;
@@ -193,7 +193,7 @@ body {
     @apply bg-background text-foreground;
   }
 
-  h1,h2,h,h4{
+  h1,h2,h3{
       font-family: var(--font-serif)
   }
 

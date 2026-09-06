@@ -214,7 +214,7 @@ export function ProductSelector({
           onClick={() => setSelectedCategory('all')}
           role="button"
           aria-label={`Select all`}
-          className="px-4 py-1 rounded-full text-sm cursor-pointer"
+          className="px-4 py-1 rounded-full text-xs cursor-pointer"
         >
           <Hash /> All
         </Badge>
@@ -225,7 +225,7 @@ export function ProductSelector({
             onClick={() => setSelectedCategory(category)}
             role="button"
             aria-label={`Select ${category}`}
-            className="px-4 py-1 rounded-full text-sm cursor-pointer"
+            className="px-4 py-1 rounded-full text-xs cursor-pointer"
           >
             <Hash /> {category}
           </Badge>
@@ -235,7 +235,7 @@ export function ProductSelector({
           onClick={() => setSelectedCategory('uncategorized')}
           role="button"
           aria-label={`Select uncategorized`}
-          className="px-4 py-1 rounded-full text-sm cursor-pointer"
+          className="px-4 py-1 rounded-full text-xs cursor-pointer"
         >
           <Hash /> Uncategorized
         </Badge>
@@ -245,7 +245,7 @@ export function ProductSelector({
       <div className="@container">
         <div
           ref={gridRef}
-          className="grid grid-flow-dense @md:grid-cols-2 xl:@xl:grid-cols-3 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
+          className="grid grid-flow-dense @md:grid-cols-2 gap-3 @md:p-3 @max-md:pr-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
         >
           {filteredVariants.map((variant, index) => {
             const variantPurchasesForCard = purchases
@@ -283,7 +283,7 @@ export function ProductSelector({
                     {/* Product Image */}
                     {variant.image || variant.imageFile?.cloudinaryUrl ? (
                       <div
-                        className="w-full h-32 overflow-clip rounded-md flex justify-center bg-cover bg-center bg-no-repeat max-sm:bg-center"
+                        className="w-full aspect-square overflow-clip rounded-md flex justify-center bg-cover bg-center bg-no-repeat max-sm:bg-center"
                         style={{
                           backgroundImage: `url(${variant.imageFile?.cloudinaryUrl || variant.image})`
                         }}
@@ -298,7 +298,7 @@ export function ProductSelector({
                     {/* Product Info */}
                     <div className="space-y-1">
                       <div className="flex items-start justify-between gap-1">
-                        <h4 className="font-medium text-xs leading-tight line-clamp-2 flex-1">{variant.productName}</h4>
+                        <h4 className="font-medium text- leading-tight line-clamp-2 flex-1">{variant.productName}</h4>
                         {firstPurchase && (
                           <Popover>
                             <PopoverTrigger asChild onClick={e => e.stopPropagation()}>

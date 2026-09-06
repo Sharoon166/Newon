@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { PAYMENT_DETAILS } from '@/constants';
 import { convertToWords } from '@/features/invoices/utils';
+import { groupItemsByVariant } from '@/features/invoices/utils/group-items';
 import ProductModel from '@/models/Product';
 import dbConnect from '@/lib/db';
 
@@ -197,6 +198,15 @@ export async function POST(request: NextRequest) {
     // Items Table
     yPos += 10;
 
+    // Group items by variantId for display (same product from different batches = one line)
+    const groupedItems = groupItemsByVariant(
+      invoice.items.map(item => ({
+        ...item,
+        rate: item.unitPrice,
+        amount: item.totalPrice
+      }))
+    );
+
     // Fetch product images for all items
     await dbConnect();
     const productImageMap = new Map<string, string | null>();
@@ -221,10 +231,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Load all images as base64
+    // Load images for grouped items (one image per unique variant)
     const loadedImages: (string | null)[] = [];
-    for (const item of invoice.items) {
-      const imageUrl = item.variantId ? productImageMap.get(item.variantId) : null;
+    for (const group of groupedItems) {
+      const imageUrl = group.variantId ? productImageMap.get(group.variantId) : null;
       if (imageUrl) {
         const base64Image = await loadImageAsBase64(imageUrl);
         loadedImages.push(base64Image);
@@ -235,12 +245,12 @@ export async function POST(request: NextRequest) {
 
     const hasImages = loadedImages.some(img => img !== null);
 
-    const tableData = invoice.items.map((item, index) => [
+    const tableData = groupedItems.map((group, index) => [
       (index + 1).toString(),
-      item.productName + (item.variantSKU ? `\n(SKU: ${item.variantSKU})` : ''),
-      item.quantity.toString(),
-      formatCurrency(item.unitPrice),
-      formatCurrency(item.totalPrice)
+      group.description + (group.variantSKU ? `\n(SKU: ${group.variantSKU})` : ''),
+      group.totalQuantity.toString(),
+      formatCurrency(group.unifiedRate),
+      formatCurrency(group.totalAmount)
     ]);
 
     autoTable(doc, {
