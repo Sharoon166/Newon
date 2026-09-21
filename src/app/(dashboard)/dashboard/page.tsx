@@ -8,6 +8,7 @@ import { MetricsCards } from '@/features/dashboard/components/metrics-cards';
 import { SalesChart } from '@/features/dashboard/components/sales-chart';
 import { ProfitChart } from '@/features/dashboard/components/profit-chart';
 import { AlertsSection } from '@/features/dashboard/components/alerts-section';
+import { ProductOriginChart } from '@/features/dashboard/components/product-origin-chart';
 import { getSession } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
@@ -52,16 +53,15 @@ export default async function DashboardPage() {
         <h2 id="dashboard-charts" className="sr-only">
           Sales and profit trends
         </h2>
-        <SalesChart
-          data={data.salesTrend}
-          data30Days={data.salesTrend30Days}
-          dataMonthly={data.salesTrendMonthly}
-        />
-        <ProfitChart
-          data={data.profitTrend}
-          data30Days={data.profitTrend30Days}
-          dataMonthly={data.profitTrendMonthly}
-        />
+        <ProductOriginChart data={data.productOriginData} />
+        <div className="space-y-6">
+          <SalesChart data={data.salesTrend} data30Days={data.salesTrend30Days} dataMonthly={data.salesTrendMonthly} />
+          <ProfitChart
+            data={data.profitTrend}
+            data30Days={data.profitTrend30Days}
+            dataMonthly={data.profitTrendMonthly}
+          />
+        </div>
       </section>
 
       <section aria-labelledby="dashboard-alerts" className="grid gap-6">

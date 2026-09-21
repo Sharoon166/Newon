@@ -13,6 +13,7 @@ import type {
   ProfitTrendData,
   OverdueInvoiceAlert,
   PendingPaymentAlert,
+  ProductOriginData,
   DashboardData
 } from '../types';
 
@@ -1110,6 +1111,44 @@ export async function getPendingPayments(limit: number = 5, skip: number = 0): P
 }
 
 /**
+ * Get Product Origin Distribution (Local vs Imported)
+ */
+export async function getProductOriginData(): Promise<ProductOriginData[]> {
+  try {
+    await dbConnect();
+
+    const originData = await ProductModel.aggregate([
+      {
+        $group: {
+          _id: '$origin',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const result: ProductOriginData[] = [
+      { origin: 'local', count: 0 },
+      { origin: 'imported', count: 0 }
+    ];
+
+    originData.forEach((item: { _id: string; count: number }) => {
+      if (item._id === 'local' || item._id === 'imported') {
+        const entry = result.find(r => r.origin === item._id);
+        if (entry) entry.count = item.count;
+      }
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Error fetching product origin data:', error);
+    return [
+      { origin: 'local', count: 0 },
+      { origin: 'imported', count: 0 }
+    ];
+  }
+}
+
+/**
  * Get Complete Dashboard Data
  */
 export async function getDashboardData(): Promise<DashboardData> {
@@ -1123,7 +1162,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     profitTrendMonthly,
     outOfStockAlerts,
     overdueInvoices,
-    pendingPayments
+    pendingPayments,
+    productOriginData
   ] = await Promise.all([
     getDashboardMetrics(),
     getSalesTrend(7),
@@ -1134,7 +1174,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     getMonthlyProfitTrend(),
     getLowStockAlerts(),
     getOverdueInvoices(),
-    getPendingPayments()
+    getPendingPayments(),
+    getProductOriginData()
   ]);
 
   return {
@@ -1147,6 +1188,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     profitTrendMonthly,
     outOfStockAlerts,
     overdueInvoices,
-    pendingPayments
+    pendingPayments,
+    productOriginData
   };
 }

@@ -80,6 +80,14 @@ export interface PendingPaymentAlert {
 }
 
 /**
+ * Product Origin Data Point
+ */
+export interface ProductOriginData {
+  origin: 'local' | 'imported';
+  count: number;
+}
+
+/**
  * Dashboard Data
  */
 export interface DashboardData {
@@ -93,4 +101,5 @@ export interface DashboardData {
   outOfStockAlerts: OutOfStockAlert[];
   overdueInvoices: OverdueInvoiceAlert[];
   pendingPayments: PendingPaymentAlert[];
+  productOriginData: ProductOriginData[];
 }

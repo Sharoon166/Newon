@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import { AtSign, Eye, EyeOff, GalleryVerticalEnd, Lock } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,12 +51,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-150 from-white to-slate-50 px-4">
       <div className="w-full max-w-md space-y-14">
         <div className="text-center">
-          <div className="text-primary mb-8">
-            <GalleryVerticalEnd className="mx-auto h-12 w-12" />
-          </div>
+          <Image src="/newon.png" alt="logo" unoptimized width={500} height={500} className="w-24 mx-auto mb-4" />
           <h2 className="text-3xl font-bold">Sign in to your account</h2>
           <p className="mt-2 text-sm text-muted-foreground">Enter your credentials to access the system</p>
         </div>
