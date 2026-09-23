@@ -1,6 +1,6 @@
 import { getInvoices, getInvoiceStats } from '@/features/invoices/actions';
 import { PageHeader } from '@/components/general/page-header';
-import { checkPermission, getSession } from '@/lib/auth-utils';
+import { checkPermission, requirePermission } from '@/lib/auth-utils';
 import { Button } from '@/components/ui/button';
 import { Plus, FileText, Receipt, TrendingUp, TrendingDown, ShoppingCart, Coins, Wallet, XCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -10,7 +10,6 @@ import { Card, CardContent, CardTitle, CardHeader } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { InvoicesTable } from '@/features/invoices/components/invoices-table';
 import { InvoiceFilter } from '@/features/invoices/components/invoice-filter';
-import { requirePermission } from '@/lib/auth-utils';
 
 interface InvoicesPageProps {
   searchParams: Promise<{
@@ -26,7 +25,9 @@ interface InvoicesPageProps {
 }
 
 export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
-  await requirePermission('view:invoices');
+  // requirePermission returns the session — reuse it instead of fetching again.
+  const session = await requirePermission('view:invoices');
+  const showKpis = session.user.role === 'admin';
 
   const params = await searchParams;
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
@@ -37,11 +38,12 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   const status = params.status === 'all' ? undefined : params.status as 'pending' | 'paid' | 'overdue' | 'cancelled' | 'draft' | undefined;
   const market = params.market === 'all' ? undefined : params.market as 'newon' | 'waymor' | undefined;
 
-  const [invoicesData, quotationsData, stats, session, canCreate] = await Promise.all([
+  const [invoicesData, quotationsData, stats, canCreate] = await Promise.all([
     getInvoices({ type: 'invoice', page, limit, dateFrom, dateTo, search, status, market }),
     getInvoices({ type: 'quotation', limit: 1000, dateFrom, dateTo, search, status, market }),
-    getInvoiceStats({ dateFrom, dateTo }),
-    getSession(),
+    // Revenue/profit/outstanding figures are admin-only — skip the
+    // aggregation entirely rather than compute it and throw it away.
+    showKpis ? getInvoiceStats({ dateFrom, dateTo }) : Promise.resolve(null),
     checkPermission('create:invoices')
   ]);
 
@@ -61,7 +63,8 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
           )}
         </PageHeader>
 
-        {/* Stats Cards */}
+        {/* KPI cards — revenue, profit and outstanding balances are admin-only */}
+        {showKpis && stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -165,6 +168,7 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
             </CardContent>
           </Card>
         </div>
+        )}
         <div className="w-full flex justify-end mb-2">
           <InvoiceFilter />
         </div>
