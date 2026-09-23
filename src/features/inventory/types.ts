@@ -34,6 +34,7 @@ export interface ProductVariant {
   availableStock: number; // Legacy field, will be removed in future
   stockOnBackorder: number; // Legacy field, will be removed in future
   inventory: LocationInventory[]; // New inventory tracking per location
+  inShop?: number; // Physically present stock (stock tracking feature)
 }
 
 export interface AttributeValue {

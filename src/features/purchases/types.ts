@@ -14,6 +14,7 @@ export interface Purchase {
   totalCost: number;
   purchaseDate: Date | string;
   remaining: number;
+  receivedQuantity?: number;
   notes?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;

@@ -31,6 +31,14 @@ const variantSchema = new mongoose.Schema(
       default: 0,
       min: [0, 'Backorder stock cannot be negative']
     },
+    // Physically present stock ("In shop"). Independent of the legacy counters:
+    // it moves only on receive / deliver / quick count events, never on purchase
+    // creation or invoice deduction.
+    inShop: {
+      type: Number,
+      default: 0,
+      min: [0, 'In shop stock cannot be negative']
+    },
     // New inventory structure
     inventory: [
       {

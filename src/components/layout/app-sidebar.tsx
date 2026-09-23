@@ -20,7 +20,8 @@ import {
   Wallet,
   BriefcaseBusiness,
   FileBarChart,
-  HandCoins
+  HandCoins,
+  BarChart4
 } from 'lucide-react';
 
 import {
@@ -85,6 +86,11 @@ const data = {
           name: 'Purchases',
           url: '/purchases',
           icon: PackagePlus
+        },
+        {
+          name: 'Stock',
+          url: '/stock',
+          icon: BarChart4
         }
       ]
     },
@@ -225,6 +231,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           name: 'Invoices & Quotations',
           url: '/invoices',
           icon: ScrollTextIcon
+        },
+        {
+          name: 'Stock',
+          url: '/stock',
+          icon: BarChart4
         },
       ]
     }

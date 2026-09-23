@@ -69,6 +69,10 @@ interface IInvoiceItem {
   stockLocation?: string;
   purchaseId?: string;
   originalRate?: number;
+  // Physical delivery tracking (stock tracking feature). Runs independently of
+  // payment status and of the existing stock deduction.
+  deliveredQuantity?: number;
+  deliveryNotes?: string;
   // Virtual product breakdown
   componentBreakdown?: IComponentBreakdown[];
   customExpenses?: ICustomExpense[];
@@ -335,6 +339,16 @@ const invoiceItemSchema = new Schema<IInvoiceItem>({
   originalRate: {
     type: Number,
     min: 0
+  },
+  deliveredQuantity: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  deliveryNotes: {
+    type: String,
+    default: '',
+    trim: true
   },
   componentBreakdown: {
     type: [componentBreakdownSchema],

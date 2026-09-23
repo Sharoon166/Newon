@@ -73,6 +73,13 @@ const purchaseSchema = new mongoose.Schema(
       required: [true, 'Remaining is required'],
       min: [0, 'Remaining cannot be negative']
     },
+    // How many units have physically arrived ("received"). Run only by the
+    // stock tracking feature; never touches 'remaining' or the product counters.
+    receivedQuantity: {
+      type: Number,
+      default: 0,
+      min: [0, 'Received quantity cannot be negative']
+    },
     notes: {
       type: String,
       default: '',
@@ -129,6 +136,7 @@ export interface IPurchase extends mongoose.Document {
   totalCost: number;
   purchaseDate: Date;
   remaining: number;
+  receivedQuantity?: number;
   notes?: string;
 }
 

@@ -53,6 +53,8 @@ interface LeanInvoiceItem {
   }>;
   totalComponentCost?: number;
   totalCustomExpenses?: number;
+  deliveredQuantity?: number;
+  deliveryNotes?: string;
 }
 
 interface LeanPayment {
@@ -145,6 +147,8 @@ function transformInvoice(doc: LeanInvoice): Invoice {
       stockLocation: item.stockLocation,
       purchaseId: item.purchaseId,
       originalRate: item.originalRate,
+      deliveredQuantity: item.deliveredQuantity,
+      deliveryNotes: item.deliveryNotes,
       componentBreakdown: item.componentBreakdown,
       customExpenses: item.customExpenses,
       totalComponentCost: item.totalComponentCost,

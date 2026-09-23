@@ -72,6 +72,8 @@ export interface InvoiceItem {
   stockLocation?: string;
   purchaseId?: string;
   originalRate?: number;
+  deliveredQuantity?: number;
+  deliveryNotes?: string;
   componentBreakdown?: ComponentBreakdown[];
   customExpenses?: CustomExpense[];
   totalComponentCost?: number;

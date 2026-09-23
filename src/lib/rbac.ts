@@ -33,7 +33,11 @@ export type Permission =
   | 'delete:project-inventory'
   | 'view:audit-logs'
   | 'view:client-financials'
-  | 'view:project-invoices';
+  | 'view:project-invoices'
+  // Physical stock tracking
+  | 'view:stock'
+  | 'edit:stock'
+  | 'reverse:stock';
 
 // Define permissions for each role
 const rolePermissions: Record<Role, Permission[]> = {
@@ -68,7 +72,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'delete:project-inventory',
     'view:audit-logs',
     'view:client-financials',
-    'view:project-invoices'
+    'view:project-invoices',
+    'view:stock',
+    'edit:stock',
+    'reverse:stock'
   ],
   // Staff can view + create invoices/purchases, but never edit or delete them.
   staff: [
@@ -78,7 +85,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:invoices',
     'create:invoices',
     'view:purchases',
-    'create:purchases'
+    'create:purchases',
+    // Staff record what physically arrives / leaves the shop.
+    'view:stock',
+    'edit:stock'
   ]
 };
 
