@@ -10,6 +10,7 @@ import { Card, CardContent, CardTitle, CardHeader } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 import { InvoicesTable } from '@/features/invoices/components/invoices-table';
 import { InvoiceFilter } from '@/features/invoices/components/invoice-filter';
+import { requirePermission } from '@/lib/auth-utils';
 
 interface InvoicesPageProps {
   searchParams: Promise<{
@@ -25,6 +26,8 @@ interface InvoicesPageProps {
 }
 
 export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
+  await requirePermission('view:invoices');
+
   const params = await searchParams;
   const dateFrom = params.dateFrom ? new Date(params.dateFrom) : undefined;
   const dateTo = params.dateTo ? new Date(params.dateTo) : undefined;

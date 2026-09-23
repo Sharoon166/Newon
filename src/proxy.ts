@@ -47,6 +47,9 @@ export async function proxy(request: NextRequest) {
       '/projects',
       '/invoices',
       '/purchases',
+      // requirePermission() redirects denied staff here — without it they'd
+      // bounce to /not-allowed instead of the explanatory Access Denied page.
+      '/unauthorized',
       '/not-allowed',
       '/api'
     ];

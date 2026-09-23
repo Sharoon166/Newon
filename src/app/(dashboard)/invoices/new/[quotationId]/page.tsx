@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { Info } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { convertToWords } from '@/features/invoices/utils';
+import { requirePermission } from '@/lib/auth-utils';
 
 interface QuotationConversionPageProps {
   params: Promise<{
@@ -18,6 +19,10 @@ interface QuotationConversionPageProps {
 }
 
 export default async function QuotationConversionPage({ params }: QuotationConversionPageProps) {
+  // Converting marks the source quotation as converted, so it requires edit
+  // rights — creation alone is not enough.
+  await requirePermission('edit:invoices');
+
   const { quotationId } = await params;
 
   const quotation = await getInvoiceByNumber(quotationId.toUpperCase());

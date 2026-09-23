@@ -215,7 +215,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           name: 'Projects',
           url: '/projects',
           icon: FolderKanban
-        }
+        },
+        {
+          name: 'Purchases',
+          url: '/purchases',
+          icon: Package
+        },
+        {
+          name: 'Invoices & Quotations',
+          url: '/invoices',
+          icon: ScrollTextIcon
+        },
       ]
     }
   ];

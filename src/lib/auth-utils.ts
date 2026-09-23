@@ -56,3 +56,24 @@ export async function checkPermission(permission: Permission): Promise<boolean> 
   const session = await getSession();
   return userHasPermission(session, permission);
 }
+
+/**
+ * Assert the current session has a permission.
+ *
+ * Unlike `requirePermission`, this THROWS instead of redirecting, so it is
+ * the right helper to use inside server actions where the caller catches the
+ * error and surfaces it as a toast.
+ */
+export async function assertPermission(permission: Permission) {
+  const session = await getSession();
+
+  if (!session) {
+    throw new Error('You must be signed in to perform this action');
+  }
+
+  if (!userHasPermission(session, permission)) {
+    throw new Error('You do not have permission to perform this action');
+  }
+
+  return session;
+}

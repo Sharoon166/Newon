@@ -273,81 +273,83 @@ export function QuotationsTable({ quotations, onRefresh, userRole }: QuotationsT
           return value.includes(row.getValue(id));
         }
       },
-      ...(userRole !== 'staff'
-        ? [
-            {
-              id: 'actions' as const,
-              cell: ({ row }: { row: { original: Invoice } }) => {
-                const quotation = row.original;
-                const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
+      // Staff may view the quotation but not edit, re-status, or cancel it.
+      {
+        id: 'actions' as const,
+        cell: ({ row }: { row: { original: Invoice } }) => {
+          const quotation = row.original;
+          const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
+          const canManage = userRole !== 'staff';
 
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <Link href={`/invoices/${quotation.id}`}>
-                        <DropdownMenuItem>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                      </Link>
-                      <DropdownMenuItem
-                        hidden
-                        disabled={downloadingPDF === quotation.id}
-                        onClick={async () => {
-                          setDownloadingPDF(quotation.id);
-                          await printInvoicePDF(quotation.id, quotation.invoiceNumber, quotation.type);
-                          setDownloadingPDF(null);
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {downloadingPDF === quotation.id ? 'Generating...' : 'Download PDF'}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          router.push(`/invoices/${quotation.id}/edit`);
-                        }}
-                        disabled={quotation.status === 'cancelled' || quotation.status === 'converted' || isEditRestricted}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedQuotation(quotation);
-                          setStatusDialogOpen(true);
-                        }}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Update Status
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        disabled={quotation.status === 'cancelled' || quotation.status === 'converted'}
-                        onClick={() => {
-                          setSelectedQuotation(quotation);
-                          setCancelDialogOpen(true);
-                        }}
-                      >
-                        <Ban className="h-4 w-4 mr-2" />
-                        Cancel
-                        {quotation.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
-                        {quotation.status === 'converted' && <span className="ml-2 text-xs">(Converted to invoice)</span>}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              }
-            }
-          ]
-        : [])
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href={`/invoices/${quotation.id}`}>
+                  <DropdownMenuItem>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem
+                  hidden
+                  disabled={downloadingPDF === quotation.id}
+                  onClick={async () => {
+                    setDownloadingPDF(quotation.id);
+                    await printInvoicePDF(quotation.id, quotation.invoiceNumber, quotation.type);
+                    setDownloadingPDF(null);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingPDF === quotation.id ? 'Generating...' : 'Download PDF'}
+                </DropdownMenuItem>
+                {canManage && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        router.push(`/invoices/${quotation.id}/edit`);
+                      }}
+                      disabled={quotation.status === 'cancelled' || quotation.status === 'converted' || isEditRestricted}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setSelectedQuotation(quotation);
+                        setStatusDialogOpen(true);
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Update Status
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      disabled={quotation.status === 'cancelled' || quotation.status === 'converted'}
+                      onClick={() => {
+                        setSelectedQuotation(quotation);
+                        setCancelDialogOpen(true);
+                      }}
+                    >
+                      <Ban className="h-4 w-4 mr-2" />
+                      Cancel
+                      {quotation.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
+                      {quotation.status === 'converted' && <span className="ml-2 text-xs">(Converted to invoice)</span>}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+      }
     ],
     [userRole]
   );

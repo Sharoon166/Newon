@@ -54,7 +54,8 @@ interface PurchasesTableWithActionsProps {
 }
 
 export function PurchasesTableWithActions({ purchasesData, products, userRole }: PurchasesTableWithActionsProps) {
-  const isAdmin = userRole !== 'staff';
+  // Staff may create + view purchases; only admins may edit or delete.
+  const canManage = userRole !== 'staff';
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -250,12 +251,12 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
-          {isAdmin && (
+          {canManage && (
             <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
               <Edit2 className="h-4 w-4" />
             </Button>
           )}
-          {isAdmin && (
+          {canManage && (
             <Button
               variant="ghost"
               size="icon"
@@ -272,14 +273,16 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
               />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
-            title="Go to product"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
+          {canManage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
+              title="Go to product"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       )
     }
@@ -330,12 +333,10 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isAdmin && (
-              <Button onClick={() => setAddPurchaseOpen(true)} disabled={products.length === 0} className="grow">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Purchase
-              </Button>
-            )}
+            <Button onClick={() => setAddPurchaseOpen(true)} disabled={products.length === 0} className="grow">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Purchase
+            </Button>
             <Button variant="outline" size="sm" className="gap-1" onClick={handleExportCsv}>
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">CSV</span>

@@ -360,88 +360,90 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
           return value.includes(row.getValue(id));
         }
       },
-      ...(userRole !== 'staff'
-        ? [
-            {
-              id: 'actions' as const,
-              cell: ({ row }: { row: { original: Invoice } }) => {
-                const invoice = row.original;
-                const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
+      // Staff may view the document but not edit, pay, or cancel it.
+      {
+        id: 'actions' as const,
+        cell: ({ row }: { row: { original: Invoice } }) => {
+          const invoice = row.original;
+          const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
+          const canManage = userRole !== 'staff';
 
-                return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <Link href={`/invoices/${invoice.id}`}>
-                        <DropdownMenuItem>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                      </Link>
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href={`/invoices/${invoice.id}`}>
+                  <DropdownMenuItem>
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuItem
+                  hidden
+                  disabled={downloadingPDF === invoice.id}
+                  onClick={async () => {
+                    setDownloadingPDF(invoice.id);
+                    await printInvoicePDF(invoice.id, invoice.invoiceNumber, invoice.type);
+                    setDownloadingPDF(null);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
+                </DropdownMenuItem>
+                {canManage && invoice.status !== 'cancelled' && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        router.push(`/invoices/${invoice.id}/edit`);
+                      }}
+                      disabled={isEditRestricted}
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
                       <DropdownMenuItem
-                        hidden
-                        disabled={downloadingPDF === invoice.id}
-                        onClick={async () => {
-                          setDownloadingPDF(invoice.id);
-                          await printInvoicePDF(invoice.id, invoice.invoiceNumber, invoice.type);
-                          setDownloadingPDF(null);
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {downloadingPDF === invoice.id ? 'Generating...' : 'Download PDF'}
-                      </DropdownMenuItem>
-                      {invoice.status !== 'cancelled' && (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              router.push(`/invoices/${invoice.id}/edit`);
-                            }}
-                            disabled={isEditRestricted}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          {invoice.type === 'invoice' && invoice.balanceAmount > 0 && (
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedInvoice(invoice);
-                                setPaymentDialogOpen(true);
-                              }}
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Payment
-                            </DropdownMenuItem>
-                          )}
-                        </>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        disabled={invoice.status === 'cancelled' || invoice.status === 'paid' || !!invoice.projectId}
                         onClick={() => {
                           setSelectedInvoice(invoice);
-                          setCancelDialogOpen(true);
+                          setPaymentDialogOpen(true);
                         }}
                       >
-                        <Ban className="h-4 w-4 mr-2" />
-                        Cancel
-                        {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
-                        {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
-                        {invoice.projectId && <span className="ml-2 text-xs">(Project invoice)</span>}
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Payment
                       </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                );
-              }
-            }
-          ]
-        : [])
+                    )}
+                  </>
+                )}
+                {canManage && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      disabled={invoice.status === 'cancelled' || invoice.status === 'paid' || !!invoice.projectId}
+                      onClick={() => {
+                        setSelectedInvoice(invoice);
+                        setCancelDialogOpen(true);
+                      }}
+                    >
+                      <Ban className="h-4 w-4 mr-2" />
+                      Cancel
+                      {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
+                      {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
+                      {invoice.projectId && <span className="ml-2 text-xs">(Project invoice)</span>}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+      }
     ],
     [userRole]
   );

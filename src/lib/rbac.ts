@@ -70,7 +70,16 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:client-financials',
     'view:project-invoices'
   ],
-  staff: ['view:inventory', 'view:projects', 'add:expenses', 'view:invoices', 'view:purchases']
+  // Staff can view + create invoices/purchases, but never edit or delete them.
+  staff: [
+    'view:inventory',
+    'view:projects',
+    'add:expenses',
+    'view:invoices',
+    'create:invoices',
+    'view:purchases',
+    'create:purchases'
+  ]
 };
 
 /**

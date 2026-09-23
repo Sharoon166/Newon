@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import { revalidatePath } from 'next/cache';
 import type { CreatePurchaseDto, UpdatePurchaseDto, PurchaseFilters, PaginatedPurchases } from '../types';
 import type { LocationInventory, ProductVariant } from '@/features/inventory/types';
+import { assertPermission } from '@/lib/auth-utils';
 
 // Type for lean purchase document from MongoDB
 export type LeanPurchase = {
@@ -263,6 +264,7 @@ export const getPurchaseById = async (id: string) => {
 };
 
 export const createPurchase = async (data: CreatePurchaseDto) => {
+  await assertPermission('create:purchases');
   await dbConnect();
 
   // Calculate totalCost
@@ -362,6 +364,7 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
 };
 
 export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
+  await assertPermission('edit:purchases');
   await dbConnect();
 
   // If quantity or unitPrice is being updated, recalculate totalCost
@@ -508,6 +511,7 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
 };
 
 export const deletePurchase = async (id: string) => {
+  await assertPermission('delete:purchases');
   await dbConnect();
 
   const purchase = (await PurchaseModel.findById(id).lean()) as LeanPurchase | null;

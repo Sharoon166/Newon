@@ -2,7 +2,7 @@ import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
 import { getProductsBasic } from '@/features/inventory/actions';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
-import { getSession } from '@/lib/auth-utils';
+import { getSession, requirePermission } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,8 @@ interface PurchasesPageProps {
 }
 
 export default async function PurchasesPage({ searchParams }: PurchasesPageProps) {
+  await requirePermission('view:purchases');
+
   const params = await searchParams;
   const page = params.page ? parseInt(params.page) : 1;
   const limit = params.limit ? parseInt(params.limit) : 10;

@@ -15,6 +15,7 @@ import {
   AdditionalCharge
 } from '../types';
 import { calculateInvoiceProfit } from '../utils/calculate-profit';
+import { assertPermission } from '@/lib/auth-utils';
 
 // Helper types for lean documents
 interface LeanInvoiceItem {
@@ -327,6 +328,7 @@ export async function getInvoiceByNumber(invoiceNumber: string): Promise<Invoice
 // Create new invoice
 export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
   try {
+    await assertPermission('create:invoices');
     await dbConnect();
 
     // Convert date strings to UTC Date objects to avoid timezone issues
@@ -588,6 +590,8 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
 
 // Update invoice
 export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise<Invoice> {
+  await assertPermission('edit:invoices');
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -704,6 +708,7 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
 // Delete invoice
 export async function deleteInvoice(id: string): Promise<void> {
   try {
+    await assertPermission('delete:invoices');
     await dbConnect();
 
     // Get the invoice first to restore stock
@@ -813,6 +818,7 @@ export async function addPayment(
   options?: { skipFinancialUpdate?: boolean }
 ): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const invoice = await InvoiceModel.findById(invoiceId);
@@ -913,6 +919,7 @@ export async function updatePayment(
   updatedPayment: AddPaymentDto
 ): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const invoice = await InvoiceModel.findById(invoiceId);
@@ -1005,6 +1012,7 @@ export async function updatePayment(
 // Delete payment from invoice
 export async function deletePayment(invoiceId: string, paymentIndex: number): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const invoice = await InvoiceModel.findById(invoiceId);
@@ -1105,6 +1113,8 @@ export async function deletePayment(invoiceId: string, paymentIndex: number): Pr
 // Convert quotation to invoice
 export async function convertQuotationToInvoice(quotationId: string, createdBy: string): Promise<Invoice> {
   try {
+    // Conversion mutates the source quotation, so it needs edit rights.
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const quotation = await InvoiceModel.findById(quotationId);
@@ -1340,6 +1350,7 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
 // Cancel invoice (proper way to void an invoice instead of deleting)
 export async function cancelInvoice(id: string, reason?: string): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const invoice = await InvoiceModel.findById(id);
@@ -1459,6 +1470,7 @@ export async function updateInvoiceStatus(
     | 'expired'
 ): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     // If changing to cancelled status, use cancelInvoice instead
@@ -1657,6 +1669,7 @@ export async function getInvoiceStats(filters?: { market?: 'newon' | 'waymor'; d
 // Manually deduct stock for an invoice (if it wasn't deducted during creation)
 export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const invoice = await InvoiceModel.findById(invoiceId);
@@ -1769,6 +1782,7 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
 // Manually restore stock for an invoice (if it needs to be cancelled)
 export async function restoreInvoiceStock(invoiceId: string, skipRevalidation = false): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     const invoice = await InvoiceModel.findById(invoiceId);
@@ -1908,6 +1922,7 @@ export async function updateInvoiceFull(
   requiresStockRededuction?: boolean
 ): Promise<Invoice> {
   try {
+    await assertPermission('edit:invoices');
     await dbConnect();
 
     // ============================================================

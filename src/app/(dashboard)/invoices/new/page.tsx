@@ -5,12 +5,15 @@ import { NewInvoiceFormWrapper } from '@/features/invoices/components/new-invoic
 import { getAllPurchases } from '@/features/purchases/actions';
 import { getPaymentDetails, getInvoiceTerms } from '@/features/settings/actions';
 import { getVirtualProducts } from '@/features/virtual-products/actions';
+import { requirePermission } from '@/lib/auth-utils';
 
 interface NewDocumentProps {
   searchParams: Promise<{ tab?: string }>;
 }
 
 export default async function NewDocument({ searchParams }: NewDocumentProps) {
+  await requirePermission('create:invoices');
+
   const params = await searchParams;
   const activeTab = params.tab === 'quotation' ? 'quotation' : 'invoice';
 

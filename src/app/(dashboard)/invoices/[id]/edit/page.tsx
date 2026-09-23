@@ -9,6 +9,7 @@ import { EditInvoiceFormWrapper } from '@/features/invoices/components/edit-invo
 import { PageHeader } from '@/components/general/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { requirePermission } from '@/lib/auth-utils';
 
 interface EditInvoicePageProps {
   params: Promise<{
@@ -17,6 +18,10 @@ interface EditInvoicePageProps {
 }
 
 export default async function EditInvoicePage({ params }: EditInvoicePageProps) {
+  // Outside the try/catch below: redirect() throws a control-flow signal that
+  // the catch block would otherwise swallow.
+  await requirePermission('edit:invoices');
+
   try {
     const { id } = await params;
 

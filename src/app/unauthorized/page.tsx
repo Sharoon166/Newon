@@ -3,8 +3,13 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ShieldAlert } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 export default function UnauthorizedPage() {
+  const { data: session } = useSession();
+  // Staff are blocked from /inventory by the proxy — send them to their own hub.
+  const homeHref = session?.user?.role === 'staff' ? '/inventory/staff' : '/inventory';
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md space-y-8 text-center">
@@ -21,7 +26,7 @@ export default function UnauthorizedPage() {
         </div>
 
         <div className="flex justify-center gap-4">
-          <Link href="/inventory">
+          <Link href={homeHref}>
             <Button>Go to Dashboard</Button>
           </Link>
         </div>
