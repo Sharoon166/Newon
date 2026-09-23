@@ -82,8 +82,12 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
 
   const purchases = purchasesData.docs as EnhancedPurchase[];
 
-  // Push debounced search to URL
+  // Push debounced search to URL.
+  // Bail out when the URL already matches, so mounting doesn't fire a
+  // redundant navigation.
   useEffect(() => {
+    if ((searchParams.get('search') ?? '') === debouncedSearch) return;
+
     const params = new URLSearchParams(searchParams.toString());
     if (debouncedSearch) {
       params.set('search', debouncedSearch);

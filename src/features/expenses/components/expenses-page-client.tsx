@@ -75,8 +75,12 @@ export function ExpensesPageClient({
     other: 'Other'
   };
 
-  // Push debounced search to URL
+  // Push debounced search to URL.
+  // Bail out when the URL already matches, so mounting doesn't fire a
+  // redundant navigation.
   useEffect(() => {
+    if ((searchParams.get('search') ?? '') === debouncedSearch) return;
+
     const params = new URLSearchParams(searchParams.toString());
     if (debouncedSearch) {
       params.set('search', debouncedSearch);

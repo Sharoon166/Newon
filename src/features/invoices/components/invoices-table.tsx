@@ -76,8 +76,15 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
 
   const invoices = invoicesData.docs;
 
-  // Update URL params when debounced search value changes
+  // Sync the debounced search value into the URL.
+  //
+  // `searchParams` is a dependency and this effect calls router.push, which in
+  // turn produces a new searchParams — so without the idempotence guard below,
+  // every push re-triggered the effect and the page navigated forever. Bail out
+  // when the URL already reflects the current search term.
   useEffect(() => {
+    if ((searchParams.get('search') ?? '') === debouncedSearchValue) return;
+
     const params = new URLSearchParams(searchParams.toString());
     if (debouncedSearchValue) {
       params.set('search', debouncedSearchValue);
