@@ -1,6 +1,7 @@
 import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
 import { getProductsBasic } from '@/features/inventory/actions';
+import { getStockTrackingStatus } from '@/features/stock/actions';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
 import { getSession, requirePermission } from '@/lib/auth-utils';
 
@@ -24,7 +25,11 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
   const session = await getSession();
 
-  const [purchasesData, products] = await Promise.all([getAllPurchases({ page, limit, search }), getProductsBasic()]);
+  const [purchasesData, products, stockStatus] = await Promise.all([
+    getAllPurchases({ page, limit, search }),
+    getProductsBasic(),
+    getStockTrackingStatus()
+  ]);
 
   return (
     <>
@@ -35,7 +40,12 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
       {/* Purchases Table with Actions */}
       <div className="mt-6">
-        <PurchasesTableWithActions purchasesData={purchasesData} products={products} userRole={session?.user?.role} />
+        <PurchasesTableWithActions
+          purchasesData={purchasesData}
+          products={products}
+          userRole={session?.user?.role}
+          stockReady={stockStatus.initialized}
+        />
       </div>
     </>
   );

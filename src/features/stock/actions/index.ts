@@ -526,6 +526,46 @@ export async function getAwaitingDelivery(input: {
   return { docs: items, total, page, limit };
 }
 
+/**
+ * Delivery state for a single invoice - unlike `getAwaitingDelivery` this also
+ * returns lines that are already fully delivered, so a detail page can show the
+ * complete picture ("3 of 5 delivered") instead of only what is outstanding.
+ */
+export async function getInvoiceDeliveryState(invoiceId: string): Promise<AwaitingDeliveryItem | null> {
+  await dbConnect();
+  const invoice = (await InvoiceModel.findById(invoiceId).lean()) as any;
+  if (!invoice) return null;
+
+  const lines: AwaitingDeliveryItemLine[] = ((invoice.items ?? []) as any[]).map(
+    (item, index): AwaitingDeliveryItemLine => {
+      const quantity = item.quantity ?? 0;
+      const delivered = Math.min(quantity, item.deliveredQuantity ?? 0);
+      return {
+        index,
+        productName: item.productName || 'Unknown',
+        sku: item.variantSKU,
+        unit: item.unit || 'pcs',
+        quantity,
+        delivered,
+        pending: Math.max(0, quantity - delivered)
+      };
+    }
+  );
+
+  return {
+    id: String(invoice._id),
+    invoiceNumber: invoice.invoiceNumber || 'N/A',
+    customerName: invoice.customerName || '',
+    customerCompany: invoice.customerCompany,
+    date: invoice.date instanceof Date ? invoice.date.toISOString() : String(invoice.date ?? ''),
+    status: invoice.status,
+    lines,
+    totalInvoiced: lines.reduce((s, l) => s + l.quantity, 0),
+    totalDelivered: lines.reduce((s, l) => s + l.delivered, 0),
+    totalPending: lines.reduce((s, l) => s + l.pending, 0)
+  };
+}
+
 export async function getStockMovements(input: {
   page?: number;
   limit?: number;

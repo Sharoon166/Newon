@@ -24,7 +24,8 @@ import {
   Trash2,
   Plus,
   Edit2,
-  AlertCircle
+  AlertCircle,
+  PackagePlus
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases } from '../types';
@@ -34,6 +35,7 @@ import { exportToCsv } from '../utils/export-utils';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { deletePurchase } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+import { ReceiveDialog, type ReceiveTarget } from '@/features/stock/components/receive-dialog';
 import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import { PurchaseForm } from './purchase-form';
@@ -51,9 +53,16 @@ interface PurchasesTableWithActionsProps {
   purchasesData: PaginatedPurchases;
   products: EnhancedVariants[];
   userRole?: 'admin' | 'staff';
+  /** Stock tracking is set up - enables the inline "Receive" flow. */
+  stockReady?: boolean;
 }
 
-export function PurchasesTableWithActions({ purchasesData, products, userRole }: PurchasesTableWithActionsProps) {
+export function PurchasesTableWithActions({
+  purchasesData,
+  products,
+  userRole,
+  stockReady = false
+}: PurchasesTableWithActionsProps) {
   // Staff may create + view purchases; only admins may edit or delete.
   const canManage = userRole !== 'staff';
   const router = useRouter();
@@ -71,6 +80,10 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
   const [addPurchaseOpen, setAddPurchaseOpen] = useState(false);
   const [editPurchaseOpen, setEditPurchaseOpen] = useState(false);
   const [purchaseToEdit, setPurchaseToEdit] = useState<EnhancedPurchase | null>(null);
+
+  // Inline receiving - the same dialog the Stock page's "Awaiting arrival" tab uses.
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveTarget, setReceiveTarget] = useState<ReceiveTarget | null>(null);
 
   const allSuppliers = useMemo(() => {
     const supplierSet = new Set<string>();
@@ -172,6 +185,24 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
     router.refresh();
   };
 
+  const handleReceiveClick = (purchase: EnhancedPurchase) => {
+    setReceiveTarget({
+      id: purchase.id || purchase._id!,
+      purchaseId: purchase.purchaseId,
+      productName: purchase.productName || 'Unknown product',
+      sku: purchase.variant?.sku || purchase.variantId || '',
+      ordered: purchase.quantity,
+      // Same convention as the Stock page's "Awaiting arrival" tab: a purchase
+      // that predates tracking has no receivedQuantity and counts as arrived.
+      received: purchase.receivedQuantity ?? purchase.quantity,
+      supplier: purchase.supplier
+    });
+    setReceiveOpen(true);
+  };
+
+  const pendingToReceive = (purchase: EnhancedPurchase) =>
+    purchase.quantity - (purchase.receivedQuantity ?? purchase.quantity);
+
   const columns: ColumnDef<EnhancedPurchase>[] = [
     {
       accessorKey: 'purchaseId',
@@ -236,6 +267,27 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
         </span>
       )
     },
+    // Mirrors the "Delivered x / y" column on invoices - only meaningful once
+    // stock tracking has been set up.
+    ...(stockReady
+      ? [
+          {
+            id: 'received',
+            header: 'Received',
+            cell: ({ row }: { row: { original: EnhancedPurchase } }) => {
+              const received = row.original.receivedQuantity ?? row.original.quantity;
+              const pending = Math.max(0, row.original.quantity - received);
+              return (
+                <span className="whitespace-nowrap">
+                  <span className={pending > 0 ? 'font-medium text-orange-600' : 'font-medium'}>{received}</span>
+                  <span className="text-muted-foreground"> / {row.original.quantity}</span>
+                  {pending > 0 && <span className="ml-1 text-xs text-muted-foreground">({pending} to come)</span>}
+                </span>
+              );
+            }
+          } satisfies ColumnDef<EnhancedPurchase>
+        ]
+      : []),
     {
       accessorKey: 'unitPrice',
       header: 'Unit Price',
@@ -255,6 +307,16 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
+          {stockReady && pendingToReceive(row.original) > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleReceiveClick(row.original)}
+              title="Receive stock"
+            >
+              <PackagePlus className="h-4 w-4" />
+            </Button>
+          )}
           {canManage && (
             <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
               <Edit2 className="h-4 w-4" />
@@ -428,6 +490,13 @@ export function PurchasesTableWithActions({ purchasesData, products, userRole }:
         icon={<AlertCircle className="h-12 w-12 text-destructive" />}
         onConfirm={handleDeleteConfirm}
         isProcessing={isDeleting}
+      />
+
+      <ReceiveDialog
+        open={receiveOpen}
+        onOpenChange={setReceiveOpen}
+        target={receiveTarget}
+        onSuccess={() => router.refresh()}
       />
 
       <PurchaseForm

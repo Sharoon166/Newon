@@ -25,6 +25,8 @@ export type LeanPurchase = {
   totalCost: number;
   purchaseDate: Date;
   remaining: number;
+  /** Physical units that have arrived (stock tracking feature). */
+  receivedQuantity?: number;
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -111,6 +113,9 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
       totalCost: doc.totalCost,
       purchaseDate: doc.purchaseDate?.toISOString() || '',
       remaining: doc.remaining,
+      // Physical arrivals (stock tracking feature) - drives the "Received"
+      // column and the inline receive action on the purchases table.
+      receivedQuantity: doc.receivedQuantity,
       notes: doc.notes,
       purchaseId: doc.purchaseId,
       createdAt: doc.createdAt?.toISOString() || '',

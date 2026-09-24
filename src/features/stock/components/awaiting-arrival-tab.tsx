@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -25,14 +26,16 @@ import { toast } from 'sonner';
 
 interface AwaitingArrivalTabProps {
   enabled: boolean;
+  /** Pre-fills the search box (deep link from another page). */
+  initialSearch?: string;
   onChanged?: () => void;
 }
 
 const CENTERED_COLUMNS = ['ordered', 'received', 'pending'];
 
-export function AwaitingArrivalTab({ enabled, onChanged }: AwaitingArrivalTabProps) {
+export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: AwaitingArrivalTabProps) {
   const [data, setData] = useState<PaginatedStock<AwaitingArrivalItem>>({ docs: [], total: 0, page: 1, limit: 15 });
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +43,12 @@ export function AwaitingArrivalTab({ enabled, onChanged }: AwaitingArrivalTabPro
   const [sorting, setSorting] = useState<SortingState>([]);
   const [target, setTarget] = useState<ReceiveTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // The deep link (?q=) can arrive after this tab mounted - StockView may only
+  // get usable search params a render or two in.
+  useEffect(() => {
+    if (initialSearch) setSearchInput(initialSearch);
+  }, [initialSearch]);
 
   const load = useCallback(async () => {
     try {
@@ -70,11 +79,22 @@ export function AwaitingArrivalTab({ enabled, onChanged }: AwaitingArrivalTabPro
       {
         accessorKey: 'purchaseId',
         header: 'Purchase',
-        cell: ({ row }) => (
-          <Badge variant="secondary" className="font-mono text-xs">
-            {row.original.purchaseId}
-          </Badge>
-        )
+        cell: ({ row }) =>
+          row.original.purchaseId ? (
+            <Link
+              href={`/purchases?search=${encodeURIComponent(row.original.purchaseId)}`}
+              title="Open in purchases"
+              className="inline-block rounded-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Badge variant="secondary" className="font-mono text-xs hover:bg-secondary/80">
+                {row.original.purchaseId}
+              </Badge>
+            </Link>
+          ) : (
+            <Badge variant="secondary" className="font-mono text-xs">
+              N/A
+            </Badge>
+          )
       },
       {
         accessorKey: 'productName',

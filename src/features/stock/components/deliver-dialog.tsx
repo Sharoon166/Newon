@@ -86,7 +86,7 @@ export function DeliverDialog({ open, onOpenChange, target, onSuccess }: Deliver
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>Record delivery</DialogTitle>
           <DialogDescription>

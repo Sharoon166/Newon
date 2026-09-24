@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getStockWorkCounts } from '../actions';
 import type { StockWorkCounts } from '../types';
 import { SetupBanner } from './setup-banner';
@@ -33,17 +33,69 @@ function CountBadge({ count, srLabel }: { count?: number; srLabel: string }) {
       <Badge variant="secondary" className="ml-2 h-5 min-w-5 justify-center px-1.5 tabular-nums" aria-hidden>
         {count}
       </Badge>
-      <span className="sr-only">{count} {srLabel}</span>
+      <span className="sr-only">
+        {count} {srLabel}
+      </span>
     </>
   );
 }
 
+const TAB_VALUES = ['in-shop', 'awaiting-arrival', 'awaiting-delivery', 'history'] as const;
+
 export function StockView({ initialized, startedAt, counts: initialCounts, userRole }: StockViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Deep links: /stock?tab=history&q=INV-0042 lands straight on the matching tab
+  // with the search pre-filled (used by the invoice/purchase pages).
+  //
+  // Applied in an effect rather than in useState initializers: useSearchParams()
+  // can be empty (or still holding the previous route) on the very first render -
+  // during hydration / prerender / a navigation that hasn't committed yet - and an
+  // initializer would freeze that empty value forever. The URL itself is already
+  // committed by then, so it is the reliable source.
   const [activeTab, setActiveTab] = useState('in-shop');
+  const [initialSearch, setInitialSearch] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [isChangingDate, setIsChangingDate] = useState(false);
   const [counts, setCounts] = useState<StockWorkCounts | undefined>(initialCounts);
+
+  // Hand each ?q= to the tabs only once: searchParams gets a fresh identity on
+  // every router refresh, and re-applying it would stomp a query the user has
+  // since typed themselves.
+  const appliedQueryRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const fromWindow =
+      typeof window !== 'undefined' && window.location.search
+        ? new URLSearchParams(window.location.search)
+        : null;
+    const params = fromWindow ?? searchParams;
+
+    const requestedTab = params.get('tab');
+    if (requestedTab && (TAB_VALUES as readonly string[]).includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+
+    const requestedQuery = params.get('q');
+    if (requestedQuery && appliedQueryRef.current !== requestedQuery) {
+      appliedQueryRef.current = requestedQuery;
+      setInitialSearch(requestedQuery);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // The deep-link search belongs to the tab it was aimed at - don't re-apply
+    // it every time the user comes back to that tab.
+    setInitialSearch('');
+    // Keep the URL shareable; drop `q` since the tab has now consumed it.
+    const params = new URLSearchParams(window.location.search || searchParams.toString());
+    params.set('tab', value);
+    params.delete('q');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   // Server refreshes (router.refresh after an action) hand us fresh counts.
   useEffect(() => {
@@ -111,8 +163,8 @@ export function StockView({ initialized, startedAt, counts: initialCounts, userR
           Once set up, this page shows In shop counts, awaiting arrival, awaiting delivery and history.
         </p>
       ) : (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
-          <TabsList className="w-full justify-start overflow-x-auto">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="gap-4">
+          <TabsList className='overflow-x-auto overflow-y-hidden'>
             <TabsTrigger value="in-shop">In shop</TabsTrigger>
             <TabsTrigger value="awaiting-arrival">
               Awaiting arrival
@@ -129,13 +181,13 @@ export function StockView({ initialized, startedAt, counts: initialCounts, userR
             <InShopTab enabled={enabled} onChanged={handleChanged} />
           </TabsContent>
           <TabsContent value="awaiting-arrival" className="mt-4 focus-visible:outline-none">
-            <AwaitingArrivalTab enabled={enabled} onChanged={handleChanged} />
+            <AwaitingArrivalTab enabled={enabled} initialSearch={initialSearch} onChanged={handleChanged} />
           </TabsContent>
           <TabsContent value="awaiting-delivery" className="mt-4 focus-visible:outline-none">
-            <AwaitingDeliveryTab enabled={enabled} onChanged={handleChanged} />
+            <AwaitingDeliveryTab enabled={enabled} initialSearch={initialSearch} onChanged={handleChanged} />
           </TabsContent>
           <TabsContent value="history" className="mt-4 focus-visible:outline-none">
-            <HistoryTab enabled={enabled} userRole={userRole} onChanged={handleChanged} />
+            <HistoryTab enabled={enabled} userRole={userRole} initialSearch={initialSearch} onChanged={handleChanged} />
           </TabsContent>
         </Tabs>
       )}

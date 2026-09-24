@@ -261,11 +261,11 @@ export function InShopTab({ enabled, onChanged }: InShopTabProps) {
             />
           </div>
           <Toggle
-            variant="outline"
             pressed={onlyMismatches}
             onPressedChange={setOnlyMismatches}
             disabled={rows.length === 0}
             aria-label={`Only show variants whose count differs from the system${mismatchCount ? ` (${mismatchCount})` : ''}`}
+            className="cursor-pointer"
           >
             <TriangleAlert className="h-4 w-4" />
             Mismatches only

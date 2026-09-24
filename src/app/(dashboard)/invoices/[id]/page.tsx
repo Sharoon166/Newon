@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useReactToPrint } from 'react-to-print';
 import { getInvoice, deductInvoiceStock, restoreInvoiceStock } from '@/features/invoices/actions';
 import { Invoice } from '@/features/invoices/types';
@@ -26,8 +27,29 @@ import { QuotationTemplate } from '@/features/invoices/components/quotation-temp
 import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
 import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePermission } from '@/hooks/use-permission';
 import { groupItemsByVariant } from '@/features/invoices/utils/group-items';
+
+// Code-split the delivery card (it pulls in the deliver dialog and the stock
+// actions) so the invoice itself renders without waiting for it.
+const InvoiceDeliveryCard = dynamic(
+  () => import('@/features/stock/components/invoice-delivery-card').then(m => m.InvoiceDeliveryCard),
+  {
+    ssr: false,
+    loading: () => (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-14 w-full" />
+          <Skeleton className="h-14 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+);
 
 export default function InvoiceDetailPage() {
   const params = useParams();
@@ -60,9 +82,11 @@ export default function InvoiceDetailPage() {
     }
   }, [params.id]);
 
-  const fetchInvoice = async () => {
+  // `silent` refreshes keep the page rendered (used after recording a
+  // delivery) instead of dropping back to the full-page loading spinner.
+  const fetchInvoice = async (silent = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const data = await getInvoice(params.id as string);
       setInvoice(data);
 
@@ -605,6 +629,17 @@ export default function InvoiceDetailPage() {
           )}
 
           <InvoiceItemsTable invoice={invoice} />
+
+          {/* Delivery status (loads separately - see InvoiceDeliveryCard) */}
+          {invoice.type === 'invoice' && (
+            <InvoiceDeliveryCard
+              invoiceId={invoice.id}
+              invoiceNumber={invoice.invoiceNumber}
+              customerName={invoice.customerName}
+              canDeliver={canEdit && invoice.status !== 'cancelled'}
+              onChanged={() => fetchInvoice(true)}
+            />
+          )}
 
           {/* Notes */}
 

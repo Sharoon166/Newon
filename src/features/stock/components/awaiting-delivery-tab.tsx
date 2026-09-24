@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -26,19 +27,21 @@ import { toast } from 'sonner';
 
 interface AwaitingDeliveryTabProps {
   enabled: boolean;
+  /** Pre-fills the search box (deep link from another page, e.g. an invoice). */
+  initialSearch?: string;
   onChanged?: () => void;
 }
 
 const CENTERED_COLUMNS = ['delivered', 'totalPending'];
 
-export function AwaitingDeliveryTab({ enabled, onChanged }: AwaitingDeliveryTabProps) {
+export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: AwaitingDeliveryTabProps) {
   const [data, setData] = useState<PaginatedStock<AwaitingDeliveryItem>>({
     docs: [],
     total: 0,
     page: 1,
     limit: 15
   });
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +49,12 @@ export function AwaitingDeliveryTab({ enabled, onChanged }: AwaitingDeliveryTabP
   const [sorting, setSorting] = useState<SortingState>([]);
   const [target, setTarget] = useState<DeliverTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // The deep link (?q=) can arrive after this tab mounted - StockView may only
+  // get usable search params a render or two in.
+  useEffect(() => {
+    if (initialSearch) setSearchInput(initialSearch);
+  }, [initialSearch]);
 
   const load = useCallback(async () => {
     try {
@@ -77,9 +86,15 @@ export function AwaitingDeliveryTab({ enabled, onChanged }: AwaitingDeliveryTabP
         accessorKey: 'invoiceNumber',
         header: 'Invoice',
         cell: ({ row }) => (
-          <Badge variant="secondary" className="font-mono text-xs">
-            {row.original.invoiceNumber}
-          </Badge>
+          <Link
+            href={`/invoices/${row.original.id}`}
+            title="Open invoice"
+            className="inline-block rounded-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Badge variant="secondary" className="font-mono text-xs hover:bg-secondary/80">
+              {row.original.invoiceNumber}
+            </Badge>
+          </Link>
         )
       },
       {

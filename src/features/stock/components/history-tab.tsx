@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, History as HistoryIcon, Undo2, Search } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowUpDown, ChevronDown, History as HistoryIcon, Undo2, Search, ArrowRight } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -29,6 +29,8 @@ import { useRouter } from 'next/navigation';
 interface HistoryTabProps {
   enabled: boolean;
   userRole?: 'admin' | 'staff';
+  /** Pre-fills the search box (deep link from another page, e.g. an invoice). */
+  initialSearch?: string;
   onChanged?: () => void;
 }
 
@@ -41,9 +43,12 @@ const KIND_LABELS: Record<StockMovementKind | 'all', string> = {
   reversal: 'Reversals'
 };
 
-const KIND_STYLES: Record<StockMovementKind, { label: string; variant: 'default' | 'outline' | 'secondary' | 'destructive' }> = {
-  receive: { label: 'In', variant: 'default' },
-  deliver: { label: 'Out', variant: 'secondary' },
+const KIND_STYLES: Record<
+  StockMovementKind,
+  { label: string; variant: 'default' | 'outline' | 'secondary' | 'destructive' }
+> = {
+  receive: { label: 'Received', variant: 'default' },
+  deliver: { label: 'Delivered', variant: 'secondary' },
   adjustment: { label: 'Adjust', variant: 'outline' },
   opening: { label: 'Start', variant: 'outline' },
   reversal: { label: 'Reversal', variant: 'destructive' }
@@ -60,10 +65,50 @@ function MovementBadge({ kind }: { kind: StockMovementKind }) {
   );
 }
 
-export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
+/**
+ * Expanded accordion body for a movement: every product that took part in the
+ * operation (a delivery can span several invoice lines / component parts).
+ */
+function MovementLinesDetail({ movement }: { movement: StockMovement }) {
+  const lines = movement.lines ?? [];
+  const units = lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
+  return (
+    <div id={`movement-lines-${movement.id}`} className="space-y-2 px-1 py-1">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {lines.length} {lines.length === 1 ? 'product' : 'products'} on this slip
+        </span>
+        <span className="text-xs text-muted-foreground">{formatQty(units)} unit(s) in total</span>
+      </div>
+      <ul className="divide-y rounded-md border bg-background">
+        {lines.map((line, i) => (
+          <li key={`${movement.id}-line-${i}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
+            <div className="min-w-0">
+              <div className="font-medium">{line.productName}</div>
+              <div className="font-mono text-xs text-muted-foreground">{line.sku || '—'}</div>
+              {line.components?.length ? (
+                <div className="text-xs text-muted-foreground">
+                  = {line.components.map(c => `${c.quantity} × ${c.productName}`).join(', ')}
+                </div>
+              ) : null}
+            </div>
+            <span className="whitespace-nowrap font-semibold">{line.quantity}</span>
+          </li>
+        ))}
+      </ul>
+      {movement.note ? <p className="text-xs text-muted-foreground">Note: {movement.note}</p> : null}
+    </div>
+  );
+}
+
+function formatQty(qty: number): string {
+  return Number.isInteger(qty) ? String(qty) : qty.toFixed(2);
+}
+
+export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: HistoryTabProps) {
   const router = useRouter();
   const [data, setData] = useState<PaginatedStock<StockMovement>>({ docs: [], total: 0, page: 1, limit: 15 });
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [kind, setKind] = useState<StockMovementKind | 'all'>('all');
   const [page, setPage] = useState(1);
@@ -72,6 +117,24 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pendingReversal, setPendingReversal] = useState<StockMovement | null>(null);
   const [isReversing, setIsReversing] = useState(false);
+  // Movements whose product breakdown (multi-product deliveries) is expanded.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // The deep link (?q=INV-0042) can reach StockView after this tab already
+  // mounted - useSearchParams() is sometimes empty on the first render. Re-apply
+  // it so the box, and the query it debounces, still match the URL.
+  useEffect(() => {
+    if (initialSearch) setSearchInput(initialSearch);
+  }, [initialSearch]);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -136,22 +199,65 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         ),
-        cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.productName}</div>
-            <div className="font-mono text-xs text-muted-foreground">{row.original.sku}</div>
-            {row.original.reversed && <div className="text-xs text-muted-italic italic">reversed</div>}
-          </div>
-        )
+        cell: ({ row }) => {
+          const movement = row.original;
+          const extraLines = Math.max(0, (movement.lines?.length ?? 0) - 1);
+          const isExpanded = expandedIds.has(movement.id);
+          return (
+            <div>
+              <div className="font-medium">{movement.productName}</div>
+              <div className="font-mono text-xs text-muted-foreground">{movement.sku}</div>
+              {extraLines > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleExpanded(movement.id)}
+                  aria-expanded={isExpanded}
+                  aria-controls={`movement-lines-${movement.id}`}
+                  className="mt-1 max-w-full rounded-full text-xs"
+                >
+                  <ChevronDown
+                    className={`h-3 w-3 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    aria-hidden
+                  />
+                  <span className="truncate">
+                    +{extraLines} more {extraLines === 1 ? 'product' : 'products'}
+                  </span>
+                </Button>
+              )}
+              {movement.reversed && <div className="text-xs text-muted-italic italic">reversed</div>}
+            </div>
+          );
+        }
       },
       {
         id: 'reference',
         header: 'Reference',
-        cell: ({ row }) => (
-          <span className="text-xs text-muted-foreground">
-            {row.original.purchaseNumber ?? row.original.invoiceNumber ?? row.original.reversalOf ?? '—'}
-          </span>
-        )
+        cell: ({ row }) => {
+          const movement = row.original;
+          const label = movement.purchaseNumber ?? movement.invoiceNumber ?? movement.reversalOf ?? '—';
+          // Jump straight to the document this movement belongs to. Purchases
+          // have no detail route, so deep-link into its filtered list instead.
+          const href =
+            movement.purchaseId && movement.purchaseNumber
+              ? `/purchases?search=${encodeURIComponent(movement.purchaseNumber)}`
+              : movement.invoiceId
+                ? `/invoices/${movement.invoiceId}`
+                : undefined;
+
+          return href ? (
+            <Link
+              href={href}
+              title="Open record"
+              className="inline-block whitespace-nowrap text-xs text-primary underline-offset-2 hover:underline"
+            >
+              {label}
+            </Link>
+          ) : (
+            <span className="text-xs text-muted-foreground">{label}</span>
+          );
+        }
       },
       {
         accessorKey: 'quantity',
@@ -164,7 +270,11 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
         cell: ({ row }) => {
           if (row.original.kind === 'adjustment') {
             return (
-              <span className={row.original.quantity >= 0 ? 'font-semibold text-green-700' : 'font-semibold text-destructive'}>
+              <span
+                className={
+                  row.original.quantity >= 0 ? 'font-semibold text-green-700' : 'font-semibold text-destructive'
+                }
+              >
                 {row.original.quantity >= 0 ? '+' : ''}
                 {row.original.quantity}
               </span>
@@ -177,9 +287,11 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
         accessorKey: 'inShop',
         header: 'In shop',
         cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {row.original.inShopBefore} → {row.original.inShopAfter}
-          </span>
+          <div className="text-muted-foreground inline-flex items-center gap-2">
+            {row.original.inShopBefore || '—'}
+            <span className="text-lg mx-1">→</span>
+            {row.original.inShopAfter || '—'}
+          </div>
         )
       },
       {
@@ -232,7 +344,7 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
           ]
         : [])
     ],
-    [canReverse]
+    [canReverse, expandedIds, toggleExpanded]
   );
 
   const table = useReactTable({
@@ -270,16 +382,16 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
       return (
         <TableRow>
           <TableCell colSpan={columns.length}>
-          <EmptyState
-            icon={HistoryIcon}
-            title={`No ${KIND_LABELS[kind].toLowerCase()} yet`}
-            description="Nothing of this type has been recorded."
-            action={
-              <Button variant="outline" size="sm" onClick={() => setKind('all')}>
-                Show all movements
-              </Button>
-            }
-          />
+            <EmptyState
+              icon={HistoryIcon}
+              title={`No ${KIND_LABELS[kind].toLowerCase()} yet`}
+              description="Nothing of this type has been recorded."
+              action={
+                <Button variant="outline" size="sm" onClick={() => setKind('all')}>
+                  Show all movements
+                </Button>
+              }
+            />
           </TableCell>
         </TableRow>
       );
@@ -365,51 +477,67 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {showSkeleton ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <TableRow key={`sk-${i}`} className="hover:bg-transparent">
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-5 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-40" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="mx-auto h-4 w-8" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="mx-auto h-4 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  {canReverse && (
+            {showSkeleton
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`} className="hover:bg-transparent">
                     <TableCell>
-                      <Skeleton className="ml-auto h-8 w-8" />
+                      <Skeleton className="h-4 w-24" />
                     </TableCell>
-                  )}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map(row => (
-                <TableRow key={row.id} className={row.original.reversed ? 'opacity-60' : undefined}>
-                  {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              renderEmpty()
-            )}
+                    <TableCell>
+                      <Skeleton className="h-5 w-16" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-40" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="mx-auto h-4 w-8" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="mx-auto h-4 w-16" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    {canReverse && (
+                      <TableCell>
+                        <Skeleton className="ml-auto h-8 w-8" />
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              : table.getRowModel().rows.length
+                ? table.getRowModel().rows.map(row => {
+                    const movement = row.original;
+                    const hasLines = (movement.lines?.length ?? 0) > 1;
+                    const isExpanded = hasLines && expandedIds.has(movement.id);
+                    return (
+                      <Fragment key={row.id}>
+                        <TableRow className={movement.reversed ? 'opacity-60' : undefined}>
+                          {row.getVisibleCells().map(cell => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        {isExpanded && (
+                          <TableRow
+                            className={movement.reversed ? 'opacity-60 hover:bg-transparent' : 'hover:bg-transparent'}
+                          >
+                            <TableCell colSpan={columns.length} className="bg-muted/30">
+                              <MovementLinesDetail movement={movement} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                : renderEmpty()}
           </TableBody>
         </Table>
       </div>
