@@ -124,6 +124,15 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
 
   const unallocated = Math.max(0, (amount || 0) - totalAllocated);
 
+  // Strict cap: a payment can never exceed what the customer actually owes,
+  // which is the sum of the balances on their open invoices.
+  const outstandingIsCurrent = !loadingInvoices && activeCustomerId === selectedCustomerId;
+  const totalOutstanding = useMemo(
+    () => openInvoices.reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0),
+    [openInvoices]
+  );
+  const exceedsOutstanding = outstandingIsCurrent && (amount || 0) > totalOutstanding;
+
   const handleAllocationChange = (invoiceId: string, value: string) => {
     const amt = parseFloat(value) || 0;
     setAllocations(prev => ({ ...prev, [invoiceId]: amt }));
@@ -162,6 +171,28 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
     }
 
     const selectedCustomer = customers.find(c => c.customerId === data.customerId);
+
+    // Strict cap — never record more than the customer owes.
+    if (outstandingIsCurrent && data.amount > totalOutstanding) {
+      const message = `Amount ${formatCurrency(data.amount)} exceeds ${
+        selectedCustomer?.name || 'this customer'
+      }'s outstanding balance of ${formatCurrency(totalOutstanding)}`;
+      form.setError('amount', { type: 'validate', message });
+      toast.error(message);
+      return;
+    }
+
+    // An allocation can never exceed the balance of the invoice it targets.
+    const overAllocated = allocList.find(a => {
+      const inv = openInvoices.find(i => i.id === a.invoiceId);
+      return inv && a.amount > inv.balanceAmount;
+    });
+    if (overAllocated) {
+      toast.error(
+        `Allocation of ${formatCurrency(overAllocated.amount)} for ${overAllocated.invoiceNumber} exceeds that invoice's balance`
+      );
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -276,6 +307,18 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
       return;
     }
 
+    // An allocation can never exceed the balance of the invoice it targets.
+    const overAllocated = allocList.find(a => {
+      const inv = allocInvoices.find(i => i.id === a.invoiceId);
+      return inv !== undefined && a.amount > inv.balanceAmount;
+    });
+    if (overAllocated) {
+      toast.error(
+        `Allocation of ${formatCurrency(overAllocated.amount)} for ${overAllocated.invoiceNumber} exceeds that invoice's balance`
+      );
+      return;
+    }
+
     try {
       setIsAllocating(true);
       await allocateFromUnallocated(gp.id || '', allocList);
@@ -305,8 +348,8 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
             <CardHeader>
               <CardTitle>Record Payment Received</CardTitle>
               <CardDescription>
-                Record a payment received from a customer and allocate it against open invoices. Unallocated amounts
-                remain as a customer advance.
+                Record a payment received from a customer and allocate it against open invoices. Amounts are capped at
+                what the customer owes — anything left unallocated stays as a credit against their balance.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -349,6 +392,8 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
                             <Input
                               type="number"
                               step="0.01"
+                              min={0}
+                              max={outstandingIsCurrent ? totalOutstanding : undefined}
                               placeholder="0.00"
                               value={field.value || ''}
                               onChange={e => {
@@ -360,6 +405,22 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
                             />
                           </FormControl>
                           <FormMessage />
+                          {outstandingIsCurrent && (
+                            <p
+                              className={cn(
+                                'text-xs',
+                                exceedsOutstanding || totalOutstanding === 0
+                                  ? 'font-medium text-destructive'
+                                  : 'text-muted-foreground'
+                              )}
+                            >
+                              {totalOutstanding === 0
+                                ? 'Nothing outstanding — a payment can only be recorded up to what the customer owes.'
+                                : exceedsOutstanding
+                                  ? `Exceeds outstanding — max recordable is ${formatCurrency(totalOutstanding)}.`
+                                  : `Outstanding: ${formatCurrency(totalOutstanding)}`}
+                            </p>
+                          )}
                         </FormItem>
                       )}
                     />
@@ -498,6 +559,7 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
                                     type="number"
                                     step="0.01"
                                     min={0}
+                                    max={invoice.balanceAmount}
                                     className="w-32 ml-auto text-right"
                                     value={alloc || ''}
                                     placeholder="0.00"
@@ -555,7 +617,10 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
                     >
                       Clear
                     </Button>
-                    <Button type="submit" disabled={isSubmitting || !amount}>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || !amount || exceedsOutstanding || loadingInvoices}
+                    >
                       {isSubmitting ? 'Recording...' : 'Record Payment'}
                     </Button>
                   </div>

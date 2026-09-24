@@ -19,6 +19,10 @@ interface StockSlipsProps {
   };
 }
 
+function formatQty(qty: number): string {
+  return Number.isInteger(qty) ? String(qty) : qty.toFixed(2);
+}
+
 export function StockSlips({ movements, selection }: StockSlipsProps) {
   if (movements.length === 0) {
     return (
@@ -31,7 +35,12 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
 
   return (
     <div className="space-y-4">
-      {movements.map(movement => (
+      {movements.map(movement => {
+        const lines = movement.lines ?? [];
+        const isMultiLine = lines.length > 1;
+        const totalUnits = lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
+
+        return (
         <div
           key={movement.id}
           className="rounded-lg border bg-white p-5 shadow-sm space-y-3 break-inside-avoid"
@@ -63,21 +72,34 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
           {/* Body */}
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
             <div>
-              <div className="text-xs text-muted-foreground">Product</div>
-              <div className="font-medium">{movement.productName}</div>
-              <div className="font-mono text-xs text-muted-foreground">{movement.sku}</div>
+              <div className="text-xs text-muted-foreground">{isMultiLine ? 'Products' : 'Product'}</div>
+              {isMultiLine ? (
+                <>
+                  <div className="font-medium">{lines.length} products</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatQty(totalUnits)} units in total — see breakdown below
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="font-medium">{movement.productName}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{movement.sku}</div>
+                </>
+              )}
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">Quantity</div>
+              <div className="text-xs text-muted-foreground">{isMultiLine ? 'Total units' : 'Quantity'}</div>
               <div className="font-semibold">
                 {movement.kind === 'adjustment' && movement.quantity >= 0 ? '+' : ''}
-                {movement.quantity}
+                {formatQty(movement.quantity)}
               </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">In shop</div>
               <div className="font-medium">
-                {movement.inShopBefore} → {movement.inShopAfter}
+                {movement.inShopBefore || movement.inShopAfter
+                  ? `${formatQty(movement.inShopBefore)} → ${formatQty(movement.inShopAfter)}`
+                  : '—'}
               </div>
             </div>
             <div>
@@ -86,23 +108,30 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
                 {movement.purchaseNumber ?? movement.invoiceNumber ?? '—'}
                 {movement.reversalOf ? ` (reversal of ${movement.reversalOf})` : ''}
               </div>
+              {movement.customerName ? (
+                <div className="text-xs text-muted-foreground">{movement.customerName}</div>
+              ) : null}
             </div>
           </div>
 
-          {/* Multi-line details (deliveries) */}
+          {/* Line-item breakdown (deliveries / reversals) */}
           {movement.lines && movement.lines.length > 0 && (
-            <div className="rounded-md bg-muted/50 p-3">
+            <div className="rounded-md border bg-muted/40 p-3">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {movement.lines.length} {movement.lines.length === 1 ? 'line item' : 'line items'}
+              </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground">
                     <th className="pb-1 font-medium">Item</th>
+                    <th className="pb-1 font-medium">SKU</th>
                     <th className="pb-1 text-right font-medium">Qty</th>
                   </tr>
                 </thead>
                 <tbody>
                   {movement.lines.map((line, i) => (
                     <tr key={i}>
-                      <td className="py-0.5">
+                      <td className="py-0.5 pr-3">
                         {line.productName}
                         {line.components?.length ? (
                           <div className="text-xs text-muted-foreground">
@@ -110,7 +139,8 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
                           </div>
                         ) : null}
                       </td>
-                      <td className="py-0.5 text-right font-medium">{line.quantity}</td>
+                      <td className="py-0.5 pr-3 font-mono text-xs text-muted-foreground">{line.sku || '—'}</td>
+                      <td className="py-0.5 text-right font-medium">{formatQty(line.quantity)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -127,7 +157,8 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

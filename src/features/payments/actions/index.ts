@@ -148,6 +148,35 @@ export async function createGeneralPayment(input: CreateGeneralPaymentDto): Prom
       throw new Error('Payment amount must be greater than 0');
     }
 
+    // Never accept more than the customer actually owes: the cap is the sum of
+    // the balances on their open invoices (no advances beyond that).
+    const openInvoices = await getOpenInvoicesForCustomer(input.customerId);
+    const outstanding = openInvoices.reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0);
+    if (input.amount > outstanding) {
+      throw new Error(
+        `Payment amount (${input.amount}) exceeds ${
+          input.customerName || 'this customer'
+        }'s outstanding balance (${outstanding})`
+      );
+    }
+
+    // Each allocation must also fit that invoice's own balance, and must belong
+    // to this customer — otherwise it would silently fall back to "unallocated".
+    const balanceByInvoice = new Map(openInvoices.map(inv => [inv.id, inv.balanceAmount]));
+    for (const allocation of input.allocations) {
+      const balance = balanceByInvoice.get(allocation.invoiceId);
+      if (balance === undefined) {
+        throw new Error(
+          `Allocation for ${allocation.invoiceNumber || allocation.invoiceId} is not an open invoice of this customer`
+        );
+      }
+      if (allocation.amount > balance) {
+        throw new Error(
+          `Allocation for ${allocation.invoiceNumber} (${allocation.amount}) exceeds its outstanding balance (${balance})`
+        );
+      }
+    }
+
     // Validate that allocations don't exceed the total amount
     const allocatedAmount = input.allocations.reduce((sum, a) => sum + a.amount, 0);
     if (allocatedAmount > input.amount) {
@@ -354,6 +383,24 @@ export async function allocateFromUnallocated(
       throw new Error(
         `Cannot allocate more than the unallocated amount (${generalPayment.unallocatedAmount})`
       );
+    }
+
+    // Fail fast if an allocation is bigger than the invoice it targets —
+    // silently dropping it would leave the money unallocated.
+    const openInvoices = await getOpenInvoicesForCustomer(generalPayment.customerId);
+    const balanceByInvoice = new Map(openInvoices.map(inv => [inv.id, inv.balanceAmount]));
+    for (const allocation of allocations) {
+      const balance = balanceByInvoice.get(allocation.invoiceId);
+      if (balance === undefined) {
+        throw new Error(
+          `${allocation.invoiceNumber || 'That invoice'} is not an open invoice of this customer`
+        );
+      }
+      if (allocation.amount > balance) {
+        throw new Error(
+          `Allocation for ${allocation.invoiceNumber} (${allocation.amount}) exceeds its outstanding balance (${balance})`
+        );
+      }
     }
 
     // Add each allocation to its invoice (skip customer financials — already counted)

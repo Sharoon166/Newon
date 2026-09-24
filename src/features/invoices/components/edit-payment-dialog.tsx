@@ -42,6 +42,8 @@ interface EditPaymentDialogProps {
   invoiceId: string;
   paymentIndex: number;
   payment: Payment;
+  /** The most this payment may grow to without pushing the invoice into credit. */
+  maxAmount?: number;
   onSuccess: () => void;
 }
 
@@ -51,6 +53,7 @@ export function EditPaymentDialog({
   invoiceId,
   paymentIndex,
   payment,
+  maxAmount,
   onSuccess
 }: EditPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +70,14 @@ export function EditPaymentDialog({
   });
 
   const onSubmit = async (data: PaymentFormValues) => {
+    // Keep the invoice out of credit — same rule the server enforces.
+    if (maxAmount !== undefined && data.amount > maxAmount) {
+      form.setError('amount', {
+        type: 'validate',
+        message: `Amount cannot exceed ${maxAmount.toFixed(2)} — the rest of the invoice balance plus this payment`
+      });
+      return;
+    }
     try {
       setIsSubmitting(true);
       await updatePayment(invoiceId, paymentIndex, data);
@@ -86,7 +97,11 @@ export function EditPaymentDialog({
       <DialogContent className="sm:max-w-[500px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Payment</DialogTitle>
-          <DialogDescription>Update the payment details below.</DialogDescription>
+          <DialogDescription>
+            {maxAmount !== undefined
+              ? `Update the payment details below. Maximum: PKR ${maxAmount.toFixed(2)} — editing cannot push the invoice past its total.`
+              : 'Update the payment details below.'}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -101,6 +116,7 @@ export function EditPaymentDialog({
                     <Input
                       type="number"
                       step="0.01"
+                      max={maxAmount}
                       placeholder="0.00"
                       value={field.value || ''}
                       onChange={e => {

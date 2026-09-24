@@ -575,7 +575,9 @@ export async function getStockMovements(input: {
 }): Promise<PaginatedStock<StockMovement>> {
   await dbConnect();
   const page = Math.max(1, input.page ?? 1);
-  const limit = Math.min(100, Math.max(1, input.limit ?? 15));
+  // The print page asks for the whole history in one go, so the cap is generous;
+  // the paginated tabs always request far less than this.
+  const limit = Math.min(1000, Math.max(1, input.limit ?? 15));
 
   const query: Record<string, unknown> = {};
   if (input.kind && input.kind !== 'all') query.kind = input.kind;

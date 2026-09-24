@@ -19,9 +19,18 @@ interface PaymentsListProps {
   onUpdate: () => void;
   isCancelled?: boolean;
   canEdit?: boolean;
+  /** Invoice balance left — used to cap how far a payment can be edited up. */
+  balanceAmount?: number;
 }
 
-export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = false, canEdit = true }: PaymentsListProps) {
+export function PaymentsList({
+  invoiceId,
+  payments,
+  onUpdate,
+  isCancelled = false,
+  canEdit = true,
+  balanceAmount
+}: PaymentsListProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPaymentIndex, setSelectedPaymentIndex] = useState<number | null>(null);
@@ -155,6 +164,9 @@ export function PaymentsList({ invoiceId, payments, onUpdate, isCancelled = fals
           invoiceId={invoiceId}
           paymentIndex={selectedPaymentIndex}
           payment={selectedPayment}
+          maxAmount={
+            balanceAmount !== undefined ? balanceAmount + (selectedPayment.amount || 0) : undefined
+          }
           onSuccess={onUpdate}
         />
       )}

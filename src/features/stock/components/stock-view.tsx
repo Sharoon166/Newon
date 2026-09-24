@@ -178,7 +178,7 @@ export function StockView({ initialized, startedAt, counts: initialCounts, userR
           </TabsList>
 
           <TabsContent value="in-shop" className="mt-4 focus-visible:outline-none">
-            <InShopTab enabled={enabled} onChanged={handleChanged} />
+            <InShopTab enabled={enabled} userRole={userRole} onChanged={handleChanged} />
           </TabsContent>
           <TabsContent value="awaiting-arrival" className="mt-4 focus-visible:outline-none">
             <AwaitingArrivalTab enabled={enabled} initialSearch={initialSearch} onChanged={handleChanged} />

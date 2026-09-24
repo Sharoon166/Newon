@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, ScanLine, Search, TriangleAlert } from 'lucide-react';
+import { ArrowUpDown, FileDown, ScanLine, Search, TriangleAlert } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -20,15 +20,17 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { getInShopRows } from '../actions';
 import type { InShopRow } from '../types';
 import { QuickCountDialog, type QuickCountTarget } from './quick-count-dialog';
+import { StockSummarySheet } from './stock-summary-sheet';
 import { EmptyState } from '@/components/general/empty-state';
 import { toast } from 'sonner';
 
 interface InShopTabProps {
   enabled: boolean;
+  userRole?: 'admin' | 'staff';
   onChanged?: () => void;
 }
 
-export function InShopTab({ enabled, onChanged }: InShopTabProps) {
+export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
   const [rows, setRows] = useState<InShopRow[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 400);
@@ -38,6 +40,7 @@ export function InShopTab({ enabled, onChanged }: InShopTabProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [target, setTarget] = useState<QuickCountTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -246,6 +249,13 @@ export function InShopTab({ enabled, onChanged }: InShopTabProps) {
     );
   };
 
+  const summaryFilterNote = [
+    debouncedSearch ? `search “${debouncedSearch}”` : null,
+    onlyMismatches ? 'mismatches only' : null
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -276,14 +286,28 @@ export function InShopTab({ enabled, onChanged }: InShopTabProps) {
             )}
           </Toggle>
         </div>
-        <p className="text-sm text-muted-foreground">
-          <ScanLine className="mr-1 inline h-4 w-4" />
-          <span className="font-medium">
-            {visibleRows.length}
-            {onlyMismatches ? ` of ${rows.length}` : ''}
-          </span>{' '}
-          variants
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            <ScanLine className="mr-1 inline h-4 w-4" />
+            <span className="font-medium">
+              {visibleRows.length}
+              {onlyMismatches ? ` of ${rows.length}` : ''}
+            </span>{' '}
+            variants
+          </p>
+          {userRole === 'admin' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSummaryOpen(true)}
+              disabled={visibleRows.length === 0}
+              title="Download a compact stock summary"
+            >
+              <FileDown className="mr-1.5 h-4 w-4" />
+              Download summary
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className={`rounded-md border overflow-x-auto ${isSearching ? 'opacity-60' : ''}`}>
@@ -344,6 +368,14 @@ export function InShopTab({ enabled, onChanged }: InShopTabProps) {
           </TableBody>
         </Table>
       </div>
+
+      <StockSummarySheet
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        rows={visibleRows}
+        totalRows={rows.length}
+        filterNote={summaryFilterNote || undefined}
+      />
 
       <QuickCountDialog
         open={dialogOpen}

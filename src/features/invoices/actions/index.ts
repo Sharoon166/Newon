@@ -947,6 +947,23 @@ export async function updatePayment(
       );
     }
 
+    // Never let an edit push the total paid above the invoice total — that would
+    // turn the balance negative (an overcharge).
+    const updatedAmount = Number(updatedPayment.amount);
+    if (!Number.isFinite(updatedAmount) || updatedAmount <= 0) {
+      throw new Error('Payment amount must be greater than 0');
+    }
+    const otherPaid = invoice.payments.reduce(
+      (sum, p, i) => (i === paymentIndex ? sum : sum + (p.amount || 0)),
+      0
+    );
+    const maxAmount = invoice.totalAmount - otherPaid;
+    if (otherPaid + updatedAmount > invoice.totalAmount) {
+      throw new Error(
+        `Payment amount (${updatedAmount}) exceeds the remaining balance on this invoice (max ${maxAmount})`
+      );
+    }
+
     // Update the payment
     invoice.payments[paymentIndex] = updatedPayment as never;
 

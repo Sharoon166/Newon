@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, ChevronDown, History as HistoryIcon, Undo2, Search, ArrowRight } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, FileDown, History as HistoryIcon, Printer, Search, Undo2 } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -21,6 +21,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { EmptyState } from '@/components/general/empty-state';
 import { getStockMovements, reverseMovement } from '../actions';
+import { DeliveryChallanDialog } from './delivery-challan-dialog';
 import type { PaginatedStock, StockMovement, StockMovementKind } from '../types';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { toast } from 'sonner';
@@ -117,6 +118,8 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pendingReversal, setPendingReversal] = useState<StockMovement | null>(null);
   const [isReversing, setIsReversing] = useState(false);
+  // Movement whose delivery challan is open in the preview sheet.
+  const [challanMovement, setChallanMovement] = useState<StockMovement | null>(null);
   // Movements whose product breakdown (multi-product deliveries) is expanded.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -316,33 +319,62 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
           </span>
         )
       },
-      ...(canReverse
-        ? [
-            {
-              id: 'actions',
-              enableHiding: false,
-              header: () => <span className="sr-only">Reverse</span>,
-              cell: ({ row }: { row: { original: StockMovement } }) => {
-                const movement = row.original;
-                const disabled = movement.reversed || movement.kind === 'opening' || movement.kind === 'reversal';
-                return (
-                  <div className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      disabled={disabled}
-                      aria-label={`Reverse movement ${movement.movementId}`}
-                      onClick={() => setPendingReversal(movement)}
-                    >
-                      <Undo2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                );
-              }
-            } satisfies ColumnDef<StockMovement>
-          ]
-        : [])
+      {
+        id: 'actions',
+        enableHiding: false,
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => {
+          const movement = row.original;
+          // Only a real (non-reversed) delivery that points at an invoice can
+          // produce a delivery challan.
+          const canChallan =
+            movement.kind === 'deliver' &&
+            !!movement.invoiceId &&
+            !movement.reversalOf &&
+            !movement.reversed;
+          const reverseDisabled =
+            movement.reversed || movement.kind === 'opening' || movement.kind === 'reversal';
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                aria-label={`Print slip ${movement.movementId}`}
+                title="Print slip"
+              >
+                <Link href={`/stock/print?ids=${encodeURIComponent(movement.id)}`} target="_blank">
+                  <Printer className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+              {canChallan && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Download delivery challan for ${movement.movementId}`}
+                  title="Delivery challan"
+                  onClick={() => setChallanMovement(movement)}
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {canReverse && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  disabled={reverseDisabled}
+                  aria-label={`Reverse movement ${movement.movementId}`}
+                  title={reverseDisabled ? 'Cannot be reversed' : 'Reverse'}
+                  onClick={() => setPendingReversal(movement)}
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          );
+        }
+      } satisfies ColumnDef<StockMovement>
     ],
     [canReverse, expandedIds, toggleExpanded]
   );
@@ -409,6 +441,13 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
     );
   };
 
+  // Carry the current filters into the print page so it opens on what you see.
+  const printParams = new URLSearchParams();
+  if (debouncedSearch) printParams.set('search', debouncedSearch);
+  if (kind !== 'all') printParams.set('kind', kind);
+  const printQuery = printParams.toString();
+  const printHref = printQuery ? `/stock/print?${printQuery}` : '/stock/print';
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -437,7 +476,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
           </Select>
         </div>
         <Button variant="outline" size="sm" asChild>
-          <Link href="/stock/print" target="_blank">
+          <Link href={printHref} target="_blank">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="14"
@@ -504,11 +543,9 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                     <TableCell>
                       <Skeleton className="h-4 w-24" />
                     </TableCell>
-                    {canReverse && (
-                      <TableCell>
-                        <Skeleton className="ml-auto h-8 w-8" />
-                      </TableCell>
-                    )}
+                    <TableCell>
+                      <Skeleton className="ml-auto h-8 w-8" />
+                    </TableCell>
                   </TableRow>
                 ))
               : table.getRowModel().rows.length
@@ -567,6 +604,14 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         variant="destructive"
         isProcessing={isReversing}
         onConfirm={handleReverse}
+      />
+
+      <DeliveryChallanDialog
+        movement={challanMovement}
+        open={!!challanMovement}
+        onOpenChange={open => {
+          if (!open) setChallanMovement(null);
+        }}
       />
     </div>
   );

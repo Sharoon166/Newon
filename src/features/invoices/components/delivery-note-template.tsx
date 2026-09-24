@@ -32,11 +32,13 @@ interface DeliveryNoteData {
 
 interface DeliveryNoteTemplateProps {
   data: DeliveryNoteData;
+  /** Heading shown in the banner — "DELIVERY NOTE" unless overridden. */
+  title?: string;
   onBack?: () => void;
   onPrint?: () => void;
 }
 
-export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTemplateProps>(({ data }, ref) => {
+export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTemplateProps>(({ data, title = 'DELIVERY NOTE' }, ref) => {
   const brand = brands.find(b => b.id === data.market) || brands[0];
 
   return (
@@ -45,7 +47,7 @@ export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTempl
       <div className="print:flex print:flex-col print-main-content p-8">
         {/* HEADER */}
         <div className="bg-[#3d5a80] text-white py-6 px-8 -mx-8 -mt-8 mb-8 print-no-break">
-          <h1 className="text-3xl font-bold text-center">DELIVERY NOTE</h1>
+          <h1 className="text-3xl font-bold text-center">{title}</h1>
         </div>
 
         {/* COMPANY + CLIENT */}

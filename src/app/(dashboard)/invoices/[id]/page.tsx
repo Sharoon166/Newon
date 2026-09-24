@@ -770,6 +770,7 @@ export default function InvoiceDetailPage() {
                   onUpdate={fetchInvoice}
                   isCancelled={invoice.status === 'cancelled'}
                   canEdit={canEdit}
+                  balanceAmount={invoice.balanceAmount}
                 />
               </CardContent>
             </Card>

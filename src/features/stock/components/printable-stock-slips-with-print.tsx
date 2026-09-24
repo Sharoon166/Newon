@@ -70,7 +70,18 @@ export function PrintableStockSlipsWithPrint({
       if (fromTime !== null && t < fromTime) return false;
       if (toTime !== null && t > toTime) return false;
       if (q) {
-        const haystack = [m.movementId, m.productName, m.sku, m.purchaseNumber, m.invoiceNumber, m.userName, m.note]
+        const haystack = [
+          m.movementId,
+          m.productName,
+          m.sku,
+          m.purchaseNumber,
+          m.invoiceNumber,
+          m.userName,
+          m.customerName,
+          m.note,
+          // Multi-product movements are also found by any of their lines.
+          ...(m.lines ?? []).flatMap(l => [l.productName, l.sku])
+        ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase();

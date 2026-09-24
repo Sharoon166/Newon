@@ -58,6 +58,14 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
   });
 
   const onSubmit = async (data: PaymentFormValues) => {
+    // Mirror the server-side rule so the message is clear instead of generic.
+    if (data.amount > balanceAmount) {
+      form.setError('amount', {
+        type: 'validate',
+        message: `Amount cannot exceed the outstanding balance (PKR ${balanceAmount.toFixed(2)})`
+      });
+      return;
+    }
     try {
       setIsSubmitting(true);
       await addPayment(invoiceId, data);
@@ -67,7 +75,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
       onSuccess();
     } catch (error) {
       console.error('Error adding payment:', error);
-      toast.error('Failed to add payment');
+      toast.error((error as Error).message || 'Failed to add payment');
     } finally {
       setIsSubmitting(false);
     }
@@ -95,6 +103,7 @@ export function AddPaymentDialog({ open, onOpenChange, invoiceId, balanceAmount,
                     <Input
                       type="number"
                       step="0.01"
+                      max={balanceAmount}
                       placeholder="0.00"
                       value={field.value || ''}
                       onChange={e => {
