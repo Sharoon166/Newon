@@ -42,6 +42,7 @@ export async function deductPurchaseStock(purchaseId: string, quantity: number):
     revalidatePath('/purchases');
     revalidatePath('/inventory');
     revalidatePath('/virtual-products');
+    revalidatePath('/stock');
   } catch (error) {
     console.error(`Error deducting stock from purchase ${purchaseId}:`, error);
     throw error;
@@ -76,6 +77,7 @@ export async function restorePurchaseStock(
       revalidatePath('/purchases');
       revalidatePath('/inventory');
       revalidatePath('/virtual-products');
+      revalidatePath('/stock');
     }
   } catch (error) {
     console.error(`Error restoring stock to purchase ${purchaseId}:`, error);
@@ -276,6 +278,7 @@ export async function deductStockForInvoice(items: StockDeductionInput[]): Promi
     revalidatePath('/purchases');
     revalidatePath('/inventory');
     revalidatePath('/virtual-products');
+    revalidatePath('/stock');
 
     return {
       success: true,

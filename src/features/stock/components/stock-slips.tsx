@@ -1,5 +1,6 @@
 import type { StockMovement } from '../types';
 import { format } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const KIND_NAME: Record<StockMovement['kind'], string> = {
   receive: 'Stock received',
@@ -11,9 +12,14 @@ const KIND_NAME: Record<StockMovement['kind'], string> = {
 
 interface StockSlipsProps {
   movements: StockMovement[];
+  /** When provided, each slip gets a screen-only (print:hidden) select checkbox. */
+  selection?: {
+    selected: Set<string>;
+    onToggle: (id: string) => void;
+  };
 }
 
-export function StockSlips({ movements }: StockSlipsProps) {
+export function StockSlips({ movements, selection }: StockSlipsProps) {
   if (movements.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -32,9 +38,19 @@ export function StockSlips({ movements }: StockSlipsProps) {
         >
           {/* Header */}
           <div className="flex flex-wrap items-start justify-between gap-2 border-b pb-3">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Stock slip</div>
-              <div className="font-mono text-sm font-bold text-primary">{movement.movementId}</div>
+            <div className="flex items-start gap-2">
+              {selection && (
+                <Checkbox
+                  checked={selection.selected.has(movement.id)}
+                  onCheckedChange={() => selection.onToggle(movement.id)}
+                  className="mt-0.5 print:hidden"
+                  aria-label={`Select slip ${movement.movementId}`}
+                />
+              )}
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Stock slip</div>
+                <div className="font-mono text-sm font-bold text-primary">{movement.movementId}</div>
+              </div>
             </div>
             <div className="text-right">
               <div className="text-sm font-semibold">{KIND_NAME[movement.kind]}</div>
@@ -105,7 +121,7 @@ export function StockSlips({ movements }: StockSlipsProps) {
           {/* Footer */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs text-muted-foreground">
             <div>{movement.note || '—'}</div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <span>By: {movement.userName || '—'}</span>
               <span>Signature: ________________</span>
             </div>

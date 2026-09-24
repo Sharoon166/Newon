@@ -103,6 +103,12 @@ export interface StockTrackingStatus {
   currentEpoch?: number;
 }
 
+// Badge counts for the stock tab bar ("work waiting" at a glance).
+export interface StockWorkCounts {
+  arrival: number;
+  delivery: number;
+}
+
 export interface ReceivePurchaseInput {
   purchaseId: string;
   quantity: number;

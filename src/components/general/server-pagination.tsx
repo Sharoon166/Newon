@@ -16,6 +16,11 @@ interface ServerPaginationProps {
   pageSizeOptions?: number[];
   className?: string;
   itemName?: string;
+  // Optional local-state mode: when provided, page changes are reported here
+  // instead of writing to the URL (used by tabs that keep `page` in state so
+  // multiple tables can share one URL without fighting over ?page=).
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 export function ServerPagination({
@@ -27,12 +32,18 @@ export function ServerPagination({
   pageSize = 10,
   pageSizeOptions = [10, 20, 30, 40, 50],
   className = '',
-  itemName = 'items'
+  itemName = 'items',
+  onPageChange,
+  onPageSizeChange
 }: ServerPaginationProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const navigateToPage = (page: number): void => {
+    if (onPageChange) {
+      onPageChange(page);
+      return;
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', page.toString());
     router.push(`?${params.toString()}`, { scroll: false });
@@ -40,6 +51,10 @@ export function ServerPagination({
 
   const handlePageSizeChange = (value: string): void => {
     const newPageSize = Number(value);
+    if (onPageSizeChange) {
+      onPageSizeChange(newPageSize);
+      return;
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.set('limit', newPageSize.toString());
     params.set('page', '1'); // Reset to first page when page size changes

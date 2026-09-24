@@ -20,7 +20,8 @@ import type {
   ReceivePurchaseInput,
   StockMovement,
   StockMovementKind,
-  StockTrackingStatus
+  StockTrackingStatus,
+  StockWorkCounts
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -104,6 +105,44 @@ export async function getStockTrackingStatus(): Promise<StockTrackingStatus> {
     startedAt: doc?.startedAt ? new Date(doc.startedAt).toISOString() : undefined,
     currentEpoch: doc?.currentEpoch ?? 0
   };
+}
+
+/**
+ * Lightweight counts for the tab badges. Reuses the exact pending-item
+ * queries the "Awaiting arrival" / "Awaiting delivery" tabs paginate
+ * against, without the populate/mapping overhead.
+ */
+export async function getStockWorkCounts(): Promise<StockWorkCounts> {
+  await dbConnect();
+
+  const arrivalQuery = {
+    $expr: { $gt: [{ $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }] }, 0] }
+  };
+  const deliveryQuery = {
+    type: 'invoice',
+    status: { $ne: 'cancelled' },
+    $expr: {
+      $gt: [
+        {
+          $sum: {
+            $map: {
+              input: { $ifNull: ['$items', []] },
+              as: 'i',
+              in: { $subtract: [{ $ifNull: ['$$i.quantity', 0] }, { $ifNull: ['$$i.deliveredQuantity', 0] }] }
+            }
+          }
+        },
+        0
+      ]
+    }
+  };
+
+  const [arrival, delivery] = await Promise.all([
+    PurchaseModel.countDocuments(arrivalQuery),
+    InvoiceModel.countDocuments(deliveryQuery)
+  ]);
+
+  return { arrival, delivery };
 }
 
 /**

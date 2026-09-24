@@ -1,5 +1,5 @@
 import { StockView } from '@/features/stock/components/stock-view';
-import { getStockTrackingStatus } from '@/features/stock/actions';
+import { getStockTrackingStatus, getStockWorkCounts } from '@/features/stock/actions';
 import { getSession, requirePermission } from '@/lib/auth-utils';
 
 // export const dynamic = 'force-dynamic';
@@ -12,12 +12,13 @@ export default async function StockPage() {
   await requirePermission('view:stock');
 
   const session = await getSession();
-  const status = await getStockTrackingStatus();
+  const [status, counts] = await Promise.all([getStockTrackingStatus(), getStockWorkCounts()]);
 
   return (
     <StockView
       initialized={status.initialized}
       startedAt={status.startedAt}
+      counts={counts}
       userRole={(session?.user as any)?.role === 'staff' ? 'staff' : 'admin'}
     />
   );
