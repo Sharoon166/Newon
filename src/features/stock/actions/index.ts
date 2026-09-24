@@ -21,8 +21,32 @@ import type {
   StockMovement,
   StockMovementKind,
   StockTrackingStatus,
-  StockWorkCounts
+  StockWorkCounts,
+  AwaitingDeliveryItemLine
 } from '../types';
+
+// ---------------------------------------------------------------------------
+// Lean shapes
+// ---------------------------------------------------------------------------
+
+/**
+ * The mongoose lean results for Product don't reliably expose `name`/`variants`
+ * (the inferred type is a `FlattenMaps<any>` intersection / array union), so
+ * the stock actions cast through `unknown` to this explicit shape instead of
+ * fighting the inferred type at every access site.
+ */
+interface LeanProductVariant {
+  id: string;
+  sku?: string;
+  inShop?: number;
+  attributes?: Record<string, string>;
+  disabled?: boolean;
+}
+
+interface LeanProduct {
+  name: string;
+  variants?: LeanProductVariant[];
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,12 +91,7 @@ function serializeMovement(doc: any): StockMovement {
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    !!error &&
-    typeof error === 'object' &&
-    'code' in error &&
-    (error as { code?: number }).code === 11000
-  );
+  return !!error && typeof error === 'object' && 'code' in error && (error as { code?: number }).code === 11000;
 }
 
 async function getTrackingDoc() {
@@ -182,14 +201,12 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<Ac
     { status: { $ne: 'reinitializing' } },
     { $set: { status: 'reinitializing' } },
     { new: true }
-  ).lean()) as
-    | {
-        initialized?: boolean;
-        currentEpoch?: number;
-        startedAt?: Date;
-        history?: Array<{ epoch: number; date: Date; changedAt: Date; changedBy?: string; changedByName?: string }>;
-      }
-    | null;
+  ).lean()) as {
+    initialized?: boolean;
+    currentEpoch?: number;
+    startedAt?: Date;
+    history?: Array<{ epoch: number; date: Date; changedAt: Date; changedBy?: string; changedByName?: string }>;
+  } | null;
 
   if (!locked) {
     throw new Error('Starting counts are already being set. Wait a moment and try again.');
@@ -207,33 +224,26 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<Ac
     }
 
     // 1. Backfill purchases that predate tracking: everything is fully received.
-    await PurchaseModel.updateMany(
-      { receivedQuantity: { $exists: false } },
-      [{ $set: { receivedQuantity: '$quantity' } }]
-    );
+    await PurchaseModel.updateMany({ receivedQuantity: { $exists: false } }, [
+      { $set: { receivedQuantity: '$quantity' } }
+    ]);
 
     // 2. Backfill invoices that predate tracking: everything is fully delivered.
-    await InvoiceModel.updateMany(
-      { type: 'invoice' },
-      [
-        {
-          $set: {
-            items: {
-              $map: {
-                input: { $ifNull: ['$items', []] },
-                as: 'i',
-                in: {
-                  $mergeObjects: [
-                    '$$i',
-                    { deliveredQuantity: { $ifNull: ['$$i.deliveredQuantity', '$$i.quantity'] } }
-                  ]
-                }
+    await InvoiceModel.updateMany({ type: 'invoice' }, [
+      {
+        $set: {
+          items: {
+            $map: {
+              input: { $ifNull: ['$items', []] },
+              as: 'i',
+              in: {
+                $mergeObjects: ['$$i', { deliveredQuantity: { $ifNull: ['$$i.deliveredQuantity', '$$i.quantity'] } }]
               }
             }
           }
         }
-      ]
-    );
+      }
+    ]);
 
     // 3. Compute current Available per variant (= sum of purchase.remaining).
     const availableAgg = await PurchaseModel.aggregate([
@@ -253,6 +263,7 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<Ac
     const products = await ProductModel.find({}).select('_id name variants').lean();
     const openingMovements: Array<Record<string, unknown>> = [];
     for (const product of products) {
+      const productName = (product as unknown as LeanProduct).name;
       const variants = (product as { variants?: Array<any> }).variants ?? [];
       if (variants.length === 0) continue;
       const updatedVariants = variants.map(v => {
@@ -263,13 +274,13 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<Ac
           epoch,
           productId: String(product._id),
           variantId: v.id,
-          productName: (product as { name: string }).name,
+          productName,
           sku: v.sku ?? '',
           quantity: baseline,
           inShopBefore: 0,
           inShopAfter: baseline,
           note: 'Starting count (equals Available on start date)',
-          searchText: `${(product as { name: string }).name} ${v.sku ?? ''} starting count opening`.toLowerCase()
+          searchText: `${productName} ${v.sku ?? ''} starting count opening`.toLowerCase()
         });
         return { ...v, inShop: baseline };
       });
@@ -365,13 +376,14 @@ export async function getInShopRows(search?: string): Promise<InShopRow[]> {
 
   const rows: InShopRow[] = [];
   for (const product of products) {
+    const productName = (product as unknown as LeanProduct).name;
     const variants = (product as { variants?: Array<any> }).variants ?? [];
     for (const v of variants) {
       const key = `${String(product._id)}|${v.id}`;
       rows.push({
         productId: String(product._id),
         variantId: v.id,
-        productName: (product as { name: string }).name,
+        productName,
         sku: v.sku ?? '',
         attributes: v.attributes ?? {},
         disabled: v.disabled ?? false,
@@ -396,10 +408,7 @@ export async function getAwaitingArrival(input: {
 
   const query: Record<string, unknown> = {
     $expr: {
-      $gt: [
-        { $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }] },
-        0
-      ]
+      $gt: [{ $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }] }, 0]
     }
   };
   if (input.search) {
@@ -456,10 +465,7 @@ export async function getAwaitingDelivery(input: {
               input: { $ifNull: ['$items', []] },
               as: 'i',
               in: {
-                $subtract: [
-                  { $ifNull: ['$$i.quantity', 0] },
-                  { $ifNull: ['$$i.deliveredQuantity', 0] }
-                ]
+                $subtract: [{ $ifNull: ['$$i.quantity', 0] }, { $ifNull: ['$$i.deliveredQuantity', 0] }]
               }
             }
           }
@@ -482,39 +488,40 @@ export async function getAwaitingDelivery(input: {
     InvoiceModel.countDocuments(query)
   ]);
 
-  const items: AwaitingDeliveryItem[] = docs
-    .map((doc: any) => {
-      const lines = (doc.items ?? [])
-        .map((item: any, index: number) => {
-          const delivered = Math.min(item.quantity ?? 0, item.deliveredQuantity ?? 0);
-          return {
-            index,
-            productName: item.productName || 'Unknown',
-            sku: item.variantSKU,
-            unit: item.unit || 'pcs',
-            quantity: item.quantity ?? 0,
-            delivered,
-            pending: Math.max(0, (item.quantity ?? 0) - delivered)
-          };
-        })
-        .filter(line => line.pending > 0);
+  const items: AwaitingDeliveryItem[] = [];
+  for (const doc of docs as any[]) {
+    const rawItems: any[] = doc.items ?? [];
+    const lines: AwaitingDeliveryItemLine[] = rawItems
+      .map((item, index): AwaitingDeliveryItemLine => {
+        const quantity = item.quantity ?? 0;
+        const delivered = Math.min(quantity, item.deliveredQuantity ?? 0);
+        return {
+          index,
+          productName: item.productName || 'Unknown',
+          sku: item.variantSKU,
+          unit: item.unit || 'pcs',
+          quantity,
+          delivered,
+          pending: Math.max(0, quantity - delivered)
+        };
+      })
+      .filter(line => line.pending > 0);
 
-      if (lines.length === 0) return null;
+    if (lines.length === 0) continue;
 
-      return {
-        id: String(doc._id),
-        invoiceNumber: doc.invoiceNumber || 'N/A',
-        customerName: doc.customerName || '',
-        customerCompany: doc.customerCompany,
-        date: doc.date instanceof Date ? doc.date.toISOString() : String(doc.date),
-        status: doc.status,
-        lines,
-        totalInvoiced: lines.reduce((s: number, l: any) => s + l.quantity, 0),
-        totalDelivered: lines.reduce((s: number, l: any) => s + l.delivered, 0),
-        totalPending: lines.reduce((s: number, l: any) => s + l.pending, 0)
-      };
-    })
-    .filter((item): item is AwaitingDeliveryItem => item !== null);
+    items.push({
+      id: String(doc._id),
+      invoiceNumber: doc.invoiceNumber || 'N/A',
+      customerName: doc.customerName || '',
+      customerCompany: doc.customerCompany,
+      date: doc.date instanceof Date ? doc.date.toISOString() : String(doc.date),
+      status: doc.status,
+      lines,
+      totalInvoiced: lines.reduce((s, l) => s + l.quantity, 0),
+      totalDelivered: lines.reduce((s, l) => s + l.delivered, 0),
+      totalPending: lines.reduce((s, l) => s + l.pending, 0)
+    });
+  }
 
   return { docs: items, total, page, limit };
 }
@@ -876,8 +883,10 @@ async function buildShortageError(
   productName: string,
   requestedQty: number
 ): Promise<Error> {
-  const product = await ProductModel.findOne({ _id: productId, 'variants.id': variantId }).lean();
-  const available = product?.variants?.find((v: any) => v.id === variantId)?.inShop ?? 0;
+  const product = (await ProductModel.findOne({ _id: productId, 'variants.id': variantId }).lean()) as unknown as
+    | LeanProduct
+    | null;
+  const available = product?.variants?.find(v => v.id === variantId)?.inShop ?? 0;
   return new Error(
     `Cannot deliver ${formatQty(requestedQty)} of '${productName}': only ${formatQty(available)} unit(s) are physically in the shop.`
   );
@@ -896,9 +905,10 @@ export async function quickCount(input: QuickCountInput): Promise<ActionResult> 
     throw new Error('Enter a valid count (0 or more).');
   }
 
-  const product = await ProductModel.findOne({ _id: input.productId, 'variants.id': input.variantId }).lean();
+  const product = (await ProductModel.findOne({ _id: input.productId, 'variants.id': input.variantId }).lean()) as
+    unknown as LeanProduct | null;
   if (!product) throw new Error('Product not found.');
-  const variant = product.variants?.find((v: any) => v.id === input.variantId);
+  const variant = product.variants?.find(v => v.id === input.variantId);
   const before = variant?.inShop ?? 0;
   const delta = Math.round(count) - before;
   const finalCount = Math.round(count);
@@ -962,8 +972,11 @@ export async function reverseMovement(movementId: string): Promise<ActionResult>
       { $inc: { 'variants.$.inShop': -movement.quantity } }
     );
     if (res.matchedCount === 0) {
-      const product = await ProductModel.findOne({ _id: movement.productId, 'variants.id': movement.variantId }).lean();
-      const available = product?.variants?.find((v: any) => v.id === movement.variantId)?.inShop ?? 0;
+      const product = (await ProductModel.findOne({
+        _id: movement.productId,
+        'variants.id': movement.variantId
+      }).lean()) as unknown as LeanProduct | null;
+      const available = product?.variants?.find(v => v.id === movement.variantId)?.inShop ?? 0;
       throw new Error(
         `Cannot reverse: only ${formatQty(available)} unit(s) of '${movement.productName}' are physically in the shop.`
       );

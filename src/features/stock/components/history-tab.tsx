@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, History as HistoryIcon, RotateCcw, Search } from 'lucide-react';
+import { ArrowUpDown, History as HistoryIcon, Undo2, Search } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -223,7 +223,7 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
                       aria-label={`Reverse movement ${movement.movementId}`}
                       onClick={() => setPendingReversal(movement)}
                     >
-                      <RotateCcw className="h-3.5 w-3.5" />
+                      <Undo2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 );
@@ -432,7 +432,7 @@ export function HistoryTab({ enabled, userRole, onChanged }: HistoryTabProps) {
         onOpenChange={open => {
           if (!open) setPendingReversal(null);
         }}
-        icon={<RotateCcw className="h-5 w-5" />}
+        icon={<Undo2 className="h-5 w-5" />}
         title={`Reverse ${pendingReversal?.movementId ?? ''}`}
         description={`This undoes the movement: In shop goes from ${pendingReversal?.inShopAfter} back toward ${pendingReversal?.inShopBefore} and the linked purchase/invoice record is rolled back. This cannot be undone.`}
         confirmText="Reverse"
