@@ -289,13 +289,19 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
       {
         accessorKey: 'inShop',
         header: 'In shop',
-        cell: ({ row }) => (
-          <div className="text-muted-foreground inline-flex items-center gap-2">
-            {row.original.inShopBefore || '—'}
-            <span className="text-lg mx-1">→</span>
-            {row.original.inShopAfter || '—'}
-          </div>
-        )
+        cell: ({ row }) => {
+          const { inShopBefore, inShopAfter } = row.original;
+          // Deliveries recorded before this was fixed were written as a hardcoded
+          // 0 → 0 — keep those blank instead of printing a fake zero.
+          const recorded = inShopBefore !== 0 || inShopAfter !== 0;
+          return (
+            <div className="text-muted-foreground inline-flex items-center gap-2">
+              {recorded ? inShopBefore : '—'}
+              <span className="text-lg mx-1">→</span>
+              {recorded ? inShopAfter : '—'}
+            </div>
+          );
+        }
       },
       {
         accessorKey: 'userName',

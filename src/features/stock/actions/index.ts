@@ -867,6 +867,35 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
     throw error;
   }
 
+  // Capture the "In shop" before/after of the variant this slip is filed under,
+  // so History and the slip print show real numbers instead of a blank. Virtual
+  // /service lines never move their own counter, so fall back to the first
+  // component that actually left the shop.
+  const takenByVariant = new Map<string, number>();
+  appliedDecrements.forEach(({ productId, variantId, quantity }) => {
+    const key = `${productId}|${variantId}`;
+    takenByVariant.set(key, (takenByVariant.get(key) ?? 0) + quantity);
+  });
+  const stockTarget =
+    (primary && takenByVariant.has(`${primary.productId}|${primary.variantId}`)
+      ? { productId: primary.productId, variantId: primary.variantId }
+      : null) ??
+    appliedDecrements[0] ??
+    null;
+
+  let inShopBefore = 0;
+  let inShopAfter = 0;
+  if (stockTarget) {
+    const doc = await ProductModel.findOne({ _id: stockTarget.productId, 'variants.id': stockTarget.variantId })
+      .select('variants')
+      .lean();
+    const variant = (doc as { variants?: Array<{ id: string; inShop?: number }> } | null)?.variants?.find(
+      v => v.id === stockTarget.variantId
+    );
+    inShopAfter = variant?.inShop ?? 0;
+    inShopBefore = inShopAfter + (takenByVariant.get(`${stockTarget.productId}|${stockTarget.variantId}`) ?? 0);
+  }
+
   const base = primary ?? { productId: invoice.customerId, variantId: '', productName: '', sku: '' };
   const movementId = await generateId('SM');
 
@@ -879,8 +908,8 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
       productName: base.productName,
       sku: base.sku,
       quantity: totalDelivered,
-      inShopBefore: 0,
-      inShopAfter: 0,
+      inShopBefore,
+      inShopAfter,
       invoiceId: String(invoice._id),
       invoiceNumber: invoice.invoiceNumber,
       customerName: invoice.customerName,
