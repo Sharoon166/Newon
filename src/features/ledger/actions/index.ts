@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import {
   LedgerEntry,
+  LedgerBreakdownLine,
   CustomerLedger,
   LedgerSummary,
   CreateLedgerEntryDto,
@@ -11,6 +12,7 @@ import {
   PaginatedCustomerLedgers
 } from '../types';
 import dbConnect from '@/lib/db';
+import { formatCurrency } from '@/lib/utils';
 import LedgerEntryModel from '@/models/LedgerEntry';
 import CustomerModel from '@/models/Customer';
 import mongoose from 'mongoose';
@@ -467,11 +469,146 @@ export async function getCustomerLedgerEntries(customerId: string): Promise<Ledg
       .sort({ date: -1, createdAt: -1 })
       .lean();
 
-    return entries.map((entry: unknown) => transformLeanEntry(entry as LeanLedgerEntry));
+    const transformed = entries.map((entry: unknown) => transformLeanEntry(entry as LeanLedgerEntry));
+
+    // Read-only presentation merge: collapse the rows written by a single
+    // GeneralPayment into one receipt row. Nothing is written or deleted.
+    return await mergeGeneralPaymentGroups(transformed);
   } catch (error) {
     console.error(`Error fetching ledger entries for customer ${customerId}:`, error);
     throw new Error('Failed to fetch customer ledger entries');
   }
+}
+
+/**
+ * Group ledger payment rows that originate from the same GeneralPayment.
+ *
+ * The ledger stores one row per allocation (PAY-xxxxxx-n) and never records
+ * which GeneralPayment it came from. The link lives on the invoice:
+ * `invoice.payments[].sourcePaymentId`, so we resolve it with two batched,
+ * read-only queries and merge in memory.
+ *
+ * Guarantees:
+ * - No document, schema or write path is touched — this runs after the query.
+ * - The merged row is placed at the position of its newest child and copies
+ *   that child's stored `balance`, which already reflects the whole event.
+ *   Rows are only hidden, never recalculated, so every balance on screen is
+ *   still a real stored value.
+ * - If the join cannot be resolved (missing GP, desynced invoice payment),
+ *   the rows are returned untouched.
+ */
+async function mergeGeneralPaymentGroups(entries: LedgerEntry[]): Promise<LedgerEntry[]> {
+  const paymentRows = entries.filter(entry => entry.transactionType === 'payment' && entry.transactionId);
+  if (paymentRows.length === 0) return entries;
+
+  const InvoiceModel = (await import('@/models/Invoice')).default;
+  const invoiceIds = [...new Set(paymentRows.map(entry => entry.transactionId as string))];
+  const invoices = await InvoiceModel.find({ _id: { $in: invoiceIds } })
+    .select('invoiceNumber payments.amount payments.sourceType payments.sourcePaymentId')
+    .lean();
+
+  // invoiceId -> invoice number (for breakdown labels)
+  const invoiceNumbers = new Map<string, string>();
+  // invoiceId -> GeneralPayment payments still waiting to be matched to a ledger row
+  const pendingSources = new Map<string, { gpId: string; amount: number }[]>();
+
+  for (const invoice of invoices) {
+    const invoiceId = invoice._id.toString();
+    invoiceNumbers.set(invoiceId, invoice.invoiceNumber);
+    const sources = (invoice.payments ?? [])
+      .filter(
+        (payment: { sourceType?: string; sourcePaymentId?: string; amount?: number }) =>
+          payment.sourceType === 'general' && Boolean(payment.sourcePaymentId)
+      )
+      .map(payment => ({
+        gpId: String(payment.sourcePaymentId),
+        amount: Number(payment.amount) || 0
+      }));
+    if (sources.length > 0) pendingSources.set(invoiceId, sources);
+  }
+
+  const rowsByGpId = new Map<string, LedgerEntry[]>();
+  const addRow = (gpId: string, row: LedgerEntry) => {
+    const rows = rowsByGpId.get(gpId);
+    if (rows) rows.push(row);
+    else rowsByGpId.set(gpId, [row]);
+  };
+
+  // Pass 1: match allocation rows to their GeneralPayment via invoice + amount
+  for (const row of paymentRows) {
+    const pending = pendingSources.get(row.transactionId as string);
+    if (!pending) continue;
+    const index = pending.findIndex(source => Math.abs(source.amount - row.credit) < 0.005);
+    if (index === -1) continue;
+    const [source] = pending.splice(index, 1);
+    addRow(source.gpId, row);
+  }
+
+  if (rowsByGpId.size === 0) return entries;
+  const gpIds = [...rowsByGpId.keys()];
+
+  // Pass 2: the GeneralPayment's own "unallocated" row is keyed by the GP id
+  for (const row of paymentRows) {
+    if (row.transactionId && gpIds.includes(row.transactionId)) addRow(row.transactionId, row);
+  }
+
+  const GeneralPaymentModel = (await import('@/models/GeneralPayment')).default;
+  const generalPayments = await GeneralPaymentModel.find({ _id: { $in: gpIds } })
+    .select('paymentNumber method reference')
+    .lean();
+  const gpById = new Map(generalPayments.map(gp => [gp._id.toString(), gp]));
+
+  const hiddenIds = new Set<string>();
+  const parentByRowId = new Map<string, LedgerEntry>();
+
+  for (const [gpId, rows] of rowsByGpId) {
+    const gp = gpById.get(gpId);
+    if (!gp) continue; // GP gone: leave the rows exactly as they are
+
+    const [lead] = rows; // entries are sorted date desc / createdAt desc -> newest first
+    const allocatedRows = rows.filter(row => row.transactionId !== gpId);
+    const onAccountRows = rows.filter(row => row.transactionId === gpId);
+    const onAccount = onAccountRows.reduce((sum, row) => sum + row.credit, 0);
+    const credit = rows.reduce((sum, row) => sum + row.credit, 0);
+    if (credit <= 0) continue;
+
+    const invoiceLines = allocatedRows.map(row => ({
+      kind: 'invoice' as const,
+      label: invoiceNumbers.get(row.transactionId as string) ?? row.transactionId ?? '',
+      invoiceId: row.transactionId,
+      amount: row.credit
+    }));
+
+    const descriptionParts = ['Payment received'];
+    if (invoiceLines.length > 1) descriptionParts.push(`allocated to ${invoiceLines.length} invoices`);
+    if (onAccount > 0) descriptionParts.push(`${formatCurrency(onAccount, false)} on account`);
+
+    const breakdown: LedgerBreakdownLine[] =
+      onAccount > 0
+        ? [...invoiceLines, { kind: 'on_account', label: 'On account', amount: onAccount }]
+        : invoiceLines;
+
+    parentByRowId.set(lead.id, {
+      ...lead,
+      transactionNumber: gp.paymentNumber,
+      credit,
+      debit: 0,
+      paymentMethod: (gp.method as LedgerEntry['paymentMethod']) ?? lead.paymentMethod,
+      reference: gp.reference ?? lead.reference,
+      description: descriptionParts.join(' · '),
+      breakdown
+    });
+    rows.forEach(row => hiddenIds.add(row.id));
+  }
+
+  if (parentByRowId.size === 0) return entries;
+
+  return entries.flatMap(entry => {
+    const parent = parentByRowId.get(entry.id);
+    if (parent) return [parent];
+    if (hiddenIds.has(entry.id)) return [];
+    return [entry];
+  });
 }
 
 // Helper function to get customer balance at a specific point in time
@@ -611,7 +748,7 @@ export async function createLedgerEntry(data: CreateLedgerEntryDto): Promise<Led
     revalidatePath('/dashboard');
     revalidatePath(`/customers/${data.customerId}`);
 
-    return transformLeanEntry(entry.toObject() as LeanLedgerEntry);
+    return transformLeanEntry(entry.toObject() as unknown as LeanLedgerEntry);
   } catch (error: unknown) {
     console.error('Error creating ledger entry:', error);
     throw new Error((error as Error).message || 'Failed to create ledger entry');

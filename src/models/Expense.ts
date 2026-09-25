@@ -74,7 +74,11 @@ const paymentTransactionSchema = new Schema<IPaymentTransaction>(
   { _id: true }
 );
 
-const expenseSchema = new Schema<IExpense>(
+// Schema definition is intentionally left untyped (same pattern as Purchase.ts /
+// StockMovement.ts): mongoose' Schema<T> generics mis-resolve `_id` and the
+// `this` type of hooks/virtuals for interfaces extending Document. The document
+// type is still enforced by `mongoose.model<IExpense, ...>()` below.
+const expenseSchema = new Schema(
   {
     _id: {
       type: String,
@@ -192,13 +196,17 @@ expenseSchema.virtual('totalPaid').get(function () {
 });
 
 expenseSchema.virtual('remainingAmount').get(function () {
-  return this.amount - this.totalPaid;
+  // The untyped schema infers the document shape from its paths, which cannot
+  // include virtuals - read through the declared document type instead.
+  const expense = this as unknown as IExpense;
+  return expense.amount - expense.totalPaid;
 });
 
 expenseSchema.virtual('paymentStatus').get(function () {
-  const paid = this.totalPaid;
+  const expense = this as unknown as IExpense;
+  const paid = expense.totalPaid;
   if (paid === 0) return 'unpaid';
-  if (paid >= this.amount) return 'paid';
+  if (paid >= expense.amount) return 'paid';
   return 'partial';
 });
 

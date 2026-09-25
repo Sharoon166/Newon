@@ -23,7 +23,11 @@ interface ICustomer extends Document {
   updatedAt: Date;
 }
 
-const customerSchema = new Schema<ICustomer>(
+// Schema definition is intentionally left untyped (same pattern as Purchase.ts /
+// StockMovement.ts): mongoose' Schema<T> generics mis-resolve `_id` and the
+// `this` type of hooks/virtuals for interfaces extending Document. The document
+// type is still enforced by `mongoose.model<ICustomer>()` below.
+const customerSchema = new Schema(
   {
     _id: {
       type: String,

@@ -1,12 +1,22 @@
 'use client';
 
+import { Fragment, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { LedgerEntry } from '../types';
-import { ArrowLeft, Printer, TrendingUp, Receipt, DollarSign, ArrowUpRight } from 'lucide-react';
+import {
+  ArrowLeft,
+  Printer,
+  TrendingUp,
+  Receipt,
+  DollarSign,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronRight
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -41,6 +51,7 @@ interface CustomerLedgerDetailsProps {
 
 export function CustomerLedgerDetails({ customerInfo, ledgerEntries, invoices, summary }: CustomerLedgerDetailsProps) {
   const router = useRouter();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const getTransactionTypeColor = (type: string) => {
     switch (type) {
@@ -154,23 +165,78 @@ export function CustomerLedgerDetails({ customerInfo, ledgerEntries, invoices, s
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ledgerEntries.map(entry => (
-                <TableRow key={entry.id}>
-                  <TableCell className="whitespace-nowrap">{formatDate(new Date(entry.date))}</TableCell>
-                  <TableCell className="font-medium">{entry.transactionNumber}</TableCell>
-                  <TableCell>
-                    <Badge className={getTransactionTypeColor(entry.transactionType)}>
-                      {entry.transactionType.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{entry.description}</TableCell>
-                  <TableCell className="text-right">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</TableCell>
-                  <TableCell className="text-right text-green-600">
-                    {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(entry.balance)}</TableCell>
-                </TableRow>
-              ))}
+              {ledgerEntries.map(entry => {
+                const hasBreakdown = Boolean(entry.breakdown?.length);
+                const isExpanded = expandedId === entry.id;
+
+                return (
+                  <Fragment key={entry.id}>
+                    <TableRow>
+                      <TableCell className="whitespace-nowrap">{formatDate(new Date(entry.date))}</TableCell>
+                      <TableCell className="font-medium">
+                        <span className="flex items-center gap-1">
+                          {hasBreakdown ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                              aria-label={isExpanded ? 'Hide payment breakdown' : 'Show payment breakdown'}
+                              onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                            >
+                              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            </Button>
+                          ) : (
+                            <span className="inline-block h-6 w-6 shrink-0" />
+                          )}
+                          {entry.transactionNumber}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getTransactionTypeColor(entry.transactionType)}>
+                          {entry.transactionType.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{entry.description}</TableCell>
+                      <TableCell className="text-right">{entry.debit > 0 ? formatCurrency(entry.debit) : '-'}</TableCell>
+                      <TableCell className="text-right text-green-600">
+                        {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(entry.balance)}</TableCell>
+                    </TableRow>
+                    {hasBreakdown && isExpanded && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={7} className="bg-muted/40 px-4 py-3">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                            Payment breakdown
+                          </p>
+                          <ul className="space-y-1 pl-2">
+                            {entry.breakdown?.map((line, index) => (
+                              <li
+                                key={`${line.kind}-${line.invoiceId ?? 'on-account'}-${index}`}
+                                className="flex items-center justify-between gap-4 text-sm"
+                              >
+                                <span className="flex items-center gap-2">
+                                  {line.kind === 'invoice' ? (
+                                    <Link
+                                      href={`/invoices/${line.invoiceId}`}
+                                      className="text-blue-600 hover:underline"
+                                    >
+                                      {line.label}
+                                    </Link>
+                                  ) : (
+                                    <span className="text-muted-foreground">{line.label}</span>
+                                  )}
+                                </span>
+                                <span className="font-medium text-green-600">{formatCurrency(line.amount)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

@@ -12,6 +12,22 @@ export type TransactionType = 'invoice' | 'payment' | 'adjustment' | 'credit_not
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi' | 'card';
 
 /**
+ * LedgerBreakdownLine - One line inside a merged receipt row
+ *
+ * Created at read time only (never stored on the LedgerEntry document).
+ * When a single GeneralPayment was allocated across several invoices, the
+ * ledger shows one parent row and these lines describe how it was split.
+ */
+export interface LedgerBreakdownLine {
+  kind: 'invoice' | 'on_account';
+  /** Invoice number (kind === 'invoice') or 'On account' */
+  label: string;
+  /** Invoice id for kind === 'invoice', so UIs can link to it */
+  invoiceId?: string;
+  amount: number;
+}
+
+/**
  * LedgerEntry - Individual transaction in the ledger
  *
  * Fields added:
@@ -53,6 +69,12 @@ export interface LedgerEntry {
   createdBy: string;
   createdAt: string | Date;
   updatedAt: string | Date;
+  /**
+   * Present on merged receipt rows only: how a single GeneralPayment was
+   * split across invoices. Derived at read time — never persisted, never
+   * written by any create/update/delete path.
+   */
+  breakdown?: LedgerBreakdownLine[];
 }
 
 /**

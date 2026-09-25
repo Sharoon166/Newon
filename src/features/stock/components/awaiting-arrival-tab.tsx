@@ -197,7 +197,7 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
           <EmptyState
             icon={Search}
             title={`No purchases match “${debouncedSearch}”`}
-            description="Check the purchase number or supplier, or clear the search."
+            description="Check the purchase number, product name or supplier, or clear the search."
             action={
               <Button variant="outline" size="sm" onClick={() => setSearchInput('')}>
                 Clear search
@@ -225,7 +225,7 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search purchase number or supplier..."
+            placeholder="Search purchase number, product or supplier..."
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             className="w-full pl-8"

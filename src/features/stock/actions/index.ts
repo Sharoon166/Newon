@@ -413,7 +413,17 @@ export async function getAwaitingArrival(input: {
   };
   if (input.search) {
     const regex = new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    query.$or = [{ purchaseId: regex }, { supplier: regex }];
+    const or: Record<string, unknown>[] = [{ purchaseId: regex }, { supplier: regex }];
+
+    // Product name lives on the Product document, not on the purchase, so
+    // resolve the matching products first and search purchases by their ids
+    // (indexed on productId) instead of joining at query time.
+    const matchingProducts = await ProductModel.find({ name: regex }).select('_id').lean();
+    if (matchingProducts.length > 0) {
+      or.push({ productId: { $in: matchingProducts.map(product => product._id) } });
+    }
+
+    query.$or = or;
   }
 
   const [docs, total] = await Promise.all([

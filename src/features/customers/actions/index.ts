@@ -124,7 +124,7 @@ export async function createCustomer(data: CreateCustomerDto): Promise<Customer>
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
 
-    return transformLeanCustomer(savedCustomer.toObject() as LeanCustomer);
+    return transformLeanCustomer(savedCustomer.toObject() as unknown as LeanCustomer);
   } catch (error: unknown) {
     console.error('Error creating customer:', error);
     throw new Error((error as Error).message || 'Failed to create customer');

@@ -97,6 +97,9 @@ export function PurchaseForm({
   const [isEditingSupplier, setIsEditingSupplier] = useState(false);
   const supplierInputRef = useRef<HTMLInputElement>(null);
   const isEditMode = !!purchase;
+  // Units already sold/allocated from this purchase. When editing, the quantity
+  // cannot be reduced below this amount (remaining = quantity - usedUnits).
+  const usedUnits = isEditMode ? Math.max(0, (purchase?.quantity || 0) - (purchase?.remaining || 0)) : 0;
   // Auto-select variant if only one exists
   const defaultVariantId = variantId || (variants.length === 1 ? variants[0].id : '');
 
@@ -236,6 +239,15 @@ export function PurchaseForm({
       };
 
       if (isEditMode && purchase) {
+        // Units already sold/allocated from this purchase - the quantity can
+        // never be edited below this amount (mirrors the server-side check).
+        if (data.quantity < usedUnits) {
+          form.setError('quantity', {
+            message: `Quantity cannot be lower than ${usedUnits}: ${usedUnits} unit(s) have already been sold or allocated from this purchase`
+          });
+          return;
+        }
+
         const updateData: UpdatePurchaseDto = purchaseData;
         await updatePurchase(purchase.id || purchase._id!, updateData);
         toast.success('Purchase updated successfully');
@@ -556,7 +568,7 @@ export function PurchaseForm({
                           onChange={value => {
                             field.onChange(value);
                           }}
-                          min={1}
+                          min={Math.max(1, usedUnits)}
                           step={1}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
@@ -566,6 +578,11 @@ export function PurchaseForm({
                           }}
                         />
                       </FormControl>
+                      {usedUnits > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {usedUnits} unit(s) already sold or allocated — quantity cannot be below {usedUnits}.
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

@@ -378,23 +378,25 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     throw new Error('PurchaseModel not found');
   }
 
+  // Units already sold/allocated from this purchase. This amount does not change
+  // when the ordered quantity is edited, so the invariant is always:
+  // remaining = quantity - used.
+  const used = purchase.quantity - purchase.remaining;
+
   // Calculate new remaining if quantity is being updated and remaining is not explicitly provided
   let calculatedRemaining = data.remaining;
-  if (data.quantity !== undefined && data.remaining === undefined) {
-    const oldQuantity = purchase.quantity;
-    const newQuantity = data.quantity;
-    const oldRemaining = purchase.remaining;
+  if (data.quantity !== undefined) {
+    // Cannot reduce the ordered quantity below what has already been sold or
+    // allocated - those units are gone and can never be un-sold.
+    if (data.quantity < used) {
+      throw new Error(
+        `Cannot reduce quantity to ${data.quantity}: ${used} unit(s) have already been sold or allocated from this purchase. The quantity cannot be lower than ${used}.`
+      );
+    }
 
-    if (newQuantity > oldQuantity) {
-      // Quantity increased - add the difference to remaining
-      const quantityIncrease = newQuantity - oldQuantity;
-      calculatedRemaining = oldRemaining + quantityIncrease;
-    } else if (newQuantity < oldQuantity) {
-      // Quantity decreased - adjust remaining proportionally
-      const ratio = newQuantity / oldQuantity;
-      calculatedRemaining = Math.min(Math.floor(oldRemaining * ratio), newQuantity);
-    } else {
-      calculatedRemaining = oldRemaining;
+    if (data.remaining === undefined) {
+      // Keep the used amount fixed (covers both increases and decreases).
+      calculatedRemaining = data.quantity - used;
     }
   }
 
@@ -472,11 +474,19 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     }
   }
 
-  const updateData: Partial<UpdatePurchaseDto & { totalCost?: number; remaining?: number }> = { ...data };
+  const updateData: Partial<UpdatePurchaseDto & { totalCost?: number; remaining?: number; receivedQuantity?: number }> = { ...data };
 
   // Use pre-calculated remaining if quantity was updated
   if (calculatedRemaining !== undefined && data.remaining === undefined) {
     updateData.remaining = calculatedRemaining;
+  }
+
+  // Keep the "received" count inside the new quantity when the quantity changes,
+  // otherwise the Received column renders impossible values like "100 / 10".
+  // Purchases that predate tracking have no receivedQuantity (they count as fully
+  // arrived) - leave those undefined instead of inventing a value.
+  if (data.quantity !== undefined && purchase.receivedQuantity !== undefined) {
+    updateData.receivedQuantity = Math.min(purchase.receivedQuantity, data.quantity);
   }
 
   // Recalculate totalCost if quantity or unitPrice is updated

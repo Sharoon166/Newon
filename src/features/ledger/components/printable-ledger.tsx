@@ -218,6 +218,24 @@ export function PrintableLedger({ customerInfo, ledgerEntries, invoices, summary
                         </p>
                       </div>
                     </div>
+                    {entry.breakdown && entry.breakdown.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-dashed border-gray-200">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Payment breakdown</p>
+                        <ul className="space-y-0.5">
+                          {entry.breakdown.map((line, index) => (
+                            <li
+                              key={`${line.kind}-${line.invoiceId ?? 'on-account'}-${index}`}
+                              className="flex items-center justify-between gap-4 text-sm"
+                            >
+                              <span className={line.kind === 'invoice' ? 'text-gray-800' : 'text-gray-500'}>
+                                {line.label}
+                              </span>
+                              <span className="font-medium text-gray-900">{formatCurrency(line.amount)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

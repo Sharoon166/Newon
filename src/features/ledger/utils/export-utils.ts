@@ -76,7 +76,8 @@ export function exportLedgerEntriesToCsv(data: LedgerEntry[], customerName?: str
       'Credit',
       'Balance',
       'Payment Method',
-      'Reference'
+      'Reference',
+      'Payment Breakdown'
     ];
 
     const rows = data.map(item => [
@@ -88,7 +89,8 @@ export function exportLedgerEntriesToCsv(data: LedgerEntry[], customerName?: str
       escapeCsvField(item.credit.toFixed(2)),
       escapeCsvField(item.balance.toFixed(2)),
       escapeCsvField(item.paymentMethod || '-'),
-      escapeCsvField(item.reference || '-')
+      escapeCsvField(item.reference || '-'),
+      escapeCsvField(item.breakdown?.map(line => `${line.label}: ${line.amount.toFixed(2)}`).join('; ') || '-')
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
