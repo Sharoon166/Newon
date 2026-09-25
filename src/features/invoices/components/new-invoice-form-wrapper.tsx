@@ -23,6 +23,7 @@ interface FormData {
   billingType?: 'retail' | 'wholesale';
   market?: 'newon' | 'waymor';
   customerId?: string;
+  customerPO?: string;
   client: {
     name: string;
     company?: string;
@@ -193,6 +194,7 @@ export function NewInvoiceFormWrapper({
           customerCity: documentData.client.city || undefined,
           customerState: documentData.client.state || undefined,
           customerZip: documentData.client.zip || undefined,
+          customerPO: documentData.customerPO,
           items: documentData.items.map(item => ({
             productId: item.productId || 'manual-entry',
             productName: item.description,

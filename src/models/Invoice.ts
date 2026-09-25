@@ -97,6 +97,7 @@ interface IInvoice extends Document {
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
+  customerPO?: string; // Purchase Order reference from customer (optional)
   items: IInvoiceItem[];
   subtotal: number;
   discountType?: 'percentage' | 'fixed';
@@ -438,6 +439,11 @@ const invoiceSchema = new Schema<IInvoice>(
     },
     customerZip: {
       type: String
+    },
+    customerPO: {
+      type: String,
+      required: false,
+      trim: true
     },
     items: {
       type: [invoiceItemSchema],

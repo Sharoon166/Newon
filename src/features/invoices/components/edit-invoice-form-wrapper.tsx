@@ -24,6 +24,7 @@ interface FormData {
   billingType?: 'retail' | 'wholesale';
   market?: 'newon' | 'waymor';
   customerId?: string;
+  customerPO?: string;
   client: {
     name: string;
     company?: string;
@@ -134,6 +135,7 @@ export function EditInvoiceFormWrapper({
     billingType: invoice.billingType,
     market: invoice.market,
     customerId: invoice.customerId,
+    customerPO: invoice.customerPO,
     client: {
       name: invoice.customerName,
       company: invoice.customerCompany,
@@ -218,6 +220,7 @@ export function EditInvoiceFormWrapper({
           customerCity: formData.client.city || "",
           customerState: formData.client.state || "",
           customerZip: formData.client.zip || "",
+          customerPO: formData.customerPO,
           items: formData.items.map(item => ({
             productId: item.productId || 'manual-entry',
             productName: item.description,

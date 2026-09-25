@@ -101,6 +101,11 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
               <p>
                 Due Date: <span className="font-medium text-muted-foreground">{formatDate(invoiceData.dueDate)}</span>
               </p>
+              {invoiceData.customerPO && (
+                <p>
+                  PO #: <span className="font-medium text-muted-foreground">{invoiceData.customerPO}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>

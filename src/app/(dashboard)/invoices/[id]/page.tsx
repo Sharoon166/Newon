@@ -319,6 +319,7 @@ export default function InvoiceDetailPage() {
               ? invoice.dueDate
               : invoice.dueDate.toISOString()
             : '',
+          customerPO: invoice.customerPO,
 
           items: (() => {
             // Group items by variantId for display (same product from different batches = one line)
@@ -636,6 +637,13 @@ export default function InvoiceDetailPage() {
                       </p>
                     )}
                   </div>
+
+                  {invoice.customerPO && (
+                    <div className="border-t pt-2 mt-2">
+                      <p className="text-xs font-medium text-muted-foreground">Purchase Order (PO)</p>
+                      <p className="font-medium">{invoice.customerPO}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

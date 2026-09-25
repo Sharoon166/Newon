@@ -85,6 +85,7 @@ interface LeanInvoice {
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
+  customerPO?: string;
   items: LeanInvoiceItem[];
   subtotal: number;
   discountType?: 'percentage' | 'fixed';
@@ -182,6 +183,7 @@ function transformInvoice(doc: LeanInvoice): Invoice {
     customerCity: doc.customerCity,
     customerState: doc.customerState,
     customerZip: doc.customerZip,
+    customerPO: doc.customerPO,
     items,
     subtotal: doc.subtotal,
     discountType: doc.discountType,

@@ -79,6 +79,8 @@ export type InvoiceTemplateData = {
 
   dueDate: string;
 
+  customerPO?: string;
+
   items: TemplateItem[];
 
   taxRate: number;
@@ -125,6 +127,8 @@ export type QuotationTemplateData = {
   date: string;
 
   validUntil: string;
+
+  customerPO?: string;
 
   items: TemplateItem[];
 

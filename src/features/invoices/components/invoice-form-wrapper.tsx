@@ -44,6 +44,7 @@ interface InvoiceFormData {
   billingType?: 'wholesale' | 'retail';
   market?: 'newon' | 'waymor';
   customerId?: string;
+  customerPO?: string;
   client: ClientInfo;
   items: FormItem[];
   taxRate: number;
@@ -112,6 +113,7 @@ export function InvoiceFormWrapper({ type, formData, userId }: InvoiceFormWrappe
         customerCity: formData.client.city || undefined,
         customerState: formData.client.state || undefined,
         customerZip: formData.client.zip || undefined,
+        customerPO: formData.customerPO,
         items: formData.items.map(item => ({
           productId: item.productId || 'manual-entry',
           productName: item.description,

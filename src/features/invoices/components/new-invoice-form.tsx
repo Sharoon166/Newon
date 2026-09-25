@@ -66,6 +66,7 @@ import { UnitSelector } from '@/components/ui/unit-selector';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 import { groupItemsByVariant, buildEffectiveStockByPurchase, type GroupedInvoiceItem } from '../utils/group-items';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 const invoiceFormSchema = z.object({
   logo: z.string().optional(),
@@ -95,6 +96,7 @@ const invoiceFormSchema = z.object({
   invoiceNumber: z.string().optional(), // Auto-generated on save
   date: z.string().min(1, 'Date is required'),
   dueDate: z.string().min(1, 'Due date is required'),
+  customerPO: z.string().optional(),
   items: z
     .array(
       z.object({
@@ -256,6 +258,7 @@ export function NewInvoiceForm({
       invoiceNumber: '', // Will be auto-generated on save
       date: initialData?.date || getToday(),
       dueDate: initialData?.dueDate || getToday(),
+      customerPO: initialData?.customerPO || "",
       items: initialData?.items || [],
       taxRate: initialData?.taxRate ?? 0,
       discount: initialData?.discount ?? 0,
@@ -1244,6 +1247,25 @@ if (diff > 0) {
             </CollapsibleContent>
           </div>
         </Collapsible>
+        {/* Purchase Order (PO) Number - Visible field */}
+        <FormField
+          control={form.control}
+          name="customerPO"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base font-semibold">Purchase Order (PO) Number</FormLabel>
+              <FormControl>
+                <Input 
+                  placeholder="Enter customer's PO number (e.g., PO-2026-001)" 
+                  {...field}
+                  className="text-base"
+                />
+              </FormControl>
+              <p className="text-xs text-muted-foreground">Customer's purchase order reference - will appear on the invoice</p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Invoice Items */}
         <div className="border rounded-lg p-6">

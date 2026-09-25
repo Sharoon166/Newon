@@ -343,7 +343,7 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
           <TabsTrigger value="history">Payment History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="record" className="mt-6">
+        <TabsContent value="record" className="mt-6 *:*:px-0 *:border-none">
           <Card>
             <CardHeader>
               <CardTitle>Record Payment Received</CardTitle>
@@ -515,7 +515,7 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium">Allocate to Invoices</h3>
+                        <h3>Allocate to Invoices</h3>
                         <p className="text-xs text-muted-foreground">
                           Assign portions of this payment to the customer&apos;s open invoices.
                         </p>
@@ -630,7 +630,7 @@ export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageC
           </Card>
         </TabsContent>
 
-        <TabsContent value="history" className="mt-6">
+        <TabsContent value="history" className="mt-6 *:*:px-0 *:border-none">
           <Card>
             <CardHeader>
               <CardTitle>Payment History</CardTitle>

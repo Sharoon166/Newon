@@ -98,6 +98,7 @@ export interface Invoice {
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
+  customerPO?: string;
   items: InvoiceItem[];
   subtotal: number;
   discountType?: 'percentage' | 'fixed';
@@ -157,6 +158,7 @@ export interface CreateInvoiceDto {
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
+  customerPO?: string;
   items: InvoiceItem[];
   subtotal: number;
   discountType?: 'percentage' | 'fixed';
@@ -209,6 +211,7 @@ export interface UpdateInvoiceDto {
   customerCity?: string;
   customerState?: string;
   customerZip?: string;
+  customerPO?: string;
   items?: InvoiceItem[];
   subtotal?: number;
   discountType?: 'percentage' | 'fixed';
