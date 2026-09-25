@@ -10,6 +10,7 @@ import { LedgerEntry } from '../types';
 import {
   ArrowLeft,
   Printer,
+  FileText,
   TrendingUp,
   Receipt,
   DollarSign,
@@ -99,6 +100,12 @@ export function CustomerLedgerDetails({ customerInfo, ledgerEntries, invoices, s
           </div>
         </div>
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/ledger/${customerInfo.customerId}/print/statement`} target="_blank">
+              <FileText className="h-4 w-4 mr-2" />
+              Ledger Statement
+            </Link>
+          </Button>
           <Button asChild>
             <Link href={`/ledger/${customerInfo.customerId}/print`} target="_blank">
               <Printer className="h-4 w-4 mr-2" />
