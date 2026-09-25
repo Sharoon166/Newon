@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { COMPANY_DETAILS } from '@/constants';
 import { getInvoice } from '@/features/invoices/actions';
 import type { Invoice } from '@/features/invoices/types';
-import { DeliveryChallanTemplate, type ChallanLine } from '../components/delivery-challan-template';
+import { StockChallanTemplate, type ChallanLine } from '../components/stock-challan-template';
 import type { StockMovement } from '../types';
 
 interface DeliveryChallanDialogProps {
@@ -26,7 +26,7 @@ const addressLine = (invoice?: Invoice | null) => {
 };
 
 /**
- * Printable delivery challan for a single History delivery slip. The slip's own
+ * Printable stock out challan for a single History delivery slip. The slip's own
  * lines are what actually left the shop, so those become the goods list; the
  * linked invoice supplies the party details and, where the line still maps back
  * to an invoice item, the rate/amount columns.
@@ -46,7 +46,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
         if (!cancelled) setInvoice(result);
       })
       .catch(error => {
-        console.error('Failed to load invoice for delivery challan:', error);
+        console.error('Failed to load invoice for stock out challan:', error);
         toast.error('Could not load the linked invoice — showing basic details');
       })
       .finally(() => {
@@ -60,7 +60,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     preserveAfterPrint: true,
-    documentTitle: `Delivery-Challan-${movement?.movementId ?? 'slip'}`,
+    documentTitle: `Stock-Out-Challan-${movement?.movementId ?? 'slip'}`,
     pageStyle: `
       @page { size: A4; margin: 15mm; }
       @media print {
@@ -80,12 +80,15 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
   ).map((line, index) => {
     const source = lines.length > 0 ? lines[index] : undefined;
     const item = source?.itemIndex !== undefined ? invoice?.items?.[source.itemIndex] : undefined;
+    // Invoice lines are stored per batch, so the same product can show up more
+    // than once - name the purchase each row came out of.
+    const purchaseRef = item?.purchaseId ? `Purchase No. ${item.purchaseId}` : undefined;
     const components = source?.components?.length
       ? `= ${source.components.map(component => `${component.quantity} × ${component.productName}`).join(', ')}`
       : undefined;
     return {
       ...line,
-      note: [line.note, components].filter(Boolean).join('  '),
+      note: [line.note, purchaseRef, components].filter(Boolean).join('  '),
       rate: item?.unitPrice
     };
   });
@@ -95,7 +98,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
       <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
         <SheetHeader className="pt-12 lg:pl-12">
           <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
-            <Printer /> Delivery challan
+            <Printer /> Stock out challan
           </SheetTitle>
         </SheetHeader>
 
@@ -113,7 +116,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
               <Skeleton className="h-40 w-full" />
             </div>
           ) : (
-            <DeliveryChallanTemplate
+            <StockChallanTemplate
               ref={printRef}
               data={{
                 challanNumber: movement.movementId,

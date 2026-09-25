@@ -49,6 +49,49 @@ export interface StockMovement {
   createdAt: string;
 }
 
+/** Which printable challan a History slip produces. */
+export type StockChallanKind = 'in' | 'out' | 'adjustment' | 'opening' | 'reversal';
+
+export interface StockChallanLine {
+  description: string;
+  /** SKU / component breakdown under the description. */
+  note?: string;
+  quantity: number;
+  /** Unit price when it can be resolved (purchase price / invoice item). */
+  rate?: number;
+}
+
+/**
+ * Everything the printable challan needs, fetched in one round trip:
+ * one lookup for the slip itself plus (only when the kind needs it) one
+ * projected lookup for the linked purchase/invoice or the whole opening batch.
+ */
+export interface StockChallanData {
+  kind: StockChallanKind;
+  /** "STOCK IN CHALLAN" / "STOCK OUT CHALLAN" / ... */
+  title: string;
+  /** Slip number of the clicked row (the batch number for opening slips). */
+  challanNumber: string;
+  date: string;
+  /** Secondary document field ("PO No." / "Inv. No." / "Entries"). */
+  reference?: { label: string; value: string };
+  market: 'newon' | 'waymor';
+  client: {
+    name: string;
+    company?: string;
+    address?: string;
+    phone?: string;
+  };
+  lines: StockChallanLine[];
+  /** Sum of the quantities, when it is meaningful (stock in / opening batch). */
+  totalQuantity?: number;
+  /** Stock in has no party address / phone block on the form. */
+  showContact?: boolean;
+  note?: string;
+  /** Opening batches: how many slips this one challan covers. */
+  batchCount?: number;
+}
+
 export interface InShopRow {
   productId: string;
   variantId: string;

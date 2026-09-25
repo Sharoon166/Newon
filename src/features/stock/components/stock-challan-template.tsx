@@ -14,10 +14,14 @@ export interface ChallanLine {
   rate?: number;
 }
 
-interface DeliveryChallanData {
+interface StockChallanFormData {
   challanNumber: string;
   date: string;
   invoiceNumber?: string;
+  /** Heading override - stock in / stock out / adjustment / starting count. */
+  title?: string;
+  /** Second document field ("Purchase No." / "Inv. No." / "Entries"). */
+  reference?: { label: string; value: string };
   market: 'newon' | 'waymor';
   client: {
     name: string;
@@ -26,29 +30,42 @@ interface DeliveryChallanData {
     phone?: string;
   };
   lines: ChallanLine[];
+  /** Sum under the quantity column, for challans without rates. */
+  totalQuantity?: number;
+  /** Hide the address / mobile rows (stock in has no party contact block). */
+  showContact?: boolean;
+  /** Printed under the goods grid (starting counts / quick counts). */
+  note?: string;
+  /** Terms printed under the signature block (defaults to the delivery ones). */
+  terms?: string[];
   company: typeof COMPANY_DETAILS;
 }
 
-interface DeliveryChallanTemplateProps {
-  data: DeliveryChallanData;
+interface StockChallanTemplateProps {
+  data: StockChallanFormData;
 }
 
 const formatAmount = (value: number) =>
   value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
- * Form-style delivery challan (the classic bordered form: header, party details,
+ * Form-style stock out challan (the classic bordered form: header, party details,
  * S.N / Description / Quantity / Rate / Amount grid, amount in words, signature).
  * Rates come from the linked invoice, so lines without a matching invoice item
  * simply show "—".
  */
-export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChallanTemplateProps>(({ data }, ref) => {
+export const StockChallanTemplate = forwardRef<HTMLDivElement, StockChallanTemplateProps>(({ data }, ref) => {
   const brand = brands.find(b => b.id === data.market) || brands[0];
 
   const amountFor = (line: ChallanLine) => (line.rate !== undefined ? line.rate * line.quantity : undefined);
   const amounts = data.lines.map(amountFor);
   const hasAmounts = amounts.some(value => value !== undefined);
   const totalAmount = amounts.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+  // Defaults keep the invoice stock out challan looking exactly as before.
+  const heading = data.title ?? 'STOCK OUT CHALLAN';
+  const showContact = data.showContact !== false;
+  const reference = data.reference ?? (data.invoiceNumber ? { label: 'Inv. No.', value: data.invoiceNumber } : null);
+  const terms = data.terms ?? ["1. Goods once delivered are subject to the company's standard terms of sale."];
   const fillerRows = Math.max(0, 8 - data.lines.length);
 
   return (
@@ -97,7 +114,7 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
 
         {/* TITLE */}
         <div className="border-b-2 border-black py-2 text-center">
-          <h2 className="text-lg font-bold tracking-wide">DELIVERY CHALLAN</h2>
+          <h2 className="text-lg font-bold tracking-wide">{heading}</h2>
         </div>
 
         {/* PARTY / DOCUMENT DETAILS */}
@@ -111,10 +128,10 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
               <span className="font-semibold">Date:</span>
               <span className="min-w-32 border-b border-dotted border-black pb-0.5">{formatDate(data.date)}</span>
             </p>
-            {data.invoiceNumber && (
+            {reference && (
               <p className="flex items-end gap-2">
-                <span className="font-semibold">Inv. No.:</span>
-                <span className="min-w-32 border-b border-dotted border-black pb-0.5">{data.invoiceNumber}</span>
+                <span className="font-semibold">{reference.label}:</span>
+                <span className="min-w-32 border-b border-dotted border-black pb-0.5">{reference.value}</span>
               </p>
             )}
           </div>
@@ -126,15 +143,19 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
             </span>
           </p>
 
-          <p className="flex items-end gap-2">
-            <span className="font-semibold">Add:</span>
-            <span className="min-w-72 border-b border-dotted border-black pb-0.5">{data.client.address || '—'}</span>
-          </p>
+          {showContact && (
+            <>
+              <p className="flex items-end gap-2">
+                <span className="font-semibold">Add:</span>
+                <span className="min-w-72 border-b border-dotted border-black pb-0.5">{data.client.address || '—'}</span>
+              </p>
 
-          <p className="flex items-end gap-2">
-            <span className="font-semibold">Mob. No.:</span>
-            <span className="min-w-56 border-b border-dotted border-black pb-0.5">{data.client.phone || '—'}</span>
-          </p>
+              <p className="flex items-end gap-2">
+                <span className="font-semibold">Mob. No.:</span>
+                <span className="min-w-56 border-b border-dotted border-black pb-0.5">{data.client.phone || '—'}</span>
+              </p>
+            </>
+          )}
         </div>
 
         {/* GOODS GRID */}
@@ -180,12 +201,20 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
               ))}
 
               <tr className="bg-gray-50">
-                <td className="border-r border-black px-2 py-2" colSpan={3}></td>
+                <td className="border-r border-black px-2 py-2" colSpan={2}></td>
+                <td className="border-r border-black px-2 py-2 text-right font-semibold">
+                  {data.totalQuantity ?? ''}
+                </td>
                 <td className="border-r border-black px-2 py-2 text-right font-semibold">Total</td>
                 <td className="px-2 py-2 text-right font-semibold">{hasAmounts ? formatAmount(totalAmount) : '—'}</td>
               </tr>
             </tbody>
           </table>
+          {data.note ? (
+            <div className="border-t border-black px-4 py-2 text-sm">
+              <span className="font-semibold">Note:</span> {data.note}
+            </div>
+          ) : null}
         </div>
 
         {/* AMOUNT IN WORDS */}
@@ -198,7 +227,11 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
         <div className="flex items-end justify-between gap-8 p-4 text-sm">
           <div className="max-w-xs">
             <p className="mb-1 font-semibold">Terms &amp; Condition</p>
-            <p className="text-xs text-gray-700">1. Goods once delivered are subject to the company&apos;s standard terms of sale.</p>
+            {terms.map((term, index) => (
+              <p key={index} className="text-xs text-gray-700">
+                {term}
+              </p>
+            ))}
           </div>
           <div className="w-56 text-center">
             <div className="mb-1 border-b border-black">&nbsp;</div>
@@ -210,4 +243,4 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
   );
 });
 
-DeliveryChallanTemplate.displayName = 'DeliveryChallanTemplate';
+StockChallanTemplate.displayName = 'StockChallanTemplate';

@@ -18,6 +18,9 @@ import type {
   PaginatedStock,
   QuickCountInput,
   ReceivePurchaseInput,
+  StockChallanData,
+  StockChallanKind,
+  StockChallanLine,
   StockMovement,
   StockMovementKind,
   StockTrackingStatus,
@@ -621,6 +624,214 @@ export async function getStockMovements(input: {
     total,
     page,
     limit
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Challans (stock in / stock out / adjustment / batched starting counts)
+// ---------------------------------------------------------------------------
+
+/** Only the fields the printable challan renders - keeps the payload small. */
+const CHALLAN_MOVEMENT_FIELDS =
+  'movementId kind productName sku quantity inShopBefore inShopAfter purchaseId purchaseNumber invoiceId invoiceNumber customerName lines note reversalOf epoch createdAt';
+
+const CHALLAN_TITLE: Record<string, string> = {
+  receive: 'STOCK IN CHALLAN',
+  deliver: 'STOCK OUT CHALLAN',
+  adjustment: 'ADJUSTMENT CHALLAN',
+  opening: 'STARTING COUNT CHALLAN',
+  reversal: 'REVERSAL CHALLAN'
+};
+
+const CHALLAN_KIND: Record<string, StockChallanKind> = {
+  receive: 'in',
+  deliver: 'out',
+  adjustment: 'adjustment',
+  opening: 'opening',
+  reversal: 'reversal'
+};
+
+/**
+ * Data for the printable challan of a single History slip.
+ *
+ * Deliberately cheap: one projected lookup for the slip plus at most two
+ * parallel projected lookups for party/rate context (the linked purchase
+ * and/or invoice, so Rate + Amount can be filled in) and - for starting
+ * counts - one query that returns the whole batch instead of one challan per
+ * product.
+ */
+export async function getStockChallan(input: { movementId: string }): Promise<StockChallanData | null> {
+  await dbConnect();
+
+  const movement = (await StockMovementModel.findOne({ movementId: input.movementId })
+    .select(CHALLAN_MOVEMENT_FIELDS)
+    .lean()) as any;
+  if (!movement) return null;
+
+  const kind = CHALLAN_KIND[movement.kind];
+  if (!kind) return null;
+
+  // Party + rate context: only when the slip points at a purchase / invoice,
+  // both issued together so the dialog waits on a single round trip.
+  const purchaseQuery =
+    movement.purchaseId && (kind === 'in' || kind === 'reversal')
+      ? (PurchaseModel.findById(movement.purchaseId).select('supplier unitPrice').lean() as Promise<any>)
+      : Promise.resolve(null);
+  const invoiceQuery =
+    movement.invoiceId && (kind === 'out' || kind === 'reversal')
+      ? (InvoiceModel.findById(movement.invoiceId)
+          .select(
+            'market customerName customerCompany customerAddress customerCity customerPhone items.unitPrice items.purchaseId'
+          )
+          .lean() as Promise<any>)
+      : Promise.resolve(null);
+
+  const [purchase, invoice] = await Promise.all([purchaseQuery, invoiceQuery]);
+
+  const createdAt = movement.createdAt instanceof Date ? movement.createdAt.toISOString() : String(movement.createdAt);
+  const invoiceItems: any[] = invoice?.items ?? [];
+  const totalQty = (lines: StockChallanLine[]) => lines.reduce((sum, line) => sum + (line.quantity ?? 0), 0);
+  const client = {
+    name: movement.customerName || invoice?.customerName || purchase?.supplier || '',
+    company: invoice?.customerCompany,
+    address: invoice ? [invoice.customerAddress, invoice.customerCity].filter(Boolean).join(', ') : undefined,
+    phone: invoice?.customerPhone || ''
+  };
+
+  // Rates: the invoice item first (stock out / reversal of a delivery),
+  // otherwise the purchase unit price (stock in / reversal of a receipt).
+  const rateFor = (line: any): number | undefined => {
+    const item = line?.itemIndex !== undefined ? invoiceItems[line.itemIndex] : undefined;
+    if (item?.unitPrice !== undefined) return item.unitPrice;
+    if (!invoice && purchase?.unitPrice !== undefined) return purchase.unitPrice;
+    return undefined;
+  };
+
+  const buildLines = (): StockChallanLine[] => {
+    const raw: any[] = movement.lines?.length
+      ? movement.lines
+      : [{ productName: movement.productName, sku: movement.sku, quantity: movement.quantity }];
+    return raw.map(line => {
+      // Invoice lines are stored per batch, so the same product can appear
+      // several times - name the purchase each row came out of.
+      const item = line?.itemIndex !== undefined ? invoiceItems[line.itemIndex] : undefined;
+      return {
+        description: line.productName,
+        note: [
+          line.sku,
+          item?.purchaseId ? `Purchase No. ${item.purchaseId}` : '',
+          line.components?.length
+            ? `= ${line.components.map((c: any) => `${c.quantity} × ${c.productName}`).join(', ')}`
+            : ''
+        ]
+          .filter(Boolean)
+          .join('  '),
+        quantity: line.quantity,
+        rate: rateFor(line)
+      };
+    });
+  };
+
+  if (kind === 'opening') {
+    // Batched: every starting count of this epoch on one challan.
+    const epoch = movement.epoch ?? 0;
+    const batch = (await StockMovementModel.find({ kind: 'opening', epoch })
+      .select('productName sku quantity')
+      .sort({ productName: 1, sku: 1 })
+      .lean()) as any[];
+
+    return {
+      kind,
+      title: CHALLAN_TITLE.opening,
+      challanNumber: `OPENING-${epoch}`,
+      date: createdAt,
+      reference: { label: 'Entries', value: `${batch.length} product${batch.length === 1 ? '' : 's'}` },
+      market: 'newon',
+      client: { name: '' },
+      lines: batch.map(doc => ({ description: doc.productName, note: doc.sku, quantity: doc.quantity ?? 0 })),
+      totalQuantity: batch.reduce((sum, doc) => sum + (doc.quantity ?? 0), 0),
+      showContact: false,
+      note: movement.note,
+      batchCount: batch.length
+    };
+  }
+
+  if (kind === 'adjustment') {
+    return {
+      kind,
+      title: CHALLAN_TITLE.adjustment,
+      challanNumber: movement.movementId,
+      date: createdAt,
+      market: 'newon',
+      client: { name: '' },
+      lines: [
+        {
+          description: movement.productName,
+          note: `${movement.sku}  ·  in shop ${movement.inShopBefore} → ${movement.inShopAfter}`,
+          quantity: movement.quantity
+        }
+      ],
+      showContact: false,
+      note: movement.note
+    };
+  }
+
+  if (kind === 'in') {
+    const lines = buildLines();
+    return {
+      kind,
+      title: CHALLAN_TITLE.receive,
+      challanNumber: movement.movementId,
+      date: createdAt,
+      reference: movement.purchaseNumber ? { label: 'Purchase No.', value: movement.purchaseNumber } : undefined,
+      market: 'newon',
+      client: { name: purchase?.supplier ?? '' },
+      lines,
+      totalQuantity: totalQty(lines),
+      // Stock in carries no party address / phone block on the form.
+      showContact: false,
+      note: movement.note
+    };
+  }
+
+  if (kind === 'reversal') {
+    const lines = buildLines();
+    const hasDoc = !!(movement.invoiceNumber || movement.purchaseNumber);
+    return {
+      kind,
+      title: CHALLAN_TITLE.reversal,
+      challanNumber: movement.movementId,
+      date: createdAt,
+      reference: movement.invoiceNumber
+        ? { label: 'Inv. No.', value: movement.invoiceNumber }
+        : movement.purchaseNumber
+          ? { label: 'Purchase No.', value: movement.purchaseNumber }
+          : { label: 'Reversal of', value: movement.reversalOf ?? movement.movementId },
+      market: invoice?.market ?? 'newon',
+      client,
+      lines,
+      totalQuantity: totalQty(lines),
+      showContact: !!invoice,
+      // Skip the note when the reference field already names the original slip.
+      note: hasDoc ? movement.note : undefined
+    };
+  }
+
+  // Stock out (a delivery slip with no invoice linked - invoice-backed
+  // deliveries keep their own stock out challan, printed from the invoice).
+  const lines = buildLines();
+  return {
+    kind: 'out',
+    title: CHALLAN_TITLE.deliver,
+    challanNumber: movement.movementId,
+    date: createdAt,
+    reference: movement.invoiceNumber ? { label: 'Inv. No.', value: movement.invoiceNumber } : undefined,
+    market: invoice?.market ?? 'newon',
+    client,
+    lines,
+    totalQuantity: totalQty(lines),
+    showContact: !!invoice,
+    note: movement.note
   };
 }
 

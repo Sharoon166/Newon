@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, ChevronDown, FileDown, History as HistoryIcon, Printer, PrinterIcon, Search, Undo2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpDown, ArrowUpFromLine, ChevronDown, ClipboardCheck, FileDown, History as HistoryIcon, Layers, Printer, PrinterIcon, Search, Undo2 } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -22,7 +22,8 @@ import { ServerPagination } from '@/components/general/server-pagination';
 import { EmptyState } from '@/components/general/empty-state';
 import { getStockMovements, reverseMovement } from '../actions';
 import { DeliveryChallanDialog } from './delivery-challan-dialog';
-import type { PaginatedStock, StockMovement, StockMovementKind } from '../types';
+import { StockChallanDialog } from './stock-challan-dialog';
+import type { PaginatedStock, StockChallanKind, StockMovement, StockMovementKind } from '../types';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -56,6 +57,49 @@ const KIND_STYLES: Record<
 };
 
 const CENTERED_COLUMNS = ['quantity', 'inShop'];
+
+/**
+ * Which challan (if any) a slip can print on its own. Invoice-backed
+ * deliveries keep their stock out challan (the invoice-backed dialog),
+ * reversals print under their own number, and the starting counts share one
+ * batched challan per start-date run.
+ */
+function stockChallanKind(movement: StockMovement): StockChallanKind | null {
+  // Reversals print under their own slip number.
+  if (movement.kind === 'reversal') return 'reversal';
+  if (movement.reversed || movement.reversalOf) return null;
+  switch (movement.kind) {
+    case 'receive':
+      return 'in';
+    case 'adjustment':
+      return 'adjustment';
+    case 'opening':
+      return 'opening';
+    case 'deliver':
+      return movement.invoiceId ? null : 'out';
+    default:
+      return null;
+  }
+}
+
+const STOCK_CHALLAN_META: Record<
+  StockChallanKind,
+  { icon: typeof FileDown; label: string; title: string }
+> = {
+  in: { icon: ArrowDownToLine, label: 'Stock in challan', title: 'Stock in challan' },
+  out: { icon: ArrowUpFromLine, label: 'Stock out challan', title: 'Stock out challan' },
+  adjustment: { icon: ClipboardCheck, label: 'Adjustment challan', title: 'Adjustment challan' },
+  opening: {
+    icon: Layers,
+    label: 'Starting count challan',
+    title: 'Starting count challan (every entry of this batch on one slip)'
+  },
+  reversal: {
+    icon: Undo2,
+    label: 'Reversal challan',
+    title: 'Reversal challan (printed under this slip\u2019s own number)'
+  }
+};
 
 function MovementBadge({ kind }: { kind: StockMovementKind }) {
   const style = KIND_STYLES[kind];
@@ -144,8 +188,11 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pendingReversal, setPendingReversal] = useState<StockMovement | null>(null);
   const [isReversing, setIsReversing] = useState(false);
-  // Movement whose delivery challan is open in the preview sheet.
+  // Movement whose invoice stock out challan is open in the preview sheet.
   const [challanMovement, setChallanMovement] = useState<StockMovement | null>(null);
+  // Movement whose stock in / stock out / adjustment / batched starting-count
+  // challan is open in the preview sheet.
+  const [stockChallanMovement, setStockChallanMovement] = useState<StockMovement | null>(null);
   // Movements whose product breakdown (multi-product deliveries) is expanded.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -358,12 +405,15 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         cell: ({ row }) => {
           const movement = row.original;
           // Only a real (non-reversed) delivery that points at an invoice can
-          // produce a delivery challan.
+          // produce the invoice stock out challan.
           const canChallan =
             movement.kind === 'deliver' &&
             !!movement.invoiceId &&
             !movement.reversalOf &&
             !movement.reversed;
+          const stockChallan = stockChallanKind(movement);
+          const stockMeta = stockChallan ? STOCK_CHALLAN_META[stockChallan] : null;
+          const StockIcon = stockMeta?.icon;
           const reverseDisabled =
             movement.reversed || movement.kind === 'opening' || movement.kind === 'reversal';
           return (
@@ -372,11 +422,22 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Download delivery challan for ${movement.movementId}`}
-                  title="Delivery challan"
+                  aria-label={`Download stock out challan for ${movement.movementId}`}
+                  title="Stock out challan"
                   onClick={() => setChallanMovement(movement)}
                 >
                   <FileDown className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {stockMeta && StockIcon && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Download ${stockMeta.label} for ${movement.movementId}`}
+                  title={stockMeta.title}
+                  onClick={() => setStockChallanMovement(movement)}
+                >
+                  <StockIcon className="h-3.5 w-3.5" />
                 </Button>
               )}
               <Button
@@ -627,6 +688,14 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         open={!!challanMovement}
         onOpenChange={open => {
           if (!open) setChallanMovement(null);
+        }}
+      />
+
+      <StockChallanDialog
+        movement={stockChallanMovement}
+        open={!!stockChallanMovement}
+        onOpenChange={open => {
+          if (!open) setStockChallanMovement(null);
         }}
       />
     </div>
