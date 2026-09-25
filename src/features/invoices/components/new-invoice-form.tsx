@@ -48,7 +48,8 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { InvoiceItem } from '../types';
-import { INVOICE_TERMS_AND_CONDITIONS, PAYMENT_DETAILS, OTC_CUSTOMER } from '@/constants';
+import { INVOICE_TERMS_AND_CONDITIONS, OTC_CUSTOMER } from '@/constants';
+import { getPaymentDetailsForBrand } from '@/features/settings/lib/brand-defaults';
 import { toast } from 'sonner';
 import { NewonInvoiceTemplate } from './invoice-template';
 import { CustomerForm } from '@/features/customers/components/customer-form';
@@ -215,6 +216,15 @@ export function NewInvoiceForm({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
+  const getBrandById = useBrandStore(state => state.getBrandById);
+  
+  // Get payment details with brand-specific fallback
+  const globalPaymentDetails = initialPaymentDetails ? {
+    bankName: initialPaymentDetails.BANK_NAME,
+    accountNumber: initialPaymentDetails.ACCOUNT_NUMBER,
+    iban: initialPaymentDetails.IBAN
+  } : undefined;
+  
   const form = useForm<InvoiceFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(invoiceFormSchema) as any,
@@ -260,11 +270,12 @@ export function NewInvoiceForm({
       terms:
         initialData?.terms ||
         (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n')),
-      paymentDetails: {
-        bankName: initialPaymentDetails?.BANK_NAME || PAYMENT_DETAILS.BANK_NAME,
-        accountNumber: initialPaymentDetails?.ACCOUNT_NUMBER || PAYMENT_DETAILS.ACCOUNT_NUMBER,
-        iban: initialPaymentDetails?.IBAN || PAYMENT_DETAILS.IBAN
-      }
+      paymentDetails: (() => {
+        // Use brand-specific payment details if available, otherwise fall back to global
+        const currentBrand = getBrandById(initialData?.market || currentBrandId);
+        const details = getPaymentDetailsForBrand(currentBrand, globalPaymentDetails);
+        return details;
+      })()
     }
   });
 
@@ -390,7 +401,15 @@ export function NewInvoiceForm({
 
   // useWatch returns a plain array (not proxy) that triggers re-render on every item change
   const watchedItems = useWatch({ control: form.control, name: 'items' }) as InvoiceFormValues['items'];
+  const watchedMarket = useWatch({ control: form.control, name: 'market' }) as 'newon' | 'waymor';
   const groupedItems = groupItemsByVariant(watchedItems || []);
+
+  // Update payment details when market (brand) changes
+  useEffect(() => {
+    const currentBrand = getBrandById(watchedMarket);
+    const details = getPaymentDetailsForBrand(currentBrand, globalPaymentDetails);
+    form.setValue('paymentDetails', details);
+  }, [watchedMarket, getBrandById, globalPaymentDetails, form]);
 
   // Toggle expand/collapse for a grouped item
   const toggleGroupExpand = (key: string) => {

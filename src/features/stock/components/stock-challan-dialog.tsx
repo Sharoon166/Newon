@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { COMPANY_DETAILS } from '@/constants';
 import { getStockChallan } from '../actions';
 import { StockChallanTemplate, type ChallanLine } from './stock-challan-template';
 import type { StockChallanData, StockChallanKind, StockMovement } from '../types';
@@ -138,8 +137,7 @@ export function StockChallanDialog({ movement, open, onOpenChange }: StockChalla
                 totalQuantity: data.totalQuantity,
                 note: data.note,
                 showContact: data.showContact,
-                terms: TERMS[data.kind],
-                company: COMPANY_DETAILS
+                terms: TERMS[data.kind]
               }}
             />
           ) : (

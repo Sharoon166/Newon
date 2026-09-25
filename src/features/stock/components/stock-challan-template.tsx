@@ -1,8 +1,7 @@
 import { forwardRef } from 'react';
 import Image from 'next/image';
-import { COMPANY_DETAILS } from '@/constants';
 import { convertToWords } from '@/features/invoices/utils';
-import { brands } from '@/stores/useBrandStore';
+import useBrandStore from '@/stores/useBrandStore';
 import { formatDate } from '@/lib/utils';
 
 export interface ChallanLine {
@@ -38,7 +37,6 @@ interface StockChallanFormData {
   note?: string;
   /** Terms printed under the signature block (defaults to the delivery ones). */
   terms?: string[];
-  company: typeof COMPANY_DETAILS;
 }
 
 interface StockChallanTemplateProps {
@@ -55,7 +53,7 @@ const formatAmount = (value: number) =>
  * simply show "—".
  */
 export const StockChallanTemplate = forwardRef<HTMLDivElement, StockChallanTemplateProps>(({ data }, ref) => {
-  const brand = brands.find(b => b.id === data.market) || brands[0];
+  const brand = useBrandStore(state => state.getBrandById(data.market));
 
   const amountFor = (line: ChallanLine) => (line.rate !== undefined ? line.rate * line.quantity : undefined);
   const amounts = data.lines.map(amountFor);
@@ -85,19 +83,22 @@ export const StockChallanTemplate = forwardRef<HTMLDivElement, StockChallanTempl
               />
             ) : (
               <div className="flex h-20 w-20 items-center justify-center px-1 text-center text-xs font-bold">
-                {data.company.name}
+                {brand.displayName}
               </div>
             )}
           </div>
 
           <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold uppercase">{brand?.displayName || data.company.name}</h1>
-            <p className="text-xs">{data.company.address}</p>
+            <h1 className="text-xl font-bold uppercase">{brand?.displayName}</h1>
+            <p className="text-xs">{brand.address}</p>
             <p className="text-xs">
-              {data.company.city}, {data.company.state} {data.company.zip}
+              {brand.city}, {brand.state} {brand.zip}
             </p>
             <p className="text-xs">
-              Mob: {data.company.phone} | Email: {data.company.email}
+              Mob: {brand.phone} | Email: {brand.email}
+            </p>
+            <p className="text-xs">
+              {brand.website}
             </p>
             {brand?.description && <p className="mt-1 text-[10px] italic">{brand.description}</p>}
             {(brand?.ntnNo || brand?.strnNo) && (

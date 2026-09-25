@@ -6,9 +6,9 @@ import { useReactToPrint } from 'react-to-print';
 import { getCustomerLedgerEntries } from '@/features/ledger/actions';
 import { PrintableLedgerStatement } from '@/features/ledger/components/printable-ledger-statement';
 import { LedgerEntry } from '@/features/ledger/types';
-import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 export default function LedgerStatementPrintPage() {
   const params = useParams();

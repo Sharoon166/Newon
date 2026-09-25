@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { QuotationTemplateData } from './template-types';
-import { brands } from '@/stores/useBrandStore';
+import useBrandStore from '@/stores/useBrandStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type QuotationTemplateProps = {
@@ -19,7 +19,7 @@ type QuotationTemplateProps = {
 export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplateProps>(
   ({ quotationData, onBack, onPrint, onSave }, ref) => {
     // Get brand based on quotation market field, not current brand context
-    const quotationBrand = brands.find(brand => brand.id === quotationData.market) || brands[0];
+    const quotationBrand = useBrandStore(state => state.getBrandById(quotationData.market));
 
     const subtotal = quotationData.items.reduce((sum, item) => sum + item.amount, 0);
 
@@ -50,16 +50,16 @@ export const QuotationTemplate = forwardRef<HTMLDivElement, QuotationTemplatePro
                 className="w-24 mb-4"
               />
             ) : (
-              <h1 className="text-3xl font-bold text-primary">{quotationData.company.name || 'Company Name'}</h1>
+              <h1 className="text-3xl font-bold text-primary">{quotationBrand.displayName}</h1>
             )}
             <div className="text-muted-foreground text-sm print:text-xs">
-              <p>{quotationData.company.address}</p>
+              <p className="max-w-sm">{quotationBrand.address}</p>
               <p>
-                {quotationData.company.city} {quotationData.company.state} {quotationData.company.zip}
+                {quotationBrand.city} {quotationBrand.state} {quotationBrand.zip}
               </p>
-              {quotationData.company.phone && <p>{quotationData.company.phone}</p>}
-              {quotationData.company.email && <p>{quotationData.company.email}</p>}
-              {quotationData.company.website && <p>{quotationData.company.website}</p>}
+              {quotationBrand.phone && <p>{quotationBrand.phone}</p>}
+              {quotationBrand.email && <p>{quotationBrand.email}</p>}
+              {quotationBrand.website && <p>{quotationBrand.website}</p>}
 
               {quotationBrand?.ntnNo && (
                 <p>

@@ -1,6 +1,5 @@
 import { forwardRef } from 'react';
-import { COMPANY_DETAILS } from '@/constants';
-import { brands } from '@/stores/useBrandStore';
+import useBrandStore from '@/stores/useBrandStore';
 import Image from 'next/image';
 import { Mail, Phone } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -27,7 +26,6 @@ interface DeliveryNoteData {
     phone: string;
   };
   items: DeliveryNoteItem[];
-  company: typeof COMPANY_DETAILS;
 }
 
 interface DeliveryNoteTemplateProps {
@@ -37,7 +35,7 @@ interface DeliveryNoteTemplateProps {
 }
 
 export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTemplateProps>(({ data }, ref) => {
-  const brand = brands.find(b => b.id === data.market) || brands[0];
+  const brand = useBrandStore(state => state.getBrandById(data.market));
 
   return (
     <div ref={ref} className="pt-10 bg-white max-w-4xl mx-auto print-page-container">
@@ -55,15 +53,15 @@ export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTempl
             {brand?.logo ? (
               <Image src={brand.logo} unoptimized alt="Company Logo" width={120} height={60} className="w-28 mb-2" />
             ) : (
-              <h2 className="text-xl font-bold mb-2">{data.company.name}</h2>
+              <h2 className="text-xl font-bold mb-2">{brand.displayName}</h2>
             )}
 
             <div className="text-sm space-y-1">
-              <p>{data.company.address}</p>
+              <p>{brand.address}</p>
               <p>
-                {data.company.city}, {data.company.state} {data.company.zip}
+                {brand.city}, {brand.state} {brand.zip}
               </p>
-              <p>{data.company.website}</p>
+              <p>{brand.website}</p>
               {brand?.ntnNo && (
                 <p>
                   <span className="font-semibold">NTN#:</span> {brand.ntnNo}
@@ -155,11 +153,11 @@ export const DeliveryNoteTemplate = forwardRef<HTMLDivElement, DeliveryNoteTempl
           <div className="mt-8 pt-4 border-t flex justify-between items-center text-sm text-gray-600 print-footer-section">
             <span className="inline-flex gap-2 items-center">
               <Phone className="size-4" />
-              {data.company.phone}
+              {brand.phone}
             </span>
             <span className="inline-flex gap-2 items-center">
               <Mail className="size-4" />
-              {data.company.email}
+              {brand.email}
             </span>
           </div>
         </div>

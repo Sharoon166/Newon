@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { COMPANY_DETAILS } from '@/constants';
 import { getInvoice } from '@/features/invoices/actions';
 import type { Invoice } from '@/features/invoices/types';
 import { StockChallanTemplate, type ChallanLine } from '../components/stock-challan-template';
@@ -129,8 +128,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
                   address: addressLine(invoice),
                   phone: invoice?.customerPhone || ''
                 },
-                lines: challanLines,
-                company: COMPANY_DETAILS
+                lines: challanLines
               }}
             />
           )}

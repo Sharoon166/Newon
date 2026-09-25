@@ -6,8 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { ArrowLeft, Download, Save } from 'lucide-react';
 import Image from 'next/image';
 import { InvoiceTemplateData } from './template-types';
-import { brands } from '@/stores/useBrandStore';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import useBrandStore from '@/stores/useBrandStore';
 
 type InvoiceTemplateProps = {
   invoiceData: InvoiceTemplateData;
@@ -23,7 +22,7 @@ type InvoiceTemplatePropsWithMode = InvoiceTemplateProps & {
 export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePropsWithMode>(
   ({ invoiceData, onBack, onPrint, onSave, viewMode = 'print' }, ref) => {
     // Get brand based on invoice market field, not current brand context
-    const invoiceBrand = brands.find(brand => brand.id === invoiceData.market) || brands[0];
+    const invoiceBrand = useBrandStore(state => state.getBrandById(invoiceData.market));
     const subtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
     const taxAmount = (subtotal * invoiceData.taxRate) / 100;
     const discountAmount =
@@ -46,7 +45,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
         }`}
       >
         <div aria-label="heading" className="text-primary text-center  text-3xl font-semibold">
-          Sale Invoice
+          {invoiceBrand.invoiceTitle?.trim() || 'Sale Invoice'}
         </div>
         {/* Header */}
         <div
@@ -65,7 +64,7 @@ export const NewonInvoiceTemplate = forwardRef<HTMLDivElement, InvoiceTemplatePr
                 className="w-24 mb-4"
               />
             ) : (
-              <h1 className="text-3xl font-bold text-primary">{invoiceData.company.name || 'Company Name'}</h1>
+              <h1 className="text-3xl font-bold text-primary">{invoiceBrand.displayName}</h1>
             )}
 
             <div className="text-muted-foreground text-sm print:text-xs">

@@ -22,7 +22,10 @@ import { NewonInvoiceTemplate } from '@/features/invoices/components/invoice-tem
 import { DeliveryNoteTemplate } from '@/features/invoices/components/delivery-note-template';
 import { InvoiceTemplateData, QuotationTemplateData } from '@/features/invoices/components/template-types';
 import { toast } from 'sonner';
-import { COMPANY_DETAILS, PAYMENT_DETAILS, INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
+import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
+import { getPaymentDetails } from '@/features/settings/actions';
+import { getPaymentDetailsForBrand } from '@/features/settings/lib/brand-defaults';
+import useBrandStore from '@/stores/useBrandStore';
 import { QuotationTemplate } from '@/features/invoices/components/quotation-template';
 import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
@@ -56,6 +59,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const canEdit = usePermission('edit:invoices');
   const canAddPayment = canEdit;
+  const getBrandById = useBrandStore(state => state.getBrandById);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -64,6 +68,7 @@ export default function InvoiceDetailPage() {
   const [isDeliveryNoteOpen, setIsDeliveryNoteOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [productImages, setProductImages] = useState<Map<string, string>>(new Map());
+  const [globalPaymentDetails, setGlobalPaymentDetails] = useState<{ bankName: string; accountNumber: string; iban: string } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const deliveryNoteRef = useRef<HTMLDivElement>(null);
   // Check if invoice/quotation is before cutoff date and should be restricted from editing
@@ -75,6 +80,17 @@ export default function InvoiceDetailPage() {
         return createdDate <= cutoffDate;
       })()
     : false;
+
+  // Fetch global payment details once on mount
+  useEffect(() => {
+    getPaymentDetails().then(details => {
+      setGlobalPaymentDetails({
+        bankName: details.BANK_NAME,
+        accountNumber: details.ACCOUNT_NUMBER,
+        iban: details.IBAN
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (params.id) {
@@ -278,12 +294,14 @@ export default function InvoiceDetailPage() {
   }
 
   // Transform invoice data to template format
+  // Get brand-specific payment details with fallback to global
+  const invoiceBrand = getBrandById(invoice.market);
+  const paymentDetails = getPaymentDetailsForBrand(invoiceBrand, globalPaymentDetails ?? undefined);
 
   const templateData =
     invoice.type === 'invoice'
       ? ({
           logo: undefined,
-          company: COMPANY_DETAILS,
           client: {
             name: invoice.customerName,
             company: invoice.customerCompany,
@@ -331,11 +349,7 @@ export default function InvoiceDetailPage() {
           discountType: invoice.discountType || 'fixed',
           notes: invoice.notes,
           terms: invoice.termsAndConditions,
-          paymentDetails: {
-            bankName: PAYMENT_DETAILS.BANK_NAME,
-            accountNumber: PAYMENT_DETAILS.ACCOUNT_NUMBER,
-            iban: PAYMENT_DETAILS.IBAN
-          },
+          paymentDetails,
           previousBalance: 0,
           paid: invoice.paidAmount,
           remainingPayment: invoice.balanceAmount,
@@ -347,7 +361,6 @@ export default function InvoiceDetailPage() {
         } as InvoiceTemplateData)
       : ({
           logo: undefined,
-          company: COMPANY_DETAILS,
           client: {
             name: invoice.customerName,
             company: invoice.customerCompany,
@@ -868,10 +881,9 @@ export default function InvoiceDetailPage() {
                     description: item.productName,
                     quantity: item.quantity,
                     variantSKU: item.variantSKU
-                  })),
-                company: COMPANY_DETAILS
-              }}
-              ref={deliveryNoteRef}
+                  }))
+                }}
+                ref={deliveryNoteRef}
             />
           </div>
         </SheetContent>

@@ -37,7 +37,7 @@ import {
 import { NavUser } from './nav-user';
 import { NavCategories } from './nav-projects';
 import { NavSecondary } from './nav-secondary';
-import useBrandStore, { brands } from '@/stores/useBrandStore';
+import useBrandStore from '@/stores/useBrandStore';
 import { ChevronsUpDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -201,7 +201,7 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { getCurrentBrand, setBrand } = useBrandStore();
+  const { getCurrentBrand, setBrand, brands } = useBrandStore();
   const currentBrand = getCurrentBrand();
   const { isMobile } = useSidebar();
   const { data: session, status } = useSession();

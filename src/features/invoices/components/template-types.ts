@@ -71,8 +71,6 @@ export type TemplatePaymentDetails = {
 export type InvoiceTemplateData = {
   logo?: string;
 
-  company: TemplateCompanyDetails;
-
   client: TemplateClientDetails;
 
   invoiceNumber: string;
@@ -119,8 +117,6 @@ export type InvoiceTemplateData = {
 
 export type QuotationTemplateData = {
   logo?: string;
-
-  company: TemplateCompanyDetails;
 
   client: TemplateClientDetails;
 

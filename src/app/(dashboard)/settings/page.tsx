@@ -1,6 +1,6 @@
 import { PageHeader } from '@/components/general/page-header';
 import { SettingsTabs } from '@/features/settings/components/settings-tabs';
-import { getPaymentDetails, getInvoiceTerms } from '@/features/settings/actions';
+import { getPaymentDetails, getInvoiceTerms, getBrandSettingsForEditor } from '@/features/settings/actions';
 import { requireAdmin } from '@/lib/auth-utils';
 import dbConnect from '@/lib/db';
 import Staff, { IStaff } from '@/models/Staff';
@@ -16,7 +16,11 @@ export default async function SettingsPage() {
     redirect('/inventory');
   }
 
-  const [paymentDetails, invoiceTerms] = await Promise.all([getPaymentDetails(), getInvoiceTerms()]);
+  const [paymentDetails, invoiceTerms, brandSettings] = await Promise.all([
+    getPaymentDetails(),
+    getInvoiceTerms(),
+    getBrandSettingsForEditor()
+  ]);
 
   return (
     <div className="container mx-auto py-6">
@@ -25,6 +29,7 @@ export default async function SettingsPage() {
       <SettingsTabs
         paymentDetails={paymentDetails}
         invoiceTerms={invoiceTerms}
+        brandSettings={brandSettings}
         currentUser={{
           firstName: admin.firstName,
           lastName: admin.lastName,
