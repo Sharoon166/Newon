@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { COMPANY_DETAILS } from '@/constants';
-import { DeliveryNoteTemplate } from '@/features/invoices/components/delivery-note-template';
 import { getInvoice } from '@/features/invoices/actions';
 import type { Invoice } from '@/features/invoices/types';
+import { DeliveryChallanTemplate, type ChallanLine } from '../components/delivery-challan-template';
 import type { StockMovement } from '../types';
 
 interface DeliveryChallanDialogProps {
@@ -20,10 +20,16 @@ interface DeliveryChallanDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const addressLine = (invoice?: Invoice | null) => {
+  if (!invoice) return undefined;
+  return [invoice.customerAddress, invoice.customerCity].filter(Boolean).join(', ') || undefined;
+};
+
 /**
  * Printable delivery challan for a single History delivery slip. The slip's own
- * lines are what actually left the shop, so those become the item list; the
- * linked invoice only supplies the customer details and market.
+ * lines are what actually left the shop, so those become the goods list; the
+ * linked invoice supplies the party details and, where the line still maps back
+ * to an invoice item, the rate/amount columns.
  */
 export function DeliveryChallanDialog({ movement, open, onOpenChange }: DeliveryChallanDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -56,7 +62,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
     preserveAfterPrint: true,
     documentTitle: `Delivery-Challan-${movement?.movementId ?? 'slip'}`,
     pageStyle: `
-      @page { size: A4; margin: 18mm; }
+      @page { size: A4; margin: 15mm; }
       @media print {
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .print\\:hidden { display: none !important; }
@@ -67,20 +73,22 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
   if (!movement) return null;
 
   const lines = movement.lines ?? [];
-  const items =
+  const challanLines: ChallanLine[] = (
     lines.length > 0
-      ? lines.map(line => ({
-          description: line.productName,
-          quantity: line.quantity,
-          variantSKU: line.sku
-        }))
-      : [
-          {
-            description: movement.productName,
-            quantity: movement.quantity,
-            variantSKU: movement.sku
-          }
-        ];
+      ? lines.map(line => ({ description: line.productName, quantity: line.quantity, note: line.sku }))
+      : [{ description: movement.productName, quantity: movement.quantity, note: movement.sku }]
+  ).map((line, index) => {
+    const source = lines.length > 0 ? lines[index] : undefined;
+    const item = source?.itemIndex !== undefined ? invoice?.items?.[source.itemIndex] : undefined;
+    const components = source?.components?.length
+      ? `= ${source.components.map(component => `${component.quantity} × ${component.productName}`).join(', ')}`
+      : undefined;
+    return {
+      ...line,
+      note: [line.note, components].filter(Boolean).join('  '),
+      rate: item?.unitPrice
+    };
+  });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -105,27 +113,22 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
               <Skeleton className="h-40 w-full" />
             </div>
           ) : (
-            <DeliveryNoteTemplate
-              title="DELIVERY CHALLAN"
+            <DeliveryChallanTemplate
+              ref={printRef}
               data={{
-                deliveryNoteNumber: movement.movementId,
+                challanNumber: movement.movementId,
                 date: movement.createdAt,
-                orderNumber: movement.invoiceNumber ?? '—',
-                shippingDate: movement.createdAt,
+                invoiceNumber: invoice?.invoiceNumber ?? movement.invoiceNumber,
                 market: invoice?.market ?? 'newon',
                 client: {
                   name: invoice?.customerName || movement.customerName || '',
                   company: invoice?.customerCompany,
-                  address: invoice?.customerAddress,
-                  city: invoice?.customerCity,
-                  state: invoice?.customerState,
-                  zip: invoice?.customerZip,
+                  address: addressLine(invoice),
                   phone: invoice?.customerPhone || ''
                 },
-                items,
+                lines: challanLines,
                 company: COMPANY_DETAILS
               }}
-              ref={printRef}
             />
           )}
         </div>
