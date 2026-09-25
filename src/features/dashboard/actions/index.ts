@@ -14,6 +14,7 @@ import type {
   OverdueInvoiceAlert,
   PendingPaymentAlert,
   ProductOriginData,
+  ProductOriginProfitData,
   DashboardData
 } from '../types';
 
@@ -1147,6 +1148,165 @@ export async function getProductOriginData(): Promise<ProductOriginData[]> {
     ];
   }
 }
+
+/**
+ * Get Profit by Product Origin (Local vs Imported)
+ * 
+ * Optimized version using MongoDB aggregation pipeline.
+ * Products without an origin field are treated as 'local'.
+ * All computation is done on the database side for better performance.
+ */
+export async function getProductOriginProfitData(
+  startDate?: Date,
+  endDate?: Date
+): Promise<ProductOriginProfitData[]> {
+  try {
+    await dbConnect();
+
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const queryStart = startDate || monthStart;
+    const queryEnd = endDate || now;
+
+    // Use aggregation pipeline to calculate profit by origin in a single query
+    const result = await InvoiceModel.aggregate([
+      // Match invoices in date range
+      {
+        $match: {
+          type: 'invoice',
+          status: { $ne: 'cancelled' },
+          date: { $gte: queryStart, $lte: queryEnd }
+        }
+      },
+      // Unwind items to process each individually
+      { $unwind: '$items' },
+      // Lookup product to get origin
+      {
+        $lookup: {
+          from: 'products',
+          let: { productId: { $toObjectId: '$items.productId' } },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$productId'] } } },
+            { $project: { origin: 1 } }
+          ],
+          as: 'productInfo'
+        }
+      },
+      // Add origin field (default to 'local' if not found or not set)
+      {
+        $addFields: {
+          origin: {
+            $ifNull: [
+              { $arrayElemAt: ['$productInfo.origin', 0] },
+              'local'
+            ]
+          }
+        }
+      },
+      // Calculate item profit
+      {
+        $addFields: {
+          itemProfit: {
+            $cond: {
+              if: { $eq: ['$items.isVirtualProduct', true] },
+              // Virtual product: (unitPrice - totalCost) * quantity
+              then: {
+                $multiply: [
+                  { $subtract: ['$items.unitPrice', { $add: [{ $ifNull: ['$items.totalComponentCost', 0] }, { $ifNull: ['$items.totalCustomExpenses', 0] }] }] },
+                  '$items.quantity'
+                ]
+              },
+              else: {
+                $cond: {
+                  if: { $gt: [{ $size: { $ifNull: ['$items.customExpenses', []] } }, 0] },
+                  // Item with custom expenses
+                  then: {
+                    $subtract: [
+                      { $multiply: ['$items.unitPrice', '$items.quantity'] },
+                      { $multiply: [{ $sum: '$items.customExpenses.actualCost' }, '$items.quantity'] }
+                    ]
+                  },
+                  // Regular item: (unitPrice - originalRate) * quantity
+                  else: {
+                    $multiply: [
+                      { $subtract: ['$items.unitPrice', { $ifNull: ['$items.originalRate', 0] }] },
+                      '$items.quantity'
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          itemRevenue: '$items.totalPrice',
+          // Proportional discount share (calculated later)
+          itemDiscountShare: {
+            $multiply: [
+              '$discountAmount',
+              { $divide: ['$items.totalPrice', { $sum: '$items.totalPrice' }] }
+            ]
+          }
+        }
+      },
+      // Group by origin
+      {
+        $group: {
+          _id: '$origin',
+          profit: {
+            $sum: { $subtract: ['$itemProfit', { $ifNull: ['$itemDiscountShare', 0] }] }
+          },
+          revenue: { $sum: '$itemRevenue' },
+          items: { $sum: 1 },
+          invoiceIds: { $addToSet: '$_id' }
+        }
+      },
+      // Add invoice count
+      {
+        $addFields: {
+          invoices: { $size: '$invoiceIds' }
+        }
+      },
+      // Project final shape
+      {
+        $project: {
+          _id: 0,
+          origin: '$_id',
+          profit: 1,
+          revenue: 1,
+          invoices: 1,
+          items: 1
+        }
+      }
+    ]);
+
+    // Ensure both origins are present in result
+    const profitByOrigin: ProductOriginProfitData[] = [
+      { origin: 'local', profit: 0, revenue: 0, invoices: 0, items: 0 },
+      { origin: 'imported', profit: 0, revenue: 0, invoices: 0, items: 0 }
+    ];
+
+    result.forEach((item: { origin: string; profit: number; revenue: number; invoices: number; items: number }) => {
+      if (item.origin === 'local' || item.origin === 'imported') {
+        const entry = profitByOrigin.find(p => p.origin === item.origin);
+        if (entry) {
+          entry.profit = item.profit;
+          entry.revenue = item.revenue;
+          entry.invoices = item.invoices;
+          entry.items = item.items;
+        }
+      }
+    });
+
+    return profitByOrigin;
+  } catch (error) {
+    console.error('Error fetching product origin profit data:', error);
+    return [
+      { origin: 'local', profit: 0, revenue: 0, invoices: 0, items: 0 },
+      { origin: 'imported', profit: 0, revenue: 0, invoices: 0, items: 0 }
+    ];
+  }
+}
+
+
 
 /**
  * Get Complete Dashboard Data

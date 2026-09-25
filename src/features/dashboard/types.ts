@@ -102,4 +102,16 @@ export interface DashboardData {
   overdueInvoices: OverdueInvoiceAlert[];
   pendingPayments: PendingPaymentAlert[];
   productOriginData: ProductOriginData[];
+  productOriginProfitData?: ProductOriginProfitData[];
+}
+
+/**
+ * Product Origin Profit Data
+ */
+export interface ProductOriginProfitData {
+  origin: 'local' | 'imported';
+  profit: number;
+  revenue: number;
+  invoices: number;
+  items: number;
 }
