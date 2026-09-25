@@ -28,34 +28,36 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { NumberInput } from '@/components/ui/number-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const purchaseFormSchema = z.object({
-  productId: z.string().optional(), // Optional for when productId is provided via props
-  variantId: z.string().min(1, 'Variant is required'),
-  supplier: z.string().min(1, 'Supplier is required'),
-  locationId: z.string().min(1, 'Location is required'),
-  quantity: z.number().min(1, 'Quantity must be at least 1'),
-  unitPrice: z.number().min(0, 'Unit price must be non-negative'),
-  retailPrice: z.number().min(0, 'Retail price must be non-negative'),
-  wholesalePrice: z.number().min(0, 'Wholesale price must be non-negative'),
-  shippingCost: z.number().min(0, 'Shipping cost must be non-negative'),
-  purchaseDate: z.string().min(1, 'Purchase date is required'),
-  notes: z.string().optional()
-}).superRefine((data, ctx) => {
-  if (data.retailPrice > 0 && data.unitPrice > data.retailPrice) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Base price cannot be greater than retail price',
-      path: ['unitPrice']
-    });
-  }
-  if (data.wholesalePrice > 0 && data.unitPrice > data.wholesalePrice) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Base price cannot be greater than wholesale price',
-      path: ['unitPrice']
-    });
-  }
-});
+const purchaseFormSchema = z
+  .object({
+    productId: z.string().optional(), // Optional for when productId is provided via props
+    variantId: z.string().min(1, 'Variant is required'),
+    supplier: z.string().min(1, 'Supplier is required'),
+    locationId: z.string().min(1, 'Location is required'),
+    quantity: z.number().min(1, 'Quantity must be at least 1'),
+    unitPrice: z.number().min(0, 'Unit price must be non-negative'),
+    retailPrice: z.number().min(0, 'Retail price must be non-negative'),
+    wholesalePrice: z.number().min(0, 'Wholesale price must be non-negative'),
+    shippingCost: z.number().min(0, 'Shipping cost must be non-negative'),
+    purchaseDate: z.string().min(1, 'Purchase date is required'),
+    notes: z.string().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.retailPrice > 0 && data.unitPrice > data.retailPrice) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Base price cannot be greater than retail price',
+        path: ['unitPrice']
+      });
+    }
+    if (data.wholesalePrice > 0 && data.unitPrice > data.wholesalePrice) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Base price cannot be greater than wholesale price',
+        path: ['unitPrice']
+      });
+    }
+  });
 
 type PurchaseFormValues = z.infer<typeof purchaseFormSchema>;
 
@@ -100,6 +102,10 @@ export function PurchaseForm({
   // Units already sold/allocated from this purchase. When editing, the quantity
   // cannot be reduced below this amount (remaining = quantity - usedUnits).
   const usedUnits = isEditMode ? Math.max(0, (purchase?.quantity || 0) - (purchase?.remaining || 0)) : 0;
+  // Received quantity — can't order fewer than what has physically arrived.
+  const receivedUnits = isEditMode ? (purchase?.receivedQuantity ?? 0) : 0;
+  // The hard floor: quantity must be >= both sold units AND received units.
+  const minQuantity = Math.max(1, usedUnits, receivedUnits);
   // Auto-select variant if only one exists
   const defaultVariantId = variantId || (variants.length === 1 ? variants[0].id : '');
 
@@ -284,6 +290,7 @@ export function PurchaseForm({
   const quantity = form.watch('quantity') || 0;
   const unitPrice = form.watch('unitPrice') || 0;
   const totalCost = quantity * unitPrice;
+  const isBelowMinQty = isEditMode && quantity < minQuantity;
 
   const handleDialogOpenChange = (newOpen: boolean) => {
     // Simply call the handler without any side effects
@@ -314,6 +321,67 @@ export function PurchaseForm({
               {isEditMode ? 'Update the purchase details below.' : 'Add a new purchase record for this variant.'}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Relationship summary — only shown in edit mode */}
+          {isEditMode && purchase && (
+            <div className="rounded-md border border-border bg-muted/30 mb-4 overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/50">
+                <span className="text-xs font-medium text-muted-foreground">Purchase usage</span>
+                {purchase.purchaseId && (
+                  <span className="text-xs text-muted-foreground font-mono">{purchase.purchaseId}</span>
+                )}
+              </div>
+              <div className="divide-y divide-border">
+                <div className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm text-muted-foreground">Ordered</span>
+                  <span className="text-sm font-medium tabular-nums">{purchase.quantity}</span>
+                </div>
+                <div className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm text-muted-foreground">Sold / allocated</span>
+                  <span className={`text-sm font-medium tabular-nums ${usedUnits > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {usedUnits}
+                  </span>
+                </div>
+                {receivedUnits > 0 && (
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-sm text-muted-foreground">Physically received</span>
+                    <span className="text-sm font-medium tabular-nums">{receivedUnits}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm text-muted-foreground">Still available</span>
+                  <span className={`text-sm font-medium tabular-nums ${purchase.remaining > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {purchase.remaining}
+                  </span>
+                </div>
+                {purchase.quantity > 0 && usedUnits > 0 && (
+                  <div className="flex items-center gap-3 px-3 py-2">
+                    <div className="flex-1 h-1 rounded-full bg-border overflow-hidden">
+                      <div
+                        className="h-full bg-foreground/40 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, (usedUnits / purchase.quantity) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                      {Math.round((usedUnits / purchase.quantity) * 100)}% used
+                    </span>
+                  </div>
+                )}
+              </div>
+              {minQuantity > 1 && (
+                <div className="px-3 py-2 border-t border-border bg-amber-50/60 dark:bg-amber-950/20">
+                  <p className="text-xs text-amber-800 dark:text-amber-400">
+                    Minimum quantity is <span className="font-semibold">{minQuantity}</span>
+                    {usedUnits > 0 && receivedUnits > 0
+                      ? ` (${usedUnits} sold · ${receivedUnits} received)`
+                      : usedUnits > 0
+                        ? ` — ${usedUnits} unit${usedUnits !== 1 ? 's' : ''} already sold`
+                        : ` — ${receivedUnits} unit${receivedUnits !== 1 ? 's' : ''} already received`}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           <Form {...form}>
             <form
               data-purchase-form
@@ -568,7 +636,7 @@ export function PurchaseForm({
                           onChange={value => {
                             field.onChange(value);
                           }}
-                          min={Math.max(1, usedUnits)}
+                          min={1}
                           step={1}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
@@ -578,9 +646,11 @@ export function PurchaseForm({
                           }}
                         />
                       </FormControl>
-                      {usedUnits > 0 && (
+                      {minQuantity > 1 && (
                         <p className="text-xs text-muted-foreground">
-                          {usedUnits} unit(s) already sold or allocated — quantity cannot be below {usedUnits}.
+                          Minimum: {minQuantity} ({usedUnits > 0 ? `${usedUnits} sold` : ''}
+                          {usedUnits > 0 && receivedUnits > 0 ? ', ' : ''}
+                          {receivedUnits > 0 ? `${receivedUnits} received` : ''})
                         </p>
                       )}
                       <FormMessage />
@@ -744,7 +814,11 @@ export function PurchaseForm({
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={loading}>
+                <Button
+                  type="submit"
+                  disabled={loading || isBelowMinQty}
+                  title={isBelowMinQty ? `Quantity cannot be below ${usedUnits} (units already sold)` : undefined}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

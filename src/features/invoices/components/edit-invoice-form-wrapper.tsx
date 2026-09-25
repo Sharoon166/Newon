@@ -14,7 +14,7 @@ import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
+import { AlertCircle, Info } from 'lucide-react';
 
 interface FormData {
   invoiceNumber?: string;
@@ -114,6 +114,15 @@ export function EditInvoiceFormWrapper({
 }: EditInvoiceFormWrapperProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [deliveryViolations, setDeliveryViolations] = useState<
+    Array<{ name: string; invoiced: number; delivered: number }>
+  >([]);
+
+  // Build a map of deliveredQuantity per item index from the original invoice
+  // so we can validate before save without an extra server round-trip.
+  const deliveredMap = new Map<number, { name: string; delivered: number }>(
+    originalItems.map((item, i) => [i, { name: item.productName, delivered: item.deliveredQuantity ?? 0 }])
+  );
 
   // Stable empty function for onPreview
   const handlePreview = useCallback(() => { }, []);
@@ -196,6 +205,27 @@ export function EditInvoiceFormWrapper({
           );
           return;
         }
+
+        // Prevent reducing an item's quantity below its already-delivered quantity.
+        // We match items by position (index) since that's what deliverInvoice uses.
+        if (invoice.type === 'invoice') {
+          const violations: Array<{ name: string; invoiced: number; delivered: number }> = [];
+          formData.items.forEach((item, index) => {
+            const original = deliveredMap.get(index);
+            if (original && original.delivered > 0 && item.quantity < original.delivered) {
+              violations.push({
+                name: item.description,
+                invoiced: item.quantity,
+                delivered: original.delivered
+              });
+            }
+          });
+          if (violations.length > 0) {
+            setDeliveryViolations(violations);
+            return;
+          }
+        }
+        setDeliveryViolations([]);
 
         // Check if invoice has custom items
         const hasCustomItems = formData.items.some(
@@ -295,6 +325,28 @@ export function EditInvoiceFormWrapper({
         <Alert className="border-amber-500 bg-amber-50">
           <Info className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">{warning}</AlertDescription>
+        </Alert>
+      )}
+
+      {deliveryViolations.length > 0 && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <p className="font-semibold mb-1">
+              Cannot reduce quantity below already-delivered amount
+            </p>
+            <ul className="list-disc pl-4 space-y-0.5 text-sm">
+              {deliveryViolations.map((v, i) => (
+                <li key={i}>
+                  <span className="font-medium">{v.name}</span>: you entered{' '}
+                  <span className="font-medium">{v.invoiced}</span> but{' '}
+                  <span className="font-medium">{v.delivered}</span> unit
+                  {v.delivered !== 1 ? 's have' : ' has'} already been delivered.
+                  Reverse the delivery from Stock History first.
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
         </Alert>
       )}
       {invoice.type === 'invoice' ? (

@@ -33,13 +33,142 @@ export type LeanPurchase = {
   __v?: number;
 };
 
+// export const getAllPurchases = async (filters?: PurchaseFilters): Promise<PaginatedPurchases> => {
+//   await dbConnect();
+
+//   const page = filters?.page || 1;
+//   const limit = filters?.limit || 10;
+
+//   // Build match query
+//   const matchQuery: Record<string, unknown> = {};
+
+//   if (filters?.supplier) {
+//     matchQuery.supplier = { $regex: filters.supplier, $options: 'i' };
+//   }
+
+//   if (filters?.dateFrom || filters?.dateTo) {
+//     const dateQuery: Record<string, Date> = {};
+//     if (filters.dateFrom) {
+//       dateQuery.$gte = filters.dateFrom;
+//     }
+//     if (filters.dateTo) {
+//       dateQuery.$lte = filters.dateTo;
+//     }
+//     matchQuery.purchaseDate = dateQuery;
+//   }
+
+//   if (filters?.search) {
+//     matchQuery.$or = [
+//       { purchaseId: { $regex: filters.search, $options: 'i' } },
+//       { supplier: { $regex: filters.search, $options: 'i' } },
+//       { productName: { $regex: filters.search, $options: 'i' } }, // ← Add this
+//       { variantSKU: { $regex: filters.search, $options: 'i' } }, // ← Add this
+//       { description: { $regex: filters.search, $options: 'i' } } // ← Add this
+//     ];
+//   }
+
+//   // Use paginate with populate instead of aggregate
+//   const result = await (PurchaseModel as mongoose.PaginateModel<IPurchase>).paginate(matchQuery, {
+//     page,
+//     limit,
+//     sort: { purchaseDate: -1, purchaseId: -1 },
+//     lean: true,
+//     populate: {
+//       path: 'productId',
+//       select: 'name supplier variants'
+//     }
+//   });
+
+//   // Transform and serialize the results
+//   const serializedDocs = result.docs.map(purchase => {
+//     const doc = purchase as unknown as LeanPurchase & {
+//       productId?: {
+//         _id: unknown;
+//         name: string;
+//         supplier: string;
+//         variants: Array<{
+//           id: string;
+//           sku: string;
+//           attributes?: Record<string, string>;
+//         }>;
+//       };
+//     };
+
+//     const variant = doc.productId?.variants?.find(v => v.id === doc.variantId);
+
+//     return {
+//       id: doc._id.toString(),
+//       productId:
+//         typeof doc.productId === 'object' && doc.productId?._id
+//           ? doc.productId._id.toString()
+//           : doc.productId?.toString() || '',
+//       variantId: doc.variantId,
+//       supplier: doc.supplier,
+//       locationId: doc.locationId,
+//       quantity: doc.quantity,
+//       unitPrice: doc.unitPrice,
+//       retailPrice: doc.retailPrice,
+//       wholesalePrice: doc.wholesalePrice,
+//       shippingCost: doc.shippingCost,
+//       totalCost: doc.totalCost,
+//       purchaseDate: doc.purchaseDate?.toISOString() || '',
+//       remaining: doc.remaining,
+//       // Physical arrivals (stock tracking feature) - drives the "Received"
+//       // column and the inline receive action on the purchases table.
+//       receivedQuantity: doc.receivedQuantity,
+//       notes: doc.notes,
+//       purchaseId: doc.purchaseId,
+//       createdAt: doc.createdAt?.toISOString() || '',
+//       updatedAt: doc.updatedAt?.toISOString() || '',
+//       productName: doc.productId?.name,
+//       productSupplier: doc.productId?.supplier,
+//       variant: variant
+//         ? {
+//             id: variant.id,
+//             sku: variant.sku,
+//             attributes: variant.attributes
+//           }
+//         : undefined
+//     };
+//   });
+
+//   // // Post-query filtering for populated fields
+//   // let filteredDocs = serializedDocs;
+//   // if (filters?.search) {
+//   //   const searchTerm = filters.search.toLowerCase();
+//   //   filteredDocs = serializedDocs.filter((purchase) => {
+//   //     return (
+//   //       purchase.purchaseId?.toLowerCase().includes(searchTerm) ||
+//   //       purchase.supplier?.toLowerCase().includes(searchTerm) ||
+//   //       purchase.productName?.toLowerCase().includes(searchTerm) ||
+//   //       purchase.variant?.sku?.toLowerCase().includes(searchTerm) ||  // Fixed: variant.sku
+//   //       purchase.notes?.toLowerCase().includes(searchTerm)
+//   //     );
+//   //   });
+//   // }
+
+//   return {
+//     docs: serializedDocs,
+//     totalDocs: result.totalDocs,
+//     limit: result.limit,
+//     page: result.page || 1,
+//     totalPages: result.totalPages,
+//     hasNextPage: result.hasNextPage || false,
+//     hasPrevPage: result.hasPrevPage || false,
+//     nextPage: result.nextPage || null,
+//     prevPage: result.prevPage || null
+//   };
+// };
+
 export const getAllPurchases = async (filters?: PurchaseFilters): Promise<PaginatedPurchases> => {
   await dbConnect();
 
   const page = filters?.page || 1;
   const limit = filters?.limit || 10;
+  const skip = (page - 1) * limit;
 
-  // Build match query
+  // 1. Initial base query — only apply non-search filters before the lookup
+  // (supplier filter uses the dedicated param, not the search term)
   const matchQuery: Record<string, unknown> = {};
 
   if (filters?.supplier) {
@@ -48,60 +177,73 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
 
   if (filters?.dateFrom || filters?.dateTo) {
     const dateQuery: Record<string, Date> = {};
-    if (filters.dateFrom) {
-      dateQuery.$gte = filters.dateFrom;
-    }
-    if (filters.dateTo) {
-      dateQuery.$lte = filters.dateTo;
-    }
+    if (filters.dateFrom) dateQuery.$gte = filters.dateFrom;
+    if (filters.dateTo) dateQuery.$lte = filters.dateTo;
     matchQuery.purchaseDate = dateQuery;
   }
 
+  // NOTE: Do NOT add search conditions here — product name and variant SKU live
+  // on the joined Product document, so filtering before $lookup would silently
+  // drop rows whose only match is in those fields.
+
+  // 2. Build the Aggregation Pipeline
+  const pipeline: any[] = [
+    { $match: matchQuery },
+    {
+      $lookup: {
+        from: 'products',
+        localField: 'productId',
+        foreignField: '_id',
+        as: 'joinedProduct'
+      }
+    },
+    {
+      $unwind: {
+        path: '$joinedProduct',
+        preserveNullAndEmptyArrays: true
+      }
+    }
+  ];
+
+  // 3. Post-Lookup Search — runs after the join so product name & SKU are visible
   if (filters?.search) {
-    matchQuery.$or = [
-      { purchaseId: { $regex: filters.search, $options: 'i' } },
-      { supplier: { $regex: filters.search, $options: 'i' } },
-      { productName: { $regex: filters.search, $options: 'i' } }, // ← Add this
-      { variantSKU: { $regex: filters.search, $options: 'i' } }, // ← Add this
-      { description: { $regex: filters.search, $options: 'i' } } // ← Add this
-    ];
+    pipeline.push({
+      $match: {
+        $or: [
+          { purchaseId: { $regex: filters.search, $options: 'i' } },
+          { supplier: { $regex: filters.search, $options: 'i' } },
+          { 'joinedProduct.name': { $regex: filters.search, $options: 'i' } },
+          { 'joinedProduct.variants.sku': { $regex: filters.search, $options: 'i' } }
+        ]
+      }
+    });
   }
 
-  // Use paginate with populate instead of aggregate
-  const result = await (PurchaseModel as mongoose.PaginateModel<IPurchase>).paginate(matchQuery, {
-    page,
-    limit,
-    sort: { purchaseDate: -1 },
-    lean: true,
-    populate: {
-      path: 'productId',
-      select: 'name supplier variants'
+  // 4. Multi-Facet Execution (Calculates total counts & gets paginated data in 1 DB trip)
+  const aggregationResult = await PurchaseModel.aggregate([
+    ...pipeline,
+    {
+      $facet: {
+        metadata: [{ $count: 'totalDocs' }],
+        data: [
+          { $sort: { purchaseDate: -1, purchaseId: -1 } },
+          { $skip: skip },
+          { $limit: limit }
+        ]
+      }
     }
-  });
+  ]);
 
-  // Transform and serialize the results
-  const serializedDocs = result.docs.map(purchase => {
-    const doc = purchase as unknown as LeanPurchase & {
-      productId?: {
-        _id: unknown;
-        name: string;
-        supplier: string;
-        variants: Array<{
-          id: string;
-          sku: string;
-          attributes?: Record<string, string>;
-        }>;
-      };
-    };
+  const totalDocs = aggregationResult[0]?.metadata[0]?.totalDocs || 0;
+  const rawDocs = aggregationResult[0]?.data || [];
 
-    const variant = doc.productId?.variants?.find(v => v.id === doc.variantId);
+  // 5. Light Transformation on just the 10 fetched rows
+  const serializedDocs = rawDocs.map((doc: any) => {
+    const variant = doc.joinedProduct?.variants?.find((v: any) => v.id === doc.variantId);
 
     return {
       id: doc._id.toString(),
-      productId:
-        typeof doc.productId === 'object' && doc.productId?._id
-          ? doc.productId._id.toString()
-          : doc.productId?.toString() || '',
+      productId: doc.productId?.toString() || '',
       variantId: doc.variantId,
       supplier: doc.supplier,
       locationId: doc.locationId,
@@ -111,17 +253,15 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
       wholesalePrice: doc.wholesalePrice,
       shippingCost: doc.shippingCost,
       totalCost: doc.totalCost,
-      purchaseDate: doc.purchaseDate?.toISOString() || '',
+      purchaseDate: doc.purchaseDate instanceof Date ? doc.purchaseDate.toISOString() : doc.purchaseDate || '',
       remaining: doc.remaining,
-      // Physical arrivals (stock tracking feature) - drives the "Received"
-      // column and the inline receive action on the purchases table.
       receivedQuantity: doc.receivedQuantity,
       notes: doc.notes,
       purchaseId: doc.purchaseId,
-      createdAt: doc.createdAt?.toISOString() || '',
-      updatedAt: doc.updatedAt?.toISOString() || '',
-      productName: doc.productId?.name,
-      productSupplier: doc.productId?.supplier,
+      createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt || '',
+      updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt || '',
+      productName: doc.joinedProduct?.name,
+      productSupplier: doc.joinedProduct?.supplier,
       variant: variant
         ? {
             id: variant.id,
@@ -132,33 +272,21 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     };
   });
 
-  // // Post-query filtering for populated fields
-  // let filteredDocs = serializedDocs;
-  // if (filters?.search) {
-  //   const searchTerm = filters.search.toLowerCase();
-  //   filteredDocs = serializedDocs.filter((purchase) => {
-  //     return (
-  //       purchase.purchaseId?.toLowerCase().includes(searchTerm) ||
-  //       purchase.supplier?.toLowerCase().includes(searchTerm) ||
-  //       purchase.productName?.toLowerCase().includes(searchTerm) ||
-  //       purchase.variant?.sku?.toLowerCase().includes(searchTerm) ||  // Fixed: variant.sku
-  //       purchase.notes?.toLowerCase().includes(searchTerm)
-  //     );
-  //   });
-  // }
+  const totalPages = Math.ceil(totalDocs / limit);
 
   return {
     docs: serializedDocs,
-    totalDocs: result.totalDocs,
-    limit: result.limit,
-    page: result.page || 1,
-    totalPages: result.totalPages,
-    hasNextPage: result.hasNextPage || false,
-    hasPrevPage: result.hasPrevPage || false,
-    nextPage: result.nextPage || null,
-    prevPage: result.prevPage || null
+    totalDocs,
+    limit,
+    page,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1,
+    nextPage: page < totalPages ? page + 1 : null,
+    prevPage: page > 1 ? page - 1 : null
   };
 };
+
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
   await dbConnect();

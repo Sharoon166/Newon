@@ -12,6 +12,7 @@ interface PurchasesPageProps {
     page?: string;
     limit?: string;
     search?: string;
+    supplier?: string;
   }>;
 }
 
@@ -22,11 +23,12 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const page = params.page ? parseInt(params.page) : 1;
   const limit = params.limit ? parseInt(params.limit) : 10;
   const search = params.search;
+  const supplier = params.supplier;
 
   const session = await getSession();
 
   const [purchasesData, products, stockStatus] = await Promise.all([
-    getAllPurchases({ page, limit, search }),
+    getAllPurchases({ page, limit, search, supplier }),
     getProductsBasic(),
     getStockTrackingStatus()
   ]);

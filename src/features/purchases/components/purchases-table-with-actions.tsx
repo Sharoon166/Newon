@@ -116,10 +116,10 @@ export function PurchasesTableWithActions({
     setSupplierFilter(value);
     const params = new URLSearchParams(searchParams.toString());
     if (value && value !== 'all') {
-      params.set('search', value);
+      params.set('supplier', value);
       params.set('page', '1');
     } else {
-      params.delete('search');
+      params.delete('supplier');
     }
     router.push(`?${params.toString()}`, { scroll: false });
   };
@@ -392,7 +392,7 @@ export function PurchasesTableWithActions({
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search by product, supplier, or SKU..."
+              placeholder="Search by product, SKU, or supplier..."
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               className="w-full pl-8"
