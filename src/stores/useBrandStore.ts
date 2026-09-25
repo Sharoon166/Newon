@@ -43,7 +43,7 @@ const brandData: BrandData[] = [
   {
     id: 'waymor',
     displayName: 'Waymor International',
-    address: 'Office# 02, 1st floor, Haroon Plaza, I-9 markaz',
+    address: 'Office# 01, Plot# 235, St# 6, near Petrol Pump I-9/2, Islamabad.',
     description: 'Waymor Inventory System',
     city: 'Islamabad',
     state: 'Islamabad',

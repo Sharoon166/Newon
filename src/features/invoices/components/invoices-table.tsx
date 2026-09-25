@@ -21,12 +21,24 @@ import {
   Search,
   Hash,
   Copyright,
-  Download
+  Download,
+  Truck
 } from 'lucide-react';
 import Link from 'next/link';
 import { updateInvoiceStatus, restoreInvoiceStock } from '../actions';
+import { getDeliverySummary } from '../utils/delivery-summary';
 import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -65,6 +77,7 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
   const router = useRouter();
   const searchParams = useSearchParams();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [deliveryBlockedInvoice, setDeliveryBlockedInvoice] = useState<Invoice | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -106,6 +119,15 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
   const handleCancel = async () => {
     if (!selectedInvoice) return;
 
+    // Goods already out of the shop have to be reversed on the Stock page
+    // first - bail out before any stock is touched.
+    const delivery = getDeliverySummary(selectedInvoice);
+    if (delivery.delivered > 0) {
+      setCancelDialogOpen(false);
+      setDeliveryBlockedInvoice(selectedInvoice);
+      return;
+    }
+
     try {
       setIsCancelling(true);
 
@@ -130,9 +152,10 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
       toast.success(`${selectedInvoice.type === 'invoice' ? 'Invoice' : 'Quotation'} cancelled successfully`);
       handleRefresh();
       setCancelDialogOpen(false);
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
       toast.error(
-        'Cannot cancel invoice with payments. Please delete all payments first or process a refund/credit note instead.'
+        message || 'Cannot cancel invoice with payments. Please delete all payments first or process a refund/credit note instead.'
       );
     } finally {
       setIsCancelling(false);
@@ -168,6 +191,46 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
       <Badge variant={config.variant} className="flex items-center gap-1 w-fit">
         <Icon className="h-3 w-3" />
         {config.label}
+      </Badge>
+    );
+  };
+
+  /**
+   * Physical delivery of goods, derived from `items[].deliveredQuantity`.
+   *
+   * Kept deliberately wordy ("Awaiting delivery" / "Partly delivered" /
+   * "All units delivered") so it can't be mistaken for the payment-driven
+   * `Status` badge next to it, which may also read "Delivered".
+   */
+  const getDeliveryBadge = (invoice: Invoice) => {
+    const { applicable, total, delivered, pending } = getDeliverySummary(invoice);
+
+    if (!applicable || total === 0) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+
+    if (delivered === 0) {
+      return (
+        <Badge variant="outline" className="flex items-center gap-1 w-fit">
+          <Clock className="h-3 w-3" />
+          Awaiting delivery
+        </Badge>
+      );
+    }
+
+    if (pending === 0) {
+      return (
+        <Badge className="flex items-center gap-1 w-fit">
+          <CheckCircle className="h-3 w-3" />
+          All units delivered
+        </Badge>
+      );
+    }
+
+    return (
+      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+        <Truck className="h-3 w-3" />
+        Partly delivered {delivered}/{total}
       </Badge>
     );
   };
@@ -360,6 +423,38 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
         }
       },
       {
+        id: 'delivery',
+        accessorFn: row => getDeliverySummary(row).ratio,
+        header: ({ column }) => {
+          const isSorted = column.getIsSorted();
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+              className="p-0 hover:bg-transparent h-auto flex flex-col items-start gap-0.5"
+            >
+              <span className="flex items-center gap-1">
+                Physical delivery
+                {isSorted ? (
+                  isSorted === 'asc' ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )
+                ) : (
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                )}
+              </span>
+              <span className="text-[11px] font-normal text-muted-foreground">
+                units handed over from stock
+              </span>
+            </Button>
+          );
+        },
+        cell: ({ row }) => getDeliveryBadge(row.original),
+        sortingFn: 'basic'
+      },
+      {
         accessorKey: 'market',
         header: 'Market',
         cell: ({ row }) => <Badge variant="outline">{row.getValue('market')}</Badge>,
@@ -434,6 +529,12 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
                       className="text-destructive"
                       disabled={invoice.status === 'cancelled' || invoice.status === 'paid' || !!invoice.projectId}
                       onClick={() => {
+                        // Deliveries block cancellation up-front so the user gets
+                        // an explanation instead of a failed action later.
+                        if (getDeliverySummary(invoice).delivered > 0) {
+                          setDeliveryBlockedInvoice(invoice);
+                          return;
+                        }
                         setSelectedInvoice(invoice);
                         setCancelDialogOpen(true);
                       }}
@@ -443,6 +544,9 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
                       {invoice.status === 'cancelled' && <span className="ml-2 text-xs">(Already cancelled)</span>}
                       {invoice.status === 'paid' && <span className="ml-2 text-xs">(Fully paid)</span>}
                       {invoice.projectId && <span className="ml-2 text-xs">(Project invoice)</span>}
+                      {getDeliverySummary(invoice).delivered > 0 && (
+                        <span className="ml-2 text-xs">(Reverse deliveries first)</span>
+                      )}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -549,6 +653,43 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
         variant="destructive"
         isProcessing={isCancelling}
       />
+
+      {/* Cancellation is blocked while goods are still out for delivery. */}
+      <AlertDialog
+        open={!!deliveryBlockedInvoice}
+        onOpenChange={open => {
+          if (!open) setDeliveryBlockedInvoice(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverse the deliveries first</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deliveryBlockedInvoice && (
+                <>
+                  <span className="font-medium text-foreground">
+                    {getDeliverySummary(deliveryBlockedInvoice).delivered} of{' '}
+                    {getDeliverySummary(deliveryBlockedInvoice).total}
+                  </span>{' '}
+                  unit(s) on <span className="font-medium text-foreground">{deliveryBlockedInvoice.invoiceNumber}</span>{' '}
+                  have already been handed over from stock, with{' '}
+                  {getDeliverySummary(deliveryBlockedInvoice).pending} still pending.
+                  <br />
+                  <br />
+                  Reverse those deliveries on the Stock page (History tab) first. Cancellation stays locked until the
+                  stock page shows them as reversed.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Link href="/stock?tab=history">Open Stock history</Link>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {selectedInvoice && (
         <>

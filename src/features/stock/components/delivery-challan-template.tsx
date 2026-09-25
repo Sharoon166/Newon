@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { COMPANY_DETAILS } from '@/constants';
 import { convertToWords } from '@/features/invoices/utils';
 import { brands } from '@/stores/useBrandStore';
+import { formatDate } from '@/lib/utils';
 
 export interface ChallanLine {
   description: string;
@@ -55,7 +56,7 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
       <div className="border-2 border-black">
         {/* COMPANY HEADER */}
         <div className="flex items-start gap-4 border-b-2 border-black p-3">
-          <div className="shrink-0 border border-black p-1">
+          <div className="shrink-0 p-1">
             {brand?.logo ? (
               <Image
                 src={brand.logo}
@@ -108,7 +109,7 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
             </p>
             <p className="flex items-end gap-2">
               <span className="font-semibold">Date:</span>
-              <span className="min-w-32 border-b border-dotted border-black pb-0.5">{data.date}</span>
+              <span className="min-w-32 border-b border-dotted border-black pb-0.5">{formatDate(data.date)}</span>
             </p>
             {data.invoiceNumber && (
               <p className="flex items-end gap-2">
@@ -178,7 +179,7 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
                 </tr>
               ))}
 
-              <tr className="border-b border-black bg-gray-50">
+              <tr className="bg-gray-50">
                 <td className="border-r border-black px-2 py-2" colSpan={3}></td>
                 <td className="border-r border-black px-2 py-2 text-right font-semibold">Total</td>
                 <td className="px-2 py-2 text-right font-semibold">{hasAmounts ? formatAmount(totalAmount) : '—'}</td>
@@ -188,7 +189,7 @@ export const DeliveryChallanTemplate = forwardRef<HTMLDivElement, DeliveryChalla
         </div>
 
         {/* AMOUNT IN WORDS */}
-        <div className="border-b-2 border-black px-4 py-2 text-sm">
+        <div className="border-b border-black px-4 py-2 text-sm">
           <span className="font-semibold">Amount in words:</span>{' '}
           {hasAmounts ? `Rupees ${convertToWords(Math.round(totalAmount))} Only` : ''}
         </div>

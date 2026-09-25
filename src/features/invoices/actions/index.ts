@@ -1394,6 +1394,22 @@ export async function cancelInvoice(id: string, reason?: string): Promise<Invoic
       throw new Error(`Cannot cancel invoice with existing payments. Please delete all payment records first.`);
     }
 
+    // Prevent cancellation while goods have already been handed over from stock.
+    // Otherwise "In shop" counts and the delivery history would no longer match
+    // anything - the delivery movements have to be reversed on the Stock page first.
+    if (invoice.type === 'invoice') {
+      const deliveredUnits = invoice.items.reduce(
+        (sum, item) => sum + Math.min(item.quantity, Math.max(0, item.deliveredQuantity ?? 0)),
+        0
+      );
+      if (deliveredUnits > 0) {
+        throw new Error(
+          `This invoice has ${deliveredUnits} unit(s) already delivered from stock. ` +
+            `Reverse those deliveries on the Stock page (History tab) first, then cancel the invoice.`
+        );
+      }
+    }
+
     // Update status to cancelled
     invoice.status = 'cancelled';
     if (reason) {
