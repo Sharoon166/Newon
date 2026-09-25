@@ -152,7 +152,7 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
         cell: ({ row }) => (
           <div className="text-right">
             <Button
-              variant="outline"
+              variant="success"
               size="sm"
               onClick={() => {
                 setTarget({

@@ -172,7 +172,7 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
         cell: ({ row }) => (
           <div className="text-right">
             <Button
-              variant="outline"
+              variant="success"
               size="sm"
               onClick={() => {
                 setTarget({

@@ -220,7 +220,7 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
 
     if (pending === 0) {
       return (
-        <Badge className="flex items-center gap-1 w-fit">
+        <Badge className="flex items-center gap-1 w-fit bg-success text-success-foreground">
           <CheckCircle className="h-3 w-3" />
           All units delivered
         </Badge>

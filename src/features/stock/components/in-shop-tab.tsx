@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, FileDown, ScanLine, Search, TriangleAlert } from 'lucide-react';
+import { ArrowUpDown, FileDown, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -185,7 +185,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
                 handleQuickCount(row.original);
               }}
             >
-              <ScanLine className="mr-1 h-3.5 w-3.5" />
+              <Tally5Icon className="mr-1 h-3.5 w-3.5" />
               Count
             </Button>
           </div>
@@ -232,7 +232,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
         <TableRow>
           <TableCell colSpan={columns.length}>
             <EmptyState
-              icon={ScanLine}
+              icon={Tally5Icon}
               title="Everything matches"
               description="All in-shop counts agree with the system. Turn off the filter to see every variant."
             />
@@ -243,7 +243,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
     return (
       <TableRow>
         <TableCell colSpan={columns.length}>
-          <EmptyState icon={ScanLine} title="No products yet" description="Products and variants appear here once they are added to inventory." />
+          <EmptyState icon={Tally5Icon} title="No products yet" description="Products and variants appear here once they are added to inventory." />
         </TableCell>
       </TableRow>
     );
@@ -288,7 +288,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
         </div>
         <div className="flex items-center gap-3">
           <p className="text-sm text-muted-foreground">
-            <ScanLine className="mr-1 inline h-4 w-4" />
+            <Tally5Icon className="mr-1 inline h-4 w-4" />
             <span className="font-medium">
               {visibleRows.length}
               {onlyMismatches ? ` of ${rows.length}` : ''}
@@ -297,7 +297,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
           </p>
           {userRole === 'admin' && (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setSummaryOpen(true)}
               disabled={visibleRows.length === 0}
