@@ -867,33 +867,75 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
     throw error;
   }
 
-  // Capture the "In shop" before/after of the variant this slip is filed under,
-  // so History and the slip print show real numbers instead of a blank. Virtual
-  // /service lines never move their own counter, so fall back to the first
-  // component that actually left the shop.
-  const takenByVariant = new Map<string, number>();
-  appliedDecrements.forEach(({ productId, variantId, quantity }) => {
+  // Record "In shop" before/after for the slip as a whole and for every line
+  // (and component) it moved, so History/print show real numbers per product
+  // instead of only for the headline one. Each variant is walked backwards from
+  // its current count: right after this slip = current, right before it =
+  // current + everything this slip took, and the lines in between chain from
+  // there in the order they were delivered.
+  const decrementedKeys = new Set<string>();
+  appliedDecrements.forEach(({ productId, variantId }) => decrementedKeys.add(`${productId}|${variantId}`));
+
+  interface InShopTake {
+    qty: number;
+    apply: (before: number, after: number) => void;
+  }
+  const takeGroups = new Map<string, { productId: string; variantId: string; takes: InShopTake[] }>();
+  const addTake = (productId: string, variantId: string, qty: number, apply: InShopTake['apply']) => {
     const key = `${productId}|${variantId}`;
-    takenByVariant.set(key, (takenByVariant.get(key) ?? 0) + quantity);
+    const group = takeGroups.get(key) ?? { productId, variantId, takes: [] };
+    group.takes.push({ qty, apply });
+    takeGroups.set(key, group);
+  };
+
+  movementLines.forEach(line => {
+    if (line.components?.length) {
+      // Virtual item: the components carry the numbers.
+      line.components.forEach(comp =>
+        addTake(comp.productId, comp.variantId, comp.quantity, (before, after) => {
+          comp.inShopBefore = before;
+          comp.inShopAfter = after;
+        })
+      );
+    } else if (line.variantId && decrementedKeys.has(`${line.productId}|${line.variantId}`)) {
+      addTake(line.productId, line.variantId, line.quantity, (before, after) => {
+        line.inShopBefore = before;
+        line.inShopAfter = after;
+      });
+    }
   });
+
+  // The headline variant (what the slip and the Product column show) carries
+  // the row's numbers; virtual/service lines fall back to the first component
+  // that actually left the shop.
   const stockTarget =
-    (primary && takenByVariant.has(`${primary.productId}|${primary.variantId}`)
+    (primary && takeGroups.has(`${primary.productId}|${primary.variantId}`)
       ? { productId: primary.productId, variantId: primary.variantId }
       : null) ??
-    appliedDecrements[0] ??
+    takeGroups.values().next().value ??
     null;
 
   let inShopBefore = 0;
   let inShopAfter = 0;
-  if (stockTarget) {
-    const doc = await ProductModel.findOne({ _id: stockTarget.productId, 'variants.id': stockTarget.variantId })
+  for (const group of takeGroups.values()) {
+    const doc = await ProductModel.findOne({ _id: group.productId, 'variants.id': group.variantId })
       .select('variants')
       .lean();
     const variant = (doc as { variants?: Array<{ id: string; inShop?: number }> } | null)?.variants?.find(
-      v => v.id === stockTarget.variantId
+      v => v.id === group.variantId
     );
-    inShopAfter = variant?.inShop ?? 0;
-    inShopBefore = inShopAfter + (takenByVariant.get(`${stockTarget.productId}|${stockTarget.variantId}`) ?? 0);
+    const current = variant?.inShop ?? 0;
+    const totalTaken = group.takes.reduce((sum, take) => sum + take.qty, 0);
+    let running = current + totalTaken;
+    for (const take of group.takes) {
+      const before = running;
+      running -= take.qty;
+      take.apply(before, running);
+    }
+    if (stockTarget && group.productId === stockTarget.productId && group.variantId === stockTarget.variantId) {
+      inShopBefore = current + totalTaken;
+      inShopAfter = current;
+    }
   }
 
   const base = primary ?? { productId: invoice.customerId, variantId: '', productName: '', sku: '' };
@@ -1170,7 +1212,18 @@ async function recordReversal(movement: any, session: any, direction: 'in' | 'ou
     invoiceId: movement.invoiceId,
     invoiceNumber: movement.invoiceNumber,
     customerName: movement.customerName,
-    lines: movement.lines ?? [],
+    // Same swap for the per-line / per-component numbers: undoing a delivery
+    // puts each variant back to where it was before it left.
+    lines: (movement.lines ?? []).map((line: any) => ({
+      ...line,
+      inShopBefore: direction === 'in' ? line.inShopAfter : line.inShopBefore,
+      inShopAfter: direction === 'in' ? line.inShopBefore : line.inShopAfter,
+      components: line.components?.map((comp: any) => ({
+        ...comp,
+        inShopBefore: direction === 'in' ? comp.inShopAfter : comp.inShopBefore,
+        inShopAfter: direction === 'in' ? comp.inShopBefore : comp.inShopAfter
+      }))
+    })),
     reversalOf: movement.movementId,
     note: `Reversal of ${movement.movementId}`,
     userId: session.user?.id,

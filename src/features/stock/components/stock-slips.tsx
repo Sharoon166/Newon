@@ -23,6 +23,13 @@ function formatQty(qty: number): string {
   return Number.isInteger(qty) ? String(qty) : qty.toFixed(2);
 }
 
+/** "194 → 191" for a line, or null when it was never recorded (old slips). */
+function inShopPair(before?: number, after?: number): string | null {
+  if (before === undefined || after === undefined) return null;
+  if (before === 0 && after === 0) return null;
+  return `${formatQty(before)} → ${formatQty(after)}`;
+}
+
 export function StockSlips({ movements, selection }: StockSlipsProps) {
   if (movements.length === 0) {
     return (
@@ -126,6 +133,7 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
                     <th className="pb-1 font-medium">Item</th>
                     <th className="pb-1 font-medium">SKU</th>
                     <th className="pb-1 text-right font-medium">Qty</th>
+                    <th className="pb-1 text-right font-medium">In shop</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -135,12 +143,21 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
                         {line.productName}
                         {line.components?.length ? (
                           <div className="text-xs text-muted-foreground">
-                            = {line.components.map(c => `${c.quantity} × ${c.productName}`).join(', ')}
+                            ={' '}
+                            {line.components
+                              .map(component => {
+                                const pair = inShopPair(component.inShopBefore, component.inShopAfter);
+                                return `${component.quantity} × ${component.productName}${pair ? ` (${pair})` : ''}`;
+                              })
+                              .join(', ')}
                           </div>
                         ) : null}
                       </td>
                       <td className="py-0.5 pr-3 font-mono text-xs text-muted-foreground">{line.sku || '—'}</td>
-                      <td className="py-0.5 text-right font-medium">{formatQty(line.quantity)}</td>
+                      <td className="py-0.5 pr-3 text-right font-medium">{formatQty(line.quantity)}</td>
+                      <td className="py-0.5 text-right font-medium">
+                        {inShopPair(line.inShopBefore, line.inShopAfter) ?? '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

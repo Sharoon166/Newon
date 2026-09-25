@@ -7,12 +7,18 @@ export interface StockMovementLine {
   sku: string;
   quantity: number;
   itemIndex?: number;
+  /** "In shop" of this line's own variant just before/after the slip. */
+  inShopBefore?: number;
+  inShopAfter?: number;
   components?: Array<{
     productId: string;
     variantId: string;
     productName: string;
     sku: string;
     quantity: number;
+    /** "In shop" of this component variant just before/after it left. */
+    inShopBefore?: number;
+    inShopAfter?: number;
   }>;
 }
 

@@ -82,20 +82,39 @@ function MovementLinesDetail({ movement }: { movement: StockMovement }) {
         <span className="text-xs text-muted-foreground">{formatQty(units)} unit(s) in total</span>
       </div>
       <ul className="divide-y rounded-md border bg-background">
-        {lines.map((line, i) => (
-          <li key={`${movement.id}-line-${i}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
-            <div className="min-w-0">
-              <div className="font-medium">{line.productName}</div>
-              <div className="font-mono text-xs text-muted-foreground">{line.sku || '—'}</div>
-              {line.components?.length ? (
-                <div className="text-xs text-muted-foreground">
-                  = {line.components.map(c => `${c.quantity} × ${c.productName}`).join(', ')}
-                </div>
-              ) : null}
-            </div>
-            <span className="whitespace-nowrap font-semibold">{line.quantity}</span>
-          </li>
-        ))}
+        {lines.map((line, i) => {
+          const lineInShop = inShopPair(line.inShopBefore, line.inShopAfter);
+          return (
+            <li key={`${movement.id}-line-${i}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <div className="font-medium">{line.productName}</div>
+                <div className="font-mono text-xs text-muted-foreground">{line.sku || '—'}</div>
+                {line.components?.length ? (
+                  <div className="text-xs text-muted-foreground">
+                    ={' '}
+                    {line.components
+                      .map(component => {
+                        const pair = inShopPair(component.inShopBefore, component.inShopAfter);
+                        return `${component.quantity} × ${component.productName}${pair ? ` (${pair})` : ''}`;
+                      })
+                      .join(', ')}
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex flex-col items-end gap-0.5">
+                <span className="whitespace-nowrap font-semibold">{line.quantity}</span>
+                {lineInShop ? (
+                  <span
+                    className="whitespace-nowrap text-xs text-muted-foreground"
+                    title="In shop: before → after this slip"
+                  >
+                    {lineInShop}
+                  </span>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
       </ul>
       {movement.note ? <p className="text-xs text-muted-foreground">Note: {movement.note}</p> : null}
     </div>
@@ -104,6 +123,13 @@ function MovementLinesDetail({ movement }: { movement: StockMovement }) {
 
 function formatQty(qty: number): string {
   return Number.isInteger(qty) ? String(qty) : qty.toFixed(2);
+}
+
+/** "194 → 191" for a line, or null when it was never recorded (old slips). */
+function inShopPair(before?: number, after?: number): string | null {
+  if (before === undefined || after === undefined) return null;
+  if (before === 0 && after === 0) return null;
+  return `${formatQty(before)} → ${formatQty(after)}`;
 }
 
 export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: HistoryTabProps) {

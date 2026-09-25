@@ -18,7 +18,14 @@ export interface StockMovementLine {
     productName: string;
     sku: string;
     quantity: number;
+    // "In shop" of this component variant just before/after it left.
+    inShopBefore?: number;
+    inShopAfter?: number;
   }>;
+  // "In shop" of this line's own variant just before/after the slip (virtual
+  // lines don't have one - their components carry the numbers instead).
+  inShopBefore?: number;
+  inShopAfter?: number;
 }
 
 export interface IStockMovement extends mongoose.Document {
@@ -64,6 +71,8 @@ const stockMovementLineSchema = new mongoose.Schema(
     sku: { type: String, required: true },
     quantity: { type: Number, required: true, min: 0 },
     itemIndex: { type: Number },
+    inShopBefore: { type: Number },
+    inShopAfter: { type: Number },
     components: [
       {
         _id: false,
@@ -71,7 +80,9 @@ const stockMovementLineSchema = new mongoose.Schema(
         variantId: { type: String, required: true },
         productName: { type: String, required: true },
         sku: { type: String, required: true },
-        quantity: { type: Number, required: true, min: 0 }
+        quantity: { type: Number, required: true, min: 0 },
+        inShopBefore: { type: Number },
+        inShopAfter: { type: Number }
       }
     ]
   },
