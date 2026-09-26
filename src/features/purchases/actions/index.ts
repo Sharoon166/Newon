@@ -225,11 +225,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     {
       $facet: {
         metadata: [{ $count: 'totalDocs' }],
-        data: [
-          { $sort: { purchaseDate: -1, purchaseId: -1 } },
-          { $skip: skip },
-          { $limit: limit }
-        ]
+        data: [{ $sort: { purchaseDate: -1, purchaseId: -1 } }, { $skip: skip }, { $limit: limit }]
       }
     }
   ]);
@@ -286,7 +282,6 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     prevPage: page > 1 ? page - 1 : null
   };
 };
-
 
 export const getPurchasesByVariantId = async (productId: string, variantId: string) => {
   await dbConnect();
@@ -602,7 +597,8 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     }
   }
 
-  const updateData: Partial<UpdatePurchaseDto & { totalCost?: number; remaining?: number; receivedQuantity?: number }> = { ...data };
+  const updateData: Partial<UpdatePurchaseDto & { totalCost?: number; remaining?: number; receivedQuantity?: number }> =
+    { ...data };
 
   // Use pre-calculated remaining if quantity was updated
   if (calculatedRemaining !== undefined && data.remaining === undefined) {
