@@ -16,6 +16,7 @@ import {
 } from '../types';
 import { calculateInvoiceProfit } from '../utils/calculate-profit';
 import { assertPermission } from '@/lib/auth-utils';
+import type { ItemDeduction } from '@/features/purchases/types/stock-deduction';
 
 // Helper types for lean documents
 interface LeanInvoiceItem {
@@ -331,6 +332,27 @@ export async function getInvoiceByNumber(invoiceNumber: string): Promise<Invoice
   }
 }
 
+/**
+ * Index `deductStockForInvoice`'s results by the invoice item they belong to.
+ *
+ * The deduction skips manual/custom lines - they carry neither a purchase nor a
+ * virtual product - so `actualDeductions` is shorter than `invoice.items` and is
+ * *not* positionally aligned with it. Reading it by loop index shifts every item
+ * after a custom line onto its neighbour's deduction: a virtual product can be
+ * stamped with another product's component breakdown (so delivery later takes
+ * the wrong batches out of stock) and a custom line can pick up a real product's
+ * purchase and rate.
+ *
+ * Each entry records its own `itemIndex`, so match on that instead.
+ */
+function indexDeductionsByItem(deductions: ItemDeduction[]): Map<number, ItemDeduction> {
+  const byItemIndex = new Map<number, ItemDeduction>();
+  for (const deduction of deductions) {
+    byItemIndex.set(deduction.itemIndex, deduction);
+  }
+  return byItemIndex;
+}
+
 // Create new invoice
 export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
   try {
@@ -503,9 +525,10 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
 
         // Update invoice items with actual deduction data
         if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+          const deductionByItem = indexDeductionsByItem(stockResult.actualDeductions);
           for (let i = 0; i < savedInvoice.items.length; i++) {
             const item = savedInvoice.items[i];
-            const deductionData = stockResult.actualDeductions[i];
+            const deductionData = deductionByItem.get(i);
 
             if (!deductionData) {
               continue;
@@ -1199,9 +1222,10 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
 
         // Update invoice items with actual deduction data
         if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+          const deductionByItem = indexDeductionsByItem(stockResult.actualDeductions);
           for (let i = 0; i < savedInvoice.items.length; i++) {
             const item = savedInvoice.items[i];
-            const deductionData = stockResult.actualDeductions[i];
+            const deductionData = deductionByItem.get(i);
 
             if (!deductionData) {
               continue;
@@ -1746,9 +1770,10 @@ export async function deductInvoiceStock(invoiceId: string): Promise<Invoice> {
 
       // Update invoice items with actual deduction data
       if (stockResult.actualDeductions && stockResult.actualDeductions.length > 0) {
+        const deductionByItem = indexDeductionsByItem(stockResult.actualDeductions);
         for (let i = 0; i < invoice.items.length; i++) {
           const item = invoice.items[i];
-          const deductionData = stockResult.actualDeductions[i];
+          const deductionData = deductionByItem.get(i);
 
           if (!deductionData) {
             continue;
