@@ -1180,6 +1180,13 @@ export async function getProductOriginProfitData(
       },
       // Unwind items to process each individually
       { $unwind: '$items' },
+      // Skip manual-entry and virtual product items (no origin concept)
+      {
+        $match: {
+          'items.productId': { $ne: 'manual-entry' },
+          'items.isVirtualProduct': { $ne: true }
+        }
+      },
       // Lookup product to get origin
       {
         $lookup: {
@@ -1238,12 +1245,18 @@ export async function getProductOriginProfitData(
             }
           },
           itemRevenue: '$items.totalPrice',
-          // Proportional discount share (calculated later)
+          // Proportional discount share based on item's share of invoice subtotal
           itemDiscountShare: {
-            $multiply: [
-              '$discountAmount',
-              { $divide: ['$items.totalPrice', { $sum: '$items.totalPrice' }] }
-            ]
+            $cond: {
+              if: { $gt: [{ $ifNull: ['$subtotal', 0] }, 0] },
+              then: {
+                $multiply: [
+                  { $ifNull: ['$discountAmount', 0] },
+                  { $divide: ['$items.totalPrice', '$subtotal'] }
+                ]
+              },
+              else: 0
+            }
           }
         }
       },
@@ -1305,6 +1318,7 @@ export async function getProductOriginProfitData(
     ];
   }
 }
+
 
 
 
