@@ -9,9 +9,15 @@ import StockTrackingModel from '@/models/StockTracking';
 import { generateId } from '@/models/Counter';
 import { assertPermission } from '@/lib/auth-utils';
 import { revalidatePath } from 'next/cache';
+import {
+  deliverableItemMongoExpr,
+  isDeliverableItem,
+  isVirtualItem
+} from '@/features/invoices/utils/deliverable-items';
 import type {
   ActionResult,
   AwaitingArrivalItem,
+  AwaitingDeliveryComponent,
   AwaitingDeliveryItem,
   DeliverInvoiceInput,
   InShopRow,
@@ -116,6 +122,32 @@ async function buildSearchText(parts: Array<string | undefined>): Promise<string
     .toLowerCase();
 }
 
+/**
+ * Mongo `$expr` that sums `quantity - deliveredQuantity` over the invoice's
+ * deliverable lines only: custom lines carry no stock and never leave the shop,
+ * so counting them would leave an invoice permanently "awaiting delivery".
+ *
+ * Shared by `getStockWorkCounts` (the tab badge) and `getAwaitingDelivery`
+ * (the tab itself) so the two can never disagree.
+ */
+function pendingDeliverySumExpr(): Record<string, unknown> {
+  return {
+    $sum: {
+      $map: {
+        input: { $ifNull: ['$items', []] },
+        as: 'i',
+        in: {
+          $cond: [
+            deliverableItemMongoExpr('$$i'),
+            { $subtract: [{ $ifNull: ['$$i.quantity', 0] }, { $ifNull: ['$$i.deliveredQuantity', 0] }] },
+            0
+          ]
+        }
+      }
+    }
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Status / initialization
 // ---------------------------------------------------------------------------
@@ -144,18 +176,7 @@ export async function getStockWorkCounts(): Promise<StockWorkCounts> {
     type: 'invoice',
     status: { $ne: 'cancelled' },
     $expr: {
-      $gt: [
-        {
-          $sum: {
-            $map: {
-              input: { $ifNull: ['$items', []] },
-              as: 'i',
-              in: { $subtract: [{ $ifNull: ['$$i.quantity', 0] }, { $ifNull: ['$$i.deliveredQuantity', 0] }] }
-            }
-          }
-        },
-        0
-      ]
+      $gt: [pendingDeliverySumExpr(), 0]
     }
   };
 
@@ -458,6 +479,54 @@ export async function getAwaitingArrival(input: {
   return { docs: items, total, page, limit };
 }
 
+/**
+ * Map one raw invoice item onto an awaiting-delivery line, or `null` when the
+ * line is not deliverable (custom/hand-typed entries - there is no stock behind
+ * them, so they never appear in the tab, the badge or the delivery card).
+ *
+ * Virtual products are expanded into their components: those are the physical
+ * units that leave the shop, each tagged with the purchase batch it was
+ * allocated from, so the reader can see exactly what has to go out.
+ */
+function buildDeliveryLine(item: any, index: number): AwaitingDeliveryItemLine | null {
+  if (!isDeliverableItem(item)) return null;
+
+  const quantity = item.quantity ?? 0;
+  const delivered = Math.min(quantity, item.deliveredQuantity ?? 0);
+  const pending = Math.max(0, quantity - delivered);
+
+  const line: AwaitingDeliveryItemLine = {
+    index,
+    productName: item.productName || 'Unknown',
+    sku: item.variantSKU,
+    unit: item.unit || 'pcs',
+    quantity,
+    delivered,
+    pending
+  };
+
+  if (isVirtualItem(item) && Array.isArray(item.componentBreakdown) && item.componentBreakdown.length > 0) {
+    // The breakdown is stored for the whole line, so the part still to ship is
+    // the same proportion of each batch as the line's own pending ratio.
+    const shippedRatio = quantity > 0 ? delivered / quantity : 0;
+    line.components = item.componentBreakdown.map((comp: any): AwaitingDeliveryComponent => {
+      const reserved = comp.quantity ?? 0;
+      const alreadyShipped = Math.min(reserved, Math.round(reserved * shippedRatio));
+      return {
+        productId: comp.productId,
+        variantId: comp.variantId,
+        productName: comp.productName || 'Unknown',
+        sku: comp.sku,
+        reserved,
+        pending: Math.max(0, reserved - alreadyShipped),
+        purchaseId: comp.purchaseId
+      };
+    });
+  }
+
+  return line;
+}
+
 export async function getAwaitingDelivery(input: {
   page?: number;
   limit?: number;
@@ -471,20 +540,7 @@ export async function getAwaitingDelivery(input: {
     type: 'invoice',
     status: { $ne: 'cancelled' },
     $expr: {
-      $gt: [
-        {
-          $sum: {
-            $map: {
-              input: { $ifNull: ['$items', []] },
-              as: 'i',
-              in: {
-                $subtract: [{ $ifNull: ['$$i.quantity', 0] }, { $ifNull: ['$$i.deliveredQuantity', 0] }]
-              }
-            }
-          }
-        },
-        0
-      ]
+      $gt: [pendingDeliverySumExpr(), 0]
     }
   };
   if (input.search) {
@@ -505,20 +561,8 @@ export async function getAwaitingDelivery(input: {
   for (const doc of docs as any[]) {
     const rawItems: any[] = doc.items ?? [];
     const lines: AwaitingDeliveryItemLine[] = rawItems
-      .map((item, index): AwaitingDeliveryItemLine => {
-        const quantity = item.quantity ?? 0;
-        const delivered = Math.min(quantity, item.deliveredQuantity ?? 0);
-        return {
-          index,
-          productName: item.productName || 'Unknown',
-          sku: item.variantSKU,
-          unit: item.unit || 'pcs',
-          quantity,
-          delivered,
-          pending: Math.max(0, quantity - delivered)
-        };
-      })
-      .filter(line => line.pending > 0);
+      .map((item, index) => buildDeliveryLine(item, index))
+      .filter((line): line is AwaitingDeliveryItemLine => line !== null && line.pending > 0);
 
     if (lines.length === 0) continue;
 
@@ -549,21 +593,12 @@ export async function getInvoiceDeliveryState(invoiceId: string): Promise<Awaiti
   const invoice = (await InvoiceModel.findById(invoiceId).lean()) as any;
   if (!invoice) return null;
 
-  const lines: AwaitingDeliveryItemLine[] = ((invoice.items ?? []) as any[]).map(
-    (item, index): AwaitingDeliveryItemLine => {
-      const quantity = item.quantity ?? 0;
-      const delivered = Math.min(quantity, item.deliveredQuantity ?? 0);
-      return {
-        index,
-        productName: item.productName || 'Unknown',
-        sku: item.variantSKU,
-        unit: item.unit || 'pcs',
-        quantity,
-        delivered,
-        pending: Math.max(0, quantity - delivered)
-      };
-    }
-  );
+  // Fully delivered lines are kept (this is the "complete picture" view), but
+  // custom lines are dropped - same rule as the tab, so the card, the badge and
+  // the Stock page always tell the same story.
+  const lines: AwaitingDeliveryItemLine[] = ((invoice.items ?? []) as any[])
+    .map((item, index) => buildDeliveryLine(item, index))
+    .filter((line): line is AwaitingDeliveryItemLine => line !== null);
 
   return {
     id: String(invoice._id),
@@ -958,6 +993,8 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
     const itemIndex = Number(line.itemIndex);
     const item = items[itemIndex];
     if (!item) throw new Error(`Invoice line ${itemIndex} no longer exists.`);
+    // Custom lines carry no stock, so there is nothing to hand over for them.
+    if (!isDeliverableItem(item)) continue;
     const quantity = Number(line.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
       throw new Error(`Quantity for '${item.productName}' must be positive.`);
@@ -970,6 +1007,10 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
       );
     }
     requested.push({ itemIndex, quantity, item });
+  }
+
+  if (requested.length === 0) {
+    throw new Error('Nothing to deliver.');
   }
 
   // Atomically record delivered quantities on the invoice items (CAS bounds).
@@ -1026,23 +1067,35 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
       };
 
       if (item.isVirtualProduct && item.componentBreakdown?.length) {
-        // Physical units leaving are the components, scaled by the item quantity.
+        // Physical units leaving are the components. The breakdown stores each
+        // batch's share for the *whole* line, so it is prorated by how much of
+        // the line is going out now - rounding off the cumulative totals so a
+        // sequence of partial deliveries can never drift from the reservation.
         const components: NonNullable<typeof line.components> = [];
+        const lineQty = item.quantity > 0 ? item.quantity : 1;
+        const shippedBefore = item.deliveredQuantity ?? 0;
         for (const comp of item.componentBreakdown) {
-          const compQty = (comp.quantity ?? 1) * quantity;
-          const res = await ProductModel.updateOne(
-            {
-              _id: comp.productId,
-              'variants.id': comp.variantId,
-              'variants.inShop': { $gte: compQty }
-            },
-            { $inc: { 'variants.$.inShop': -compQty } }
-          );
-          if (res.matchedCount === 0) {
-            const err = await buildShortageError(comp.productId, comp.variantId, comp.productName, compQty);
-            throw err;
+          const reserved = comp.quantity ?? 0;
+          const alreadyShipped = Math.round((reserved * shippedBefore) / lineQty);
+          const willShip = Math.round((reserved * (shippedBefore + quantity)) / lineQty);
+          const compQty = Math.max(0, willShip - alreadyShipped);
+
+          if (compQty > 0) {
+            const res = await ProductModel.updateOne(
+              {
+                _id: comp.productId,
+                'variants.id': comp.variantId,
+                'variants.inShop': { $gte: compQty }
+              },
+              { $inc: { 'variants.$.inShop': -compQty } }
+            );
+            if (res.matchedCount === 0) {
+              const err = await buildShortageError(comp.productId, comp.variantId, comp.productName, compQty);
+              throw err;
+            }
+            appliedDecrements.push({ productId: comp.productId, variantId: comp.variantId, quantity: compQty });
           }
-          appliedDecrements.push({ productId: comp.productId, variantId: comp.variantId, quantity: compQty });
+
           components.push({
             productId: comp.productId,
             variantId: comp.variantId,
@@ -1051,7 +1104,7 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
             quantity: compQty
           });
         }
-        line.components = components;
+        if (components.length > 0) line.components = components;
       } else if (!item.isVirtualProduct && item.variantId) {
         const res = await ProductModel.updateOne(
           {

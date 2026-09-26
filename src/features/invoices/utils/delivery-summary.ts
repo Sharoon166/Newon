@@ -1,4 +1,5 @@
 import type { Invoice } from '../types';
+import { isDeliverableItem } from './deliverable-items';
 
 export interface DeliverySummary {
   /** Total units across the invoice lines. */
@@ -35,6 +36,10 @@ export function getDeliverySummary(invoice: Pick<Invoice, 'type' | 'status' | 'i
 
   if (applicable) {
     for (const item of invoice.items ?? []) {
+      // Custom lines have no stock behind them, so they never count towards
+      // physical delivery - a custom-only invoice simply reads as nothing to
+      // deliver (the table renders that as "—").
+      if (!isDeliverableItem(item)) continue;
       const quantity = item.quantity ?? 0;
       total += quantity;
       // A line can never be delivered beyond what was invoiced.

@@ -5,25 +5,37 @@ import { PackageCheck, PackageOpen, Timer } from 'lucide-react';
 
 /**
  * Delivery status badge (separate from payment status).
+ * - nothingToDeliver: no deliverable lines (custom-only invoice)
  * - notStarted: nothing delivered yet
  * - partial: some lines fully/partially delivered
  * - completed: every item fully delivered
  */
 export function getDeliverySummary(lines: Array<{ quantity: number; delivered: number }>) {
-  if (!lines || lines.length === 0) return { deliveredUnits: 0, invoicedUnits: 0, completed: false, partial: false };
+  if (!lines || lines.length === 0) {
+    return { deliveredUnits: 0, invoicedUnits: 0, completed: false, partial: false, nothingToDeliver: true };
+  }
   const invoicedUnits = lines.reduce((s, l) => s + (l.quantity ?? 0), 0);
   const deliveredUnits = lines.reduce((s, l) => s + Math.min(l.quantity ?? 0, l.delivered ?? 0), 0);
   return {
     invoicedUnits,
     deliveredUnits,
     completed: invoicedUnits > 0 && deliveredUnits >= invoicedUnits,
-    partial: deliveredUnits > 0 && deliveredUnits < invoicedUnits
+    partial: deliveredUnits > 0 && deliveredUnits < invoicedUnits,
+    nothingToDeliver: false
   };
 }
 
 export function DeliveryBadge({ lines }: { lines: Array<{ quantity: number; delivered: number }> }) {
   const summary = getDeliverySummary(lines);
 
+  if (summary.nothingToDeliver) {
+    return (
+      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+        <PackageCheck className="h-3 w-3" />
+        Nothing to deliver
+      </Badge>
+    );
+  }
   if (summary.completed) {
     return (
       <Badge variant="default" className="flex items-center gap-1 w-fit">

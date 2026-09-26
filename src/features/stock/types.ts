@@ -116,6 +116,24 @@ export interface AwaitingArrivalItem {
   pending: number;
 }
 
+/**
+ * One component of a virtual product line, as it must physically leave the
+ * shop: the real stock the line is made of, each tagged with the purchase batch
+ * the FIFO deduction reserved it from.
+ */
+export interface AwaitingDeliveryComponent {
+  productId: string;
+  variantId: string;
+  productName: string;
+  sku?: string;
+  /** Component units reserved for the whole line by the FIFO deduction. */
+  reserved: number;
+  /** Of those, how many still have to leave the shop. */
+  pending: number;
+  /** Purchase batch this component was allocated from at deduction time. */
+  purchaseId?: string;
+}
+
 export interface AwaitingDeliveryItemLine {
   index: number;
   productName: string;
@@ -124,6 +142,8 @@ export interface AwaitingDeliveryItemLine {
   quantity: number;
   delivered: number;
   pending: number;
+  /** Virtual products only: the real stock this line is made of. */
+  components?: AwaitingDeliveryComponent[];
 }
 
 export interface AwaitingDeliveryItem {

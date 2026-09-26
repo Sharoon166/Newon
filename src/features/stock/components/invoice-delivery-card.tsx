@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, RotateCw, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getInvoiceDeliveryState } from '../actions';
@@ -124,18 +125,29 @@ export function InvoiceDeliveryCard({
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{state.totalDelivered}</span> of{' '}
-          <span className="font-medium text-foreground">{state.totalInvoiced}</span> unit(s) handed over
-          {state.totalPending > 0 && (
+          {state.lines.length === 0 ? (
+            <>This invoice has no stock items — there is nothing to hand over.</>
+          ) : (
             <>
-              {' '}
-              - <span className="font-medium text-foreground">{state.totalPending}</span> still to deliver
+              <span className="font-medium text-foreground">{state.totalDelivered}</span> of{' '}
+              <span className="font-medium text-foreground">{state.totalInvoiced}</span> unit(s) handed over
+              {state.totalPending > 0 && (
+                <>
+                  {' '}
+                  - <span className="font-medium text-foreground">{state.totalPending}</span> still to deliver
+                </>
+              )}
             </>
           )}
         </p>
       </CardHeader>
 
       <CardContent className="space-y-3">
+        {state.lines.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Only custom entries on this invoice — they are not stock, so they never appear here.
+          </p>
+        )}
         {state.lines.map(line => {
           const pct = line.quantity > 0 ? Math.min(100, Math.round((line.delivered / line.quantity) * 100)) : 0;
           return (
@@ -159,6 +171,33 @@ export function InvoiceDeliveryCard({
               </div>
               {line.pending > 0 && (
                 <p className="mt-1.5 text-xs text-muted-foreground">{line.pending} pending</p>
+              )}
+              {line.components && line.components.length > 0 && (
+                <ul className="mt-2 space-y-1 border-l-2 border-muted pl-2.5">
+                  {line.components.map(comp => (
+                    <li
+                      key={`${comp.productId}-${comp.variantId}-${comp.purchaseId ?? ''}`}
+                      className="flex flex-wrap items-center justify-between gap-2 text-xs"
+                    >
+                      <span className="text-muted-foreground">
+                        {comp.productName} {comp.sku && <span className="font-mono">({comp.sku})</span>}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        {comp.pending > 0 && (
+                          <span className="font-medium text-foreground">{comp.pending} to go</span>
+                        )}
+                        <span className="text-muted-foreground">
+                          {comp.reserved - comp.pending}/{comp.reserved}
+                        </span>
+                        {comp.purchaseId && (
+                          <Badge variant="outline" className="font-mono text-[10px] leading-4">
+                            {comp.purchaseId}
+                          </Badge>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           );

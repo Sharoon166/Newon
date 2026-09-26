@@ -135,6 +135,23 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
               <li key={line.index} className="text-sm">
                 <span className="font-medium">{line.productName}</span>{' '}
                 <span className="text-muted-foreground">× {line.pending}</span>
+                {line.components && line.components.length > 0 && (
+                  <ul className="mt-0.5 space-y-0.5 border-l-2 border-muted pl-2">
+                    {line.components
+                      .filter(comp => comp.pending > 0)
+                      .map(comp => (
+                        <li key={`${comp.productId}-${comp.variantId}-${comp.purchaseId ?? ''}`} className="text-xs">
+                          <span className="text-muted-foreground">{comp.productName}</span>{' '}
+                          <span className="text-muted-foreground">× {comp.pending}</span>
+                          {comp.purchaseId && (
+                            <Badge variant="outline" className="ml-1 font-mono text-[10px] leading-4">
+                              {comp.purchaseId}
+                            </Badge>
+                          )}
+                        </li>
+                      ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
