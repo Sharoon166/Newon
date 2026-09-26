@@ -240,14 +240,21 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
     if (!pendingReversal) return;
     try {
       setIsReversing(true);
-      await reverseMovement(pendingReversal.movementId);
+      const result = await reverseMovement(pendingReversal.movementId);
+      if (!result.success) {
+        // Expected failures (not enough in shop, already reversed) come back as
+        // a value so their wording reaches the toast intact.
+        toast.error(result.error);
+        return;
+      }
       toast.success(`Reversed ${pendingReversal.movementId}`);
       setPendingReversal(null);
       load();
       router.refresh();
       onChanged?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to reverse movement');
+    } catch {
+      // Safety net for auth/network faults - expected problems never throw.
+      toast.error('Failed to reverse movement');
     } finally {
       setIsReversing(false);
     }

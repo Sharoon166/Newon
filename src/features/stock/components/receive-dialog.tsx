@@ -54,12 +54,19 @@ export function ReceiveDialog({ open, onOpenChange, target, onSuccess }: Receive
     try {
       setIsSubmitting(true);
       const clientRef = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : undefined;
-      await receivePurchase({ purchaseId: target.id, quantity, clientRef });
+      const result = await receivePurchase({ purchaseId: target.id, quantity, clientRef });
+      // Expected failures (not enough still to come) come back as a value so
+      // their wording reaches the toast intact.
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       toast.success(`Received ${quantity} unit(s) of ${target.productName}`);
       onOpenChange(false);
       onSuccess?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to receive stock');
+    } catch {
+      // Safety net for auth/network faults - expected problems never throw.
+      toast.error('Failed to receive stock');
     } finally {
       setIsSubmitting(false);
     }

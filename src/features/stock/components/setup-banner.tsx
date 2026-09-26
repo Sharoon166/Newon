@@ -41,15 +41,22 @@ export function SetupBanner({ mode = 'setup', userRole, startedAt, onDone, onCan
   const handleStart = async () => {
     try {
       setIsStarting(true);
-      await initializeStockTracking(date.toISOString());
+      const result = await initializeStockTracking(date.toISOString());
+      if (!result.success) {
+        // Expected failures (not an admin, already running) come back as a value
+        // so their wording reaches the toast intact.
+        toast.error(result.error);
+        return;
+      }
       toast.success(
         isChange
           ? 'Start date updated — In shop counts recalculated. Previous starting counts were archived.'
           : 'Stock tracking started — In shop now equals Available on the start date.'
       );
       onDone?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to set starting counts');
+    } catch {
+      // Safety net for auth/network faults - expected problems never throw.
+      toast.error('Failed to set starting counts');
     } finally {
       setIsStarting(false);
     }

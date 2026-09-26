@@ -5,6 +5,7 @@ import mongoosePaginate from 'mongoose-paginate-v2';
 // products on one invoice, and for the component breakdown of virtual products).
 export interface StockMovementLine {
   productId: string;
+  // '' for a virtual-product line - see the note on the schema below.
   variantId: string;
   productName: string;
   sku: string;
@@ -32,6 +33,7 @@ export interface IStockMovement extends mongoose.Document {
   movementId: string;
   kind: 'receive' | 'deliver' | 'adjustment' | 'opening' | 'reversal';
   productId: string;
+  // '' for a virtual-product delivery - see the note on the schema below.
   variantId: string;
   productName: string;
   sku: string;
@@ -66,7 +68,10 @@ export interface IStockMovement extends mongoose.Document {
 const stockMovementLineSchema = new mongoose.Schema(
   {
     productId: { type: String, required: true },
-    variantId: { type: String, required: true },
+    // '' for virtual-product lines: a VP has no variant of its own, so its
+    // `components` below are the physical stock that actually left. Everything
+    // else carries the real variant.
+    variantId: { type: String, default: '' },
     productName: { type: String, required: true },
     sku: { type: String, required: true },
     quantity: { type: Number, required: true, min: 0 },
@@ -105,7 +110,14 @@ const stockMovementSchema = new mongoose.Schema(
       index: true
     },
     productId: { type: String, required: true, index: true },
-    variantId: { type: String, required: true, index: true },
+    // Not `required`: a virtual-product delivery has no variant of its own,
+    // because the VP is not a physical thing - its units live in
+    // `lines[].components`. No integrity is lost by allowing '' here: every
+    // other kind is guaranteed a variant upstream (receive takes it from
+    // Purchase, where it is required; quick-count and opening take it from a
+    // real variant; reversal-of-receive/adjustment copy it from the movement
+    // being reversed).
+    variantId: { type: String, default: '', index: true },
     productName: { type: String, required: true },
     sku: { type: String, required: true },
     quantity: { type: Number, required: true },

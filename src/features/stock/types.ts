@@ -1,3 +1,5 @@
+import type { ActionResult } from '@/lib/action-result';
+
 export type StockMovementKind = 'receive' | 'deliver' | 'adjustment' | 'opening' | 'reversal';
 
 export interface StockMovementLine {
@@ -203,9 +205,27 @@ export interface QuickCountInput {
   clientRef?: string;
 }
 
-export interface ActionResult {
-  ok: boolean;
+/**
+ * Metadata a stock action attaches to a *successful* result.
+ *
+ * Failures carry no data - they carry the message the user should see, as the
+ * shared `ActionResult` union in `@/lib/action-result` enforces.
+ */
+export interface StockActionData {
+  /** True when a duplicate retry was detected; the work was already applied. */
   idempotent?: boolean;
+  /** Receive: the variant's "In shop" count after the receipt. */
   receivedQuantity?: number;
+  /** Deliver: total units handed over in this slip. */
   deliveredQuantity?: number;
 }
+
+/**
+ * Return type of the mutating stock actions.
+ *
+ * Never thrown: expected failures (a shortage, a stale quantity, a cancelled
+ * invoice) are *returned* so the caller can show the exact wording in a toast.
+ * Thrown server-action errors are redacted in production builds, so a thrown
+ * message would never reach the user intact.
+ */
+export type StockActionResult = ActionResult<StockActionData>;

@@ -68,17 +68,24 @@ export function DeliverDialog({ open, onOpenChange, target, onSuccess }: Deliver
     try {
       setIsSubmitting(true);
       const clientRef = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : undefined;
-      await deliverInvoice({
+      const result = await deliverInvoice({
         invoiceId: target.id,
         lines: quantities.filter(q => q.qty > 0).map(q => ({ itemIndex: q.index, quantity: q.qty })),
         note: note.trim() || undefined,
         clientRef
       });
+      // Expected failures (shortage, stale quantity) come back as a value so
+      // their wording reaches the toast intact.
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       toast.success(`Delivered ${totalToDeliver} unit(s) for invoice ${target.invoiceNumber}`);
       onOpenChange(false);
       onSuccess?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to record delivery');
+    } catch {
+      // Safety net for auth/network faults - expected problems never throw.
+      toast.error('Failed to record delivery');
     } finally {
       setIsSubmitting(false);
     }

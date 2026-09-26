@@ -46,12 +46,18 @@ export function QuickCountDialog({ open, onOpenChange, target, onSuccess }: Quic
     try {
       setIsSubmitting(true);
       const clientRef = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : undefined;
-      await quickCount({ productId: target.productId, variantId: target.variantId, count, clientRef });
+      const result = await quickCount({ productId: target.productId, variantId: target.variantId, count, clientRef });
+      if (!result.success) {
+        // Expected failures come back as a value so their wording reaches the toast.
+        toast.error(result.error);
+        return;
+      }
       toast.success(`In shop for ${target.productName} set to ${count}`);
       onOpenChange(false);
       onSuccess?.();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update count');
+    } catch {
+      // Safety net for auth/network faults - expected problems never throw.
+      toast.error('Failed to update count');
     } finally {
       setIsSubmitting(false);
     }

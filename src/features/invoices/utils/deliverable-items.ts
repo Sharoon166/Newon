@@ -68,8 +68,16 @@ export function deliverableItemMongoExpr(itemPath: string): Record<string, unkno
 
   return {
     $or: [
-      // Virtual products ship as their components.
-      { $eq: [{ $ifNull: [field('isVirtualProduct'), false] }, true] },
+      // Virtual products ship as their components. This branch mirrors
+      // `isVirtualItem`: either flag on its own is enough, because older rows
+      // and hand-converted quotations only agree on one of them. Keep both
+      // copies in step or the tab and the aggregate counts will disagree.
+      {
+        $or: [
+          { $eq: [{ $ifNull: [field('isVirtualProduct'), false] }, true] },
+          nonEmpty('virtualProductId')
+        ]
+      },
       {
         $and: [
           // Not one of the hand-typed sentinels...

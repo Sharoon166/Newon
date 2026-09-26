@@ -14,8 +14,8 @@ import {
   isDeliverableItem,
   isVirtualItem
 } from '@/features/invoices/utils/deliverable-items';
+import type { InvoiceItem } from '@/features/invoices/types';
 import type {
-  ActionResult,
   AwaitingArrivalItem,
   AwaitingDeliveryComponent,
   AwaitingDeliveryItem,
@@ -24,6 +24,7 @@ import type {
   PaginatedStock,
   QuickCountInput,
   ReceivePurchaseInput,
+  StockActionResult,
   StockChallanData,
   StockChallanKind,
   StockChallanLine,
@@ -148,6 +149,69 @@ function pendingDeliverySumExpr(): Record<string, unknown> {
   };
 }
 
+/**
+ * A failure that has to unwind through a rollback but whose message is written
+ * for the user (a stock shortage is the only one). The surrounding `catch`
+ * recognises it and returns the wording verbatim; anything else is a genuine
+ * fault and gets logged server-side instead of forwarded.
+ *
+ * Only needed where an error must travel *out* of a `try` that has cleanup to
+ * do. Everywhere else the action returns `{ success: false }` directly at the
+ * point the problem is detected.
+ */
+class ExpectedStockError extends Error {}
+
+/**
+ * Turn a caught error into a failure result the client can safely display.
+ *
+ * Server-side error text must never reach the browser - production builds
+ * redact it anyway, and what survives is a stack-less string with no meaning
+ * to the person waiting on the toast. So only errors we authored ourselves are
+ * passed through; everything else is logged here and replaced by `fallback`.
+ */
+function toFailure(error: unknown, fallback: string): StockActionResult {
+  if (error instanceof ExpectedStockError) {
+    return { success: false, error: error.message };
+  }
+  console.error('[stock]', error);
+  return { success: false, error: fallback };
+}
+
+/**
+ * The single place that decides whether an invoice line can become a stock
+ * movement, and - when it cannot - the sentence the user should read.
+ *
+ * A movement document requires `productId`, `productName`, `sku` and `variantId`.
+ * A virtual product is the one legitimate exception to `variantId`, because its
+ * units are its components rather than a variant of its own. Anything else here
+ * is a malformed row, and both failure modes are worse than refusing: the schema
+ * rejects the save (visible only as a generic error), or - in the missing
+ * breakdown case - the line is recorded while *nothing* leaves stock and the
+ * user is told the delivery succeeded.
+ *
+ * Returns `null` when the line can be delivered.
+ */
+function undeliverableReason(item: InvoiceItem): string | null {
+  const name = item.productName || 'This invoice line';
+
+  if (!item.productId) {
+    return `'${name}' has no product on this invoice, so there is no stock behind it.`;
+  }
+  if (!item.variantSKU) {
+    return `'${name}' has no SKU on this invoice, so it cannot be recorded as a stock movement.`;
+  }
+
+  if (isVirtualItem(item)) {
+    return item.componentBreakdown?.length
+      ? null
+      : `'${name}' has no component breakdown on this invoice, so there is no stock to take for it.`;
+  }
+
+  return item.variantId
+    ? null
+    : `'${name}' has no stock variant on this invoice, so there is no stock to take for it.`;
+}
+
 // ---------------------------------------------------------------------------
 // Status / initialization
 // ---------------------------------------------------------------------------
@@ -201,17 +265,17 @@ export async function getStockWorkCounts(): Promise<StockWorkCounts> {
  * history and the purchase/invoice records themselves are never touched.
  * A `status` lock stops two admins running it at the same time.
  */
-export async function initializeStockTracking(startedAtISO?: string): Promise<ActionResult> {
+export async function initializeStockTracking(startedAtISO?: string): Promise<StockActionResult> {
   const session = await assertPermission('edit:stock');
   await dbConnect();
 
   if (session.user?.role !== 'admin') {
-    throw new Error('Only an admin can set the starting counts.');
+    return { success: false, error: 'Only an admin can set the starting counts.' };
   }
 
   const startedAt = startedAtISO ? new Date(startedAtISO) : new Date();
   if (Number.isNaN(startedAt.getTime())) {
-    throw new Error('Invalid start date.');
+    return { success: false, error: 'Invalid start date.' };
   }
 
   // Ensure the single tracking doc exists, then acquire the re-set lock.
@@ -233,7 +297,7 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<Ac
   } | null;
 
   if (!locked) {
-    throw new Error('Starting counts are already being set. Wait a moment and try again.');
+    return { success: false, error: 'Starting counts are already being set. Wait a moment and try again.' };
   }
 
   const isReSet = !!locked.initialized;
@@ -348,11 +412,11 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<Ac
   } catch (error) {
     // Never leave the lock stuck if a step fails partway through.
     await StockTrackingModel.updateOne({}, { $set: { status: 'idle' } });
-    throw error;
+    return toFailure(error, 'Failed to set starting counts.');
   }
 
   revalidateStock();
-  return { ok: true };
+  return { success: true, data: {} };
 }
 
 // ---------------------------------------------------------------------------
@@ -874,22 +938,22 @@ export async function getStockChallan(input: { movementId: string }): Promise<St
 // Receive (partial receiving on purchases)
 // ---------------------------------------------------------------------------
 
-export async function receivePurchase(input: ReceivePurchaseInput): Promise<ActionResult> {
+export async function receivePurchase(input: ReceivePurchaseInput): Promise<StockActionResult> {
   const session = await assertPermission('edit:stock');
   await dbConnect();
 
   const quantity = Math.floor(Number(input.quantity));
   if (!Number.isFinite(quantity) || quantity <= 0) {
-    throw new Error('Enter a positive quantity to receive.');
+    return { success: false, error: 'Enter a positive quantity to receive.' };
   }
 
   const purchase = await PurchaseModel.findById(input.purchaseId).lean();
-  if (!purchase) throw new Error('Purchase not found.');
+  if (!purchase) return { success: false, error: 'Purchase not found.' };
 
   const received = (purchase as any).receivedQuantity ?? 0;
   const pending = Math.max(0, purchase.quantity - received);
   if (quantity > pending) {
-    throw new Error(`Cannot receive ${quantity}: only ${formatQty(pending)} still to come.`);
+    return { success: false, error: `Cannot receive ${quantity}: only ${formatQty(pending)} still to come.` };
   }
 
   // Compare-and-swap: only ever receive up to the ordered quantity, atomically.
@@ -903,7 +967,10 @@ export async function receivePurchase(input: ReceivePurchaseInput): Promise<Acti
     const fresh = await PurchaseModel.findById(input.purchaseId).lean();
     const freshReceived = (fresh as any)?.receivedQuantity ?? 0;
     const freshPending = Math.max(0, (fresh as any)?.quantity - freshReceived);
-    throw new Error(`Cannot receive ${quantity}: only ${formatQty(freshPending)} still to come.`);
+    return {
+      success: false,
+      error: `Cannot receive ${quantity}: only ${formatQty(freshPending)} still to come.`
+    };
   }
 
   // Physical counter + store product name/sku for the movement record.
@@ -915,7 +982,7 @@ export async function receivePurchase(input: ReceivePurchaseInput): Promise<Acti
 
   if (!product) {
     await PurchaseModel.updateOne({ _id: input.purchaseId }, { $inc: { receivedQuantity: -quantity } });
-    throw new Error('The linked product was not found. Nothing was changed.');
+    return { success: false, error: 'The linked product was not found. Nothing was changed.' };
   }
 
   const variant = product.variants?.find((v: any) => v.id === purchase.variantId);
@@ -955,62 +1022,67 @@ export async function receivePurchase(input: ReceivePurchaseInput): Promise<Acti
         { _id: purchase.productId, 'variants.id': purchase.variantId },
         { $inc: { 'variants.$.inShop': -quantity } }
       );
-      return { ok: true, idempotent: true };
+      return { success: true, data: { idempotent: true } };
     }
     await PurchaseModel.updateOne({ _id: input.purchaseId }, { $inc: { receivedQuantity: -quantity } });
     await ProductModel.updateOne(
       { _id: purchase.productId, 'variants.id': purchase.variantId },
       { $inc: { 'variants.$.inShop': -quantity } }
     );
-    throw error;
+    return toFailure(error, 'Failed to receive stock.');
   }
 
   revalidateStock();
-  return { ok: true, receivedQuantity: inShopAfter };
+  return { success: true, data: { receivedQuantity: inShopAfter } };
 }
 
 // ---------------------------------------------------------------------------
 // Deliver (partial delivery on invoices)
 // ---------------------------------------------------------------------------
 
-export async function deliverInvoice(input: DeliverInvoiceInput): Promise<ActionResult> {
+export async function deliverInvoice(input: DeliverInvoiceInput): Promise<StockActionResult> {
   const session = await assertPermission('edit:stock');
   await dbConnect();
 
   if (!input.lines || input.lines.length === 0) {
-    throw new Error('Nothing to deliver.');
+    return { success: false, error: 'Nothing to deliver.' };
   }
 
   const invoice = await InvoiceModel.findById(input.invoiceId).lean();
-  if (!invoice) throw new Error('Invoice not found.');
-  if (invoice.type !== 'invoice') throw new Error('Quotations are not delivered.');
-  if (invoice.status === 'cancelled') throw new Error('This invoice is cancelled.');
+  if (!invoice) return { success: false, error: 'Invoice not found.' };
+  if (invoice.type !== 'invoice') return { success: false, error: 'Quotations are not delivered.' };
+  if (invoice.status === 'cancelled') return { success: false, error: 'This invoice is cancelled.' };
 
   // Validate every line against the invoiced quantity.
-  const items = (invoice as any).items ?? [];
-  const requested: Array<{ itemIndex: number; quantity: number; item: any }> = [];
+  const items = ((invoice as any).items ?? []) as InvoiceItem[];
+  const requested: Array<{ itemIndex: number; quantity: number; item: InvoiceItem }> = [];
   for (const line of input.lines) {
     const itemIndex = Number(line.itemIndex);
     const item = items[itemIndex];
-    if (!item) throw new Error(`Invoice line ${itemIndex} no longer exists.`);
+    if (!item) return { success: false, error: `Invoice line ${itemIndex} no longer exists.` };
     // Custom lines carry no stock, so there is nothing to hand over for them.
     if (!isDeliverableItem(item)) continue;
+    // Refuse anything that could not become a stock movement, before a single
+    // write happens - the reason is exact and nothing needs rolling back.
+    const reason = undeliverableReason(item);
+    if (reason) return { success: false, error: reason };
     const quantity = Number(line.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      throw new Error(`Quantity for '${item.productName}' must be positive.`);
+      return { success: false, error: `Quantity for '${item.productName}' must be positive.` };
     }
     const delivered = item.deliveredQuantity ?? 0;
     const pending = Math.max(0, item.quantity - delivered);
     if (quantity > pending) {
-      throw new Error(
-        `Cannot deliver ${formatQty(quantity)} of '${item.productName}': only ${formatQty(pending)} still to deliver.`
-      );
+      return {
+        success: false,
+        error: `Cannot deliver ${formatQty(quantity)} of '${item.productName}': only ${formatQty(pending)} still to deliver.`
+      };
     }
     requested.push({ itemIndex, quantity, item });
   }
 
   if (requested.length === 0) {
-    throw new Error('Nothing to deliver.');
+    return { success: false, error: 'Nothing to deliver.' };
   }
 
   // Atomically record delivered quantities on the invoice items (CAS bounds).
@@ -1031,12 +1103,13 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
       const freshItem = freshItems[itemIndex];
       const freshPending = Math.max(0, (freshItem?.quantity ?? item.quantity) - (freshItem?.deliveredQuantity ?? 0));
       if (quantity > freshPending) {
-        throw new Error(
-          `Cannot deliver ${formatQty(quantity)} of '${freshItem?.productName ?? item.productName}': only ${formatQty(freshPending)} still to deliver.`
-        );
+        return {
+          success: false,
+          error: `Cannot deliver ${formatQty(quantity)} of '${freshItem?.productName ?? item.productName}': only ${formatQty(freshPending)} still to deliver.`
+        };
       }
     }
-    throw new Error('Delivery was not recorded. Please try again.');
+    return { success: false, error: 'Delivery was not recorded. Please try again.' };
   }
 
   // Decrement "In shop" for each physical line, refusing when there isn't enough.
@@ -1051,9 +1124,9 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
       if (!primary) {
         primary = {
           productId: item.productId,
-          variantId: item.variantId,
+          variantId: item.variantId ?? '',
           productName: item.productName,
-          sku: item.variantSKU
+          sku: item.variantSKU ?? ''
         };
       }
 
@@ -1066,7 +1139,7 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
         itemIndex
       };
 
-      if (item.isVirtualProduct && item.componentBreakdown?.length) {
+      if (isVirtualItem(item) && item.componentBreakdown?.length) {
         // Physical units leaving are the components. The breakdown stores each
         // batch's share for the *whole* line, so it is prorated by how much of
         // the line is going out now - rounding off the cumulative totals so a
@@ -1105,7 +1178,7 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
           });
         }
         if (components.length > 0) line.components = components;
-      } else if (!item.isVirtualProduct && item.variantId) {
+      } else if (!isVirtualItem(item) && item.variantId) {
         const res = await ProductModel.updateOne(
           {
             _id: item.productId,
@@ -1119,9 +1192,12 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
           throw err;
         }
         appliedDecrements.push({ productId: item.productId, variantId: item.variantId, quantity });
+      } else {
+        // Unreachable: `undeliverableReason` refuses such lines before anything
+        // is written. Guard it anyway - recording the line here would credit the
+        // delivery while no stock leaves the shop.
+        throw new ExpectedStockError(undeliverableReason(item) ?? `'${item.productName}' cannot be delivered.`);
       }
-      // Items without a physical variant (e.g. service lines) are recorded but
-      // do not move the "In shop" counter.
 
       movementLines.push(line);
     }
@@ -1138,7 +1214,7 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
         { $inc: { 'variants.$.inShop': dec.quantity } }
       );
     }
-    throw error;
+    return toFailure(error, 'Failed to record delivery.');
   }
 
   // Record "In shop" before/after for the slip as a whole and for every line
@@ -1255,13 +1331,13 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<Action
       );
     }
     if (input.clientRef && isDuplicateKeyError(error)) {
-      return { ok: true, idempotent: true };
+      return { success: true, data: { idempotent: true } };
     }
-    throw error;
+    return toFailure(error, 'Failed to record delivery.');
   }
 
   revalidateStock();
-  return { ok: true, deliveredQuantity: totalDelivered };
+  return { success: true, data: { deliveredQuantity: totalDelivered } };
 }
 
 async function buildShortageError(
@@ -1274,7 +1350,7 @@ async function buildShortageError(
     | LeanProduct
     | null;
   const available = product?.variants?.find(v => v.id === variantId)?.inShop ?? 0;
-  return new Error(
+  return new ExpectedStockError(
     `Cannot deliver ${formatQty(requestedQty)} of '${productName}': only ${formatQty(available)} unit(s) are physically in the shop.`
   );
 }
@@ -1283,18 +1359,18 @@ async function buildShortageError(
 // Quick count
 // ---------------------------------------------------------------------------
 
-export async function quickCount(input: QuickCountInput): Promise<ActionResult> {
+export async function quickCount(input: QuickCountInput): Promise<StockActionResult> {
   const session = await assertPermission('edit:stock');
   await dbConnect();
 
   const count = Number(input.count);
   if (!Number.isFinite(count) || count < 0) {
-    throw new Error('Enter a valid count (0 or more).');
+    return { success: false, error: 'Enter a valid count (0 or more).' };
   }
 
   const product = (await ProductModel.findOne({ _id: input.productId, 'variants.id': input.variantId }).lean()) as
     unknown as LeanProduct | null;
-  if (!product) throw new Error('Product not found.');
+  if (!product) return { success: false, error: 'Product not found.' };
   const variant = product.variants?.find(v => v.id === input.variantId);
   const before = variant?.inShop ?? 0;
   const delta = Math.round(count) - before;
@@ -1326,31 +1402,33 @@ export async function quickCount(input: QuickCountInput): Promise<ActionResult> 
     });
   } catch (error) {
     if (input.clientRef && isDuplicateKeyError(error)) {
-      return { ok: true, idempotent: true };
+      return { success: true, data: { idempotent: true } };
     }
     await ProductModel.updateOne(
       { _id: input.productId, 'variants.id': input.variantId },
       { $set: { 'variants.$.inShop': before } }
     );
-    throw error;
+    return toFailure(error, 'Failed to update count.');
   }
 
   revalidateStock();
-  return { ok: true };
+  return { success: true, data: {} };
 }
 
 // ---------------------------------------------------------------------------
 // Reversal - mistakes are fixed by reversing, never by editing history
 // ---------------------------------------------------------------------------
 
-export async function reverseMovement(movementId: string): Promise<ActionResult> {
+export async function reverseMovement(movementId: string): Promise<StockActionResult> {
   const session = await assertPermission('reverse:stock');
   await dbConnect();
 
   const movement = await StockMovementModel.findOne({ movementId }).lean();
-  if (!movement) throw new Error('Movement not found.');
-  if (movement.kind === 'opening') throw new Error('Starting counts cannot be reversed - use a quick count instead.');
-  if (movement.reversed) throw new Error('This movement has already been reversed.');
+  if (!movement) return { success: false, error: 'Movement not found.' };
+  if (movement.kind === 'opening') {
+    return { success: false, error: 'Starting counts cannot be reversed - use a quick count instead.' };
+  }
+  if (movement.reversed) return { success: false, error: 'This movement has already been reversed.' };
 
   if (movement.kind === 'receive') {
     // Pull the units back out of the shop and undo the received quantity.
@@ -1364,9 +1442,10 @@ export async function reverseMovement(movementId: string): Promise<ActionResult>
         'variants.id': movement.variantId
       }).lean()) as unknown as LeanProduct | null;
       const available = product?.variants?.find(v => v.id === movement.variantId)?.inShop ?? 0;
-      throw new Error(
-        `Cannot reverse: only ${formatQty(available)} unit(s) of '${movement.productName}' are physically in the shop.`
-      );
+      return {
+        success: false,
+        error: `Cannot reverse: only ${formatQty(available)} unit(s) of '${movement.productName}' are physically in the shop.`
+      };
     }
     if (movement.purchaseId) {
       await PurchaseModel.updateOne(
@@ -1404,7 +1483,7 @@ export async function reverseMovement(movementId: string): Promise<ActionResult>
           { $inc: { 'variants.$.inShop': -add.quantity } }
         );
       }
-      throw error;
+      return toFailure(error, 'Failed to reverse movement.');
     }
 
     if (movement.invoiceId) {
@@ -1423,9 +1502,10 @@ export async function reverseMovement(movementId: string): Promise<ActionResult>
             { $inc: { 'variants.$.inShop': -add.quantity } }
           );
         }
-        throw new Error(
-          `Cannot reverse: the delivery record on invoice ${movement.invoiceNumber || ''} no longer matches (the invoice was edited after delivery).`
-        );
+        return {
+          success: false,
+          error: `Cannot reverse: the delivery record on invoice ${movement.invoiceNumber || ''} no longer matches (the invoice was edited after delivery).`
+        };
       }
     }
 
@@ -1439,7 +1519,7 @@ export async function reverseMovement(movementId: string): Promise<ActionResult>
       { $set: { 'variants.$.inShop': target } }
     );
     if (res.matchedCount === 0) {
-      throw new Error('The product for this movement no longer exists.');
+      return { success: false, error: 'The product for this movement no longer exists.' };
     }
     await StockMovementModel.create({
       movementId: await generateId('SM'),
@@ -1462,11 +1542,14 @@ export async function reverseMovement(movementId: string): Promise<ActionResult>
       { $set: { reversed: true, reversedByMovementId: movementId } }
     );
   } else if (movement.kind === 'reversal') {
-    throw new Error('Cannot reverse a reversal. Correct the live count with a quick count instead.');
+    return {
+      success: false,
+      error: 'Cannot reverse a reversal. Correct the live count with a quick count instead.'
+    };
   }
 
   revalidateStock();
-  return { ok: true };
+  return { success: true, data: {} };
 }
 
 async function recordReversal(movement: any, session: any, direction: 'in' | 'out') {
