@@ -1,4 +1,5 @@
 import type { ActionResult } from '@/lib/action-result';
+import type { ReturnFlavor } from './return-naming';
 
 export type StockMovementKind = 'receive' | 'deliver' | 'adjustment' | 'opening' | 'reversal';
 
@@ -47,6 +48,12 @@ export interface StockMovement {
   reversalOf?: string;
   reversedByMovementId?: string;
   reversed?: boolean;
+  /**
+   * Which document a `kind: 'reversal'` slip rolls back - `purchase` (a receipt
+   * undone), `sales` (a delivery undone) or `correction` (a quick count undone).
+   * Decided when the reversal is written; see return-naming.ts.
+   */
+  returnKind: ReturnFlavor;
   epoch?: number;
   createdAt: string;
 }
@@ -70,7 +77,7 @@ export interface StockChallanLine {
  */
 export interface StockChallanData {
   kind: StockChallanKind;
-  /** "STOCK IN CHALLAN" / "STOCK OUT CHALLAN" / ... */
+  /** "PURCHASE CHALLAN" / "DELIVERY CHALLAN" / ... */
   title: string;
   /** Slip number of the clicked row (the batch number for opening slips). */
   challanNumber: string;
@@ -85,9 +92,9 @@ export interface StockChallanData {
     phone?: string;
   };
   lines: StockChallanLine[];
-  /** Sum of the quantities, when it is meaningful (stock in / opening batch). */
+  /** Sum of the quantities, when it is meaningful (purchase / opening batch). */
   totalQuantity?: number;
-  /** Stock in has no party address / phone block on the form. */
+  /** The purchase challan has no party address / phone block on the form. */
   showContact?: boolean;
   note?: string;
   /** Opening batches: how many slips this one challan covers. */

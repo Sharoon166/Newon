@@ -58,6 +58,9 @@ export interface IStockMovement extends mongoose.Document {
   reversalOf?: string;
   reversedByMovementId?: string;
   reversed?: boolean;
+  // Which document this reversal rolls back: a receipt undone (purchase), a
+  // delivery undone (sales) or a quick count undone (correction).
+  returnKind?: 'purchase' | 'sales' | 'correction';
   // Which start-date epoch this movement belongs to (0 = before any re-set).
   epoch?: number;
   searchText?: string;
@@ -136,6 +139,8 @@ const stockMovementSchema = new mongoose.Schema(
     reversalOf: { type: String },
     reversedByMovementId: { type: String },
     reversed: { type: Boolean, default: false },
+    // Set on reversals only - which document the slip rolls back.
+    returnKind: { type: String, enum: ['purchase', 'sales', 'correction'] },
     // Legacy documents have no epoch - treat missing as 0.
     epoch: { type: Number, default: 0, index: true },
     searchText: { type: String, index: true }

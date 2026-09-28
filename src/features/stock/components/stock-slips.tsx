@@ -1,13 +1,13 @@
 import type { StockMovement } from '../types';
+import { returnLabels } from '../return-naming';
 import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 
-const KIND_NAME: Record<StockMovement['kind'], string> = {
+const KIND_NAME: Record<Exclude<StockMovement['kind'], 'reversal'>, string> = {
   receive: 'Stock received',
   deliver: 'Stock delivered',
   adjustment: 'Quick count',
-  opening: 'Starting count',
-  reversal: 'Reversal'
+  opening: 'Starting count'
 };
 
 interface StockSlipsProps {
@@ -69,7 +69,9 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-semibold">{KIND_NAME[movement.kind]}</div>
+              <div className="text-sm font-semibold">
+                {movement.kind === 'reversal' ? returnLabels(movement).badge : KIND_NAME[movement.kind]}
+              </div>
               <div className="text-xs text-muted-foreground">
                 {format(new Date(movement.createdAt), 'dd MMM yyyy, h:mm a')}
               </div>
@@ -113,7 +115,7 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
               <div className="text-xs text-muted-foreground">Reference</div>
               <div className="font-medium">
                 {movement.purchaseNumber ?? movement.invoiceNumber ?? '—'}
-                {movement.reversalOf ? ` (reversal of ${movement.reversalOf})` : ''}
+                {movement.reversalOf ? ` (${returnLabels(movement).ofLabel} ${movement.reversalOf})` : ''}
               </div>
               {movement.customerName ? (
                 <div className="text-xs text-muted-foreground">{movement.customerName}</div>
@@ -121,7 +123,7 @@ export function StockSlips({ movements, selection }: StockSlipsProps) {
             </div>
           </div>
 
-          {/* Line-item breakdown (deliveries / reversals) */}
+          {/* Line-item breakdown (deliveries / returns) */}
           {movement.lines && movement.lines.length > 0 && (
             <div className="rounded-md border bg-muted/40 p-3">
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

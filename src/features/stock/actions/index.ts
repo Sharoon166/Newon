@@ -15,6 +15,7 @@ import {
   isVirtualItem
 } from '@/features/invoices/utils/deliverable-items';
 import type { InvoiceItem } from '@/features/invoices/types';
+import { RETURN_LABELS, type ReturnFlavor } from '@/features/stock/return-naming';
 import type {
   AwaitingArrivalItem,
   AwaitingDeliveryComponent,
@@ -95,6 +96,7 @@ function serializeMovement(doc: any): StockMovement {
     reversalOf: doc.reversalOf,
     reversedByMovementId: doc.reversedByMovementId,
     reversed: doc.reversed ?? false,
+    returnKind: doc.returnKind,
     epoch: doc.epoch ?? 0,
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : String(doc.createdAt)
   };
@@ -727,19 +729,20 @@ export async function getStockMovements(input: {
 }
 
 // ---------------------------------------------------------------------------
-// Challans (stock in / stock out / adjustment / batched starting counts)
+// Challans (purchase / delivery / adjustment / batched starting counts / returns)
 // ---------------------------------------------------------------------------
 
 /** Only the fields the printable challan renders - keeps the payload small. */
 const CHALLAN_MOVEMENT_FIELDS =
-  'movementId kind productName sku quantity inShopBefore inShopAfter purchaseId purchaseNumber invoiceId invoiceNumber customerName lines note reversalOf epoch createdAt';
+  'movementId kind productName sku quantity inShopBefore inShopAfter purchaseId purchaseNumber invoiceId invoiceNumber customerName lines note reversalOf returnKind epoch createdAt';
 
 const CHALLAN_TITLE: Record<string, string> = {
-  receive: 'STOCK IN CHALLAN',
-  deliver: 'STOCK OUT CHALLAN',
+  receive: 'PURCHASE CHALLAN',
+  deliver: 'DELIVERY CHALLAN',
   adjustment: 'ADJUSTMENT CHALLAN',
-  opening: 'STARTING COUNT CHALLAN',
-  reversal: 'REVERSAL CHALLAN'
+  opening: 'STARTING COUNT CHALLAN'
+  // Returns take their own header (purchase / sales return, correction) from
+  // return-naming.ts.
 };
 
 const CHALLAN_KIND: Record<string, StockChallanKind> = {
@@ -797,8 +800,8 @@ export async function getStockChallan(input: { movementId: string }): Promise<St
     phone: invoice?.customerPhone || ''
   };
 
-  // Rates: the invoice item first (stock out / reversal of a delivery),
-  // otherwise the purchase unit price (stock in / reversal of a receipt).
+  // Rates: the invoice item first (delivery / sales return),
+  // otherwise the purchase unit price (purchase / purchase return).
   const rateFor = (line: any): number | undefined => {
     const item = line?.itemIndex !== undefined ? invoiceItems[line.itemIndex] : undefined;
     if (item?.unitPrice !== undefined) return item.unitPrice;
@@ -887,7 +890,7 @@ export async function getStockChallan(input: { movementId: string }): Promise<St
       client: { name: purchase?.supplier ?? '' },
       lines,
       totalQuantity: totalQty(lines),
-      // Stock in carries no party address / phone block on the form.
+      // The purchase carries no party address / phone block on the form.
       showContact: false,
       note: movement.note
     };
@@ -896,16 +899,19 @@ export async function getStockChallan(input: { movementId: string }): Promise<St
   if (kind === 'reversal') {
     const lines = buildLines();
     const hasDoc = !!(movement.invoiceNumber || movement.purchaseNumber);
+    // Purchase return / sales return / correction - see return-naming.ts.
+    const returnKind: ReturnFlavor = movement.returnKind;
+    const labels = RETURN_LABELS[returnKind];
     return {
       kind,
-      title: CHALLAN_TITLE.reversal,
+      title: labels.challanTitle,
       challanNumber: movement.movementId,
       date: createdAt,
       reference: movement.invoiceNumber
         ? { label: 'Inv. No.', value: movement.invoiceNumber }
         : movement.purchaseNumber
           ? { label: 'Purchase No.', value: movement.purchaseNumber }
-          : { label: 'Reversal of', value: movement.reversalOf ?? movement.movementId },
+          : { label: labels.ofLabel, value: movement.reversalOf ?? movement.movementId },
       market: invoice?.market ?? 'newon',
       client,
       lines,
@@ -916,8 +922,8 @@ export async function getStockChallan(input: { movementId: string }): Promise<St
     };
   }
 
-  // Stock out (a delivery slip with no invoice linked - invoice-backed
-  // deliveries keep their own stock out challan, printed from the invoice).
+  // Delivery slip with no invoice linked - invoice-backed deliveries keep
+  // their own delivery challan, printed from the invoice).
   const lines = buildLines();
   return {
     kind: 'out',
@@ -1532,10 +1538,17 @@ export async function reverseMovement(movementId: string): Promise<StockActionRe
       inShopBefore: current,
       inShopAfter: target,
       reversalOf: movement.movementId,
-      note: `Reversal of ${movement.movementId} (quick count)`,
+      returnKind: 'correction',
+      note: `${RETURN_LABELS.correction.ofLabel} ${movement.movementId} (quick count)`,
       userId: session.user?.id,
       userName: session.user?.name,
-      searchText: await buildSearchText([movement.productName, movement.sku, 'reversal'])
+      searchText: await buildSearchText([
+        movement.productName,
+        movement.sku,
+        movement.movementId,
+        'correction',
+        'return'
+      ])
     });
     await StockMovementModel.updateOne(
       { movementId: movement.movementId },
@@ -1544,7 +1557,7 @@ export async function reverseMovement(movementId: string): Promise<StockActionRe
   } else if (movement.kind === 'reversal') {
     return {
       success: false,
-      error: 'Cannot reverse a reversal. Correct the live count with a quick count instead.'
+      error: 'Cannot reverse a return or a correction. Correct the live count with a quick count instead.'
     };
   }
 
@@ -1554,6 +1567,9 @@ export async function reverseMovement(movementId: string): Promise<StockActionRe
 
 async function recordReversal(movement: any, session: any, direction: 'in' | 'out') {
   const reversalId = await generateId('SM');
+  // A receipt undone sends stock back to the supplier, a delivery undone brings
+  // it back from the customer.
+  const returnKind: ReturnFlavor = movement.kind === 'receive' ? 'purchase' : 'sales';
   await StockMovementModel.create({
     movementId: reversalId,
     kind: 'reversal',
@@ -1582,10 +1598,17 @@ async function recordReversal(movement: any, session: any, direction: 'in' | 'ou
       }))
     })),
     reversalOf: movement.movementId,
-    note: `Reversal of ${movement.movementId}`,
+    returnKind,
+    note: `${RETURN_LABELS[returnKind].ofLabel} ${movement.movementId}`,
     userId: session.user?.id,
     userName: session.user?.name,
-    searchText: await buildSearchText([movement.productName, movement.sku, movement.movementId, 'reversal'])
+    searchText: await buildSearchText([
+      movement.productName,
+      movement.sku,
+      movement.movementId,
+      RETURN_LABELS[returnKind].badge,
+      'return'
+    ])
   });
   await StockMovementModel.updateOne(
     { _id: movement._id },

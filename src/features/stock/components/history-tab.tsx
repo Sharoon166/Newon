@@ -21,6 +21,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { EmptyState } from '@/components/general/empty-state';
 import { getStockMovements, reverseMovement } from '../actions';
+import { returnLabels } from '../return-naming';
 import { DeliveryChallanDialog } from './delivery-challan-dialog';
 import { StockChallanDialog } from './stock-challan-dialog';
 import type { PaginatedStock, StockChallanKind, StockMovement, StockMovementKind } from '../types';
@@ -42,30 +43,32 @@ const KIND_LABELS: Record<StockMovementKind | 'all', string> = {
   deliver: 'Delivered',
   adjustment: 'Quick counts',
   opening: 'Starting counts',
-  reversal: 'Reversals'
+  // Returns cover purchase returns (a receipt undone), sales returns (a
+  // delivery undone) and quick-count corrections - see return-naming.ts.
+  reversal: 'Returns'
 };
 
 const KIND_STYLES: Record<
-  StockMovementKind,
+  Exclude<StockMovementKind, 'reversal'>,
   { label: string; variant: 'default' | 'outline' | 'secondary' | 'destructive' }
 > = {
   receive: { label: 'Received', variant: 'default' },
   deliver: { label: 'Delivered', variant: 'secondary' },
   adjustment: { label: 'Adjust', variant: 'outline' },
-  opening: { label: 'Start', variant: 'outline' },
-  reversal: { label: 'Reversal', variant: 'destructive' }
+  opening: { label: 'Start', variant: 'outline' }
 };
 
 const CENTERED_COLUMNS = ['quantity', 'inShop'];
 
 /**
  * Which challan (if any) a slip can print on its own. Invoice-backed
- * deliveries keep their stock out challan (the invoice-backed dialog),
- * reversals print under their own number, and the starting counts share one
- * batched challan per start-date run.
+ * deliveries keep their delivery challan (the invoice-backed dialog),
+ * returns print under their own number - as a purchase return, a sales return
+ * or a correction - and the starting counts share one batched challan per
+ * start-date run.
  */
 function stockChallanKind(movement: StockMovement): StockChallanKind | null {
-  // Reversals print under their own slip number.
+  // Returns print under their own slip number.
   if (movement.kind === 'reversal') return 'reversal';
   if (movement.reversed || movement.reversalOf) return null;
   switch (movement.kind) {
@@ -83,28 +86,46 @@ function stockChallanKind(movement: StockMovement): StockChallanKind | null {
 }
 
 const STOCK_CHALLAN_META: Record<
-  StockChallanKind,
+  Exclude<StockChallanKind, 'reversal'>,
   { icon: typeof FileDown; label: string; title: string }
 > = {
   // Every challan is downloaded the same way, so every challan button shares
   // the same download icon.
-  in: { icon: FileDown, label: 'Stock in challan', title: 'Stock in challan' },
-  out: { icon: FileDown, label: 'Stock out challan', title: 'Stock out challan' },
+  in: { icon: FileDown, label: 'Purchase challan', title: 'Purchase challan' },
+  out: { icon: FileDown, label: 'Delivery challan', title: 'Delivery challan' },
   adjustment: { icon: FileDown, label: 'Adjustment challan', title: 'Adjustment challan' },
   opening: {
     icon: FileDown,
     label: 'Starting count challan',
     title: 'Starting count challan (every entry of this batch on one slip)'
-  },
-  reversal: {
-    icon: FileDown,
-    label: 'Reversal challan',
-    title: 'Reversal challan (printed under this slip\u2019s own number)'
   }
 };
 
-function MovementBadge({ kind }: { kind: StockMovementKind }) {
-  const style = KIND_STYLES[kind];
+/**
+ * Challan button for a slip. A return names its own flavor - "Purchase return
+ * challan" / "Sales return challan" / "Correction challan" - every other kind
+ * keeps its fixed wording.
+ */
+function stockChallanMeta(
+  movement: StockMovement,
+  kind: StockChallanKind
+): { icon: typeof FileDown; label: string; title: string } {
+  if (kind !== 'reversal') return STOCK_CHALLAN_META[kind];
+  const label = returnLabels(movement).challan;
+  return { icon: FileDown, label, title: `${label} (printed under this slip\u2019s own number)` };
+}
+
+function MovementBadge({ movement }: { movement: StockMovement }) {
+  // A return carries its own name (purchase return / sales return / correction);
+  // every other kind keeps its fixed wording.
+  if (movement.kind === 'reversal') {
+    return (
+      <Badge variant="destructive" className="whitespace-nowrap">
+        {returnLabels(movement).badge}
+      </Badge>
+    );
+  }
+  const style = KIND_STYLES[movement.kind];
   return (
     <Badge variant={style.variant} className="whitespace-nowrap">
       {style.label}
@@ -190,9 +211,9 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pendingReversal, setPendingReversal] = useState<StockMovement | null>(null);
   const [isReversing, setIsReversing] = useState(false);
-  // Movement whose invoice stock out challan is open in the preview sheet.
+  // Movement whose invoice delivery challan is open in the preview sheet.
   const [challanMovement, setChallanMovement] = useState<StockMovement | null>(null);
-  // Movement whose stock in / stock out / adjustment / batched starting-count
+  // Movement whose purchase / delivery / adjustment / batched starting-count
   // challan is open in the preview sheet.
   const [stockChallanMovement, setStockChallanMovement] = useState<StockMovement | null>(null);
   // Movements whose product breakdown (multi-product deliveries) is expanded.
@@ -274,7 +295,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
       {
         accessorKey: 'kind',
         header: 'Type',
-        cell: ({ row }) => <MovementBadge kind={row.original.kind} />
+        cell: ({ row }) => <MovementBadge movement={row.original} />
       },
       {
         accessorKey: 'productName',
@@ -414,14 +435,14 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         cell: ({ row }) => {
           const movement = row.original;
           // Only a real (non-reversed) delivery that points at an invoice can
-          // produce the invoice stock out challan.
+          // produce the invoice delivery challan.
           const canChallan =
             movement.kind === 'deliver' &&
             !!movement.invoiceId &&
             !movement.reversalOf &&
             !movement.reversed;
           const stockChallan = stockChallanKind(movement);
-          const stockMeta = stockChallan ? STOCK_CHALLAN_META[stockChallan] : null;
+          const stockMeta = stockChallan ? stockChallanMeta(movement, stockChallan) : null;
           const StockIcon = stockMeta?.icon;
           const reverseDisabled =
             movement.reversed || movement.kind === 'opening' || movement.kind === 'reversal';
@@ -431,8 +452,8 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Download stock out challan for ${movement.movementId}`}
-                  title="Stock out challan"
+                  aria-label={`Download delivery challan for ${movement.movementId}`}
+                  title="Delivery challan"
                   onClick={() => setChallanMovement(movement)}
                 >
                   <FileDown className="h-3.5 w-3.5" />

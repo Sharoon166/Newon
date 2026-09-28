@@ -22,7 +22,8 @@ const KIND_LABELS: Record<StockMovementKind | 'all', string> = {
   deliver: 'Delivered',
   adjustment: 'Quick counts',
   opening: 'Starting counts',
-  reversal: 'Reversals'
+  // Returns cover purchase returns, sales returns and quick-count corrections.
+  reversal: 'Returns'
 };
 
 type SortOrder = 'desc' | 'asc';

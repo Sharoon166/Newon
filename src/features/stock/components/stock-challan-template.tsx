@@ -17,7 +17,7 @@ interface StockChallanFormData {
   challanNumber: string;
   date: string;
   invoiceNumber?: string;
-  /** Heading override - stock in / stock out / adjustment / starting count. */
+  /** Heading override - purchase / delivery / adjustment / starting count. */
   title?: string;
   /** Second document field ("Purchase No." / "Inv. No." / "Entries"). */
   reference?: { label: string; value: string };
@@ -31,7 +31,7 @@ interface StockChallanFormData {
   lines: ChallanLine[];
   /** Sum under the quantity column, for challans without rates. */
   totalQuantity?: number;
-  /** Hide the address / mobile rows (stock in has no party contact block). */
+  /** Hide the address / mobile rows (the purchase challan has no party contact). */
   showContact?: boolean;
   /** Printed under the goods grid (starting counts / quick counts). */
   note?: string;
@@ -47,7 +47,7 @@ const formatAmount = (value: number) =>
   value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
- * Form-style stock out challan (the classic bordered form: header, party details,
+ * Form-style delivery challan (the classic bordered form: header, party details,
  * S.N / Description / Quantity / Rate / Amount grid, amount in words, signature).
  * Rates come from the linked invoice, so lines without a matching invoice item
  * simply show "—".
@@ -59,8 +59,8 @@ export const StockChallanTemplate = forwardRef<HTMLDivElement, StockChallanTempl
   const amounts = data.lines.map(amountFor);
   const hasAmounts = amounts.some(value => value !== undefined);
   const totalAmount = amounts.reduce<number>((sum, value) => sum + (value ?? 0), 0);
-  // Defaults keep the invoice stock out challan looking exactly as before.
-  const heading = data.title ?? 'STOCK OUT CHALLAN';
+  // Defaults keep the invoice delivery challan looking exactly as before.
+  const heading = data.title ?? 'DELIVERY CHALLAN';
   const showContact = data.showContact !== false;
   const reference = data.reference ?? (data.invoiceNumber ? { label: 'Inv. No.', value: data.invoiceNumber } : null);
   const terms = data.terms ?? ["1. Goods once delivered are subject to the company's standard terms of sale."];

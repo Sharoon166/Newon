@@ -25,7 +25,7 @@ const addressLine = (invoice?: Invoice | null) => {
 };
 
 /**
- * Printable stock out challan for a single History delivery slip. The slip's own
+ * Printable delivery challan for a single History delivery slip. The slip's own
  * lines are what actually left the shop, so those become the goods list; the
  * linked invoice supplies the party details and, where the line still maps back
  * to an invoice item, the rate/amount columns.
@@ -45,7 +45,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
         if (!cancelled) setInvoice(result);
       })
       .catch(error => {
-        console.error('Failed to load invoice for stock out challan:', error);
+        console.error('Failed to load invoice for delivery challan:', error);
         toast.error('Could not load the linked invoice — showing basic details');
       })
       .finally(() => {
@@ -59,7 +59,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     preserveAfterPrint: true,
-    documentTitle: `Stock-Out-Challan-${movement?.movementId ?? 'slip'}`,
+    documentTitle: `Delivery-Challan-${movement?.movementId ?? 'slip'}`,
     pageStyle: `
       @page { size: A4; margin: 15mm; }
       @media print {
@@ -97,7 +97,7 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
       <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
         <SheetHeader className="pt-12 lg:pl-12">
           <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
-            <FileDown className="h-5 w-5" /> Stock out challan
+            <FileDown className="h-5 w-5" /> Delivery challan
           </SheetTitle>
         </SheetHeader>
 
