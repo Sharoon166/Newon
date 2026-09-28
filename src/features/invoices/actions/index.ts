@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { INVOICE_EDIT_CUTOFF_DATE } from '@/constants';
+import { DueDateError, assertDueDateOnOrAfterInvoiceDate } from '@/features/invoices/utils/due-date';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import InvoiceModel from '@/models/Invoice';
@@ -369,6 +370,8 @@ export async function createInvoice(data: CreateInvoiceDto): Promise<Invoice> {
         data.validUntil && typeof data.validUntil === 'string' ? dateStringToUTC(data.validUntil) : data.validUntil
     };
 
+    assertDueDateOnOrAfterInvoiceDate(invoiceData.date, invoiceData.dueDate);
+
     const newInvoice = new InvoiceModel(invoiceData);
     const savedInvoice = await newInvoice.save();
 
@@ -678,6 +681,13 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
       throw new Error('Invoice not found');
     }
 
+    // The due date must stay on or after the invoice date, whichever of the
+    // two is being updated (falling back to the stored value for the other).
+    assertDueDateOnOrAfterInvoiceDate(
+      (processedData.date as Date | string | undefined) ?? originalInvoice.date,
+      (processedData.dueDate as Date | string | undefined) ?? originalInvoice.dueDate
+    );
+
     const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
       id,
       { $set: updateData },
@@ -727,6 +737,9 @@ export async function updateInvoice(id: string, data: UpdateInvoiceDto): Promise
     return transformInvoice(updatedInvoice as unknown as LeanInvoice);
   } catch (error) {
     await session.abortTransaction();
+    if (error instanceof DueDateError) {
+      throw error;
+    }
     console.error(`Error updating invoice ${id}:`, error);
     throw new Error('Failed to update invoice');
   } finally {
@@ -1178,18 +1191,35 @@ export async function convertQuotationToInvoice(quotationId: string, createdBy: 
     }
 
     // Create new invoice from quotation
+    const quotationDate = quotation.date ? new Date(quotation.date) : new Date();
+    const quotedDueDate = quotation.dueDate ? new Date(quotation.dueDate) : null;
+    // Fallback: 30 days after the invoice date, floored at tomorrow so a freshly
+    // converted invoice is never already overdue.
+    const fallbackDueDate = new Date(quotationDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const tomorrow = new Date();
+    tomorrow.setHours(0, 0, 0, 0);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (fallbackDueDate.getTime() < tomorrow.getTime()) fallbackDueDate.setTime(tomorrow.getTime());
+
     const invoiceData = {
       ...quotation.toObject(),
       _id: undefined,
       invoiceNumber: undefined, // Will be auto-generated
       type: 'invoice' as const,
       status: 'pending' as const,
-      dueDate: quotation.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      // Carry the quotation's due date over whenever it lands on or after the
+      // invoice date; otherwise fall back to 30 days later.
+      dueDate:
+        quotedDueDate && !Number.isNaN(quotedDueDate.getTime()) && quotedDueDate.getTime() >= quotationDate.getTime()
+          ? quotation.dueDate
+          : fallbackDueDate,
       validUntil: undefined,
       convertedToInvoice: undefined,
       convertedInvoiceId: undefined,
       createdBy
     };
+
+    assertDueDateOnOrAfterInvoiceDate(invoiceData.date, invoiceData.dueDate);
 
     const newInvoice = new InvoiceModel(invoiceData);
     const savedInvoice = await newInvoice.save();
@@ -2040,6 +2070,8 @@ export async function updateInvoiceFull(
     if (merged.validUntil && typeof merged.validUntil === 'string') {
       merged.validUntil = dateStringToUTC(merged.validUntil);
     }
+
+    assertDueDateOnOrAfterInvoiceDate(merged.date, merged.dueDate);
 
     // Recalculate profit from items and discount
     merged.profit = calculateInvoiceProfit(

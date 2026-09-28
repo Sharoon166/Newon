@@ -249,6 +249,21 @@ export function PurchasesTableWithActions({
       )
     },
     {
+      accessorKey: 'origin',
+      header: 'Origin',
+      cell: ({ row }) => {
+        const origin = row.original.origin === 'imported' ? 'imported' : 'local';
+        return (
+          <Badge
+            variant={origin === 'imported' ? 'secondary' : 'outline'}
+            className="whitespace-nowrap font-medium capitalize"
+          >
+            {origin === 'imported' ? 'Imported' : 'Local'}
+          </Badge>
+        );
+      }
+    },
+    {
       accessorKey: 'supplier',
       header: 'Supplier',
       cell: ({ row }) => <Badge variant="secondary">{row.original.supplier}</Badge>

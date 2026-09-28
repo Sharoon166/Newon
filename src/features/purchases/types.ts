@@ -16,6 +16,8 @@ export interface Purchase {
   remaining: number;
   receivedQuantity?: number;
   notes?: string;
+  /** Where the product comes from - mirrored from the linked Product document. */
+  origin?: 'local' | 'imported';
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowUpDown, ArrowUpFromLine, ChevronDown, ClipboardCheck, FileDown, History as HistoryIcon, Layers, Printer, PrinterIcon, Search, Undo2 } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, FileDown, History as HistoryIcon, Printer, PrinterIcon, Search, Undo2 } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -86,16 +86,18 @@ const STOCK_CHALLAN_META: Record<
   StockChallanKind,
   { icon: typeof FileDown; label: string; title: string }
 > = {
-  in: { icon: ArrowDownToLine, label: 'Stock in challan', title: 'Stock in challan' },
-  out: { icon: ArrowUpFromLine, label: 'Stock out challan', title: 'Stock out challan' },
-  adjustment: { icon: ClipboardCheck, label: 'Adjustment challan', title: 'Adjustment challan' },
+  // Every challan is downloaded the same way, so every challan button shares
+  // the same download icon.
+  in: { icon: FileDown, label: 'Stock in challan', title: 'Stock in challan' },
+  out: { icon: FileDown, label: 'Stock out challan', title: 'Stock out challan' },
+  adjustment: { icon: FileDown, label: 'Adjustment challan', title: 'Adjustment challan' },
   opening: {
-    icon: Layers,
+    icon: FileDown,
     label: 'Starting count challan',
     title: 'Starting count challan (every entry of this batch on one slip)'
   },
   reversal: {
-    icon: Undo2,
+    icon: FileDown,
     label: 'Reversal challan',
     title: 'Reversal challan (printed under this slip\u2019s own number)'
   }

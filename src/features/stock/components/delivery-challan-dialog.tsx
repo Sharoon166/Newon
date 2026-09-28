@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { Printer } from 'lucide-react';
+import { FileDown, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -97,12 +97,13 @@ export function DeliveryChallanDialog({ movement, open, onOpenChange }: Delivery
       <SheetContent side="right" className="w-full sm:max-w-5xl overflow-y-auto">
         <SheetHeader className="pt-12 lg:pl-12">
           <SheetTitle className="text-lg font-semibold text-primary inline-flex items-center gap-2">
-            <Printer /> Stock out challan
+            <FileDown className="h-5 w-5" /> Stock out challan
           </SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 flex justify-end gap-2 print:hidden">
           <Button size="sm" onClick={handlePrint} disabled={isLoading}>
+            <Printer className="mr-1 h-4 w-4" />
             Print / Save as PDF
           </Button>
         </div>

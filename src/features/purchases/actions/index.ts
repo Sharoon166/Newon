@@ -258,6 +258,9 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
       updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt || '',
       productName: doc.joinedProduct?.name,
       productSupplier: doc.joinedProduct?.supplier,
+      // Local vs imported lives on the Product document - carried through so the
+      // purchases table can label each row.
+      origin: doc.joinedProduct?.origin === 'imported' ? 'imported' : 'local',
       variant: variant
         ? {
             id: variant.id,

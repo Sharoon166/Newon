@@ -169,6 +169,22 @@ const invoiceFormSchema = z.object({
     accountNumber: z.string(),
     iban: z.string()
   })
+}).superRefine((data, ctx) => {
+  // The due date must land on or after the invoice date - the same day is
+  // fine, only an earlier one is not.
+  if (!data.date || !data.dueDate) return;
+
+  const invoiceDate = new Date(data.date);
+  const dueDate = new Date(data.dueDate);
+  if (Number.isNaN(invoiceDate.getTime()) || Number.isNaN(dueDate.getTime())) return;
+
+  if (dueDate.getTime() < invoiceDate.getTime()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dueDate'],
+      message: 'Due date cannot be before the invoice date'
+    });
+  }
 });
 
 type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
@@ -257,7 +273,9 @@ export function NewInvoiceForm({
       customerId: initialData?.customerId,
       invoiceNumber: '', // Will be auto-generated on save
       date: initialData?.date || getToday(),
-      dueDate: initialData?.dueDate || getToday(),
+      // The due date may share the invoice date, so it starts on it when the
+      // caller did not supply one.
+      dueDate: initialData?.dueDate || initialData?.date || getToday(),
       customerPO: initialData?.customerPO || "",
       items: initialData?.items || [],
       taxRate: initialData?.taxRate ?? 0,
@@ -830,8 +848,17 @@ if (diff > 0) {
       return false;
     }
 
-    // Validate due date is not in the past
+    // Validate due date is not before the invoice date (same day is allowed)
     const dueDate = new Date(data.dueDate);
+    const invoiceDate = new Date(data.date);
+    if (!Number.isNaN(invoiceDate.getTime()) && !Number.isNaN(dueDate.getTime()) && dueDate.getTime() < invoiceDate.getTime()) {
+      toast.error('Invalid due date', {
+        description: 'Due date cannot be before the invoice date.'
+      });
+      return false;
+    }
+
+    // Validate due date is not in the past
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (dueDate < today) {
@@ -932,8 +959,18 @@ if (diff > 0) {
     }, handleFormErrors)();
   };
 
-  // Get today's date in YYYY-MM-DD format for the min attribute
-  const today = new Date().toISOString().split('T')[0];
+  // Get today's date in YYYY-MM-DD format for the min attribute.
+  // getToday() is the local calendar day, matching what the date pickers emit.
+  const today = getToday();
+
+  // The due date cannot be before the invoice date - the same day is allowed -
+  // and it cannot be before today either.
+  const watchedInvoiceDate = form.watch('date');
+  const todayStart = new Date(`${today}T00:00:00`);
+  const invoiceDateStart = watchedInvoiceDate ? new Date(`${watchedInvoiceDate}T00:00:00`) : null;
+  const isDueDateDisabled = (date: Date) =>
+    !Number.isNaN(date.getTime()) &&
+    (date < todayStart || (invoiceDateStart !== null && date < invoiceDateStart));
 
   const handleNumericInput = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -1040,6 +1077,25 @@ if (diff > 0) {
                         onSelect={date => {
                           const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
                           field.onChange(formattedDate);
+                          if (!formattedDate) return;
+                          // Keep the due date valid whenever the invoice date moves:
+                          // it has to stay on or after the invoice date and not in the past.
+                          const currentDueDate = form.getValues('dueDate');
+                          const invoiceDate = new Date(`${formattedDate}T00:00:00`);
+                          const dueDate = currentDueDate ? new Date(`${currentDueDate}T00:00:00`) : null;
+                          const isStillValid =
+                            dueDate !== null &&
+                            !Number.isNaN(dueDate.getTime()) &&
+                            dueDate.getTime() >= invoiceDate.getTime() &&
+                            dueDate.getTime() >= todayStart.getTime();
+                          if (!isStillValid) {
+                            const earliest = new Date(invoiceDate);
+                            if (earliest < todayStart) earliest.setTime(todayStart.getTime());
+                            form.setValue('dueDate', format(earliest, 'yyyy-MM-dd'), {
+                              shouldDirty: true,
+                              shouldValidate: true
+                            });
+                          }
                         }}
                       />
                     </PopoverContent>
@@ -1078,11 +1134,16 @@ if (diff > 0) {
                           const formattedDate = date ? format(date, 'yyyy-MM-dd') : '';
                           field.onChange(formattedDate);
                         }}
-                        disabled={date => date < new Date(today + 'T00:00:00')}
+                        disabled={isDueDateDisabled}
                       />
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
+                  {invoiceDateStart && !Number.isNaN(invoiceDateStart.getTime()) && (
+                    <p className="text-xs text-muted-foreground">
+                      On or after {format(invoiceDateStart, 'PPP')}
+                    </p>
+                  )}
                 </FormItem>
               )}
             />

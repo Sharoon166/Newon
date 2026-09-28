@@ -1151,10 +1151,20 @@ export async function getProductOriginData(): Promise<ProductOriginData[]> {
 
 /**
  * Get Profit by Product Origin (Local vs Imported)
- * 
- * Optimized version using MongoDB aggregation pipeline.
- * Products without an origin field are treated as 'local'.
- * All computation is done on the database side for better performance.
+ *
+ * Counts only invoice lines that resolve to a product in our inventory.
+ * Virtual products and manual / custom entries are deliberately NOT counted
+ * here: this widget is about the stock we hold, not about the whole invoice
+ * profit (that is calculateInvoiceProfit()'s job).
+ *
+ * Per counted line, same rules as calculateInvoiceProfit():
+ *   - with custom expenses: (unitPrice * quantity) - (sum(actualCost) * quantity)
+ *   - otherwise: (unitPrice - originalRate) * quantity
+ * Each line also carries its share of the invoice discount, proportional to
+ * the line's revenue against the whole invoice's revenue.
+ *
+ * Origin comes from Product.origin; a product without an origin field is
+ * assumed to be local.
  */
 export async function getProductOriginProfitData(
   startDate?: Date,
@@ -1178,28 +1188,51 @@ export async function getProductOriginProfitData(
           date: { $gte: queryStart, $lte: queryEnd }
         }
       },
-      // Unwind items to process each individually
+      // Unwind items so each one can be matched to a product.
       { $unwind: '$items' },
-      // Skip manual-entry and virtual product items (no origin concept)
+      // Safe ObjectId conversion first: productId can be 'manual-entry' or
+      // 'custom-item' (written by the invoice / quotation forms) and
+      // $toObjectId throws on those strings, which would fail the entire
+      // aggregation (and used to make this action silently return zeros).
       {
-        $match: {
-          'items.productId': { $ne: 'manual-entry' },
-          'items.isVirtualProduct': { $ne: true }
+        $addFields: {
+          productOid: {
+            $convert: { input: '$items.productId', to: 'objectId', onError: null, onNull: null }
+          }
         }
       },
-      // Lookup product to get origin
+      // Roll up per invoice BEFORE filtering so the discount denominator stays
+      // the whole invoice's revenue, including the lines that are not counted.
+      {
+        $group: {
+          _id: '$_id',
+          invoiceRevenue: { $sum: { $ifNull: ['$items.totalPrice', 0] } },
+          discountAmount: { $first: { $ifNull: ['$discountAmount', 0] } },
+          lines: { $push: { item: '$items', productOid: '$productOid' } }
+        }
+      },
+      { $unwind: '$lines' },
+      // Only real inventory stock lines count: virtual products are skipped,
+      // and so are manual / custom entries (productId that is not an ObjectId).
+      {
+        $match: {
+          'lines.item.isVirtualProduct': { $ne: true },
+          'lines.productOid': { $ne: null }
+        }
+      },
+      // Resolve the product this line belongs to
       {
         $lookup: {
           from: 'products',
-          let: { productId: { $toObjectId: '$items.productId' } },
-          pipeline: [
-            { $match: { $expr: { $eq: ['$_id', '$$productId'] } } },
-            { $project: { origin: 1 } }
-          ],
+          localField: 'lines.productOid',
+          foreignField: '_id',
           as: 'productInfo'
         }
       },
-      // Add origin field (default to 'local' if not found or not set)
+      // Drop lines whose product is not (or no longer) in the inventory
+      { $match: { productInfo: { $ne: [] } } },
+      // Origin lives on the Product (variants inherit it); a product without
+      // an origin field is assumed to be local.
       {
         $addFields: {
           origin: {
@@ -1210,50 +1243,39 @@ export async function getProductOriginProfitData(
           }
         }
       },
-      // Calculate item profit
+      // Calculate item profit (stock lines only)
       {
         $addFields: {
           itemProfit: {
             $cond: {
-              if: { $eq: ['$items.isVirtualProduct', true] },
-              // Virtual product: (unitPrice - totalCost) * quantity
+              if: { $gt: [{ $size: { $ifNull: ['$lines.item.customExpenses', []] } }, 0] },
+              // Item with custom expenses
               then: {
-                $multiply: [
-                  { $subtract: ['$items.unitPrice', { $add: [{ $ifNull: ['$items.totalComponentCost', 0] }, { $ifNull: ['$items.totalCustomExpenses', 0] }] }] },
-                  '$items.quantity'
+                $subtract: [
+                  { $multiply: ['$lines.item.unitPrice', '$lines.item.quantity'] },
+                  { $multiply: [{ $sum: '$lines.item.customExpenses.actualCost' }, '$lines.item.quantity'] }
                 ]
               },
+              // Regular item: (unitPrice - originalRate) * quantity
               else: {
-                $cond: {
-                  if: { $gt: [{ $size: { $ifNull: ['$items.customExpenses', []] } }, 0] },
-                  // Item with custom expenses
-                  then: {
-                    $subtract: [
-                      { $multiply: ['$items.unitPrice', '$items.quantity'] },
-                      { $multiply: [{ $sum: '$items.customExpenses.actualCost' }, '$items.quantity'] }
-                    ]
-                  },
-                  // Regular item: (unitPrice - originalRate) * quantity
-                  else: {
-                    $multiply: [
-                      { $subtract: ['$items.unitPrice', { $ifNull: ['$items.originalRate', 0] }] },
-                      '$items.quantity'
-                    ]
-                  }
-                }
+                $multiply: [
+                  { $subtract: ['$lines.item.unitPrice', { $ifNull: ['$lines.item.originalRate', 0] }] },
+                  '$lines.item.quantity'
+                ]
               }
             }
           },
-          itemRevenue: '$items.totalPrice',
-          // Proportional discount share based on item's share of invoice subtotal
+          itemRevenue: { $ifNull: ['$lines.item.totalPrice', 0] }
+        }
+      },
+      // Proportional discount share: this line's share of the whole invoice's revenue
+      {
+        $addFields: {
           itemDiscountShare: {
             $cond: {
-              if: { $gt: [{ $ifNull: ['$subtotal', 0] }, 0] },
+              if: { $gt: ['$invoiceRevenue', 0] },
               then: {
-                $multiply: [
-                  { $ifNull: ['$discountAmount', 0] },
-                  { $divide: ['$items.totalPrice', '$subtotal'] }
-                ]
+                $multiply: ['$discountAmount', { $divide: ['$itemRevenue', '$invoiceRevenue'] }]
               },
               else: 0
             }
@@ -1318,8 +1340,6 @@ export async function getProductOriginProfitData(
     ];
   }
 }
-
-
 
 
 /**

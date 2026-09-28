@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Button } from '@/components/ui/button';
 import { ProductOriginData, ProductOriginProfitData } from '../types';
+import { getProductOriginProfitData } from '../actions';
 import { Globe, MapPin, RefreshCw, DollarSign, TrendingUp, TrendingDown, CoinsIcon } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ProductOriginChartProps {
   data: ProductOriginData[];
@@ -27,6 +29,9 @@ const chartConfig = {
 export function ProductOriginChart({ data }: ProductOriginChartProps) {
   const [profitData, setProfitData] = useState<ProductOriginProfitData[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Wall-clock time of the last successful recalculation - shown so it is always
+  // obvious that the figures on screen come from the latest click.
+  const [calculatedAt, setCalculatedAt] = useState<Date | null>(null);
 
   const localCount = data.find(d => d.origin === 'local')?.count ?? 0;
   const importedCount = data.find(d => d.origin === 'imported')?.count ?? 0;
@@ -45,14 +50,20 @@ export function ProductOriginChart({ data }: ProductOriginChartProps) {
 
   const handleRefreshProfit = useCallback(async () => {
     if (isLoading) return;
-    
+
     setIsLoading(true);
     try {
-      const { getProductOriginProfitData } = await import('../actions');
+      // Server action -> runs a live aggregation on every click; nothing is
+      // cached on the way back, so the numbers always reflect this exact moment.
       const result = await getProductOriginProfitData();
       setProfitData(result);
+      setCalculatedAt(new Date());
     } catch (error) {
       console.error('Error fetching profit data:', error);
+      // Never fail silently: the previous figures stay on screen, so say so.
+      toast.error('Could not recalculate profit by origin', {
+        description: 'The previous figures are still shown. Please try again.'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +83,20 @@ export function ProductOriginChart({ data }: ProductOriginChartProps) {
         <div className="flex items-center justify-between w-full">
           <div>
             <CardTitle className="text-base">Product Origin</CardTitle>
-            <CardDescription>Local vs imported breakdown</CardDescription>
+            <CardDescription>
+              Local vs imported breakdown
+              {calculatedAt && (
+                <>
+                  {' '}
+                  · updated{' '}
+                  {calculatedAt.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </>
+              )}
+            </CardDescription>
           </div>
           <Button
             variant="ghost"
