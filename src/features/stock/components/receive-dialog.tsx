@@ -112,6 +112,7 @@ export function ReceiveDialog({ open, onOpenChange, target, onSuccess }: Receive
             <div className="space-y-2">
               <label className="text-sm font-medium">Units received now</label>
               <NumberInput value={quantity} onChange={setQuantity} min={1} max={pending} placeholder="Qty" />
+              <p className="text-xs text-muted-foreground">Unit</p>
               {quantity > pending && (
                 <p className="text-xs text-destructive">Cannot receive more than was ordered ({pending} to come).</p>
               )}
