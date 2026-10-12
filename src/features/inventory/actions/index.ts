@@ -66,6 +66,7 @@ export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
     revalidatePath('/inventory');
     revalidatePath('/purchases');
     revalidatePath('/virtual-products');
+    revalidatePath('/virtual-products/add');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
   } catch (error) {
@@ -432,6 +433,7 @@ export const deleteProduct = async (id: string) => {
   await ProductModel.deleteOne({ _id: id });
   revalidatePath('/inventory');
   revalidatePath('/virtual-products');
+  revalidatePath('/virtual-products/add');
   revalidatePath('/invoices');
   revalidatePath('/invoices/new');
 };
@@ -483,6 +485,7 @@ export const toggleVariantDisabled = async (productId: string, variantId: string
     revalidatePath(`/inventory/${productId}`);
     revalidatePath(`/inventory/${productId}/edit`);
     revalidatePath('/virtual-products');
+    revalidatePath('/virtual-products/add');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
 
@@ -577,6 +580,7 @@ export const deleteProductVariant = async (variantId: string): Promise<DeleteVar
     revalidatePath(`/inventory/${product._id}`);
     revalidatePath(`/inventory/${product._id}/edit`);
     revalidatePath('/virtual-products');
+    revalidatePath('/virtual-products/add');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
 
@@ -636,6 +640,7 @@ export const deleteProductByName = async (name: string) => {
   await ProductModel.deleteOne({ name });
   revalidatePath('/inventory');
   revalidatePath('/virtual-products');
+  revalidatePath('/virtual-products/add');
   revalidatePath('/invoices');
   revalidatePath('/invoices/new');
 };
@@ -729,6 +734,7 @@ export const updateProduct = async (id: string, data: LeanProduct) => {
     revalidatePath('/inventory');
     revalidatePath(`/inventory/${id}/edit`);
     revalidatePath('/virtual-products');
+    revalidatePath('/virtual-products/add');
     revalidatePath('/invoices');
     revalidatePath('/invoices/new');
 
