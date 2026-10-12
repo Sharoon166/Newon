@@ -505,12 +505,35 @@ export async function getAwaitingArrival(input: {
     const regex = new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     const or: Record<string, unknown>[] = [{ purchaseId: regex }, { supplier: regex }];
 
-    // Product name lives on the Product document, not on the purchase, so
-    // resolve the matching products first and search purchases by their ids
-    // (indexed on productId) instead of joining at query time.
-    const matchingProducts = await ProductModel.find({ name: regex }).select('_id').lean();
-    if (matchingProducts.length > 0) {
-      or.push({ productId: { $in: matchingProducts.map(product => product._id) } });
+    // Product name and variant SKU both live on the Product document, not on
+    // the purchase, so resolve the matching products first and search purchases
+    // by their ids (indexed on productId) instead of joining at query time.
+    const matchingProducts = await ProductModel.find({ $or: [{ name: regex }, { 'variants.sku': regex }] })
+      .select('name variants.id variants.sku')
+      .lean();
+
+    const nameMatchedIds: unknown[] = [];
+    for (const rawProduct of matchingProducts) {
+      const product = rawProduct as unknown as LeanProduct & { _id: unknown };
+
+      // A name hit means every variant of that product is relevant - the same
+      // scope the tab had before SKU search existed.
+      if (product.name && regex.test(product.name)) {
+        nameMatchedIds.push(product._id);
+        continue;
+      }
+
+      // SKU hits are narrowed to the matching variants, so searching one SKU
+      // doesn't drag in the product's other variants.
+      const variantIds = (product.variants ?? [])
+        .filter(variant => variant.sku && regex.test(variant.sku))
+        .map(variant => variant.id);
+      if (variantIds.length > 0) {
+        or.push({ productId: product._id, variantId: { $in: variantIds } });
+      }
+    }
+    if (nameMatchedIds.length > 0) {
+      or.push({ productId: { $in: nameMatchedIds } });
     }
 
     query.$or = or;
