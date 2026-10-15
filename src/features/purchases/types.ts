@@ -41,7 +41,7 @@ export interface Purchase {
   notes?: string;
   /** Where the product comes from - mirrored from the linked Product document. */
   origin?: 'local' | 'imported';
-  /** Partial payment tracking. Amount owed = totalCost + shippingCost. */
+  /** Partial payment tracking. Amount owed = totalCost (shipping excluded). */
   payments?: PurchasePayment[];
   paidAmount?: number;
   amountDue?: number;

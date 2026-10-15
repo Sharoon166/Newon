@@ -237,7 +237,7 @@ export function PurchasesTableWithActions({
   const getPaymentStatus = (purchase: EnhancedPurchase): PurchasePaymentStatus => {
     if (purchase.paymentStatus) return purchase.paymentStatus;
     const paid = purchase.paidAmount || 0;
-    const due = purchase.amountDue ?? (purchase.totalCost || 0) + (purchase.shippingCost || 0);
+    const due = purchase.amountDue ?? (purchase.totalCost || 0);
     if (paid <= 0) return 'unpaid';
     return paid >= due ? 'paid' : 'partial';
   };
@@ -630,7 +630,7 @@ export function PurchasesTableWithActions({
           onOpenChange={setPaymentOpen}
           purchaseId={paymentPurchase.id || paymentPurchase._id!}
           purchaseLabel={paymentPurchase.purchaseId}
-          amountDue={paymentPurchase.amountDue ?? (paymentPurchase.totalCost || 0) + (paymentPurchase.shippingCost || 0)}
+          amountDue={paymentPurchase.amountDue ?? (paymentPurchase.totalCost || 0)}
           initialPayments={paymentInitial}
           getPayments={getPurchasePayments}
           addPayment={addPurchasePayment}

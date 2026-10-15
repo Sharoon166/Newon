@@ -122,9 +122,10 @@ const purchaseSchema = new mongoose.Schema(
       default: '',
       trim: true
     },
-    // Partial payment tracking. The amount owed for a purchase is totalCost +
-    // shippingCost (see `amountDue`), tracked independently of the legacy
-    // `totalCost` field.
+    // Partial payment tracking. The amount owed for a purchase is totalCost
+    // (see `amountDue`), tracked independently of the legacy `totalCost`
+    // field. Shipping is excluded: it is an expense to the company, not part
+    // of what the supplier is owed.
     payments: {
       type: [paymentSchema],
       default: []
@@ -192,7 +193,8 @@ purchaseSchema.pre('save', async function (next) {
   }
 
   // Recompute payment totals / status from the payments array. `amountDue` is
-  // totalCost + shippingCost; `totalCost` keeps its original meaning.
+  // totalCost (shipping is an expense to the company, not owed to the
+  // supplier); `totalCost` keeps its original meaning.
   //
   // Only run when the purchase actually participates in payment tracking: new
   // documents, or existing ones whose payments array was just modified. Legacy
@@ -206,7 +208,7 @@ purchaseSchema.pre('save', async function (next) {
     const payments = Array.isArray(this.payments) ? this.payments : [];
     const paidTotal = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     this.paidAmount = paidTotal;
-    this.amountDue = (this.totalCost || 0) + (this.shippingCost || 0);
+    this.amountDue = this.totalCost || 0;
     this.balanceAmount = Math.max(0, this.amountDue - this.paidAmount);
 
     if (this.balanceAmount <= 0 && this.paidAmount > 0) {

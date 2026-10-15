@@ -43,7 +43,7 @@ export type LeanPurchase = {
   /** Physical units that have arrived (stock tracking feature). */
   receivedQuantity?: number;
   notes?: string;
-  /** Partial payment tracking. Amount owed = totalCost + shippingCost. */
+  /** Partial payment tracking. Amount owed = totalCost (shipping excluded). */
   payments?: Array<{
     _id?: mongoose.Types.ObjectId;
     amount: number;
@@ -486,11 +486,12 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   });
 
   // Record the amount owed against the linked supplier (amountDue is set by the
-  // pre-save hook = totalCost + shippingCost).
+  // pre-save hook = totalCost; shipping is excluded - it is an expense to the
+  // company, not part of the supplier's debt).
   if (newPurchase.supplierId) {
     await updateSupplierFinancialsOnPurchase(
       newPurchase.supplierId,
-      newPurchase.amountDue ?? (totalCost + (data.shippingCost || 0)),
+      newPurchase.amountDue ?? totalCost,
       newPurchase.purchaseDate
     );
   }
@@ -627,17 +628,16 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     }
   }
 
-  // The purchase total (quantity x unit price + shipping) can never drop below
+  // The purchase total (quantity x unit price) can never drop below
   // the payments already recorded against it - that would silently turn real
   // payments into an overpayment. The payments must be reduced first, then the
   // purchase edited. Untracked (legacy) purchases have no payment history, so
-  // they are exempt.
+  // they are exempt. Shipping is excluded (it is not part of the supplier debt).
   if (purchase.paymentsTracked === true) {
     const paid = purchase.paidAmount || 0;
     const nextQuantity = data.quantity ?? purchase.quantity;
     const nextUnitPrice = data.unitPrice ?? purchase.unitPrice;
-    const nextShippingCost = data.shippingCost ?? purchase.shippingCost;
-    const nextAmountDue = nextQuantity * nextUnitPrice + nextShippingCost;
+    const nextAmountDue = nextQuantity * nextUnitPrice;
     if (paid > 0 && nextAmountDue < paid - 0.001) {
       throw new Error(
         `The purchase total (${formatCurrency(nextAmountDue, false)}) would be less than the ${formatCurrency(paid, false)} already paid. Please adjust the payments first, then edit this purchase.`
@@ -743,11 +743,11 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   }
 
   // findByIdAndUpdate skips the pre-save hook, so recompute the payment totals
-  // here whenever the amount due (totalCost + shippingCost) changes.
+  // here whenever the amount due (totalCost) changes. Shipping is excluded -
+  // it is an expense to the company, not part of the supplier debt.
   const currentAmountDue = resolveAmountDue(purchase);
   const nextTotalCost = updateData.totalCost ?? purchase.totalCost;
-  const nextShippingCost = data.shippingCost ?? purchase.shippingCost;
-  const nextAmountDue = (nextTotalCost || 0) + (nextShippingCost || 0);
+  const nextAmountDue = nextTotalCost || 0;
   const currentPaid = purchase.paidAmount || 0;
   updateData.amountDue = nextAmountDue;
   updateData.balanceAmount = Math.max(0, nextAmountDue - currentPaid);
@@ -1033,21 +1033,18 @@ export const getPurchasePayments = async (purchaseId: string) => {
 // a serializable result the UI can inspect.
 export type PaymentActionResult = { success: true } | { success: false; error: string };
 
-// Compute the amount owed for a purchase. `amountDue` is only meaningful for
-// tracked purchases - Mongoose hydrates its schema default (0) on legacy
-// documents that predate payment tracking, so trusting it there would wrongly
-// report 0. Untracked purchases always derive the amount from cost + shipping.
+// Compute the amount owed for a purchase: totalCost only. Shipping is an
+// expense to the company and is deliberately excluded from what the supplier
+// is owed (payments, balances and supplier rollups all build on this).
+// Always derive from totalCost instead of trusting the stored `amountDue`:
+// older documents have a shipping-inclusive value persisted there.
 function resolveAmountDue(purchase: {
   paymentsTracked?: boolean;
   amountDue?: number;
   totalCost?: number;
   shippingCost?: number;
 }) {
-  const derived = (purchase.totalCost || 0) + (purchase.shippingCost || 0);
-  if (purchase.paymentsTracked === true) {
-    return purchase.amountDue ?? derived;
-  }
-  return derived;
+  return purchase.totalCost || 0;
 }
 
 // Amount that should count as "paid" against the linked supplier. Purchases that

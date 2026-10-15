@@ -271,7 +271,7 @@ export function PurchaseForm({
         // server-side check). Untracked purchases have no payment history.
         const isTracked = purchase.isUntracked === false || purchase.paymentsTracked === true;
         const paid = isTracked ? purchase.paidAmount || 0 : 0;
-        const newAmountDue = data.quantity * data.unitPrice + data.shippingCost;
+        const newAmountDue = data.quantity * data.unitPrice;
         if (paid > 0 && newAmountDue < paid - 0.001) {
           const changedField =
             data.quantity !== purchase.quantity
