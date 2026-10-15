@@ -37,6 +37,9 @@ const purchaseFormSchema = z
     supplierId: z.string().optional(),
     locationId: z.string().min(1, 'Location is required'),
     quantity: z.number().min(1, 'Quantity must be at least 1'),
+    /** Goods cost per unit (excludes shipping). */
+    purchasePrice: z.number().min(0, 'Purchase price must be non-negative'),
+    /** Derived (read-only): landed cost per unit = (quantity * purchasePrice + shippingCost) / quantity. */
     unitPrice: z.number().min(0, 'Unit price must be non-negative'),
     retailPrice: z.number().min(0, 'Retail price must be non-negative'),
     wholesalePrice: z.number().min(0, 'Wholesale price must be non-negative'),
@@ -45,18 +48,24 @@ const purchaseFormSchema = z
     notes: z.string().optional()
   })
   .superRefine((data, ctx) => {
-    if (data.retailPrice > 0 && data.unitPrice > data.retailPrice) {
+    // Validate against the landed base price (goods + shipping per unit) -
+    // what the derived unitPrice becomes.
+    const basePrice =
+      data.quantity > 0
+        ? (data.quantity * data.purchasePrice + data.shippingCost) / data.quantity
+        : data.purchasePrice;
+    if (data.retailPrice > 0 && basePrice > data.retailPrice) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Base price cannot be greater than retail price',
-        path: ['unitPrice']
+        path: ['purchasePrice']
       });
     }
-    if (data.wholesalePrice > 0 && data.unitPrice > data.wholesalePrice) {
+    if (data.wholesalePrice > 0 && basePrice > data.wholesalePrice) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Base price cannot be greater than wholesale price',
-        path: ['unitPrice']
+        path: ['purchasePrice']
       });
     }
   });
@@ -121,6 +130,7 @@ export function PurchaseForm({
       supplierId: defaultSupplierId || '',
       locationId: 'office',
       quantity: 1,
+      purchasePrice: 0,
       unitPrice: 0,
       retailPrice: 0,
       wholesalePrice: 0,
@@ -201,6 +211,9 @@ export function PurchaseForm({
           supplierId: purchase.supplierId || '',
           locationId: purchase.locationId || 'office',
           quantity: purchase.quantity || 1,
+          // Edit-time backfill: legacy purchases (no purchasePrice) start from
+          // their unitPrice, so saving the form persists the goods price.
+          purchasePrice: purchase.purchasePrice ?? purchase.unitPrice ?? 0,
           unitPrice: purchase.unitPrice || 0,
           retailPrice: purchase.retailPrice || 0,
           wholesalePrice: purchase.wholesalePrice || 0,
@@ -220,6 +233,7 @@ export function PurchaseForm({
           supplierId: initialSupplierId,
           locationId: 'office',
           quantity: 1,
+          purchasePrice: 0,
           unitPrice: 0,
           retailPrice: 0,
           wholesalePrice: 0,
@@ -266,18 +280,19 @@ export function PurchaseForm({
           return;
         }
 
-        // The purchase total can never drop below the payments already made
-        // against it - the payments must be adjusted first (mirrors the
-        // server-side check). Untracked purchases have no payment history.
+        // The amount owed (goods cost: quantity * purchasePrice) can never
+        // drop below the payments already made against the purchase - the
+        // payments must be adjusted first (mirrors the server-side check).
+        // Untracked purchases have no payment history.
         const isTracked = purchase.isUntracked === false || purchase.paymentsTracked === true;
         const paid = isTracked ? purchase.paidAmount || 0 : 0;
-        const newAmountDue = data.quantity * data.unitPrice;
+        const newAmountDue = data.quantity * data.purchasePrice;
         if (paid > 0 && newAmountDue < paid - 0.001) {
           const changedField =
             data.quantity !== purchase.quantity
               ? 'quantity'
-              : data.unitPrice !== purchase.unitPrice
-                ? 'unitPrice'
+              : data.purchasePrice !== (purchase.purchasePrice ?? purchase.unitPrice)
+                ? 'purchasePrice'
                 : 'shippingCost';
           form.setError(changedField, {
             message: `Total (${formatCurrency(newAmountDue, false)}) cannot be less than the ${formatCurrency(paid, false)} already paid. Please adjust the payments first, then edit this purchase.`
@@ -296,6 +311,7 @@ export function PurchaseForm({
           supplierId: data.supplierId || undefined,
           locationId: data.locationId,
           quantity: data.quantity,
+          purchasePrice: data.purchasePrice,
           unitPrice: data.unitPrice,
           retailPrice: data.retailPrice,
           wholesalePrice: data.wholesalePrice,
@@ -318,11 +334,24 @@ export function PurchaseForm({
     }
   };
 
-  // Calculate total cost for display
+  // Calculate total cost for display (landed: goods + shipping, shipping
+  // counted once regardless of quantity).
   const quantity = form.watch('quantity') || 0;
-  const unitPrice = form.watch('unitPrice') || 0;
-  const totalCost = quantity * unitPrice;
+  const purchasePrice = form.watch('purchasePrice') || 0;
+  const shippingCost = form.watch('shippingCost') || 0;
+  const totalCost = quantity * purchasePrice + shippingCost;
   const isBelowMinQty = isEditMode && quantity < minQuantity;
+
+  // unitPrice is derived (read-only): landed cost per unit =
+  // (quantity * purchasePrice + shippingCost) / quantity. Keep the form value
+  // in sync so validations, DTOs and displays always agree with the inputs.
+  useEffect(() => {
+    if (!open || quantity <= 0) return;
+    const derived = (quantity * purchasePrice + shippingCost) / quantity;
+    if (form.getValues('unitPrice') !== derived) {
+      form.setValue('unitPrice', derived);
+    }
+  }, [open, quantity, purchasePrice, shippingCost, form]);
 
   const handleDialogOpenChange = (newOpen: boolean) => {
     // Simply call the handler without any side effects
@@ -655,11 +684,11 @@ export function PurchaseForm({
 
                 <FormField
                   control={form.control}
-                  name="unitPrice"
+                  name="purchasePrice"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        Unit Price <span className="text-destructive">*</span>
+                        Purchase Price <span className="text-destructive">*</span>
                       </FormLabel>
                       <FormControl>
                         <NumberInput
@@ -677,6 +706,38 @@ export function PurchaseForm({
                           }}
                         />
                       </FormControl>
+                      <p className="text-xs text-muted-foreground">Goods cost per unit (excludes shipping)</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="unitPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Unit Price <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <NumberInput
+                          value={field.value}
+                          onChange={value => {
+                            field.onChange(value);
+                          }}
+                          min={0}
+                          step="0.01"
+                          disabled
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">Derived: landed cost per unit (incl. shipping)</p>
                       <FormMessage />
                     </FormItem>
                   )}

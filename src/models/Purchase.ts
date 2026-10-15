@@ -80,6 +80,17 @@ const purchaseSchema = new mongoose.Schema(
       required: [true, 'Unit price is required'],
       min: [0, 'Unit price cannot be negative']
     },
+    // Per-unit goods cost entered by the user (excludes shipping).
+    // Optional so legacy purchases keep working: for them `unitPrice` remains
+    // the goods price (fallback = `purchasePrice ?? unitPrice`). For purchases
+    // that have it, `unitPrice` becomes the derived landed price
+    // (totalCost / quantity) and `totalCost` = quantity * purchasePrice +
+    // shippingCost.
+    purchasePrice: {
+      type: Number,
+      required: false,
+      min: [0, 'Purchase price cannot be negative']
+    },
     retailPrice: {
       type: Number,
       required: [true, 'Retail price is required'],
@@ -122,10 +133,10 @@ const purchaseSchema = new mongoose.Schema(
       default: '',
       trim: true
     },
-    // Partial payment tracking. The amount owed for a purchase is totalCost
-    // (see `amountDue`), tracked independently of the legacy `totalCost`
-    // field. Shipping is excluded: it is an expense to the company, not part
-    // of what the supplier is owed.
+    // Partial payment tracking. The amount owed for a purchase is the goods
+    // cost - quantity * purchasePrice (or totalCost for legacy rows) - see
+    // `amountDue`. Shipping is excluded: it is an expense to the company, not
+    // part of what the supplier is owed.
     payments: {
       type: [paymentSchema],
       default: []
@@ -173,8 +184,21 @@ purchaseSchema.plugin(mongoosePaginate);
 
 // Pre-save hook to calculate totalCost and initialize remaining
 purchaseSchema.pre('save', async function (next) {
-  if (this.isModified('quantity') || this.isModified('unitPrice')) {
-    this.totalCost = this.quantity * this.unitPrice;
+  if (
+    this.isModified('quantity') ||
+    this.isModified('unitPrice') ||
+    this.isModified('purchasePrice') ||
+    this.isModified('shippingCost')
+  ) {
+    if (this.purchasePrice != null) {
+      // Landed: goods + shipping. unitPrice is derived (read-only in the form).
+      this.totalCost = this.quantity * this.purchasePrice + (this.shippingCost || 0);
+      this.unitPrice = this.totalCost / this.quantity;
+    } else {
+      // Legacy: unitPrice is the goods price; shipping (always 0 in prod for
+      // these rows) is not part of the supplier-facing total.
+      this.totalCost = this.quantity * this.unitPrice;
+    }
   }
   // Initialize remaining to quantity if not set (for new purchases)
   if (this.isNew && this.remaining === undefined) {
@@ -193,8 +217,10 @@ purchaseSchema.pre('save', async function (next) {
   }
 
   // Recompute payment totals / status from the payments array. `amountDue` is
-  // totalCost (shipping is an expense to the company, not owed to the
-  // supplier); `totalCost` keeps its original meaning.
+  // the goods cost only - quantity * purchasePrice when purchasePrice exists,
+  // otherwise totalCost (legacy rows where unitPrice is the goods price and
+  // shipping is 0) - shipping is an expense to the company, not owed to the
+  // supplier; `totalCost` keeps its original meaning.
   //
   // Only run when the purchase actually participates in payment tracking: new
   // documents, or existing ones whose payments array was just modified. Legacy
@@ -208,7 +234,8 @@ purchaseSchema.pre('save', async function (next) {
     const payments = Array.isArray(this.payments) ? this.payments : [];
     const paidTotal = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     this.paidAmount = paidTotal;
-    this.amountDue = this.totalCost || 0;
+    this.amountDue =
+      this.purchasePrice != null ? this.quantity * this.purchasePrice : this.totalCost || 0;
     this.balanceAmount = Math.max(0, this.amountDue - this.paidAmount);
 
     if (this.balanceAmount <= 0 && this.paidAmount > 0) {
@@ -243,6 +270,7 @@ export interface IPurchase extends mongoose.Document {
   locationId: string;
   quantity: number;
   unitPrice: number;
+  purchasePrice?: number;
   retailPrice: number;
   wholesalePrice: number;
   shippingCost: number;

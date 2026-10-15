@@ -50,7 +50,7 @@ interface PurchasePaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   purchaseId: string;
   purchaseLabel?: string;
-  /** Amount owed for the purchase (totalCost - shipping excluded). */
+  /** Amount owed for the purchase (goods cost; shipping excluded). */
   amountDue: number;
   /** Payments loaded by the parent when the dialog was opened. */
   initialPayments: PaymentRow[];

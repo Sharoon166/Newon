@@ -31,6 +31,14 @@ export interface Purchase {
   locationId?: string;
   quantity: number;
   unitPrice: number;
+  /**
+   * Per-unit goods cost entered by the user (excludes shipping). Absent on
+   * legacy purchases, where `unitPrice` is the goods price instead - use
+   * `purchasePrice ?? unitPrice` when you need the supplier-facing goods cost.
+   * When present, `unitPrice` is the derived landed price (totalCost /
+   * quantity) and totalCost = quantity * purchasePrice + shippingCost.
+   */
+  purchasePrice?: number;
   retailPrice: number;
   wholesalePrice: number;
   shippingCost: number;
@@ -41,7 +49,10 @@ export interface Purchase {
   notes?: string;
   /** Where the product comes from - mirrored from the linked Product document. */
   origin?: 'local' | 'imported';
-  /** Partial payment tracking. Amount owed = totalCost (shipping excluded). */
+  /**
+   * Partial payment tracking. Amount owed = goods cost (quantity *
+   * purchasePrice, or totalCost for legacy rows); shipping excluded.
+   */
   payments?: PurchasePayment[];
   paidAmount?: number;
   amountDue?: number;
@@ -71,6 +82,7 @@ export interface CreatePurchaseDto {
   locationId?: string;
   quantity: number;
   unitPrice: number;
+  purchasePrice?: number;
   retailPrice: number;
   wholesalePrice: number;
   shippingCost: number;
@@ -84,6 +96,7 @@ export interface UpdatePurchaseDto {
   locationId?: string;
   quantity?: number;
   unitPrice?: number;
+  purchasePrice?: number;
   retailPrice?: number;
   wholesalePrice?: number;
   shippingCost?: number;

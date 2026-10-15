@@ -34,6 +34,8 @@ export type LeanPurchase = {
   locationId?: string;
   quantity: number;
   unitPrice: number;
+  /** Per-unit goods cost (excludes shipping); absent on legacy rows. */
+  purchasePrice?: number;
   retailPrice: number;
   wholesalePrice: number;
   shippingCost: number;
@@ -43,7 +45,10 @@ export type LeanPurchase = {
   /** Physical units that have arrived (stock tracking feature). */
   receivedQuantity?: number;
   notes?: string;
-  /** Partial payment tracking. Amount owed = totalCost (shipping excluded). */
+  /**
+   * Partial payment tracking. Amount owed = goods cost (quantity *
+   * purchasePrice, or totalCost for legacy rows); shipping excluded.
+   */
   payments?: Array<{
     _id?: mongoose.Types.ObjectId;
     amount: number;
@@ -294,6 +299,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
       locationId: doc.locationId,
       quantity: doc.quantity,
       unitPrice: doc.unitPrice,
+      purchasePrice: doc.purchasePrice,
       retailPrice: doc.retailPrice,
       wholesalePrice: doc.wholesalePrice,
       shippingCost: doc.shippingCost,
@@ -460,8 +466,15 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   await assertPermission('create:purchases');
   await dbConnect();
 
-  // Calculate totalCost
-  const totalCost = data.quantity * data.unitPrice;
+  // Calculate totalCost: landed cost when a goods price was entered
+  // (quantity * purchasePrice + shipping, shipping counted once as a company
+  // expense), otherwise the legacy quantity * unitPrice.
+  const totalCost =
+    data.purchasePrice != null
+      ? data.quantity * data.purchasePrice + (data.shippingCost || 0)
+      : data.quantity * data.unitPrice;
+  const goodsDue =
+    data.purchasePrice != null ? data.quantity * data.purchasePrice : totalCost;
 
   // When a supplier is linked, keep the denormalized name snapshot in sync with
   // the Supplier document. Falls back to the name supplied by the caller when
@@ -486,12 +499,12 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   });
 
   // Record the amount owed against the linked supplier (amountDue is set by the
-  // pre-save hook = totalCost; shipping is excluded - it is an expense to the
+  // pre-save hook = goods cost; shipping is excluded - it is an expense to the
   // company, not part of the supplier's debt).
   if (newPurchase.supplierId) {
     await updateSupplierFinancialsOnPurchase(
       newPurchase.supplierId,
-      newPurchase.amountDue ?? totalCost,
+      newPurchase.amountDue ?? goodsDue,
       newPurchase.purchaseDate
     );
   }
@@ -583,7 +596,9 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   await assertPermission('edit:purchases');
   await dbConnect();
 
-  // If quantity or unitPrice is being updated, recalculate totalCost
+  // Fetch the purchase. Cost fields (totalCost, unitPrice, amountDue) are
+  // recalculated below after validation - this path uses findByIdAndUpdate,
+  // which skips the pre-save hook.
   const purchase = await PurchaseModel.findById(id);
   if (!purchase) {
     throw new Error('PurchaseModel not found');
@@ -628,16 +643,25 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     }
   }
 
-  // The purchase total (quantity x unit price) can never drop below
-  // the payments already recorded against it - that would silently turn real
-  // payments into an overpayment. The payments must be reduced first, then the
+  // Effective cost inputs after this edit. `purchasePrice` (goods cost per
+  // unit) takes precedence when present - on legacy rows it is absent and the
+  // cost fields are left untouched by this edit unless explicitly sent.
+  const nextQuantity = data.quantity ?? purchase.quantity;
+  const nextUnitPrice = data.unitPrice ?? purchase.unitPrice;
+  const nextPurchasePrice =
+    data.purchasePrice !== undefined ? data.purchasePrice : purchase.purchasePrice;
+  const nextShippingCost = data.shippingCost ?? purchase.shippingCost;
+
+  // The amount owed (goods cost: quantity * purchasePrice, or quantity *
+  // unitPrice on legacy rows) can never drop below the payments already
+  // recorded against the purchase - that would silently turn real payments
+  // into an overpayment. The payments must be reduced first, then the
   // purchase edited. Untracked (legacy) purchases have no payment history, so
   // they are exempt. Shipping is excluded (it is not part of the supplier debt).
   if (purchase.paymentsTracked === true) {
     const paid = purchase.paidAmount || 0;
-    const nextQuantity = data.quantity ?? purchase.quantity;
-    const nextUnitPrice = data.unitPrice ?? purchase.unitPrice;
-    const nextAmountDue = nextQuantity * nextUnitPrice;
+    const nextAmountDue =
+      nextPurchasePrice != null ? nextQuantity * nextPurchasePrice : nextQuantity * nextUnitPrice;
     if (paid > 0 && nextAmountDue < paid - 0.001) {
       throw new Error(
         `The purchase total (${formatCurrency(nextAmountDue, false)}) would be less than the ${formatCurrency(paid, false)} already paid. Please adjust the payments first, then edit this purchase.`
@@ -735,28 +759,48 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     updateData.receivedQuantity = Math.min(purchase.receivedQuantity, data.quantity);
   }
 
-  // Recalculate totalCost if quantity or unitPrice is updated
-  if (data.quantity !== undefined || data.unitPrice !== undefined) {
-    const quantity = data.quantity ?? purchase.quantity;
-    const unitPrice = data.unitPrice ?? purchase.unitPrice;
-    updateData.totalCost = quantity * unitPrice;
+  // Recalculate totalCost when any cost input is updated. Rows with a goods
+  // price get the landed total (quantity * purchasePrice + shipping) and a
+  // derived unitPrice (totalCost / quantity); legacy rows keep
+  // quantity * unitPrice (their stored shipping - always 0 in prod - stays out
+  // of the supplier-facing total).
+  if (
+    data.quantity !== undefined ||
+    data.unitPrice !== undefined ||
+    data.purchasePrice !== undefined ||
+    data.shippingCost !== undefined
+  ) {
+    if (nextPurchasePrice != null) {
+      const landedTotal = nextQuantity * nextPurchasePrice + (nextShippingCost || 0);
+      updateData.totalCost = landedTotal;
+      updateData.unitPrice = landedTotal / nextQuantity;
+    } else {
+      updateData.totalCost = nextQuantity * nextUnitPrice;
+    }
   }
 
   // findByIdAndUpdate skips the pre-save hook, so recompute the payment totals
-  // here whenever the amount due (totalCost) changes. Shipping is excluded -
-  // it is an expense to the company, not part of the supplier debt.
+  // here whenever the amount due changes. amountDue is the goods cost only
+  // (quantity * purchasePrice, or totalCost on legacy rows) - shipping is an
+  // expense to the company, not part of the supplier debt.
   const currentAmountDue = resolveAmountDue(purchase);
   const nextTotalCost = updateData.totalCost ?? purchase.totalCost;
-  const nextAmountDue = nextTotalCost || 0;
-  const currentPaid = purchase.paidAmount || 0;
+  const nextAmountDue =
+    nextPurchasePrice != null ? nextQuantity * nextPurchasePrice : nextTotalCost || 0;
   updateData.amountDue = nextAmountDue;
-  updateData.balanceAmount = Math.max(0, nextAmountDue - currentPaid);
-  updateData.paymentStatus =
-    updateData.balanceAmount <= 0 && currentPaid > 0
-      ? 'paid'
-      : currentPaid > 0
-        ? 'partial'
-        : 'unpaid';
+  // Only tracked purchases get their payment status rewritten (mirrors the
+  // pre-save hook). Untracked legacy rows are treated as settled at read time,
+  // so rewriting theirs to "unpaid" with a full balance would misreport them.
+  if (purchase.paymentsTracked === true) {
+    const currentPaid = purchase.paidAmount || 0;
+    updateData.balanceAmount = Math.max(0, nextAmountDue - currentPaid);
+    updateData.paymentStatus =
+      updateData.balanceAmount <= 0 && currentPaid > 0
+        ? 'paid'
+        : currentPaid > 0
+          ? 'partial'
+          : 'unpaid';
+  }
 
   const updatedPurchase = (await PurchaseModel.findByIdAndUpdate(
     id,
@@ -1033,17 +1077,24 @@ export const getPurchasePayments = async (purchaseId: string) => {
 // a serializable result the UI can inspect.
 export type PaymentActionResult = { success: true } | { success: false; error: string };
 
-// Compute the amount owed for a purchase: totalCost only. Shipping is an
-// expense to the company and is deliberately excluded from what the supplier
-// is owed (payments, balances and supplier rollups all build on this).
-// Always derive from totalCost instead of trusting the stored `amountDue`:
-// older documents have a shipping-inclusive value persisted there.
+// Compute the amount owed for a purchase: the goods cost only - quantity *
+// purchasePrice when a goods price exists, otherwise totalCost (legacy rows
+// where unitPrice is the goods price). Shipping is an expense to the company
+// and is deliberately excluded from what the supplier is owed (payments,
+// balances and supplier rollups all build on this). Always derive instead of
+// trusting the stored `amountDue`: older documents have a shipping-inclusive
+// value persisted there.
 function resolveAmountDue(purchase: {
+  quantity?: number;
+  purchasePrice?: number;
   paymentsTracked?: boolean;
   amountDue?: number;
   totalCost?: number;
   shippingCost?: number;
 }) {
+  if (purchase.purchasePrice != null && purchase.quantity) {
+    return purchase.quantity * purchase.purchasePrice;
+  }
   return purchase.totalCost || 0;
 }
 

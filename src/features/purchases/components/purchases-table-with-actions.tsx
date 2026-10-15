@@ -237,7 +237,7 @@ export function PurchasesTableWithActions({
   const getPaymentStatus = (purchase: EnhancedPurchase): PurchasePaymentStatus => {
     if (purchase.paymentStatus) return purchase.paymentStatus;
     const paid = purchase.paidAmount || 0;
-    const due = purchase.amountDue ?? (purchase.totalCost || 0);
+    const due = purchase.amountDue ?? (purchase.purchasePrice ?? purchase.unitPrice) * purchase.quantity;
     if (paid <= 0) return 'unpaid';
     return paid >= due ? 'paid' : 'partial';
   };
@@ -433,6 +433,16 @@ export function PurchasesTableWithActions({
             <Banknote className="h-4 w-4" />
           </Button>
           {canManage && (
+            <Button
+              variant="ghost"
+              // size="icon"
+              onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
+              title="Go to product"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          )}
+          {canManage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" title="More actions">
@@ -459,16 +469,6 @@ export function PurchasesTableWithActions({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-          {canManage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
-              title="Go to product"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
           )}
         </div>
       )
@@ -630,7 +630,10 @@ export function PurchasesTableWithActions({
           onOpenChange={setPaymentOpen}
           purchaseId={paymentPurchase.id || paymentPurchase._id!}
           purchaseLabel={paymentPurchase.purchaseId}
-          amountDue={paymentPurchase.amountDue ?? (paymentPurchase.totalCost || 0)}
+          amountDue={
+            paymentPurchase.amountDue ??
+            (paymentPurchase.purchasePrice ?? paymentPurchase.unitPrice) * paymentPurchase.quantity
+          }
           initialPayments={paymentInitial}
           getPayments={getPurchasePayments}
           addPayment={addPurchasePayment}
