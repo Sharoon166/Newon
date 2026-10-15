@@ -1,9 +1,692 @@
+// 'use client';
+//
+// import { useState, useEffect, useMemo } from 'react';
+// import {
+//   ColumnDef,
+//   SortingState,
+//   flexRender,
+//   getCoreRowModel,
+//   getSortedRowModel,
+//   useReactTable
+// } from '@tanstack/react-table';
+// import { Button } from '@/components/ui/button';
+// import { Input } from '@/components/ui/input';
+// import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+// import { Badge } from '@/components/ui/badge';
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuTrigger
+// } from '@/components/ui/dropdown-menu';
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// import {
+//   ChevronDown,
+//   ChevronUp,
+//   Search,
+//   ExternalLink,
+//   Download,
+//   FileSpreadsheet,
+//   Trash2,
+//   Plus,
+//   Edit2,
+//   AlertCircle,
+//   PackagePlus,
+//   Banknote,
+//   MoreHorizontal
+// } from 'lucide-react';
+// import { formatCurrency, formatDate } from '@/lib/utils';
+// import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
+// import { useRouter, useSearchParams } from 'next/navigation';
+// import { useDebounce } from '@/hooks/use-debounce';
+// import { exportToCsv } from '../utils/export-utils';
+// import { ServerPagination } from '@/components/general/server-pagination';
+// import {
+//   deletePurchase,
+//   getPurchasePayments,
+//   addPurchasePayment,
+//   deletePurchasePayment
+// } from '../actions';
+// import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+// import { ReceiveDialog, type ReceiveTarget } from '@/features/stock/components/receive-dialog';
+// import { toast } from 'sonner';
+// import type { EnhancedVariants } from '@/features/inventory/types';
+// import { PurchaseForm } from './purchase-form';
+// import { PurchasePaymentDialog, type PaymentRow } from './purchase-payment-dialog';
+//
+// export interface EnhancedPurchase extends Purchase {
+//   variant?: {
+//     id: string;
+//     sku: string;
+//     attributes?: Record<string, string>;
+//   };
+//   productName?: string;
+// }
+//
+// interface PurchasesTableWithActionsProps {
+//   purchasesData: PaginatedPurchases;
+//   products: EnhancedVariants[];
+//   userRole?: 'admin' | 'staff';
+//   /** Stock tracking is set up - enables the inline "Receive" flow. */
+//   stockReady?: boolean;
+// }
+//
+// export function PurchasesTableWithActions({
+//   purchasesData,
+//   products,
+//   userRole,
+//   stockReady = false
+// }: PurchasesTableWithActionsProps) {
+//   // Staff may create + view purchases; only admins may edit or delete.
+//   const canManage = userRole !== 'staff';
+//   const router = useRouter();
+//   const searchParams = useSearchParams();
+//   const [sorting, setSorting] = useState<SortingState>([]);
+//
+//   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+//   const debouncedSearch = useDebounce(searchInput, 400);
+//   const [supplierFilter, setSupplierFilter] = useState(searchParams.get('supplier') || 'all');
+//
+//   // Dialog states
+//   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+//   const [purchaseToDelete, setPurchaseToDelete] = useState<EnhancedPurchase | null>(null);
+//   const [isDeleting, setIsDeleting] = useState(false);
+//   const [addPurchaseOpen, setAddPurchaseOpen] = useState(false);
+//   const [editPurchaseOpen, setEditPurchaseOpen] = useState(false);
+//   const [purchaseToEdit, setPurchaseToEdit] = useState<EnhancedPurchase | null>(null);
+//
+//   // Inline receiving - the same dialog the Stock page's "Awaiting arrival" tab uses.
+//   const [receiveOpen, setReceiveOpen] = useState(false);
+//   const [receiveTarget, setReceiveTarget] = useState<ReceiveTarget | null>(null);
+//
+//   // Partial payment tracking.
+//   const [paymentOpen, setPaymentOpen] = useState(false);
+//   const [paymentPurchase, setPaymentPurchase] = useState<EnhancedPurchase | null>(null);
+//   const [paymentInitial, setPaymentInitial] = useState<PaymentRow[]>([]);
+//
+//   const allSuppliers = useMemo(() => {
+//     const supplierSet = new Set<string>();
+//     purchasesData.docs.forEach(purchase => {
+//       if (purchase.supplier) supplierSet.add(purchase.supplier);
+//     });
+//     return Array.from(supplierSet).sort();
+//   }, [purchasesData]);
+//
+//   const purchases = purchasesData.docs as EnhancedPurchase[];
+//
+//   // Push debounced search to URL.
+//   // Bail out when the URL already matches, so mounting doesn't fire a
+//   // redundant navigation.
+//   useEffect(() => {
+//     if ((searchParams.get('search') ?? '') === debouncedSearch) return;
+//
+//     const params = new URLSearchParams(searchParams.toString());
+//     if (debouncedSearch) {
+//       params.set('search', debouncedSearch);
+//       params.set('page', '1');
+//     } else {
+//       params.delete('search');
+//     }
+//     router.push(`?${params.toString()}`, { scroll: false });
+//   }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+//
+//   // Push supplier filter to URL immediately
+//   const handleSupplierChange = (value: string) => {
+//     setSupplierFilter(value);
+//     const params = new URLSearchParams(searchParams.toString());
+//     if (value && value !== 'all') {
+//       params.set('supplier', value);
+//       params.set('page', '1');
+//     } else {
+//       params.delete('supplier');
+//     }
+//     router.push(`?${params.toString()}`, { scroll: false });
+//   };
+//
+//   const locations = useMemo(() => {
+//     const locationSet = new Map<string, { id: string; name: string; address?: string; isActive: boolean }>();
+//     products.forEach(product => {
+//       product.locations?.forEach(location => {
+//         if (location.isActive) {
+//           locationSet.set(location.id, {
+//             id: location.id,
+//             name: location.name,
+//             address: location.address,
+//             isActive: location.isActive
+//           });
+//         }
+//       });
+//     });
+//     return Array.from(locationSet.values());
+//   }, [products]);
+//
+//   const getVariantDisplay = (purchase: EnhancedPurchase) => {
+//     if (!purchase.variant) return purchase.variantId;
+//     const attrString = purchase.variant.attributes
+//       ? Object.entries(purchase.variant.attributes)
+//           .map(([, value]) => value)
+//           .join(', ')
+//       : '';
+//     return attrString ? `${purchase.variant.sku} (${attrString})` : purchase.variant.sku;
+//   };
+//
+//   const handleDeleteClick = (purchase: EnhancedPurchase) => {
+//     setPurchaseToDelete(purchase);
+//     setDeleteDialogOpen(true);
+//   };
+//
+//   const handleDeleteConfirm = async () => {
+//     if (!purchaseToDelete) return;
+//     try {
+//       setIsDeleting(true);
+//       await deletePurchase(purchaseToDelete.id || purchaseToDelete._id!);
+//       toast.success('Purchase deleted successfully');
+//       router.refresh();
+//     } catch (error) {
+//       console.error('Error deleting purchase:', error);
+//       toast.error(error instanceof Error ? error.message : 'Failed to delete purchase');
+//     } finally {
+//       setIsDeleting(false);
+//       setDeleteDialogOpen(false);
+//       setPurchaseToDelete(null);
+//     }
+//   };
+//
+//   const handleEditClick = (purchase: EnhancedPurchase) => {
+//     setPurchaseToEdit(purchase);
+//     setEditPurchaseOpen(true);
+//   };
+//
+//   const handlePurchaseSuccess = () => {
+//     setAddPurchaseOpen(false);
+//     setEditPurchaseOpen(false);
+//     setPurchaseToEdit(null);
+//     router.refresh();
+//   };
+//
+//   const handleReceiveClick = (purchase: EnhancedPurchase) => {
+//     setReceiveTarget({
+//       id: purchase.id || purchase._id!,
+//       purchaseId: purchase.purchaseId,
+//       productName: purchase.productName || 'Unknown product',
+//       sku: purchase.variant?.sku || purchase.variantId || '',
+//       ordered: purchase.quantity,
+//       // Same convention as the Stock page's "Awaiting arrival" tab: a purchase
+//       // that predates tracking has no receivedQuantity and counts as arrived.
+//       received: purchase.receivedQuantity ?? purchase.quantity,
+//       supplier: purchase.supplier
+//     });
+//     setReceiveOpen(true);
+//   };
+//
+//   const pendingToReceive = (purchase: EnhancedPurchase) =>
+//     purchase.quantity - (purchase.receivedQuantity ?? purchase.quantity);
+//
+//   const handlePaymentClick = async (purchase: EnhancedPurchase) => {
+//     try {
+//       const data = await getPurchasePayments(purchase.id || purchase._id!);
+//       setPaymentInitial(data as PaymentRow[]);
+//       setPaymentPurchase(purchase);
+//       setPaymentOpen(true);
+//     } catch (error) {
+//       console.error('Error loading payments:', error);
+//       toast.error('Failed to load payments');
+//     }
+//   };
+//
+//   const getPaymentStatus = (purchase: EnhancedPurchase): PurchasePaymentStatus => {
+//     if (purchase.paymentStatus) return purchase.paymentStatus;
+//     const paid = purchase.paidAmount || 0;
+//     const due = purchase.amountDue ?? (purchase.purchasePrice ?? purchase.unitPrice) * purchase.quantity;
+//     if (paid <= 0) return 'unpaid';
+//     return paid >= due ? 'paid' : 'partial';
+//   };
+//
+//   const renderPaymentStatus = (purchase: EnhancedPurchase) => {
+//     const status = getPaymentStatus(purchase);
+//
+//     const badge =
+//       status === 'paid' ? (
+//         <Badge variant="default" className="whitespace-nowrap bg-emerald-600 hover:bg-emerald-600">
+//           Paid
+//         </Badge>
+//       ) : status === 'partial' ? (
+//         <Badge variant="secondary" className="whitespace-nowrap bg-amber-100 text-amber-800 hover:bg-amber-100">
+//           Partial
+//         </Badge>
+//       ) : (
+//         <Badge variant="secondary" className="whitespace-nowrap">
+//           Unpaid
+//         </Badge>
+//       );
+//
+//     return (
+//       <div className="flex flex-col items-start gap-0.5">
+//         {badge}
+//         {purchase.isUntracked && (
+//           <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Untracked</span>
+//         )}
+//       </div>
+//     );
+//   };
+//
+//   const columns: ColumnDef<EnhancedPurchase>[] = [
+//     {
+//       accessorKey: 'purchaseId',
+//       header: 'Purchase ID',
+//       cell: ({ row }) => (
+//         <Badge variant="secondary" className="font-mono text-xs whitespace-nowrap">
+//           {row.original.purchaseId || 'N/A'}
+//         </Badge>
+//       )
+//     },
+//     {
+//       accessorKey: 'purchaseDate',
+//       header: ({ column }) => (
+//         <Button
+//           variant="ghost"
+//           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+//           className="p-0 hover:bg-transparent"
+//         >
+//           Date
+//           {column.getIsSorted() === 'asc' ? (
+//             <ChevronUp className="ml-2 h-4 w-4" />
+//           ) : column.getIsSorted() === 'desc' ? (
+//             <ChevronDown className="ml-2 h-4 w-4" />
+//           ) : (
+//             <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+//           )}
+//         </Button>
+//       ),
+//       cell: ({ row }) => <div className="whitespace-nowrap">{formatDate(row.original.purchaseDate)}</div>,
+//       sortingFn: 'datetime'
+//     },
+//     {
+//       accessorKey: 'productName',
+//       header: 'Product',
+//       cell: ({ row }) => <div className="font-medium">{row.original.productName || 'Unknown Product'} </div>
+//     },
+//     {
+//       accessorKey: 'variant',
+//       header: 'Variant',
+//       cell: ({ row }) => (
+//         <Badge variant="outline" className="font-mono whitespace-nowrap">
+//           {getVariantDisplay(row.original)}
+//         </Badge>
+//       )
+//     },
+//     {
+//       accessorKey: 'origin',
+//       header: 'Origin',
+//       cell: ({ row }) => {
+//         const origin = row.original.origin === 'imported' ? 'imported' : 'local';
+//         return (
+//           <Badge
+//             variant={origin === 'imported' ? 'secondary' : 'outline'}
+//             className="whitespace-nowrap font-medium capitalize"
+//           >
+//             {origin === 'imported' ? 'Imported' : 'Local'}
+//           </Badge>
+//         );
+//       }
+//     },
+//     {
+//       accessorKey: 'supplier',
+//       header: 'Supplier',
+//       cell: ({ row }) => <Badge variant="secondary">{row.original.supplier}</Badge>
+//     },
+//     {
+//       accessorKey: 'quantity',
+//       header: 'Qty',
+//       cell: ({ row }) => row.original.quantity
+//     },
+//     {
+//       accessorKey: 'remaining',
+//       header: 'Remaining',
+//       cell: ({ row }) => (
+//         <span className={row.original.remaining < row.original.quantity ? 'text-orange-600 font-medium' : ''}>
+//           {row.original.remaining}
+//         </span>
+//       )
+//     },
+//     // Mirrors the "Delivered x / y" column on invoices - only meaningful once
+//     // stock tracking has been set up.
+//     ...(stockReady
+//       ? [
+//           {
+//             id: 'received',
+//             header: 'Received',
+//             cell: ({ row }: { row: { original: EnhancedPurchase } }) => {
+//               const received = row.original.receivedQuantity ?? row.original.quantity;
+//               const pending = Math.max(0, row.original.quantity - received);
+//               return (
+//                 <span className="whitespace-nowrap">
+//                   <span className={pending > 0 ? 'font-medium text-orange-600' : 'font-medium'}>{received}</span>
+//                   <span className="text-muted-foreground"> / {row.original.quantity}</span>
+//                   {pending > 0 && <span className="ml-1 text-xs text-muted-foreground">({pending} to come)</span>}
+//                 </span>
+//               );
+//             }
+//           } satisfies ColumnDef<EnhancedPurchase>
+//         ]
+//       : []),
+//     {
+//       accessorKey: 'unitPrice',
+//       header: 'Unit Price',
+//       cell: ({ row }) => formatCurrency(row.original.unitPrice)
+//     },
+//     {
+//       accessorKey: 'retailPrice',
+//       header: 'Retail Price',
+//       cell: ({ row }) => formatCurrency(row.original.retailPrice || 0)
+//     },
+//     {
+//       accessorKey: 'totalCost',
+//       header: 'Total',
+//       cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.totalCost)}</div>
+//     },
+//     // Supplier money columns are admin-only: staff neither see nor act on
+//     // what has been paid or is owed.
+//     ...(canManage
+//       ? [
+//           {
+//             accessorKey: 'paidAmount',
+//             header: 'Paid',
+//             cell: ({ row }: { row: { original: EnhancedPurchase } }) =>
+//               formatCurrency(row.original.paidAmount || 0)
+//           } satisfies ColumnDef<EnhancedPurchase>,
+//           {
+//             accessorKey: 'balanceAmount',
+//             header: 'Balance',
+//             cell: ({ row }: { row: { original: EnhancedPurchase } }) => {
+//               const balance = row.original.balanceAmount ?? 0;
+//               return (
+//                 <div className={balance > 0 ? 'font-medium text-orange-600' : ''}>{formatCurrency(balance)}</div>
+//               );
+//             }
+//           } satisfies ColumnDef<EnhancedPurchase>
+//         ]
+//       : []),
+//     {
+//       id: 'paymentStatus',
+//       header: 'Payment',
+//       cell: ({ row }) => renderPaymentStatus(row.original)
+//     },
+//     {
+//       id: 'actions',
+//       cell: ({ row }) => (
+//         <div className="flex justify-end gap-1">
+//           {stockReady && pendingToReceive(row.original) > 0 && (
+//             <Button
+//               variant="ghost"
+//               size="icon"
+//               onClick={() => handleReceiveClick(row.original)}
+//               title="Receive stock"
+//             >
+//               <PackagePlus className="h-4 w-4" />
+//             </Button>
+//           )}
+//           {canManage && (
+//             <Button
+//               variant="ghost"
+//               size="icon"
+//               onClick={() => handlePaymentClick(row.original)}
+//               disabled={row.original.isUntracked}
+//               title={
+//                 row.original.isUntracked
+//                   ? 'Payment tracking was not available when this purchase was made'
+//                   : 'Payments'
+//               }
+//             >
+//               <Banknote className="h-4 w-4" />
+//             </Button>
+//           )}
+//           {canManage && (
+//             <Button
+//               variant="ghost"
+//               // size="icon"
+//               onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
+//               title="Go to product"
+//             >
+//               <ExternalLink className="h-4 w-4" />
+//             </Button>
+//           )}
+//           {canManage && (
+//             <DropdownMenu>
+//               <DropdownMenuTrigger asChild>
+//                 <Button variant="ghost" size="icon" title="More actions">
+//                   <MoreHorizontal className="h-4 w-4" />
+//                 </Button>
+//               </DropdownMenuTrigger>
+//               <DropdownMenuContent align="end">
+//                 <DropdownMenuItem onClick={() => handleEditClick(row.original)}>
+//                   <Edit2 className="mr-2 h-4 w-4" />
+//                   Edit purchase
+//                 </DropdownMenuItem>
+//                 <DropdownMenuItem
+//                   onClick={() => handleDeleteClick(row.original)}
+//                   disabled={row.original.remaining < row.original.quantity}
+//                   title={
+//                     row.original.remaining < row.original.quantity
+//                       ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
+//                       : 'Delete purchase'
+//                   }
+//                   className="text-destructive focus:text-destructive"
+//                 >
+//                   <Trash2 className="mr-2 h-4 w-4" />
+//                   Delete purchase
+//                 </DropdownMenuItem>
+//               </DropdownMenuContent>
+//             </DropdownMenu>
+//           )}
+//         </div>
+//       )
+//     }
+//   ];
+//
+//   const table = useReactTable({
+//     data: purchases,
+//     columns,
+//     state: { sorting },
+//     onSortingChange: setSorting,
+//     getCoreRowModel: getCoreRowModel(),
+//     getSortedRowModel: getSortedRowModel()
+//   });
+//
+//   const handleExportCsv = () => {
+//     const data = table.getRowModel().rows.map(row => ({
+//       'Purchase Date': formatDate(row.original.purchaseDate),
+//       Product: row.original.productName || 'Unknown',
+//       Variant: row.original.variant?.sku || row.original.variantId || '',
+//       Supplier: row.original.supplier || '',
+//       Quantity: row.original.quantity,
+//       Remaining: row.original.remaining,
+//       'Unit Price': String(formatCurrency(row.original.unitPrice || 0)),
+//       'Retail Price': String(formatCurrency(row.original.retailPrice || 0)),
+//       'Wholesale Price': String(formatCurrency(row.original.wholesalePrice || 0)),
+//       'Shipping Cost': String(formatCurrency(row.original.shippingCost || 0)),
+//       'Total Cost': String(formatCurrency(row.original.totalCost)),
+//       // Supplier money columns are admin-only, same as in the table.
+//       ...(canManage
+//         ? {
+//             Paid: String(formatCurrency(row.original.paidAmount || 0)),
+//             Balance: String(formatCurrency(row.original.balanceAmount ?? 0))
+//           }
+//         : {}),
+//       'Payment Status': row.original.isUntracked ? 'Paid (untracked)' : getPaymentStatus(row.original)
+//     }));
+//     exportToCsv(data, `purchases-${new Date().toISOString().split('T')[0]}`);
+//   };
+//
+//   const handleExportPdf = () => {
+//     router.push('/purchases/print');
+//   };
+//
+//   return (
+//     <div className="w-full max-w-7xl overflow-x-auto mx-auto">
+//       <div className="flex flex-col gap-4 py-4">
+//         <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
+//           <div className="relative w-full md:w-96">
+//             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+//             <Input
+//               type="search"
+//               placeholder="Search by product, SKU, or supplier..."
+//               value={searchInput}
+//               onChange={e => setSearchInput(e.target.value)}
+//               className="w-full pl-8"
+//             />
+//           </div>
+//           <div className="flex flex-wrap items-center gap-2">
+//             <Button onClick={() => setAddPurchaseOpen(true)} disabled={products.length === 0} className="grow">
+//               <Plus className="mr-2 h-4 w-4" />
+//               Add Purchase
+//             </Button>
+//             <Button variant="outline" size="sm" className="gap-1" onClick={handleExportCsv}>
+//               <FileSpreadsheet className="h-4 w-4" />
+//               <span className="hidden sm:inline">CSV</span>
+//             </Button>
+//             <Button variant="outline" size="sm" className="gap-1" onClick={handleExportPdf}>
+//               <Download className="h-4 w-4" />
+//               <span className="hidden sm:inline">PDF</span>
+//             </Button>
+//             <Select value={supplierFilter} onValueChange={handleSupplierChange}>
+//               <SelectTrigger className="w-[180px]">
+//                 <SelectValue placeholder="Filter by supplier" />
+//               </SelectTrigger>
+//               <SelectContent>
+//                 <SelectItem value="all">All Suppliers</SelectItem>
+//                 {allSuppliers.map(supplier => (
+//                   <SelectItem key={supplier} value={supplier}>
+//                     {supplier}
+//                   </SelectItem>
+//                 ))}
+//               </SelectContent>
+//             </Select>
+//           </div>
+//         </div>
+//       </div>
+//
+//       <div className="rounded-md border">
+//         <Table>
+//           <TableHeader>
+//             {table.getHeaderGroups().map(headerGroup => (
+//               <TableRow key={headerGroup.id}>
+//                 {headerGroup.headers.map(header => (
+//                   <TableHead key={header.id}>
+//                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+//                   </TableHead>
+//                 ))}
+//               </TableRow>
+//             ))}
+//           </TableHeader>
+//           <TableBody>
+//             {table.getRowModel().rows?.length ? (
+//               table.getRowModel().rows.map(row => (
+//                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'} className="hover:bg-muted/50">
+//                   {row.getVisibleCells().map(cell => (
+//                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+//                   ))}
+//                 </TableRow>
+//               ))
+//             ) : (
+//               <TableRow>
+//                 <TableCell colSpan={columns.length} className="h-24 text-center">
+//                   No results.
+//                 </TableCell>
+//               </TableRow>
+//             )}
+//           </TableBody>
+//         </Table>
+//       </div>
+//
+//       <ServerPagination
+//         currentPage={purchasesData.page}
+//         totalPages={purchasesData.totalPages}
+//         totalDocs={purchasesData.totalDocs}
+//         hasNextPage={purchasesData.hasNextPage}
+//         hasPrevPage={purchasesData.hasPrevPage}
+//         pageSize={purchasesData.limit}
+//         itemName="purchases"
+//       />
+//
+//       <ConfirmationDialog
+//         open={deleteDialogOpen}
+//         onOpenChange={setDeleteDialogOpen}
+//         title="Delete Purchase?"
+//         description={
+//           purchaseToDelete
+//             ? `Are you sure you want to delete this purchase? This will remove ${purchaseToDelete.quantity} unit(s) from inventory and cannot be undone. ${
+//                 purchaseToDelete.remaining === purchaseToDelete.quantity
+//                   ? 'All units are still available (none have been sold).'
+//                   : ''
+//               }`
+//             : 'Are you sure you want to delete this purchase?'
+//         }
+//         confirmText="Delete"
+//         cancelText="Cancel"
+//         variant="destructive"
+//         icon={<AlertCircle className="h-12 w-12 text-destructive" />}
+//         onConfirm={handleDeleteConfirm}
+//         isProcessing={isDeleting}
+//       />
+//
+//       <ReceiveDialog
+//         open={receiveOpen}
+//         onOpenChange={setReceiveOpen}
+//         target={receiveTarget}
+//         onSuccess={() => router.refresh()}
+//       />
+//
+//       {paymentPurchase && (
+//         <PurchasePaymentDialog
+//           key={paymentPurchase.id || paymentPurchase._id}
+//           open={paymentOpen}
+//           onOpenChange={setPaymentOpen}
+//           purchaseId={paymentPurchase.id || paymentPurchase._id!}
+//           purchaseLabel={paymentPurchase.purchaseId}
+//           amountDue={
+//             paymentPurchase.amountDue ??
+//             (paymentPurchase.purchasePrice ?? paymentPurchase.unitPrice) * paymentPurchase.quantity
+//           }
+//           initialPayments={paymentInitial}
+//           getPayments={getPurchasePayments}
+//           addPayment={addPurchasePayment}
+//           deletePayment={deletePurchasePayment}
+//           onSuccess={() => router.refresh()}
+//         />
+//       )}
+//
+//       <PurchaseForm
+//         productId=""
+//         variants={products}
+//         locations={locations}
+//         open={addPurchaseOpen}
+//         onOpenChange={setAddPurchaseOpen}
+//         onSuccess={handlePurchaseSuccess}
+//       />
+//
+//       {purchaseToEdit && (
+//         <PurchaseForm
+//           productId={purchaseToEdit.productId}
+//           variantId={purchaseToEdit.variantId}
+//           variants={products.filter(p => p.productId === purchaseToEdit.productId)}
+//           purchase={purchaseToEdit}
+//           locations={locations}
+//           open={editPurchaseOpen}
+//           onOpenChange={setEditPurchaseOpen}
+//           onSuccess={handlePurchaseSuccess}
+//         />
+//       )}
+//     </div>
+//   );
+// }
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import {
   ColumnDef,
   SortingState,
+  VisibilityState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -15,8 +698,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -33,7 +719,8 @@ import {
   AlertCircle,
   PackagePlus,
   Banknote,
-  MoreHorizontal
+  MoreHorizontal,
+  Columns3
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
@@ -41,12 +728,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { exportToCsv } from '../utils/export-utils';
 import { ServerPagination } from '@/components/general/server-pagination';
-import {
-  deletePurchase,
-  getPurchasePayments,
-  addPurchasePayment,
-  deletePurchasePayment
-} from '../actions';
+import { deletePurchase, getPurchasePayments, addPurchasePayment, deletePurchasePayment } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { ReceiveDialog, type ReceiveTarget } from '@/features/stock/components/receive-dialog';
 import { toast } from 'sonner';
@@ -71,6 +753,74 @@ interface PurchasesTableWithActionsProps {
   stockReady?: boolean;
 }
 
+// Column ids that should be right-aligned (numbers and actions).
+const RIGHT_ALIGNED = new Set(['totalCost', 'retailPrice', 'actions']);
+
+// Labels shown in the Columns menu.
+const COLUMN_LABELS: Record<string, string> = {
+  purchaseDate: 'Purchase',
+  productName: 'Product',
+  origin: 'Origin',
+  supplier: 'Supplier',
+  stock: 'Stock',
+  totalCost: 'Cost',
+  retailPrice: 'Retail price',
+  amountPaid: 'Paid',
+  paymentStatus: 'Payment status'
+};
+
+const getVariantDisplay = (purchase: EnhancedPurchase) => {
+  if (!purchase.variant) return purchase.variantId;
+  const attrString = purchase.variant.attributes
+    ? Object.entries(purchase.variant.attributes)
+        .map(([, value]) => value)
+        .join(', ')
+    : '';
+  return attrString ? `${purchase.variant.sku} (${attrString})` : purchase.variant.sku;
+};
+
+const getPaymentStatus = (purchase: EnhancedPurchase): PurchasePaymentStatus => {
+  if (purchase.paymentStatus) return purchase.paymentStatus;
+  const paid = purchase.paidAmount || 0;
+  const due = purchase.amountDue ?? (purchase.purchasePrice ?? purchase.unitPrice) * purchase.quantity;
+  if (paid <= 0) return 'unpaid';
+  return paid >= due ? 'paid' : 'partial';
+};
+
+const getAmountDue = (purchase: EnhancedPurchase) =>
+  purchase.amountDue ?? (purchase.purchasePrice ?? purchase.unitPrice) * purchase.quantity;
+
+const pendingToReceive = (purchase: EnhancedPurchase) =>
+  Math.max(0, purchase.quantity - (purchase.receivedQuantity ?? purchase.quantity));
+
+const renderPaymentStatus = (purchase: EnhancedPurchase) => {
+  const status = getPaymentStatus(purchase);
+
+  const badge =
+    status === 'paid' ? (
+      <Badge variant="default" className="whitespace-nowrap bg-emerald-600 hover:bg-emerald-600">
+        Paid
+      </Badge>
+    ) : status === 'partial' ? (
+      <Badge variant="secondary" className="whitespace-nowrap bg-amber-100 text-amber-800 hover:bg-amber-100">
+        Partial
+      </Badge>
+    ) : (
+      <Badge variant="secondary" className="whitespace-nowrap">
+        Unpaid
+      </Badge>
+    );
+
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      {badge}
+      {purchase.isUntracked && (
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Untracked</span>
+      )}
+    </div>
+  );
+};
+
 export function PurchasesTableWithActions({
   purchasesData,
   products,
@@ -82,6 +832,9 @@ export function PurchasesTableWithActions({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    retailPrice: false
+  });
 
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebounce(searchInput, 400);
@@ -160,16 +913,6 @@ export function PurchasesTableWithActions({
     return Array.from(locationSet.values());
   }, [products]);
 
-  const getVariantDisplay = (purchase: EnhancedPurchase) => {
-    if (!purchase.variant) return purchase.variantId;
-    const attrString = purchase.variant.attributes
-      ? Object.entries(purchase.variant.attributes)
-          .map(([, value]) => value)
-          .join(', ')
-      : '';
-    return attrString ? `${purchase.variant.sku} (${attrString})` : purchase.variant.sku;
-  };
-
   const handleDeleteClick = (purchase: EnhancedPurchase) => {
     setPurchaseToDelete(purchase);
     setDeleteDialogOpen(true);
@@ -219,9 +962,6 @@ export function PurchasesTableWithActions({
     setReceiveOpen(true);
   };
 
-  const pendingToReceive = (purchase: EnhancedPurchase) =>
-    purchase.quantity - (purchase.receivedQuantity ?? purchase.quantity);
-
   const handlePaymentClick = async (purchase: EnhancedPurchase) => {
     try {
       const data = await getPurchasePayments(purchase.id || purchase._id!);
@@ -234,252 +974,221 @@ export function PurchasesTableWithActions({
     }
   };
 
-  const getPaymentStatus = (purchase: EnhancedPurchase): PurchasePaymentStatus => {
-    if (purchase.paymentStatus) return purchase.paymentStatus;
-    const paid = purchase.paidAmount || 0;
-    const due = purchase.amountDue ?? (purchase.purchasePrice ?? purchase.unitPrice) * purchase.quantity;
-    if (paid <= 0) return 'unpaid';
-    return paid >= due ? 'paid' : 'partial';
-  };
-
-  const renderPaymentStatus = (purchase: EnhancedPurchase) => {
-    const status = getPaymentStatus(purchase);
-
-    const badge =
-      status === 'paid' ? (
-        <Badge variant="default" className="whitespace-nowrap bg-emerald-600 hover:bg-emerald-600">
-          Paid
-        </Badge>
-      ) : status === 'partial' ? (
-        <Badge variant="secondary" className="whitespace-nowrap bg-amber-100 text-amber-800 hover:bg-amber-100">
-          Partial
-        </Badge>
-      ) : (
-        <Badge variant="secondary" className="whitespace-nowrap">
-          Unpaid
-        </Badge>
-      );
-
-    return (
-      <div className="flex flex-col items-start gap-0.5">
-        {badge}
-        {purchase.isUntracked && (
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Untracked</span>
-        )}
-      </div>
-    );
-  };
-
-  const columns: ColumnDef<EnhancedPurchase>[] = [
-    {
-      accessorKey: 'purchaseId',
-      header: 'Purchase ID',
-      cell: ({ row }) => (
-        <Badge variant="secondary" className="font-mono text-xs whitespace-nowrap">
-          {row.original.purchaseId || 'N/A'}
-        </Badge>
-      )
-    },
-    {
-      accessorKey: 'purchaseDate',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 hover:bg-transparent"
-        >
-          Date
-          {column.getIsSorted() === 'asc' ? (
-            <ChevronUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ChevronDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
-          )}
-        </Button>
-      ),
-      cell: ({ row }) => <div className="whitespace-nowrap">{formatDate(row.original.purchaseDate)}</div>,
-      sortingFn: 'datetime'
-    },
-    {
-      accessorKey: 'productName',
-      header: 'Product',
-      cell: ({ row }) => <div className="font-medium">{row.original.productName || 'Unknown Product'}</div>
-    },
-    {
-      accessorKey: 'variant',
-      header: 'Variant',
-      cell: ({ row }) => (
-        <Badge variant="outline" className="font-mono whitespace-nowrap">
-          {getVariantDisplay(row.original)}
-        </Badge>
-      )
-    },
-    {
-      accessorKey: 'origin',
-      header: 'Origin',
-      cell: ({ row }) => {
-        const origin = row.original.origin === 'imported' ? 'imported' : 'local';
-        return (
-          <Badge
-            variant={origin === 'imported' ? 'secondary' : 'outline'}
-            className="whitespace-nowrap font-medium capitalize"
-          >
-            {origin === 'imported' ? 'Imported' : 'Local'}
-          </Badge>
-        );
-      }
-    },
-    {
-      accessorKey: 'supplier',
-      header: 'Supplier',
-      cell: ({ row }) => <Badge variant="secondary">{row.original.supplier}</Badge>
-    },
-    {
-      accessorKey: 'quantity',
-      header: 'Qty',
-      cell: ({ row }) => row.original.quantity
-    },
-    {
-      accessorKey: 'remaining',
-      header: 'Remaining',
-      cell: ({ row }) => (
-        <span className={row.original.remaining < row.original.quantity ? 'text-orange-600 font-medium' : ''}>
-          {row.original.remaining}
-        </span>
-      )
-    },
-    // Mirrors the "Delivered x / y" column on invoices - only meaningful once
-    // stock tracking has been set up.
-    ...(stockReady
-      ? [
-          {
-            id: 'received',
-            header: 'Received',
-            cell: ({ row }: { row: { original: EnhancedPurchase } }) => {
-              const received = row.original.receivedQuantity ?? row.original.quantity;
-              const pending = Math.max(0, row.original.quantity - received);
-              return (
-                <span className="whitespace-nowrap">
-                  <span className={pending > 0 ? 'font-medium text-orange-600' : 'font-medium'}>{received}</span>
-                  <span className="text-muted-foreground"> / {row.original.quantity}</span>
-                  {pending > 0 && <span className="ml-1 text-xs text-muted-foreground">({pending} to come)</span>}
-                </span>
-              );
-            }
-          } satisfies ColumnDef<EnhancedPurchase>
-        ]
-      : []),
-    {
-      accessorKey: 'unitPrice',
-      header: 'Unit Price',
-      cell: ({ row }) => formatCurrency(row.original.unitPrice)
-    },
-    {
-      accessorKey: 'retailPrice',
-      header: 'Retail Price',
-      cell: ({ row }) => formatCurrency(row.original.retailPrice || 0)
-    },
-    {
-      accessorKey: 'totalCost',
-      header: 'Total',
-      cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.totalCost)}</div>
-    },
-    {
-      accessorKey: 'paidAmount',
-      header: 'Paid',
-      cell: ({ row }) => formatCurrency(row.original.paidAmount || 0)
-    },
-    {
-      accessorKey: 'balanceAmount',
-      header: 'Balance',
-      cell: ({ row }) => {
-        const balance = row.original.balanceAmount ?? 0;
-        return (
-          <div className={balance > 0 ? 'font-medium text-orange-600' : ''}>{formatCurrency(balance)}</div>
-        );
-      }
-    },
-    {
-      id: 'paymentStatus',
-      header: 'Payment',
-      cell: ({ row }) => renderPaymentStatus(row.original)
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <div className="flex justify-end gap-1">
-          {stockReady && pendingToReceive(row.original) > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleReceiveClick(row.original)}
-              title="Receive stock"
-            >
-              <PackagePlus className="h-4 w-4" />
-            </Button>
-          )}
+  const columns = useMemo<ColumnDef<EnhancedPurchase>[]>(
+    () => [
+      {
+        accessorKey: 'purchaseDate',
+        header: ({ column }) => (
           <Button
             variant="ghost"
-            size="icon"
-            onClick={() => handlePaymentClick(row.original)}
-            disabled={row.original.isUntracked}
-            title={
-              row.original.isUntracked
-                ? 'Payment tracking was not available when this purchase was made'
-                : 'Payments'
-            }
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            className="-ml-3 h-8 p-0 hover:bg-transparent"
           >
-            <Banknote className="h-4 w-4" />
+            Purchase
+            {column.getIsSorted() === 'asc' ? (
+              <ChevronUp className="ml-1 h-4 w-4" />
+            ) : column.getIsSorted() === 'desc' ? (
+              <ChevronDown className="ml-1 h-4 w-4" />
+            ) : (
+              <ChevronDown className="ml-1 h-4 w-4 opacity-50" />
+            )}
           </Button>
-          {canManage && (
-            <Button
-              variant="ghost"
-              // size="icon"
-              onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}
-              title="Go to product"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          )}
-          {canManage && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" title="More actions">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleEditClick(row.original)}>
-                  <Edit2 className="mr-2 h-4 w-4" />
-                  Edit purchase
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleDeleteClick(row.original)}
-                  disabled={row.original.remaining < row.original.quantity}
-                  title={
-                    row.original.remaining < row.original.quantity
-                      ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
-                      : 'Delete purchase'
-                  }
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete purchase
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      )
-    }
-  ];
+        ),
+        cell: ({ row }) => (
+          <div className="flex flex-col items-start gap-1">
+            <span className='font-semibold'>{row.original.purchaseId || 'N/A'}</span>
+            <span className="whitespace-nowrap text-xs text-muted-foreground">
+              {formatDate(row.original.purchaseDate)}
+            </span>
+          </div>
+        ),
+        sortingFn: 'datetime'
+      },
+      {
+        accessorKey: 'productName',
+        header: 'Product',
+        enableHiding: false,
+        cell: ({ row }) => (
+          <div className="flex min-w-[180px] flex-col gap-1">
+            <span className="font-medium leading-tight">{row.original.productName || 'Unknown product'}</span>
+            <Badge variant="outline" className="w-fit font-mono whitespace-nowrap">
+              {getVariantDisplay(row.original)}
+            </Badge>
+          </div>
+        )
+      },
+      {
+        accessorKey: 'origin',
+        header: 'Origin',
+        cell: ({ row }) => {
+          const isImported = row.original.origin === 'imported';
+          return (
+            <Badge variant={isImported ? 'secondary' : 'default'} className="whitespace-nowrap font-medium capitalize w-full">
+              {isImported ? 'Imported' : 'Local'}
+            </Badge>
+          );
+        }
+      },
+      {
+        accessorKey: 'supplier',
+        header: 'Supplier',
+        cell: ({ row }) => (
+          <Badge variant="secondary" className="whitespace-nowrap">
+            {row.original.supplier}
+          </Badge>
+        )
+      },
+      {
+        id: 'stock',
+        header: 'Stock',
+        cell: ({ row }) => {
+          const p = row.original;
+          const received = p.receivedQuantity ?? p.quantity;
+          const pending = pendingToReceive(p);
+          const lowStock = p.remaining < p.quantity;
+
+          return (
+            <div className="flex flex-col gap-0.5 tabular-nums">
+              {stockReady ? (
+                <span className="whitespace-nowrap">
+                  <span className={pending > 0 ? 'font-medium text-orange-600' : 'font-medium'}>{received}</span>
+                  <span className="text-muted-foreground"> / {p.quantity} received</span>
+                </span>
+              ) : (
+                <span className="whitespace-nowrap font-medium">{p.quantity} ordered</span>
+              )}
+              <span className={`whitespace-nowrap text-xs ${lowStock ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                {p.remaining} left
+              </span>
+            </div>
+          );
+        }
+      },
+      {
+        accessorKey: 'totalCost',
+        header: 'Cost',
+        cell: ({ row }) => (
+          <div className="flex flex-col items-end tabular-nums">
+            <span className="font-medium">{formatCurrency(row.original.totalCost)}</span>
+            <span className="text-xs text-muted-foreground">{formatCurrency(row.original.unitPrice)} each</span>
+          </div>
+        )
+      },
+      {
+        accessorKey: 'retailPrice',
+        header: 'Retail price',
+        cell: ({ row }) => <span className="tabular-nums">{formatCurrency(row.original.retailPrice || 0)}</span>
+      },
+      ...(canManage
+        ? [
+            {
+              id: 'amountPaid',
+              header: 'Paid',
+              cell: ({ row }) => (
+                <div className="whitespace-nowrap tabular-nums">
+                  <span className="font-medium">{formatCurrency(row.original.paidAmount || 0)}</span>
+                  <span className="text-muted-foreground"> / {formatCurrency(getAmountDue(row.original))}</span>
+                </div>
+              )
+            } satisfies ColumnDef<EnhancedPurchase>
+          ]
+        : []),
+      {
+        id: 'paymentStatus',
+        header: 'Payment status',
+        cell: ({ row }) => {
+          const balance = row.original.balanceAmount ?? 0;
+          return (
+            <div className="flex flex-col items-start gap-1">
+              {renderPaymentStatus(row.original)}
+              {/* Supplier money is admin-only. */}
+              {canManage && balance > 0 && (
+                <span className="text-xs tabular-nums text-orange-600">Due {formatCurrency(balance)}</span>
+              )}
+            </div>
+          );
+        }
+      },
+      {
+        id: 'actions',
+        header: '',
+        enableHiding: false,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            {stockReady && pendingToReceive(row.original) > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleReceiveClick(row.original)}
+                title="Receive stock"
+              >
+                <PackagePlus className="h-4 w-4" />
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handlePaymentClick(row.original)}
+                disabled={row.original.isUntracked}
+                title={
+                  row.original.isUntracked
+                    ? 'Payment tracking was not available when this purchase was made'
+                    : 'Payments'
+                }
+              >
+                <Banknote className="h-4 w-4" />
+              </Button>
+            )}
+            {canManage && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" title="More actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => handleEditClick(row.original)}>
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Edit purchase
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Go to product
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteClick(row.original)}
+                    disabled={row.original.remaining < row.original.quantity}
+                    title={
+                      row.original.remaining < row.original.quantity
+                        ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
+                        : 'Delete purchase'
+                    }
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete purchase
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        )
+      }
+    ],
+    // Handlers only call stable setters, the router, or imported actions,
+    // so they don't need to be dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canManage, stockReady, router]
+  );
 
   const table = useReactTable({
     data: purchases,
     columns,
-    state: { sorting },
+    state: { sorting, columnVisibility },
     onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel()
   });
@@ -497,8 +1206,13 @@ export function PurchasesTableWithActions({
       'Wholesale Price': String(formatCurrency(row.original.wholesalePrice || 0)),
       'Shipping Cost': String(formatCurrency(row.original.shippingCost || 0)),
       'Total Cost': String(formatCurrency(row.original.totalCost)),
-      Paid: String(formatCurrency(row.original.paidAmount || 0)),
-      Balance: String(formatCurrency(row.original.balanceAmount ?? 0)),
+      // Supplier money columns are admin-only, same as in the table.
+      ...(canManage
+        ? {
+            Paid: String(formatCurrency(row.original.paidAmount || 0)),
+            Balance: String(formatCurrency(row.original.balanceAmount ?? 0))
+          }
+        : {}),
       'Payment Status': row.original.isUntracked ? 'Paid (untracked)' : getPaymentStatus(row.original)
     }));
     exportToCsv(data, `purchases-${new Date().toISOString().split('T')[0]}`);
@@ -509,9 +1223,10 @@ export function PurchasesTableWithActions({
   };
 
   return (
-    <div className="w-full max-w-7xl overflow-x-auto mx-auto">
+    <div className="mx-auto w-full max-w-7xl">
+      {/* Toolbar */}
       <div className="flex flex-col gap-4 py-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center justify-between">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="relative w-full md:w-96">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -527,6 +1242,32 @@ export function PurchasesTableWithActions({
               <Plus className="mr-2 h-4 w-4" />
               Add Purchase
             </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Columns3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Columns</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table
+                  .getAllLeafColumns()
+                  .filter(column => column.getCanHide())
+                  .map(column => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      checked={column.getIsVisible()}
+                      onCheckedChange={value => column.toggleVisibility(!!value)}
+                    >
+                      {COLUMN_LABELS[column.id] ?? column.id}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="outline" size="sm" className="gap-1" onClick={handleExportCsv}>
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">CSV</span>
@@ -552,13 +1293,19 @@ export function PurchasesTableWithActions({
         </div>
       </div>
 
-      <div className="rounded-md border">
+      {/* Table: scrolls inside its own box so the header stays visible */}
+      <div className="max-h-[70vh] overflow-auto rounded-md border">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-background">
             {table.getHeaderGroups().map(headerGroup => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map(header => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    className={`h-10 whitespace-nowrap font-medium tracking-wide ${
+                      RIGHT_ALIGNED.has(header.column.id) ? 'text-right' : ''
+                    }`}
+                  >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -570,13 +1317,18 @@ export function PurchasesTableWithActions({
               table.getRowModel().rows.map(row => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'} className="hover:bg-muted/50">
                   {row.getVisibleCells().map(cell => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell
+                      key={cell.id}
+                      className={`py-3 align-middle ${RIGHT_ALIGNED.has(cell.column.id) ? 'text-right' : ''}`}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>

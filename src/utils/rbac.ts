@@ -50,7 +50,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:settings',
     'edit:settings'
   ],
-  staff: ['view:inventory', 'view:invoices', 'create:invoices', 'view:purchases', 'create:purchases', 'view:suppliers', 'create:suppliers']
+  staff: ['view:inventory', 'view:invoices', 'view:purchases', 'create:purchases', 'view:suppliers', 'create:suppliers']
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

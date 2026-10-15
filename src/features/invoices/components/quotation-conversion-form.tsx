@@ -1171,7 +1171,7 @@ export function QuotationConversionForm({
             )}
 
             {/* Invoice Items Table with Container Query */}
-            <div className="border rounded-lg overflow-auto shadow-sm @container max-h-[665px]">
+            <div className="border rounded-lg overflow-auto shadow-sm @container max-h-166">
               <div className="bg-primary text-white px-4 py-3">
                 <h3 className="text-sm font-semibold">Invoice Items</h3>
               </div>
@@ -1595,7 +1595,7 @@ export function QuotationConversionForm({
                   <FormItem>
                     <FormControl>
                       <Textarea
-                        className="min-h-[100px]"
+                        className="min-h-25"
                         placeholder="Internal description - not visible on printed invoice..."
                         {...field}
                       />
@@ -1633,7 +1633,7 @@ export function QuotationConversionForm({
                   <FormItem>
                     <FormControl>
                       <Textarea
-                        className="min-h-[100px]"
+                        className="min-h-25"
                         placeholder="Notes visible on printed invoice..."
                         {...field}
                       />

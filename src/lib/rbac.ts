@@ -85,13 +85,14 @@ const rolePermissions: Record<Role, Permission[]> = {
     'edit:stock',
     'reverse:stock'
   ],
-  // Staff can view + create invoices/purchases, but never edit or delete them.
+  // Staff can view invoices and create purchases/suppliers, but never create,
+  // edit or delete invoices (quotations included — same permission), and never
+  // edit or delete purchases.
   staff: [
     'view:inventory',
     'view:projects',
     'add:expenses',
     'view:invoices',
-    'create:invoices',
     'view:purchases',
     'create:purchases',
     'view:suppliers',
