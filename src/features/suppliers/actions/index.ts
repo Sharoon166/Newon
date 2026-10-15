@@ -173,6 +173,7 @@ export async function updateSupplier(id: string, data: UpdateSupplierDto): Promi
     }
 
     revalidatePath('/suppliers');
+    revalidatePath(`/suppliers/${id}`);
     revalidatePath(`/suppliers/${id}/edit`);
     revalidatePath('/inventory');
     revalidatePath('/purchases');
@@ -246,6 +247,7 @@ export async function toggleSupplierDisabled(id: string): Promise<Supplier> {
     }
 
     revalidatePath('/suppliers');
+    revalidatePath(`/suppliers/${id}`);
 
     return transformLeanSupplier(updatedSupplier as unknown as LeanSupplier);
   } catch (error) {
@@ -285,6 +287,7 @@ export async function updateSupplierFinancialsOnPurchase(
     }
 
     revalidatePath('/suppliers');
+    revalidatePath(`/suppliers/${supplierId}`);
     revalidatePath(`/suppliers/${supplierId}/edit`);
     revalidatePath('/purchases');
   } catch (error) {
@@ -324,6 +327,7 @@ export async function updateSupplierFinancialsOnPayment(
     }
 
     revalidatePath('/suppliers');
+    revalidatePath(`/suppliers/${supplierId}`);
     revalidatePath(`/suppliers/${supplierId}/edit`);
     revalidatePath('/purchases');
   } catch (error) {
@@ -366,6 +370,7 @@ export async function reverseSupplierFinancialsOnPurchaseDelete(
     );
 
     revalidatePath('/suppliers');
+    revalidatePath(`/suppliers/${supplierId}`);
     revalidatePath(`/suppliers/${supplierId}/edit`);
     revalidatePath('/purchases');
   } catch (error) {
@@ -406,6 +411,7 @@ export async function reverseSupplierFinancialsOnPaymentDelete(
     );
 
     revalidatePath('/suppliers');
+    revalidatePath(`/suppliers/${supplierId}`);
     revalidatePath(`/suppliers/${supplierId}/edit`);
     revalidatePath('/purchases');
   } catch (error) {

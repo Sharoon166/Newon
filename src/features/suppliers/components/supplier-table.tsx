@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -82,7 +83,12 @@ export function SupplierTable({ data, onEdit, actions }: SupplierTableProps) {
       ),
       cell: ({ row }) => (
         <div className={row.original.disabled ? 'opacity-50' : ''}>
-          <div className="font-medium">{row.original.name}</div>
+          <Link
+            href={`/suppliers/${row.original.supplierId || row.original.id}`}
+            className="font-medium hover:underline"
+          >
+            {row.original.name}
+          </Link>
           {row.original.company && <div className="text-sm text-muted-foreground">{row.original.company}</div>}
         </div>
       )

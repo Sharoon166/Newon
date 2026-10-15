@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Trash2, Ban, CheckCircle } from 'lucide-react';
+import { MoreHorizontal, Trash2, Ban, CheckCircle, Eye } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +62,12 @@ export function SupplierActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href={`/suppliers/${id}`}>
+              <Eye className="mr-2 h-4 w-4" />
+              View Details
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={handleToggleDisabled} className="cursor-pointer">
             {disabled ? (
               <>

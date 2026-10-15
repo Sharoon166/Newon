@@ -38,7 +38,7 @@ export default async function StockPage() {
         initialized={status.initialized}
         startedAt={status.startedAt}
         counts={counts}
-        userRole={(session?.user as any)?.role === 'staff' ? 'staff' : 'admin'}
+        userRole={session?.user?.role === 'staff' ? 'staff' : 'admin'}
       />
     </Suspense>
   );

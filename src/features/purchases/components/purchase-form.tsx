@@ -266,6 +266,25 @@ export function PurchaseForm({
           return;
         }
 
+        // The purchase total can never drop below the payments already made
+        // against it - the payments must be adjusted first (mirrors the
+        // server-side check). Untracked purchases have no payment history.
+        const isTracked = purchase.isUntracked === false || purchase.paymentsTracked === true;
+        const paid = isTracked ? purchase.paidAmount || 0 : 0;
+        const newAmountDue = data.quantity * data.unitPrice + data.shippingCost;
+        if (paid > 0 && newAmountDue < paid - 0.001) {
+          const changedField =
+            data.quantity !== purchase.quantity
+              ? 'quantity'
+              : data.unitPrice !== purchase.unitPrice
+                ? 'unitPrice'
+                : 'shippingCost';
+          form.setError(changedField, {
+            message: `Total (${formatCurrency(newAmountDue, false)}) cannot be less than the ${formatCurrency(paid, false)} already paid. Please adjust the payments first, then edit this purchase.`
+          });
+          return;
+        }
+
         const updateData: UpdatePurchaseDto = purchaseData;
         await updatePurchase(purchase.id || purchase._id!, updateData);
         toast.success('Purchase updated successfully');

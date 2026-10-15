@@ -53,6 +53,12 @@ export interface Purchase {
    * the UI can explain that their payment history is not tracked.
    */
   isUntracked?: boolean;
+  /**
+   * Set by the pre-save hook once the purchase participates in payment
+   * tracking. Raw payloads (e.g. getPurchasesByVariantId) expose this instead
+   * of the derived `isUntracked` flag returned by getAllPurchases.
+   */
+  paymentsTracked?: boolean;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -114,6 +120,12 @@ export interface PurchaseFilters {
   limit?: number;
   search?: string;
   supplier?: string;
+  /**
+   * Exact business id of the linked Supplier (e.g. "SP-25-001"). When set it
+   * takes precedence over the loose name filter, with an exact-name fallback
+   * for purchases that predate supplier linking.
+   */
+  supplierId?: string;
   dateFrom?: Date;
   dateTo?: Date;
 }

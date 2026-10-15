@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import type { LocationInventory, ProductVariant } from '@/features/inventory/types';
 import { assertPermission } from '@/lib/auth-utils';
+import { formatCurrency } from '@/lib/utils';
 import {
   updateSupplierFinancialsOnPurchase,
   updateSupplierFinancialsOnPayment,
@@ -200,7 +201,16 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
   // (supplier filter uses the dedicated param, not the search term)
   const matchQuery: Record<string, unknown> = {};
 
-  if (filters?.supplier) {
+  if (filters?.supplierId) {
+    // Exact match on the linked supplier id. Purchases created before supplier
+    // linking store only the name, so also match an exact (anchored,
+    // case-insensitive) supplier name on documents without a supplierId.
+    const escapedName = (filters.supplier || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    matchQuery.$or = [
+      { supplierId: filters.supplierId },
+      { supplier: { $regex: `^${escapedName}$`, $options: 'i' }, supplierId: { $in: [null, ''] } }
+    ];
+  } else if (filters?.supplier) {
     matchQuery.supplier = { $regex: filters.supplier, $options: 'i' };
   }
 
@@ -216,7 +226,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
   // drop rows whose only match is in those fields.
 
   // 2. Build the Aggregation Pipeline
-  const pipeline: any[] = [
+  const pipeline = [
     { $match: matchQuery },
     {
       $lookup: {
@@ -613,6 +623,24 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     if (calculatedRemaining > data.quantity) {
       throw new Error(
         `Calculated remaining quantity (${calculatedRemaining}) cannot exceed the new quantity (${data.quantity}). This should not happen - please report this issue.`
+      );
+    }
+  }
+
+  // The purchase total (quantity x unit price + shipping) can never drop below
+  // the payments already recorded against it - that would silently turn real
+  // payments into an overpayment. The payments must be reduced first, then the
+  // purchase edited. Untracked (legacy) purchases have no payment history, so
+  // they are exempt.
+  if (purchase.paymentsTracked === true) {
+    const paid = purchase.paidAmount || 0;
+    const nextQuantity = data.quantity ?? purchase.quantity;
+    const nextUnitPrice = data.unitPrice ?? purchase.unitPrice;
+    const nextShippingCost = data.shippingCost ?? purchase.shippingCost;
+    const nextAmountDue = nextQuantity * nextUnitPrice + nextShippingCost;
+    if (paid > 0 && nextAmountDue < paid - 0.001) {
+      throw new Error(
+        `The purchase total (${formatCurrency(nextAmountDue, false)}) would be less than the ${formatCurrency(paid, false)} already paid. Please adjust the payments first, then edit this purchase.`
       );
     }
   }

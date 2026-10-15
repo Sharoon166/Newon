@@ -13,6 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ChevronDown,
@@ -26,7 +32,8 @@ import {
   Edit2,
   AlertCircle,
   PackagePlus,
-  Banknote
+  Banknote,
+  MoreHorizontal
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
@@ -426,26 +433,32 @@ export function PurchasesTableWithActions({
             <Banknote className="h-4 w-4" />
           </Button>
           {canManage && (
-            <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
-              <Edit2 className="h-4 w-4" />
-            </Button>
-          )}
-          {canManage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleDeleteClick(row.original)}
-              disabled={row.original.remaining < row.original.quantity}
-              title={
-                row.original.remaining < row.original.quantity
-                  ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
-                  : 'Delete purchase'
-              }
-            >
-              <Trash2
-                className={row.original.remaining < row.original.quantity ? 'text-muted-foreground' : 'text-destructive'}
-              />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="More actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleEditClick(row.original)}>
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Edit purchase
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDeleteClick(row.original)}
+                  disabled={row.original.remaining < row.original.quantity}
+                  title={
+                    row.original.remaining < row.original.quantity
+                      ? `Cannot delete: ${row.original.quantity - row.original.remaining} unit(s) already sold`
+                      : 'Delete purchase'
+                  }
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete purchase
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {canManage && (
             <Button
