@@ -18,6 +18,7 @@ interface PurchasesManagerProps {
   variants?: Array<{ id: string; sku: string; disabled?: boolean; attributes: Record<string, string> }>;
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   suppliers?: string[];
+  supplierId?: string;
 }
 
 export function PurchasesManager({
@@ -25,7 +26,8 @@ export function PurchasesManager({
   variantId,
   variants = [],
   locations = [],
-  suppliers = []
+  suppliers = [],
+  supplierId
 }: PurchasesManagerProps) {
   const router = useRouter();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -255,6 +257,7 @@ export function PurchasesManager({
         purchase={editingPurchase}
         locations={locations}
         supplier={suppliers.length > 0 ? suppliers[0] : undefined}
+        defaultSupplierId={supplierId}
         open={formOpen}
         onOpenChange={handleFormClose}
         onSuccess={handleFormSuccess}

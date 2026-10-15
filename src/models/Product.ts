@@ -132,6 +132,15 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Supplier information is required']
     },
+    // Business id (e.g. "SP-25-001") of the linked Supplier document. Optional so
+    // legacy products keep working; `supplier` above remains the denormalized
+    // name snapshot for display and backward compatibility.
+    supplierId: {
+      type: String,
+      required: false,
+      trim: true,
+      index: true
+    },
     locations: {
       type: [
         {

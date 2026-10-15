@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -21,18 +21,20 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Loader2, Info, CalendarIcon, Pencil, X } from 'lucide-react';
+import { Loader2, Info, CalendarIcon } from 'lucide-react';
 import { Purchase, CreatePurchaseDto, UpdatePurchaseDto } from '../types';
 import { createPurchase, updatePurchase } from '../actions';
 import { formatCurrency, cn } from '@/lib/utils';
 import { NumberInput } from '@/components/ui/number-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SupplierSelect } from '@/features/suppliers/components/supplier-select';
 
 const purchaseFormSchema = z
   .object({
     productId: z.string().optional(), // Optional for when productId is provided via props
     variantId: z.string().min(1, 'Variant is required'),
     supplier: z.string().min(1, 'Supplier is required'),
+    supplierId: z.string().optional(),
     locationId: z.string().min(1, 'Location is required'),
     quantity: z.number().min(1, 'Quantity must be at least 1'),
     unitPrice: z.number().min(0, 'Unit price must be non-negative'),
@@ -71,13 +73,15 @@ interface PurchaseFormProps {
     productId?: string;
     productName?: string;
     supplier?: string;
+    supplierId?: string;
     disabled?: boolean;
     locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   }>;
   purchase?: Purchase;
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   // suppliers?: string[];
-  supplier?: string; // Direct supplier prop for single-product context
+  supplier?: string; // Direct supplier name prop for single-product context
+  defaultSupplierId?: string; // Direct supplier id prop for single-product context
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -91,13 +95,12 @@ export function PurchaseForm({
   locations = [],
   // suppliers = [],
   supplier,
+  defaultSupplierId,
   open,
   onOpenChange,
   onSuccess
 }: PurchaseFormProps) {
   const [loading, setLoading] = useState(false);
-  const [isEditingSupplier, setIsEditingSupplier] = useState(false);
-  const supplierInputRef = useRef<HTMLInputElement>(null);
   const isEditMode = !!purchase;
   // Units already sold/allocated from this purchase. When editing, the quantity
   // cannot be reduced below this amount (remaining = quantity - usedUnits).
@@ -115,6 +118,7 @@ export function PurchaseForm({
       productId: productId || '',
       variantId: defaultVariantId,
       supplier: '',
+      supplierId: defaultSupplierId || '',
       locationId: 'office',
       quantity: 1,
       unitPrice: 0,
@@ -151,7 +155,7 @@ export function PurchaseForm({
     return locations;
   }, [selectedProductId, variants, locations]);
 
-  // Get the product's supplier
+  // Get the product's supplier name
   const productSupplier = useMemo(() => {
     if (!selectedProductId) return '';
     // If supplier is provided directly as prop (single product context), use it
@@ -167,17 +171,20 @@ export function PurchaseForm({
     return productVariant?.supplier || '';
   }, [selectedProductId, variants, productId, supplier]);
 
-  // Focus the input when editing starts
-  useEffect(() => {
-    if (isEditingSupplier && supplierInputRef.current) {
-      supplierInputRef.current.focus();
+  // Get the product's linked supplier id
+  const productSupplierId = useMemo(() => {
+    if (!selectedProductId) return '';
+    if (defaultSupplierId) return defaultSupplierId;
+    if (productId && variants.length > 0) {
+      return variants[0]?.supplierId || '';
     }
-  }, [isEditingSupplier]);
+    const productVariant = variants.find(v => v.productId === selectedProductId);
+    return productVariant?.supplierId || '';
+  }, [selectedProductId, variants, productId, defaultSupplierId]);
 
   // Reset form when purchase or open state changes
   useEffect(() => {
     if (open) {
-      setIsEditingSupplier(false);
       if (purchase) {
         const purchaseDate =
           purchase.purchaseDate instanceof Date
@@ -191,6 +198,7 @@ export function PurchaseForm({
           productId: productId || '',
           variantId: editVariantId,
           supplier: purchase.supplier || '',
+          supplierId: purchase.supplierId || '',
           locationId: purchase.locationId || 'office',
           quantity: purchase.quantity || 1,
           unitPrice: purchase.unitPrice || 0,
@@ -203,10 +211,13 @@ export function PurchaseForm({
       } else {
         // Get supplier for initial form state
         const initialSupplier = supplier || (productId && variants.length > 0 ? variants[0]?.supplier || '' : '');
+        const initialSupplierId =
+          defaultSupplierId || (productId && variants.length > 0 ? variants[0]?.supplierId || '' : '');
         form.reset({
           productId: productId || '',
           variantId: defaultVariantId,
           supplier: initialSupplier,
+          supplierId: initialSupplierId,
           locationId: 'office',
           quantity: 1,
           unitPrice: 0,
@@ -218,7 +229,7 @@ export function PurchaseForm({
         });
       }
     }
-  }, [supplier, purchase, open, form, variantId, defaultVariantId, variants, productId]);
+  }, [supplier, purchase, open, form, variantId, defaultVariantId, defaultSupplierId, variants, productId]);
 
   // Reset variant, location, and set supplier when product changes
   const watchedProductId = form.watch('productId');
@@ -232,8 +243,9 @@ export function PurchaseForm({
       if (productSupplier) {
         form.setValue('supplier', productSupplier);
       }
+      form.setValue('supplierId', productSupplierId || '');
     }
-  }, [watchedProductId, open, productId, isEditMode, form, productSupplier]);
+  }, [watchedProductId, open, productId, isEditMode, form, productSupplier, productSupplierId]);
 
   const onSubmit = async (data: PurchaseFormValues) => {
     try {
@@ -262,6 +274,7 @@ export function PurchaseForm({
           productId: data.productId || productId,
           variantId: data.variantId,
           supplier: data.supplier,
+          supplierId: data.supplierId || undefined,
           locationId: data.locationId,
           quantity: data.quantity,
           unitPrice: data.unitPrice,
@@ -489,57 +502,20 @@ export function PurchaseForm({
                 <FormField
                   control={form.control}
                   name="supplier"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="flex items-center gap-2">
-                          Supplier <span className="text-destructive">*</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isEditingSupplier) {
-                                field.onChange('');
-                              }
-                              setIsEditingSupplier(!isEditingSupplier);
-                            }}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                            title={isEditingSupplier ? 'Reset to default' : 'Edit supplier'}
-                          >
-                            {isEditingSupplier ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-                          </button>
-                        </FormLabel>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FormControl>
-                          <Input
-                            {...field}
-                            ref={supplierInputRef}
-                            value={field.value}
-                            onChange={field.onChange}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter' || e.key === 'Escape') {
-                                e.preventDefault();
-                                setIsEditingSupplier(false);
-                              }
-                            }}
-                            onBlur={() => {
-                              if (isEditingSupplier && !field.value) {
-                                field.onChange(productSupplier);
-                              }
-                              setIsEditingSupplier(false);
-                            }}
-                            onClick={e => {
-                              if (!isEditingSupplier) {
-                                e.preventDefault();
-                                setIsEditingSupplier(true);
-                              }
-                            }}
-                            readOnly={!isEditingSupplier}
-                            className={!isEditingSupplier ? 'bg-muted cursor-pointer' : ''}
-                            placeholder={selectedProductId ? 'Enter supplier name' : 'No supplier set'}
-                          />
-                        </FormControl>
-                      </div>
+                      <FormLabel>
+                        Supplier <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <SupplierSelect
+                        value={form.watch('supplierId')}
+                        legacyName={!form.watch('supplierId') ? form.watch('supplier') : undefined}
+                        currentName={form.watch('supplier')}
+                        onChange={(supplierId, supplierName) => {
+                          form.setValue('supplierId', supplierId, { shouldValidate: true });
+                          form.setValue('supplier', supplierName, { shouldValidate: true });
+                        }}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

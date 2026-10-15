@@ -138,6 +138,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     // Set default values for required fields
     name: String(product.name || ''),
     supplier: String(product.supplier || ''),
+    supplierId: String(product.supplierId || ''),
     origin: (product.origin === 'imported' ? 'imported' : 'local') as 'imported' | 'local',
     description: String(product.description || '')
   };

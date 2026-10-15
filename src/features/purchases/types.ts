@@ -1,3 +1,24 @@
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+
+export type PurchasePaymentStatus = 'unpaid' | 'partial' | 'paid';
+
+export interface PurchasePayment {
+  _id?: string;
+  amount: number;
+  method: PaymentMethod;
+  date: Date | string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface AddPurchasePaymentDto {
+  amount: number;
+  method: PaymentMethod;
+  date: Date | string;
+  reference?: string;
+  notes?: string;
+}
+
 export interface Purchase {
   _id?: string;
   id?: string;
@@ -5,6 +26,8 @@ export interface Purchase {
   productId: string;
   variantId: string;
   supplier: string;
+  /** Business id (e.g. "SP-25-001") of the linked Supplier, when linked. */
+  supplierId?: string;
   locationId?: string;
   quantity: number;
   unitPrice: number;
@@ -18,6 +41,18 @@ export interface Purchase {
   notes?: string;
   /** Where the product comes from - mirrored from the linked Product document. */
   origin?: 'local' | 'imported';
+  /** Partial payment tracking. Amount owed = totalCost + shippingCost. */
+  payments?: PurchasePayment[];
+  paidAmount?: number;
+  amountDue?: number;
+  balanceAmount?: number;
+  paymentStatus?: PurchasePaymentStatus;
+  /**
+   * True for purchases that predate payment tracking. They have no recorded
+   * payments and are treated as already settled (shown as Paid), but flagged so
+   * the UI can explain that their payment history is not tracked.
+   */
+  isUntracked?: boolean;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 }
@@ -26,6 +61,7 @@ export interface CreatePurchaseDto {
   productId: string;
   variantId: string;
   supplier: string;
+  supplierId?: string;
   locationId?: string;
   quantity: number;
   unitPrice: number;
@@ -38,6 +74,7 @@ export interface CreatePurchaseDto {
 
 export interface UpdatePurchaseDto {
   supplier?: string;
+  supplierId?: string;
   locationId?: string;
   quantity?: number;
   unitPrice?: number;

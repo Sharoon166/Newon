@@ -27,6 +27,7 @@ import { AttributesManager } from './attributes/attributes-manager';
 import { VariantsManager } from './variants/variants-manager';
 import { LocationsManager } from './locations/locations-manager';
 import { PurchasesManager } from '@/features/purchases/components/purchases-manager';
+import { SupplierSelect } from '@/features/suppliers/components/supplier-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardDescription, CardTitle } from '@/components/ui/card';
 import { createProduct, updateProduct, deleteProduct } from '../actions';
@@ -86,6 +87,7 @@ const productFormSchema = z
     }),
     description: z.string().optional(),
     supplier: z.string().min(1, 'Enter supplier information'),
+    supplierId: z.string().optional(),
     origin: z.enum(['imported', 'local']),
     locations: z.array(
       z.object({
@@ -139,6 +141,7 @@ type ProductFormValues = z.infer<typeof productFormSchema>;
 const defaultValues: ProductFormValues = {
   name: '',
   supplier: '',
+  supplierId: '',
   origin: 'local',
   description: '',
   hasVariants: false,
@@ -530,14 +533,20 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                   <FormField
                     control={form.control}
                     name="supplier"
-                    render={({ field }) => (
+                    render={() => (
                       <FormItem>
                         <FormLabel>
                           Supplier <span className="text-destructive">*</span>
                         </FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter supplier info" {...field} />
-                        </FormControl>
+                        <SupplierSelect
+                          value={watch('supplierId')}
+                          legacyName={!watch('supplierId') ? watch('supplier') : undefined}
+                          currentName={watch('supplier')}
+                          onChange={(supplierId, supplierName) => {
+                            setValue('supplierId', supplierId, { shouldValidate: true });
+                            setValue('supplier', supplierName, { shouldValidate: true });
+                          }}
+                        />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -720,6 +729,7 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                       variants={watch('variants') || []}
                       locations={watch('locations') || []}
                       suppliers={watch('supplier') ? [watch('supplier')] : []}
+                      supplierId={watch('supplierId')}
                     />
                   </Card>
                 </TabsContent>

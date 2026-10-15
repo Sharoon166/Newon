@@ -3,11 +3,24 @@
 import dbConnect from '@/lib/db';
 import PurchaseModel, { type IPurchase } from '@/models/Purchase';
 import ProductModel from '@/models/Product';
+import SupplierModel from '@/models/Supplier';
 import mongoose from 'mongoose';
 import { revalidatePath } from 'next/cache';
-import type { CreatePurchaseDto, UpdatePurchaseDto, PurchaseFilters, PaginatedPurchases } from '../types';
+import type {
+  CreatePurchaseDto,
+  UpdatePurchaseDto,
+  PurchaseFilters,
+  PaginatedPurchases,
+  AddPurchasePaymentDto
+} from '../types';
 import type { LocationInventory, ProductVariant } from '@/features/inventory/types';
 import { assertPermission } from '@/lib/auth-utils';
+import {
+  updateSupplierFinancialsOnPurchase,
+  updateSupplierFinancialsOnPayment,
+  reverseSupplierFinancialsOnPurchaseDelete,
+  reverseSupplierFinancialsOnPaymentDelete
+} from '@/features/suppliers/actions';
 
 // Type for lean purchase document from MongoDB
 export type LeanPurchase = {
@@ -16,6 +29,7 @@ export type LeanPurchase = {
   productId: mongoose.Types.ObjectId;
   variantId: string;
   supplier: string;
+  supplierId?: string;
   locationId?: string;
   quantity: number;
   unitPrice: number;
@@ -28,6 +42,21 @@ export type LeanPurchase = {
   /** Physical units that have arrived (stock tracking feature). */
   receivedQuantity?: number;
   notes?: string;
+  /** Partial payment tracking. Amount owed = totalCost + shippingCost. */
+  payments?: Array<{
+    _id?: mongoose.Types.ObjectId;
+    amount: number;
+    method: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
+    date: Date;
+    reference?: string;
+    notes?: string;
+  }>;
+  paidAmount?: number;
+  amountDue?: number;
+  balanceAmount?: number;
+  paymentStatus?: 'unpaid' | 'partial' | 'paid';
+  /** False/absent for purchases that predate payment tracking. */
+  paymentsTracked?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   __v?: number;
@@ -237,11 +266,21 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
   const serializedDocs = rawDocs.map((doc: any) => {
     const variant = doc.joinedProduct?.variants?.find((v: any) => v.id === doc.variantId);
 
+    // Purchases created before payment tracking never had their `paymentsTracked`
+    // flag set. Treat them as already settled (Paid) and flag them as untracked
+    // so the UI can explain their history isn't recorded. Do NOT use
+    // `paymentStatus` for this: Mongoose persists its schema default ('unpaid')
+    // whenever a legacy document is saved (e.g. a stock deduction), which would
+    // otherwise misclassify them as unpaid.
+    const amountDue = resolveAmountDue(doc);
+    const isUntracked = doc.paymentsTracked !== true;
+
     return {
       id: doc._id.toString(),
       productId: doc.productId?.toString() || '',
       variantId: doc.variantId,
       supplier: doc.supplier,
+      supplierId: doc.supplierId,
       locationId: doc.locationId,
       quantity: doc.quantity,
       unitPrice: doc.unitPrice,
@@ -254,6 +293,19 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
       receivedQuantity: doc.receivedQuantity,
       notes: doc.notes,
       purchaseId: doc.purchaseId,
+      payments: (doc.payments || []).map((p: { _id?: { toString(): string }; amount: number; method: string; date: Date | string; reference?: string; notes?: string }) => ({
+        _id: p._id?.toString(),
+        amount: p.amount,
+        method: p.method,
+        date: p.date instanceof Date ? p.date.toISOString() : p.date || '',
+        reference: p.reference,
+        notes: p.notes
+      })),
+      paidAmount: isUntracked ? amountDue : doc.paidAmount || 0,
+      amountDue,
+      balanceAmount: isUntracked ? 0 : Math.max(0, amountDue - (doc.paidAmount || 0)),
+      paymentStatus: isUntracked ? 'paid' : doc.paymentStatus || 'unpaid',
+      isUntracked,
       createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : doc.createdAt || '',
       updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt.toISOString() : doc.updatedAt || '',
       productName: doc.joinedProduct?.name,
@@ -401,8 +453,20 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
   // Calculate totalCost
   const totalCost = data.quantity * data.unitPrice;
 
+  // When a supplier is linked, keep the denormalized name snapshot in sync with
+  // the Supplier document. Falls back to the name supplied by the caller when
+  // the supplier cannot be found (or when no supplier is linked).
+  let supplierName = data.supplier;
+  if (data.supplierId) {
+    const supplier = await SupplierModel.findOne({ supplierId: data.supplierId }).lean();
+    if (supplier) {
+      supplierName = supplier.name;
+    }
+  }
+
   const newPurchase = await PurchaseModel.create({
     ...data,
+    supplier: supplierName,
     productId: new mongoose.Types.ObjectId(data.productId),
     variantId: data.variantId,
     totalCost,
@@ -410,6 +474,16 @@ export const createPurchase = async (data: CreatePurchaseDto) => {
     // remaining will be set to quantity by the pre-save hook, but we can set it explicitly here too
     remaining: data.quantity
   });
+
+  // Record the amount owed against the linked supplier (amountDue is set by the
+  // pre-save hook = totalCost + shippingCost).
+  if (newPurchase.supplierId) {
+    await updateSupplierFinancialsOnPurchase(
+      newPurchase.supplierId,
+      newPurchase.amountDue ?? (totalCost + (data.shippingCost || 0)),
+      newPurchase.purchaseDate
+    );
+  }
 
   // Update the variant inventory for the selected location
   const product = await ProductModel.findById(data.productId);
@@ -600,8 +674,25 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     }
   }
 
-  const updateData: Partial<UpdatePurchaseDto & { totalCost?: number; remaining?: number; receivedQuantity?: number }> =
-    { ...data };
+  const updateData: Partial<
+    UpdatePurchaseDto & {
+      totalCost?: number;
+      remaining?: number;
+      receivedQuantity?: number;
+      amountDue?: number;
+      balanceAmount?: number;
+      paymentStatus?: 'unpaid' | 'partial' | 'paid';
+    }
+  > = { ...data };
+
+  // When a supplier is linked, keep the denormalized name snapshot in sync with
+  // the Supplier document.
+  if (data.supplierId) {
+    const supplier = await SupplierModel.findOne({ supplierId: data.supplierId }).lean();
+    if (supplier) {
+      updateData.supplier = supplier.name;
+    }
+  }
 
   // Use pre-calculated remaining if quantity was updated
   if (calculatedRemaining !== undefined && data.remaining === undefined) {
@@ -623,6 +714,22 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     updateData.totalCost = quantity * unitPrice;
   }
 
+  // findByIdAndUpdate skips the pre-save hook, so recompute the payment totals
+  // here whenever the amount due (totalCost + shippingCost) changes.
+  const currentAmountDue = resolveAmountDue(purchase);
+  const nextTotalCost = updateData.totalCost ?? purchase.totalCost;
+  const nextShippingCost = data.shippingCost ?? purchase.shippingCost;
+  const nextAmountDue = (nextTotalCost || 0) + (nextShippingCost || 0);
+  const currentPaid = purchase.paidAmount || 0;
+  updateData.amountDue = nextAmountDue;
+  updateData.balanceAmount = Math.max(0, nextAmountDue - currentPaid);
+  updateData.paymentStatus =
+    updateData.balanceAmount <= 0 && currentPaid > 0
+      ? 'paid'
+      : currentPaid > 0
+        ? 'partial'
+        : 'unpaid';
+
   const updatedPurchase = (await PurchaseModel.findByIdAndUpdate(
     id,
     { $set: updateData },
@@ -634,6 +741,36 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
   }
 
   const productId = updatedPurchase.productId.toString();
+
+  // Keep the linked supplier(s) financials in sync. When the supplier changes
+  // the whole purchase is transferred; otherwise adjust by the delta in amount due.
+  const oldSupplierId = purchase.supplierId;
+  const newSupplierId = data.supplierId ?? purchase.supplierId;
+  const purchaseDate = updatedPurchase.purchaseDate || new Date();
+  // Legacy purchases count as fully paid so editing them never creates debt.
+  const paid = effectivePaidAmount(purchase);
+
+  if (oldSupplierId !== newSupplierId) {
+    if (oldSupplierId) {
+      await reverseSupplierFinancialsOnPurchaseDelete(oldSupplierId, currentAmountDue, paid);
+    }
+    if (newSupplierId) {
+      await updateSupplierFinancialsOnPurchase(newSupplierId, nextAmountDue, purchaseDate);
+      if (paid > 0) {
+        await updateSupplierFinancialsOnPayment(newSupplierId, paid, purchaseDate);
+      }
+    }
+  } else if (newSupplierId) {
+    const amountDueDelta = nextAmountDue - currentAmountDue;
+    if (amountDueDelta !== 0) {
+      await updateSupplierFinancialsOnPurchase(newSupplierId, amountDueDelta, purchaseDate);
+      // A legacy purchase is settled, so keep its outstanding contribution at
+      // zero: the amount-due change must be matched by an equal "payment".
+      if (purchase.paymentsTracked !== true) {
+        await updateSupplierFinancialsOnPayment(newSupplierId, amountDueDelta, purchaseDate);
+      }
+    }
+  }
 
   revalidatePath(`/inventory/${productId}/edit`);
   revalidatePath(`/inventory/${productId}`);
@@ -669,6 +806,11 @@ export const deletePurchase = async (id: string) => {
   }
 
   const productId = purchase.productId.toString();
+  const supplierId = purchase.supplierId;
+  const purchaseAmountDue = resolveAmountDue(purchase);
+  // Legacy purchases count as fully paid, so removing one must also remove the
+  // full amount from the supplier's paid total (and nothing from outstanding).
+  const purchasePaidAmount = effectivePaidAmount(purchase);
 
   // If locationId is provided, update the variant inventory for that location by subtracting the quantity
   if (purchase.locationId) {
@@ -716,6 +858,11 @@ export const deletePurchase = async (id: string) => {
   }
 
   await PurchaseModel.deleteOne({ _id: id });
+
+  // Reverse the amount owed against the linked supplier.
+  if (supplierId) {
+    await reverseSupplierFinancialsOnPurchaseDelete(supplierId, purchaseAmountDue, purchasePaidAmount);
+  }
 
   revalidatePath(`/inventory/${productId}/edit`);
   revalidatePath(`/inventory/${productId}`);
@@ -831,4 +978,224 @@ export const getPurchasesAggregateByProductId = async (productId: string) => {
       purchaseHistory: []
     }
   );
+};
+
+// Get all payments recorded against a purchase.
+export const getPurchasePayments = async (purchaseId: string) => {
+  await dbConnect();
+
+  const purchase = (await PurchaseModel.findById(purchaseId).lean()) as unknown as LeanPurchase | null;
+  if (!purchase) {
+    return [];
+  }
+
+  return (purchase.payments || []).map(p => ({
+    _id: p._id?.toString(),
+    amount: p.amount,
+    method: p.method,
+    date: p.date instanceof Date ? p.date.toISOString() : p.date,
+    reference: p.reference,
+    notes: p.notes
+  }));
+};
+
+// Server actions must NOT throw for expected/validation failures: errors thrown
+// from a server action have their message redacted in production, so the client
+// toast would only ever show a generic message. Instead these actions resolve to
+// a serializable result the UI can inspect.
+export type PaymentActionResult = { success: true } | { success: false; error: string };
+
+// Compute the amount owed for a purchase. `amountDue` is only meaningful for
+// tracked purchases - Mongoose hydrates its schema default (0) on legacy
+// documents that predate payment tracking, so trusting it there would wrongly
+// report 0. Untracked purchases always derive the amount from cost + shipping.
+function resolveAmountDue(purchase: {
+  paymentsTracked?: boolean;
+  amountDue?: number;
+  totalCost?: number;
+  shippingCost?: number;
+}) {
+  const derived = (purchase.totalCost || 0) + (purchase.shippingCost || 0);
+  if (purchase.paymentsTracked === true) {
+    return purchase.amountDue ?? derived;
+  }
+  return derived;
+}
+
+// Amount that should count as "paid" against the linked supplier. Purchases that
+// predate payment tracking are treated as fully settled, so their whole amount
+// due counts as paid and they never add to a supplier's outstanding balance.
+function effectivePaidAmount(purchase: {
+  paymentsTracked?: boolean;
+  paidAmount?: number;
+  amountDue?: number;
+  totalCost?: number;
+  shippingCost?: number;
+}) {
+  if (purchase.paymentsTracked !== true) {
+    return resolveAmountDue(purchase);
+  }
+  return purchase.paidAmount || 0;
+}
+
+// Add a partial payment to a purchase.
+export const addPurchasePayment = async (
+  purchaseId: string,
+  payment: AddPurchasePaymentDto
+): Promise<PaymentActionResult> => {
+  try {
+    await assertPermission('edit:purchases');
+    await dbConnect();
+
+    const purchase = await PurchaseModel.findById(purchaseId);
+    if (!purchase) {
+      return { success: false, error: 'Purchase not found' };
+    }
+
+    if (payment.amount <= 0) {
+      return { success: false, error: 'Payment amount must be greater than 0' };
+    }
+
+    // Derive the balance from amountDue - paidAmount rather than trusting the
+    // stored `balanceAmount`, so legacy documents (which predate the field and
+    // may have it missing or zero) can still record payments.
+    const currentBalance = Math.max(0, resolveAmountDue(purchase) - (purchase.paidAmount || 0));
+    // Small tolerance so float rounding can't reject an exact-balance payment.
+    if (payment.amount > currentBalance + 0.001) {
+      return {
+        success: false,
+        error: `Payment amount (${payment.amount}) exceeds the outstanding balance (${currentBalance})`
+      };
+    }
+
+    purchase.payments = purchase.payments || [];
+    purchase.payments.push({
+      amount: payment.amount,
+      method: payment.method,
+      date: payment.date instanceof Date ? payment.date : new Date(payment.date),
+      reference: payment.reference,
+      notes: payment.notes
+    });
+
+    // Pre-save hook recalculates paidAmount / balanceAmount / paymentStatus.
+    await purchase.save();
+
+    if (purchase.supplierId) {
+      await updateSupplierFinancialsOnPayment(
+        purchase.supplierId,
+        payment.amount,
+        payment.date instanceof Date ? payment.date : new Date(payment.date)
+      );
+    }
+
+    revalidatePath('/purchases');
+    revalidatePath(`/inventory/${purchase.productId.toString()}/edit`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error adding purchase payment:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to add payment' };
+  }
+};
+
+// Update an existing payment on a purchase.
+export const updatePurchasePayment = async (
+  purchaseId: string,
+  paymentIndex: number,
+  updatedPayment: AddPurchasePaymentDto
+): Promise<PaymentActionResult> => {
+  try {
+    await assertPermission('edit:purchases');
+    await dbConnect();
+
+    const purchase = await PurchaseModel.findById(purchaseId);
+    if (!purchase) {
+      return { success: false, error: 'Purchase not found' };
+    }
+
+    const payments = purchase.payments || [];
+    if (paymentIndex < 0 || paymentIndex >= payments.length) {
+      return { success: false, error: 'Payment not found' };
+    }
+
+    const updatedAmount = Number(updatedPayment.amount);
+    if (!Number.isFinite(updatedAmount) || updatedAmount <= 0) {
+      return { success: false, error: 'Payment amount must be greater than 0' };
+    }
+
+    const amountDue = resolveAmountDue(purchase);
+    const otherPaid = payments.reduce((sum, p, i) => (i === paymentIndex ? sum : sum + (p.amount || 0)), 0);
+    if (otherPaid + updatedAmount > amountDue + 0.001) {
+      return {
+        success: false,
+        error: `Payment amount (${updatedAmount}) exceeds the remaining balance on this purchase (max ${amountDue - otherPaid})`
+      };
+    }
+
+    const oldPaymentAmount = payments[paymentIndex].amount;
+
+    purchase.payments = payments;
+    purchase.payments[paymentIndex] = {
+      amount: updatedAmount,
+      method: updatedPayment.method,
+      date: updatedPayment.date instanceof Date ? updatedPayment.date : new Date(updatedPayment.date),
+      reference: updatedPayment.reference,
+      notes: updatedPayment.notes
+    } as never;
+
+    await purchase.save();
+
+    if (purchase.supplierId) {
+      const paymentDate = updatedPayment.date instanceof Date ? updatedPayment.date : new Date(updatedPayment.date);
+      await reverseSupplierFinancialsOnPaymentDelete(purchase.supplierId, oldPaymentAmount);
+      await updateSupplierFinancialsOnPayment(purchase.supplierId, updatedAmount, paymentDate);
+    }
+
+    revalidatePath('/purchases');
+    revalidatePath(`/inventory/${purchase.productId.toString()}/edit`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating purchase payment:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to update payment' };
+  }
+};
+
+// Delete a payment from a purchase.
+export const deletePurchasePayment = async (
+  purchaseId: string,
+  paymentIndex: number
+): Promise<PaymentActionResult> => {
+  try {
+    await assertPermission('edit:purchases');
+    await dbConnect();
+
+    const purchase = await PurchaseModel.findById(purchaseId);
+    if (!purchase) {
+      return { success: false, error: 'Purchase not found' };
+    }
+
+    const payments = purchase.payments || [];
+    if (paymentIndex < 0 || paymentIndex >= payments.length) {
+      return { success: false, error: 'Payment not found' };
+    }
+
+    const deletedAmount = payments[paymentIndex].amount;
+    payments.splice(paymentIndex, 1);
+    purchase.payments = payments;
+
+    await purchase.save();
+
+    if (purchase.supplierId) {
+      await reverseSupplierFinancialsOnPaymentDelete(purchase.supplierId, deletedAmount);
+    }
+
+    revalidatePath('/purchases');
+    revalidatePath(`/inventory/${purchase.productId.toString()}/edit`);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting purchase payment:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to delete payment' };
+  }
 };

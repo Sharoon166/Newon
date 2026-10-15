@@ -13,6 +13,7 @@ type LeanProduct = {
   _id?: string;
   name: string;
   supplier: string;
+  supplierId?: string;
   origin?: 'imported' | 'local';
   categories: string[];
   hasVariants: boolean;
@@ -185,6 +186,7 @@ export const getProductsBasic = async (): Promise<EnhancedVariants[]> => {
         productId: { $toString: '$_id' },
         productName: '$name',
         supplier: '$supplier',
+        supplierId: { $ifNull: ['$supplierId', ''] },
         origin: '$origin',
         categories: '$categories',
         description: '$description',
@@ -272,6 +274,7 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
         productId: { $toString: '$_id' }, // Convert ObjectId to string
         productName: '$name',
         supplier: '$supplier',
+        supplierId: { $ifNull: ['$supplierId', ''] },
         origin: '$origin',
         categories: '$categories',
         description: '$description',

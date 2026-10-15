@@ -14,6 +14,10 @@ export type Permission =
   | 'create:purchases'
   | 'edit:purchases'
   | 'delete:purchases'
+  | 'view:suppliers'
+  | 'create:suppliers'
+  | 'edit:suppliers'
+  | 'delete:suppliers'
   | 'view:staff'
   | 'create:staff'
   | 'edit:staff'
@@ -35,6 +39,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'create:purchases',
     'edit:purchases',
     'delete:purchases',
+    'view:suppliers',
+    'create:suppliers',
+    'edit:suppliers',
+    'delete:suppliers',
     'view:staff',
     'create:staff',
     'edit:staff',
@@ -42,7 +50,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:settings',
     'edit:settings'
   ],
-  staff: ['view:inventory', 'view:invoices', 'create:invoices', 'view:purchases', 'create:purchases']
+  staff: ['view:inventory', 'view:invoices', 'create:invoices', 'view:purchases', 'create:purchases', 'view:suppliers', 'create:suppliers']
 };
 
 export function hasPermission(role: Role, permission: Permission): boolean {

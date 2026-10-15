@@ -25,20 +25,27 @@ import {
   Plus,
   Edit2,
   AlertCircle,
-  PackagePlus
+  PackagePlus,
+  Banknote
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Purchase, PaginatedPurchases } from '../types';
+import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { exportToCsv } from '../utils/export-utils';
 import { ServerPagination } from '@/components/general/server-pagination';
-import { deletePurchase } from '../actions';
+import {
+  deletePurchase,
+  getPurchasePayments,
+  addPurchasePayment,
+  deletePurchasePayment
+} from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { ReceiveDialog, type ReceiveTarget } from '@/features/stock/components/receive-dialog';
 import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import { PurchaseForm } from './purchase-form';
+import { PurchasePaymentDialog, type PaymentRow } from './purchase-payment-dialog';
 
 export interface EnhancedPurchase extends Purchase {
   variant?: {
@@ -84,6 +91,11 @@ export function PurchasesTableWithActions({
   // Inline receiving - the same dialog the Stock page's "Awaiting arrival" tab uses.
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveTarget, setReceiveTarget] = useState<ReceiveTarget | null>(null);
+
+  // Partial payment tracking.
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentPurchase, setPaymentPurchase] = useState<EnhancedPurchase | null>(null);
+  const [paymentInitial, setPaymentInitial] = useState<PaymentRow[]>([]);
 
   const allSuppliers = useMemo(() => {
     const supplierSet = new Set<string>();
@@ -203,6 +215,54 @@ export function PurchasesTableWithActions({
   const pendingToReceive = (purchase: EnhancedPurchase) =>
     purchase.quantity - (purchase.receivedQuantity ?? purchase.quantity);
 
+  const handlePaymentClick = async (purchase: EnhancedPurchase) => {
+    try {
+      const data = await getPurchasePayments(purchase.id || purchase._id!);
+      setPaymentInitial(data as PaymentRow[]);
+      setPaymentPurchase(purchase);
+      setPaymentOpen(true);
+    } catch (error) {
+      console.error('Error loading payments:', error);
+      toast.error('Failed to load payments');
+    }
+  };
+
+  const getPaymentStatus = (purchase: EnhancedPurchase): PurchasePaymentStatus => {
+    if (purchase.paymentStatus) return purchase.paymentStatus;
+    const paid = purchase.paidAmount || 0;
+    const due = purchase.amountDue ?? (purchase.totalCost || 0) + (purchase.shippingCost || 0);
+    if (paid <= 0) return 'unpaid';
+    return paid >= due ? 'paid' : 'partial';
+  };
+
+  const renderPaymentStatus = (purchase: EnhancedPurchase) => {
+    const status = getPaymentStatus(purchase);
+
+    const badge =
+      status === 'paid' ? (
+        <Badge variant="default" className="whitespace-nowrap bg-emerald-600 hover:bg-emerald-600">
+          Paid
+        </Badge>
+      ) : status === 'partial' ? (
+        <Badge variant="secondary" className="whitespace-nowrap bg-amber-100 text-amber-800 hover:bg-amber-100">
+          Partial
+        </Badge>
+      ) : (
+        <Badge variant="secondary" className="whitespace-nowrap">
+          Unpaid
+        </Badge>
+      );
+
+    return (
+      <div className="flex flex-col items-start gap-0.5">
+        {badge}
+        {purchase.isUntracked && (
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Untracked</span>
+        )}
+      </div>
+    );
+  };
+
   const columns: ColumnDef<EnhancedPurchase>[] = [
     {
       accessorKey: 'purchaseId',
@@ -319,6 +379,26 @@ export function PurchasesTableWithActions({
       cell: ({ row }) => <div className="font-medium">{formatCurrency(row.original.totalCost)}</div>
     },
     {
+      accessorKey: 'paidAmount',
+      header: 'Paid',
+      cell: ({ row }) => formatCurrency(row.original.paidAmount || 0)
+    },
+    {
+      accessorKey: 'balanceAmount',
+      header: 'Balance',
+      cell: ({ row }) => {
+        const balance = row.original.balanceAmount ?? 0;
+        return (
+          <div className={balance > 0 ? 'font-medium text-orange-600' : ''}>{formatCurrency(balance)}</div>
+        );
+      }
+    },
+    {
+      id: 'paymentStatus',
+      header: 'Payment',
+      cell: ({ row }) => renderPaymentStatus(row.original)
+    },
+    {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end gap-1">
@@ -332,6 +412,19 @@ export function PurchasesTableWithActions({
               <PackagePlus className="h-4 w-4" />
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handlePaymentClick(row.original)}
+            disabled={row.original.isUntracked}
+            title={
+              row.original.isUntracked
+                ? 'Payment tracking was not available when this purchase was made'
+                : 'Payments'
+            }
+          >
+            <Banknote className="h-4 w-4" />
+          </Button>
           {canManage && (
             <Button variant="ghost" size="icon" onClick={() => handleEditClick(row.original)} title="Edit purchase">
               <Edit2 className="h-4 w-4" />
@@ -390,7 +483,10 @@ export function PurchasesTableWithActions({
       'Retail Price': String(formatCurrency(row.original.retailPrice || 0)),
       'Wholesale Price': String(formatCurrency(row.original.wholesalePrice || 0)),
       'Shipping Cost': String(formatCurrency(row.original.shippingCost || 0)),
-      'Total Cost': String(formatCurrency(row.original.totalCost))
+      'Total Cost': String(formatCurrency(row.original.totalCost)),
+      Paid: String(formatCurrency(row.original.paidAmount || 0)),
+      Balance: String(formatCurrency(row.original.balanceAmount ?? 0)),
+      'Payment Status': row.original.isUntracked ? 'Paid (untracked)' : getPaymentStatus(row.original)
     }));
     exportToCsv(data, `purchases-${new Date().toISOString().split('T')[0]}`);
   };
@@ -513,6 +609,22 @@ export function PurchasesTableWithActions({
         target={receiveTarget}
         onSuccess={() => router.refresh()}
       />
+
+      {paymentPurchase && (
+        <PurchasePaymentDialog
+          key={paymentPurchase.id || paymentPurchase._id}
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          purchaseId={paymentPurchase.id || paymentPurchase._id!}
+          purchaseLabel={paymentPurchase.purchaseId}
+          amountDue={paymentPurchase.amountDue ?? (paymentPurchase.totalCost || 0) + (paymentPurchase.shippingCost || 0)}
+          initialPayments={paymentInitial}
+          getPayments={getPurchasePayments}
+          addPayment={addPurchasePayment}
+          deletePayment={deletePurchasePayment}
+          onSuccess={() => router.refresh()}
+        />
+      )}
 
       <PurchaseForm
         productId=""

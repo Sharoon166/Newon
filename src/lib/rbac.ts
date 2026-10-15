@@ -14,6 +14,10 @@ export type Permission =
   | 'create:purchases'
   | 'edit:purchases'
   | 'delete:purchases'
+  | 'view:suppliers'
+  | 'create:suppliers'
+  | 'edit:suppliers'
+  | 'delete:suppliers'
   | 'view:staff'
   | 'create:staff'
   | 'edit:staff'
@@ -53,6 +57,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'create:purchases',
     'edit:purchases',
     'delete:purchases',
+    'view:suppliers',
+    'create:suppliers',
+    'edit:suppliers',
+    'delete:suppliers',
     'view:staff',
     'create:staff',
     'edit:staff',
@@ -86,6 +94,8 @@ const rolePermissions: Record<Role, Permission[]> = {
     'create:invoices',
     'view:purchases',
     'create:purchases',
+    'view:suppliers',
+    'create:suppliers',
     // Staff record what physically arrives / leaves the shop.
     'view:stock',
     'edit:stock'

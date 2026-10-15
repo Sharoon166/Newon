@@ -21,7 +21,8 @@ import {
   BriefcaseBusiness,
   FileBarChart,
   HandCoins,
-  BarChart4
+  BarChart4,
+  Truck
 } from 'lucide-react';
 
 import {
@@ -86,6 +87,11 @@ const data = {
           name: 'Purchases',
           url: '/purchases',
           icon: PackagePlus
+        },
+        {
+          name: 'Suppliers',
+          url: '/suppliers',
+          icon: Truck
         },
         {
           name: 'Stock',

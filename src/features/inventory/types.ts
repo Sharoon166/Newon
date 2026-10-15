@@ -54,6 +54,8 @@ export interface ProductType {
   id: string;
   name: string;
   supplier: string;
+  /** Business id (e.g. "SP-25-001") of the linked Supplier, when linked. */
+  supplierId?: string;
   origin: 'imported' | 'local';
   categories: string[];
   description: string;
@@ -78,6 +80,8 @@ export interface InventoryItem {
 export interface EnhancedVariants extends ProductVariant {
   productName: string;
   supplier: string;
+  /** Business id (e.g. "SP-25-001") of the linked Supplier, when linked. */
+  supplierId?: string;
   origin: 'imported' | 'local';
   categories: string[];
   description: string;
@@ -95,6 +99,8 @@ export interface EnhancedVariants extends ProductVariant {
 export interface LeanProduct {
   _id: { toString: () => string };
   name: string;
+  supplier?: string;
+  supplierId?: string;
   variants?: Array<{
     id: string;
     sku: string;
