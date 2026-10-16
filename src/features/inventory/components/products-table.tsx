@@ -39,7 +39,8 @@ import {
   Pencil,
   LucideColumns3Cog,
   ChevronsUpDown,
-  Eye
+  Eye,
+  Filter
 } from 'lucide-react';
 import { EnhancedVariants, ProductLocation } from '../types';
 import { formatCurrency } from '@/lib/utils';
@@ -454,6 +455,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
         <div className="grid gap-2 grid-cols-2 max-md:*:w-full md:flex">
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
             <SelectTrigger className="w-45">
+              <Filter className="h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="All Suppliers" />
             </SelectTrigger>
             <SelectContent>
@@ -467,6 +469,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
           </Select>
           <Select value={stockFilter} onValueChange={setStockFilter}>
             <SelectTrigger className="w-45">
+              <Filter className="h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Stock Status" />
             </SelectTrigger>
             <SelectContent>

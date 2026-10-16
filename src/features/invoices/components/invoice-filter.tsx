@@ -182,6 +182,7 @@ export function InvoiceFilter() {
       {/* Status Filter */}
       <Select value={selectedStatus} onValueChange={setSelectedStatus}>
         <SelectTrigger className="w-45">
+          <Filter className="h-4 w-4 text-muted-foreground" />
           <SelectValue placeholder="All Statuses" />
         </SelectTrigger>
         <SelectContent>
@@ -202,7 +203,7 @@ export function InvoiceFilter() {
 
       {/* Market Filter */}
       <Select value={selectedMarket} onValueChange={setSelectedMarket}>
-        <SelectTrigger className="w-[120px]">
+        <SelectTrigger className="w-30">
           <SelectValue placeholder="All Markets" />
         </SelectTrigger>
         <SelectContent>
