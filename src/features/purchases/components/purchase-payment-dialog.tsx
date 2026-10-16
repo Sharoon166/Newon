@@ -25,15 +25,28 @@ import { format } from 'date-fns';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const paymentSchema = z.object({
-  amount: z.number().min(0.01, 'Amount must be greater than 0'),
-  method: z.enum(['cash', 'bank_transfer', 'online', 'cheque', 'upi']),
-  date: z.date(),
-  reference: z.string().optional(),
-  notes: z.string().optional()
-});
+// The outstanding balance shrinks every time a payment is recorded, so the
+// schema is rebuilt with the current balance: react-hook-form re-reads the
+// resolver on every render, which keeps the over-balance message accurate.
+// Validating here (instead of on the input's native `max`/`step` attributes)
+// makes the error render inline under the amount field like every other form,
+// rather than as a native browser bubble.
+const createPaymentSchema = (balanceAmount: number) =>
+  z.object({
+    amount: z
+      .number()
+      .min(0.01, 'Amount must be greater than 0')
+      .max(
+        balanceAmount,
+        `Amount cannot exceed the outstanding balance (${formatCurrency(balanceAmount)})`
+      ),
+    method: z.enum(['cash', 'bank_transfer', 'online', 'cheque', 'upi']),
+    date: z.date(),
+    reference: z.string().optional(),
+    notes: z.string().optional()
+  });
 
-type PaymentFormValues = z.infer<typeof paymentSchema>;
+type PaymentFormValues = z.infer<ReturnType<typeof createPaymentSchema>>;
 type PaymentMethod = PaymentFormValues['method'];
 
 export interface PaymentRow {
@@ -97,7 +110,7 @@ export function PurchasePaymentDialog({
   const balanceAmount = Math.max(0, amountDue - paidTotal);
 
   const form = useForm<PaymentFormValues>({
-    resolver: zodResolver(paymentSchema),
+    resolver: zodResolver(createPaymentSchema(balanceAmount)),
     defaultValues: {
       amount: balanceAmount,
       method: 'cash',
@@ -113,13 +126,6 @@ export function PurchasePaymentDialog({
   };
 
   const onSubmit = async (data: PaymentFormValues) => {
-    if (data.amount > balanceAmount) {
-      form.setError('amount', {
-        type: 'validate',
-        message: `Amount cannot exceed the outstanding balance (${formatCurrency(balanceAmount)})`
-      });
-      return;
-    }
     try {
       setIsSubmitting(true);
       const result = await addPayment(purchaseId, data);
@@ -213,7 +219,7 @@ export function PurchasePaymentDialog({
             <>
               <Separator />
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
                   <h4 className="text-sm font-medium">Add Payment</h4>
                   <FormField
                     control={form.control}
