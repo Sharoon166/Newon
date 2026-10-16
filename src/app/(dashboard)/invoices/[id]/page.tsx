@@ -92,11 +92,32 @@ export default function InvoiceDetailPage() {
     });
   }, []);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchInvoice();
+  const fetchImages = async (items: Invoice['items']) => {
+    const imageMap = new Map<string, string>();
+
+    try {
+      const variantIds = items.filter(item => item.variantId).map(item => item.variantId as string);
+      if (variantIds.length === 0) return;
+      // Fetch images from API
+      const response = await fetch('/api/products/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantIds })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        Object.entries(data).forEach(([variantId, imageUrl]) => {
+          if (imageUrl) {
+            imageMap.set(variantId, imageUrl as string);
+          }
+        });
+        setProductImages(imageMap);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch product images:', error);
     }
-  }, [params.id]);
+  };
 
   // `silent` refreshes keep the page rendered (used after recording a
   // delivery) instead of dropping back to the full-page loading spinner.
@@ -130,32 +151,11 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  const fetchImages = async (items: Invoice['items']) => {
-    const imageMap = new Map<string, string>();
-
-    try {
-      const variantIds = items.filter(item => item.variantId).map(item => item.variantId as string);
-      if (variantIds.length === 0) return;
-      // Fetch images from API
-      const response = await fetch('/api/products/images', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variantIds })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        Object.entries(data).forEach(([variantId, imageUrl]) => {
-          if (imageUrl) {
-            imageMap.set(variantId, imageUrl as string);
-          }
-        });
-        setProductImages(imageMap);
-      }
-    } catch (error) {
-      console.warn('Failed to fetch product images:', error);
+  useEffect(() => {
+    if (params.id) {
+      fetchInvoice();
     }
-  };
+  }, [params.id]);
 
   const handleReactToPrint = useReactToPrint({
     contentRef: printRef,
