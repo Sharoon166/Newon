@@ -1116,7 +1116,7 @@ export function PurchasesTableWithActions({
         accessorKey: 'supplier',
         header: 'Supplier',
         cell: ({ row }) => (
-          <Badge variant="secondary" className="whitespace-nowrap">
+          <Badge variant="outline" className="whitespace-nowrap">
             {row.original.supplier}
           </Badge>
         )
