@@ -183,7 +183,7 @@ export function ProductSelector({
     <div className="space-y-2">
       {/* Search and Filter */}
       <div className="flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[200px] relative bg-background">
+        <div className="flex-1 min-w-50 relative bg-background">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search products by name or SKU..."
@@ -194,7 +194,7 @@ export function ProductSelector({
         </div>
 
         <Select value={priceType} onValueChange={(value: 'wholesale' | 'retail') => setPriceType(value)}>
-          <SelectTrigger className="w-full max-w-[200px] truncate bg-background">
+          <SelectTrigger className="w-full max-w-50 truncate bg-background">
             <SelectValue placeholder="Price Type" />
           </SelectTrigger>
           <SelectContent>

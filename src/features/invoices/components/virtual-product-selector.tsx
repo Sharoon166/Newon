@@ -335,7 +335,7 @@ export function VirtualProductSelector({
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-[200px] bg-background">
+          <SelectTrigger className="w-full sm:w-50 bg-background">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>

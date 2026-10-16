@@ -23,7 +23,7 @@ export function YearSelector({ label = 'Year' }: YearSelectorProps) {
     <div className="flex items-center gap-2">
       <span className="text-sm font-medium">{label}:</span>
       <Select value={selectedYear} onValueChange={handleYearChange}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-45">
           <SelectValue placeholder="Select year" />
         </SelectTrigger>
         <SelectContent>

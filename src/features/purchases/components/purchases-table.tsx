@@ -114,7 +114,7 @@ export function PurchasesTable({
                 <TableCell className="text-right">{formatCurrency(purchase.wholesalePrice || 0)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(purchase.shippingCost || 0)}</TableCell>
                 <TableCell className="text-right font-medium">{formatCurrency(purchase.totalCost)}</TableCell>
-                <TableCell className="max-w-[200px] truncate">{purchase.notes || '-'}</TableCell>
+                <TableCell className="max-w-50 truncate">{purchase.notes || '-'}</TableCell>
                 {!readOnly && (
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

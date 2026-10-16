@@ -52,7 +52,7 @@ export function ExpenseMonthFilter() {
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className={cn('justify-start text-left font-normal w-[200px]', !selectedMonth && 'text-muted-foreground')}
+            className={cn('justify-start text-left font-normal w-50', !selectedMonth && 'text-muted-foreground')}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {selectedMonth ? format(selectedMonth, 'MMMM yyyy') : 'Pick a month'}

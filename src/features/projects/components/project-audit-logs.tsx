@@ -185,7 +185,7 @@ export function ProjectAuditLogs({ logs, users }: ProjectAuditLogsProps) {
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Select value={selectedUser} onValueChange={setSelectedUser}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-45">
               <SelectValue placeholder="Filter by user" />
             </SelectTrigger>
             <SelectContent>
@@ -199,7 +199,7 @@ export function ProjectAuditLogs({ logs, users }: ProjectAuditLogsProps) {
           </Select>
 
           <Select value={selectedAction} onValueChange={setSelectedAction}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-45">
               <SelectValue placeholder="Filter by action" />
             </SelectTrigger>
             <SelectContent>

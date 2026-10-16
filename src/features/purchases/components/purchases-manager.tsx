@@ -170,7 +170,7 @@ export function PurchasesManager({
                   setSelectedVariantId(value);
                 }}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-45">
                   <SelectValue placeholder="All variants" />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,7 +201,7 @@ export function PurchasesManager({
                   setSelectedLocationId(value);
                 }}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-45">
                   <SelectValue placeholder="All locations" />
                 </SelectTrigger>
                 <SelectContent>

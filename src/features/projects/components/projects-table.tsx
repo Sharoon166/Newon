@@ -269,7 +269,7 @@ export function ProjectsTable({ data, canEdit, canCancel, canViewBudget, onRefre
               table.getColumn('status')?.setFilterValue(value === 'all' ? undefined : [value]);
             }}
           >
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-50">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>

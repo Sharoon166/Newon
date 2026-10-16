@@ -120,7 +120,7 @@ export function ProductOriginChart({ data }: ProductOriginChartProps) {
             <p className="text-xs font-medium text-muted-foreground text-center mb-2">Products</p>
             <ChartContainer
               config={chartConfig}
-              className="mx-auto aspect-square w-full max-w-[180px]"
+              className="mx-auto aspect-square w-full max-w-45"
             >
               <RadialBarChart
                 data={productChartData}
@@ -189,7 +189,7 @@ export function ProductOriginChart({ data }: ProductOriginChartProps) {
                 <p className="text-xs font-medium text-muted-foreground text-center mb-2">Profit (Month)</p>
                 <ChartContainer
                   config={chartConfig}
-                  className="mx-auto aspect-square w-full max-w-[180px]"
+                  className="mx-auto aspect-square w-full max-w-45"
                 >
                   <RadialBarChart
                     data={profitChartData}

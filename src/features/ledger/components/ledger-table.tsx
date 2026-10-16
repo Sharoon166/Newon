@@ -328,7 +328,7 @@ export function LedgerTable({ data = [] }: LedgerTableProps) {
         </InputGroup>
         <div className="grid gap-2 grid-cols-2 max-md:*:w-full md:flex">
           <Select value={balanceFilter} onValueChange={setBalanceFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="Balance Status" />
             </SelectTrigger>
             <SelectContent>

@@ -550,7 +550,7 @@
 //               <span className="hidden sm:inline">PDF</span>
 //             </Button>
 //             <Select value={supplierFilter} onValueChange={handleSupplierChange}>
-//               <SelectTrigger className="w-[180px]">
+//               <SelectTrigger className="w-45">
 //                 <SelectValue placeholder="Filter by supplier" />
 //               </SelectTrigger>
 //               <SelectContent>
@@ -1074,7 +1074,7 @@ export function PurchasesTableWithActions({
         header: 'Product',
         enableHiding: false,
         cell: ({ row }) => (
-          <div className="flex min-w-[180px] flex-col gap-1">
+          <div className="flex min-w-45 flex-col gap-1">
             <span className="font-medium leading-tight">{row.original.productName || 'Unknown product'}</span>
             <Badge variant="outline" className="w-fit font-mono whitespace-nowrap">
               {getVariantDisplay(row.original)}
@@ -1375,7 +1375,7 @@ export function PurchasesTableWithActions({
               <span className="hidden sm:inline">PDF</span>
             </Button>
             <Select value={supplierFilter} onValueChange={handleSupplierChange}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-45">
                 <SelectValue placeholder="Filter by supplier" />
               </SelectTrigger>
               <SelectContent>

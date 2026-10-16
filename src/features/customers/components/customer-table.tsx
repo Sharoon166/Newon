@@ -223,7 +223,7 @@ export function CustomerTable({ data, onEdit, actions }: CustomerTableProps) {
 
         <div className="flex items-center gap-2">
           <Select value={balanceFilter} onValueChange={(value: BalanceFilter) => setBalanceFilter(value)}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-50">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Filter by balance" />
             </SelectTrigger>

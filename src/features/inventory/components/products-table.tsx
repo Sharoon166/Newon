@@ -453,7 +453,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
         </InputGroup>
         <div className="grid gap-2 grid-cols-2 max-md:*:w-full md:flex">
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="All Suppliers" />
             </SelectTrigger>
             <SelectContent>
@@ -466,7 +466,7 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
             </SelectContent>
           </Select>
           <Select value={stockFilter} onValueChange={setStockFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="Stock Status" />
             </SelectTrigger>
             <SelectContent>

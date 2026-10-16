@@ -280,7 +280,7 @@ export function PurchasesTable({ purchases }: { purchases: EnhancedPurchase[] })
                 }
               }}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-45">
                 <SelectValue placeholder="Filter by supplier" />
               </SelectTrigger>
               <SelectContent>

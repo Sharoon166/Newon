@@ -67,7 +67,7 @@ function MonthPicker({
   ...props
 }: React.HTMLAttributes<HTMLDivElement> & MonthCalProps) {
   return (
-    <div className={cn('min-w-[200px] w-[280px] p-3', className)} {...props}>
+    <div className={cn('min-w-50 w-[280px] p-3', className)} {...props}>
       <div className="flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0">
         <div className="space-y-4 w-full">
           <MonthCal

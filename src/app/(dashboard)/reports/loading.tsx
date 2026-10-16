@@ -6,7 +6,7 @@ export default function ReportsLoading() {
   return (
     <>
       <PageHeader title="Financial Reports" description="View monthly financial performance and business metrics">
-        <Skeleton className="h-10 w-[180px]" />
+        <Skeleton className="h-10 w-45" />
       </PageHeader>
 
       <div className="mt-6 space-y-6">
