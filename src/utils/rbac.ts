@@ -14,6 +14,10 @@ export type Permission =
   | 'create:purchases'
   | 'edit:purchases'
   | 'delete:purchases'
+  // Cost data of purchases belonging to imported products is admin-only.
+  | 'view:imported-purchase-costs'
+  // Recording a purchase against an imported product is admin-only.
+  | 'create:imported-purchases'
   | 'view:suppliers'
   | 'create:suppliers'
   | 'edit:suppliers'
@@ -39,6 +43,8 @@ const rolePermissions: Record<Role, Permission[]> = {
     'create:purchases',
     'edit:purchases',
     'delete:purchases',
+    'view:imported-purchase-costs',
+    'create:imported-purchases',
     'view:suppliers',
     'create:suppliers',
     'edit:suppliers',

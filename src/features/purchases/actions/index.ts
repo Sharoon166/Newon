@@ -5,6 +5,7 @@ import PurchaseModel, { type IPurchase } from '@/models/Purchase';
 import ProductModel from '@/models/Product';
 import SupplierModel from '@/models/Supplier';
 import mongoose from 'mongoose';
+import type { PipelineStage } from 'mongoose';
 import { revalidatePath } from 'next/cache';
 import type {
   CreatePurchaseDto,
@@ -14,7 +15,10 @@ import type {
   AddPurchasePaymentDto
 } from '../types';
 import type { LocationInventory, ProductVariant } from '@/features/inventory/types';
-import { assertPermission } from '@/lib/auth-utils';
+import { purchaseSortField } from '../sort';
+import { getSession, assertPermission } from '@/lib/auth-utils';
+import { userHasPermission } from '@/lib/rbac';
+import { redactImportedCosts, redactsImportedCosts } from '../utils/cost-redaction';
 import { formatCurrency } from '@/lib/utils';
 import {
   updateSupplierFinancialsOnPurchase,
@@ -195,8 +199,29 @@ export type LeanPurchase = {
 //   };
 // };
 
+/**
+ * Whether the signed-in user may see cost fields on purchases of imported
+ * products. Staff get those fields stripped from every read action below -
+ * hiding the columns in the UI would not be enough on its own.
+ */
+async function canViewImportedCosts(): Promise<boolean> {
+  const session = await getSession();
+  return userHasPermission(session, 'view:imported-purchase-costs');
+}
+
+/** `origin` of a product, or undefined when the product is missing/unreadable. */
+async function getProductOrigin(
+  productId: unknown
+): Promise<'local' | 'imported' | undefined> {
+  if (!mongoose.Types.ObjectId.isValid(String(productId))) return undefined;
+  const product = await ProductModel.findById(productId).select('origin').lean();
+  return (product as { origin?: 'local' | 'imported' } | null)?.origin;
+}
+
 export const getAllPurchases = async (filters?: PurchaseFilters): Promise<PaginatedPurchases> => {
   await dbConnect();
+
+  const canViewCosts = await canViewImportedCosts();
 
   const page = filters?.page || 1;
   const limit = filters?.limit || 10;
@@ -231,7 +256,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
   // drop rows whose only match is in those fields.
 
   // 2. Build the Aggregation Pipeline
-  const pipeline = [
+  const pipeline: PipelineStage[] = [
     { $match: matchQuery },
     {
       $lookup: {
@@ -263,13 +288,74 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     });
   }
 
-  // 4. Multi-Facet Execution (Calculates total counts & gets paginated data in 1 DB trip)
+  // 4. Server-side sorting. The column id arrives in the URL, so it goes
+  // through a whitelist (sort.ts) - unknown values resolve to undefined and
+  // fall back to the newest-first default.
+  //
+  // Sorting on a field the caller may not see still leaks the rank order of
+  // those values (a hand-crafted ?sort=totalCost would sort imported purchases
+  // by their hidden cost), so cost-like sorts are dropped for staff.
+  const requestedSortField = purchaseSortField(filters?.sortBy);
+  const sortField =
+    !canViewCosts && (requestedSortField === 'totalCost' || requestedSortField === 'paidEff')
+      ? undefined
+      : requestedSortField;
+
+  if (sortField === 'paidEff' || sortField === 'paymentStatusEff') {
+    // Payment columns display read-time values: purchases that predate payment
+    // tracking are treated as fully settled (see resolveAmountDue / isUntracked
+    // in the serializer below), so sorting the raw stored fields would
+    // misorder them. Materialise the same values first - these expressions
+    // mirror that JS logic, so keep them in sync.
+    pipeline.push(
+      {
+        $addFields: {
+          amountDueEff: {
+            $cond: [
+              { $ne: [{ $ifNull: ['$purchasePrice', null] }, null] },
+              { $multiply: [{ $ifNull: ['$quantity', 0] }, '$purchasePrice'] },
+              { $ifNull: ['$totalCost', 0] }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          paidEff: {
+            $cond: [
+              { $ne: [{ $ifNull: ['$paymentsTracked', null] }, true] },
+              '$amountDueEff',
+              { $ifNull: ['$paidAmount', 0] }
+            ]
+          },
+          paymentStatusEff: {
+            $cond: [
+              { $ne: [{ $ifNull: ['$paymentsTracked', null] }, true] },
+              'paid',
+              { $ifNull: ['$paymentStatus', 'unpaid'] }
+            ]
+          }
+        }
+      }
+    );
+  }
+
+  const sortDir: 1 | -1 = filters?.sortDir === 'asc' ? 1 : -1;
+  // Always append tiebreakers so $skip/$limit paging can never show the same
+  // row twice (or skip one) when several rows share the sorted value.
+  const sort: Record<string, 1 | -1> = !sortField
+    ? { purchaseDate: -1, purchaseId: -1 }
+    : sortField === 'purchaseDate'
+      ? { purchaseDate: sortDir, _id: -1 }
+      : { [sortField]: sortDir, purchaseDate: -1, _id: -1 };
+
+  // 5. Multi-Facet Execution (Calculates total counts & gets paginated data in 1 DB trip)
   const aggregationResult = await PurchaseModel.aggregate([
     ...pipeline,
     {
       $facet: {
         metadata: [{ $count: 'totalDocs' }],
-        data: [{ $sort: { purchaseDate: -1, purchaseId: -1 } }, { $skip: skip }, { $limit: limit }]
+        data: [{ $sort: sort }, { $skip: skip }, { $limit: limit }]
       }
     }
   ]);
@@ -290,7 +376,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     const amountDue = resolveAmountDue(doc);
     const isUntracked = doc.paymentsTracked !== true;
 
-    return {
+    const row = {
       id: doc._id.toString(),
       productId: doc.productId?.toString() || '',
       variantId: doc.variantId,
@@ -337,6 +423,9 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
           }
         : undefined
     };
+
+    // Purchases of imported products lose their cost fields for staff.
+    return redactImportedCosts(row, canViewCosts);
   });
 
   const totalPages = Math.ceil(totalDocs / limit);
@@ -376,7 +465,10 @@ export const getPurchasesByVariantId = async (productId: string, variantId: stri
 
   // Check if this is a simple product (single variant) by looking up the product
   // This helps us handle legacy purchases without variantId
-  const product = (await ProductModel.findById(productObjectId).lean()) as { variants?: ProductVariant[] } | null;
+  const product = (await ProductModel.findById(productObjectId).lean()) as {
+    variants?: ProductVariant[];
+    origin?: 'local' | 'imported';
+  } | null;
   const variants = product?.variants || [];
   const isSimpleProduct = variants && Array.isArray(variants) && variants.length === 1;
   const singleVariantId = isSimpleProduct && variants[0] ? variants[0].id : null;
@@ -408,38 +500,52 @@ export const getPurchasesByVariantId = async (productId: string, variantId: stri
     .sort({ purchaseDate: -1 }) // Sort by date descending
     .lean()) as unknown as LeanPurchase[];
 
-  return purchases.map(purchase => {
-    return {
-      ...purchase,
-      id: purchase._id.toString(),
-      purchaseId: purchase.purchaseId,
-      productId: purchase.productId.toString(),
-      variantId: purchase.variantId,
-      _id: undefined,
-      __v: undefined
-    };
-  });
+  const canViewCosts = await canViewImportedCosts();
+
+  return purchases.map(purchase =>
+    redactImportedCosts(
+      {
+        ...purchase,
+        id: purchase._id.toString(),
+        purchaseId: purchase.purchaseId,
+        productId: purchase.productId.toString(),
+        variantId: purchase.variantId,
+        _id: undefined,
+        __v: undefined
+      },
+      canViewCosts,
+      // `origin` was loaded with the product above - the rows don't carry it.
+      product?.origin
+    )
+  );
 };
 
 // Keep backward compatibility - get all purchases for a product
 export const getPurchasesByProductId = async (productId: string) => {
   await dbConnect();
 
+  const canViewCosts = await canViewImportedCosts();
+  const origin = canViewCosts ? undefined : await getProductOrigin(productId);
+
   const purchases = (await PurchaseModel.find({ productId: new mongoose.Types.ObjectId(productId) })
     .sort({ purchaseDate: -1 }) // Sort by date descending
     .lean()) as unknown as LeanPurchase[];
 
-  return purchases.map(purchase => {
-    return {
-      ...purchase,
-      id: purchase._id.toString(),
-      purchaseId: purchase.purchaseId,
-      productId: purchase.productId.toString(),
-      variantId: purchase.variantId,
-      _id: undefined,
-      __v: undefined
-    };
-  });
+  return purchases.map(purchase =>
+    redactImportedCosts(
+      {
+        ...purchase,
+        id: purchase._id.toString(),
+        purchaseId: purchase.purchaseId,
+        productId: purchase.productId.toString(),
+        variantId: purchase.variantId,
+        _id: undefined,
+        __v: undefined
+      },
+      canViewCosts,
+      origin
+    )
+  );
 };
 
 export const getPurchaseById = async (id: string) => {
@@ -451,20 +557,35 @@ export const getPurchaseById = async (id: string) => {
     return null;
   }
 
-  return {
-    ...purchase,
-    id: purchase._id.toString(),
-    purchaseId: purchase.purchaseId,
-    productId: purchase.productId.toString(),
-    variantId: purchase.variantId,
-    _id: undefined,
-    __v: undefined
-  };
+  const canViewCosts = await canViewImportedCosts();
+  const origin = canViewCosts ? undefined : await getProductOrigin(purchase.productId);
+
+  return redactImportedCosts(
+    {
+      ...purchase,
+      id: purchase._id.toString(),
+      purchaseId: purchase.purchaseId,
+      productId: purchase.productId.toString(),
+      variantId: purchase.variantId,
+      _id: undefined,
+      __v: undefined
+    },
+    canViewCosts,
+    origin
+  );
 };
 
 export const createPurchase = async (data: CreatePurchaseDto) => {
   await assertPermission('create:purchases');
   await dbConnect();
+
+  // Recording a purchase against an imported product requires
+  // `create:imported-purchases` - staff may only record local purchases. The
+  // origin always comes from the stored product, never from the client payload.
+  const origin = await getProductOrigin(data.productId);
+  if (origin === 'imported') {
+    await assertPermission('create:imported-purchases');
+  }
 
   // Calculate totalCost: landed cost when a goods price was entered
   // (quantity * purchasePrice + shipping, shipping counted once as a company
@@ -945,6 +1066,12 @@ export const deletePurchase = async (id: string) => {
 export const getPurchasesAggregateByVariantId = async (productId: string, variantId: string) => {
   await dbConnect();
 
+  const canViewCosts = await canViewImportedCosts();
+  const hideImportedCosts = redactsImportedCosts(
+    canViewCosts ? undefined : await getProductOrigin(productId),
+    canViewCosts
+  );
+
   const result = await PurchaseModel.aggregate([
     {
       $match: {
@@ -990,18 +1117,28 @@ export const getPurchasesAggregateByVariantId = async (productId: string, varian
     }
   ]);
 
-  return (
-    result[0] || {
-      totalPurchased: 0,
-      totalCost: 0,
-      purchaseHistory: []
-    }
-  );
+  const aggregate = result[0] || { totalPurchased: 0, totalCost: 0, purchaseHistory: [] };
+  if (!hideImportedCosts) return aggregate;
+
+  // Staff may see how many units were bought, but not what they cost.
+  return {
+    ...aggregate,
+    totalCost: undefined,
+    purchaseHistory: (aggregate.purchaseHistory as Record<string, unknown>[]).map(purchase =>
+      redactImportedCosts(purchase, false, 'imported')
+    )
+  };
 };
 
 // Keep backward compatibility
 export const getPurchasesAggregateByProductId = async (productId: string) => {
   await dbConnect();
+
+  const canViewCosts = await canViewImportedCosts();
+  const hideImportedCosts = redactsImportedCosts(
+    canViewCosts ? undefined : await getProductOrigin(productId),
+    canViewCosts
+  );
 
   const result = await PurchaseModel.aggregate([
     { $match: { productId: new mongoose.Types.ObjectId(productId) } },
@@ -1043,13 +1180,17 @@ export const getPurchasesAggregateByProductId = async (productId: string) => {
     }
   ]);
 
-  return (
-    result[0] || {
-      totalPurchased: 0,
-      totalCost: 0,
-      purchaseHistory: []
-    }
-  );
+  const aggregate = result[0] || { totalPurchased: 0, totalCost: 0, purchaseHistory: [] };
+  if (!hideImportedCosts) return aggregate;
+
+  // Staff may see how many units were bought, but not what they cost.
+  return {
+    ...aggregate,
+    totalCost: undefined,
+    purchaseHistory: (aggregate.purchaseHistory as Record<string, unknown>[]).map(purchase =>
+      redactImportedCosts(purchase, false, 'imported')
+    )
+  };
 };
 
 // Get all payments recorded against a purchase.
@@ -1058,6 +1199,14 @@ export const getPurchasePayments = async (purchaseId: string) => {
 
   const purchase = (await PurchaseModel.findById(purchaseId).lean()) as unknown as LeanPurchase | null;
   if (!purchase) {
+    return [];
+  }
+
+  // Payment amounts are cost data: no payment history for imported products
+  // unless the caller may see those costs.
+  const canViewCosts = await canViewImportedCosts();
+  const origin = canViewCosts ? undefined : await getProductOrigin(purchase.productId);
+  if (redactsImportedCosts(origin, canViewCosts)) {
     return [];
   }
 

@@ -84,6 +84,8 @@ interface PurchaseFormProps {
     supplier?: string;
     supplierId?: string;
     disabled?: boolean;
+    /** Mirrored from the Product document - imported products are admin-only to purchase. */
+    origin?: 'local' | 'imported';
     locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   }>;
   purchase?: Purchase;
@@ -91,6 +93,8 @@ interface PurchaseFormProps {
   // suppliers?: string[];
   supplier?: string; // Direct supplier name prop for single-product context
   defaultSupplierId?: string; // Direct supplier id prop for single-product context
+  /** When false, imported products can't be selected (and submitting is blocked). */
+  canCreateImported?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -105,6 +109,7 @@ export function PurchaseForm({
   // suppliers = [],
   supplier,
   defaultSupplierId,
+  canCreateImported = true,
   open,
   onOpenChange,
   onSuccess
@@ -151,6 +156,20 @@ export function PurchaseForm({
     // Otherwise filter by productId (multi-product context)
     return variants.filter(v => v.productId === selectedProductId && !v.disabled);
   }, [selectedProductId, variants, productId]);
+
+  // Products the signed-in user may record a purchase against. Staff can't
+  // purchase imported products, so those never appear in the picker.
+  const selectableProductIds = useMemo(() => {
+    const ids = Array.from(new Set(variants.map(v => v.productId)));
+    if (canCreateImported) return ids;
+    return ids.filter(id => variants.find(v => v.productId === id)?.origin !== 'imported');
+  }, [variants, canCreateImported]);
+
+  // Origin of the product this form would create a purchase for.
+  const selectedProductOrigin = useMemo(
+    () => variants.find(v => v.productId === (productId || selectedProductId))?.origin,
+    [variants, productId, selectedProductId]
+  );
 
   // Get filtered locations based on selected product's variants
   const filteredLocations = useMemo(() => {
@@ -304,6 +323,13 @@ export function PurchaseForm({
         await updatePurchase(purchase.id || purchase._id!, updateData);
         toast.success('Purchase updated successfully');
       } else {
+        // Staff may not record purchases against imported products - the same
+        // rule the server enforces with `create:imported-purchases`.
+        if (!canCreateImported && selectedProductOrigin === 'imported') {
+          toast.error('Purchases for imported products can only be recorded by an admin');
+          return;
+        }
+
         const createData: CreatePurchaseDto = {
           productId: data.productId || productId,
           variantId: data.variantId,
@@ -485,7 +511,7 @@ export function PurchaseForm({
                               <SelectValue placeholder="Select product" />
                             </SelectTrigger>
                             <SelectContent>
-                              {Array.from(new Set(variants.map(v => v.productId))).map(prodId => {
+                              {selectableProductIds.map(prodId => {
                                 const variant = variants.find(v => v.productId === prodId);
                                 return (
                                   <SelectItem key={prodId} value={prodId || ''}>

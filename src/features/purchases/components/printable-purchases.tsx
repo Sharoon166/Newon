@@ -28,6 +28,11 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
   const totalCost = filteredData.reduce((sum, p) => sum + (p.totalCost || 0), 0);
   const uniqueSuppliers = new Set(filteredData.map(p => p.supplier)).size;
   const totalRemaining = filteredData.reduce((sum, p) => sum + (p.remaining || 0), 0);
+  // Rows whose cost the viewer may not see (purchases of imported products for
+  // staff). They print as "—" and pull the totals out with them, so a total is
+  // never silently understated.
+  const hasRedactedCosts = filteredData.some(p => p.costsRedacted);
+  const totalCostLabel = hasRedactedCosts ? '—' : formatCurrency(totalCost);
 
   // Group purchases by supplier for better organization
   const purchasesBySupplier = filteredData.reduce(
@@ -97,8 +102,12 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                     <td className="p-3 border">{purchase.productName || 'N/A'}</td>
                     <td className="p-3 border text-sm">{purchase.variant?.sku || purchase.variantId || 'N/A'}</td>
                     <td className="p-3 border text-right font-medium">{purchase.quantity}</td>
-                    <td className="p-3 border text-right">{formatCurrency(purchase.unitPrice)}</td>
-                    <td className="p-3 border text-right font-semibold">{formatCurrency(purchase.totalCost)}</td>
+                    <td className="p-3 border text-right">
+                      {purchase.costsRedacted ? '—' : formatCurrency(purchase.unitPrice)}
+                    </td>
+                    <td className="p-3 border text-right font-semibold">
+                      {purchase.costsRedacted ? '—' : formatCurrency(purchase.totalCost)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -119,7 +128,7 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                 </div>
                 <div className="flex justify-between py-3 border-t-2 border-gray-300">
                   <span className="font-bold text-lg">Total Cost:</span>
-                  <span className="font-bold text-lg">{formatCurrency(totalCost)}</span>
+                  <span className="font-bold text-lg">{totalCostLabel}</span>
                 </div>
               </div>
             </div>
@@ -185,7 +194,7 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
 
               <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 print:p-3">
                 <p className="text-xs uppercase tracking-wide mb-1 text-gray-600">Total Cost</p>
-                <p className="text-xl font-bold text-gray-900">{formatCurrency(totalCost)}</p>
+                <p className="text-xl font-bold text-gray-900">{totalCostLabel}</p>
               </div>
 
               <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 print:p-3">
@@ -213,6 +222,7 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
               {suppliers.map(supplier => {
                 const supplierPurchases = purchasesBySupplier[supplier];
                 const supplierTotal = supplierPurchases.reduce((sum, p) => sum + (p.totalCost || 0), 0);
+                const supplierRedacted = supplierPurchases.some(p => p.costsRedacted);
                 const supplierQuantity = supplierPurchases.reduce((sum, p) => sum + (p.quantity || 0), 0);
 
                 return (
@@ -229,7 +239,9 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-gray-500 uppercase tracking-wide">Total Cost</p>
-                          <p className="text-lg font-bold text-gray-900">{formatCurrency(supplierTotal)}</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {supplierRedacted ? '—' : formatCurrency(supplierTotal)}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -282,10 +294,10 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
                                 {purchase.remaining?.toLocaleString() || 0}
                               </td>
                               <td className="p-3 print:p-2 text-right text-gray-900">
-                                {formatCurrency(purchase.unitPrice || 0)}
+                                {purchase.costsRedacted ? '—' : formatCurrency(purchase.unitPrice || 0)}
                               </td>
                               <td className="p-3 print:p-2 text-right font-bold text-gray-900">
-                                {formatCurrency(purchase.totalCost || 0)}
+                                {purchase.costsRedacted ? '—' : formatCurrency(purchase.totalCost || 0)}
                               </td>
                             </tr>
                           ))}

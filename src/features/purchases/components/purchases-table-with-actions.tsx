@@ -682,14 +682,14 @@
 // }
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import {
+  Column,
   ColumnDef,
   SortingState,
   VisibilityState,
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
@@ -722,8 +722,9 @@ import {
   MoreHorizontal,
   Columns3
 } from 'lucide-react';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
+import { DEFAULT_PURCHASE_SORT, parsePurchaseSort } from '../sort';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/hooks/use-debounce';
 import { exportToCsv } from '../utils/export-utils';
@@ -749,6 +750,10 @@ interface PurchasesTableWithActionsProps {
   purchasesData: PaginatedPurchases;
   products: EnhancedVariants[];
   userRole?: 'admin' | 'staff';
+  /** May the caller see cost data (cost, unit price, payments) of imported products. */
+  canViewImportedCosts?: boolean;
+  /** May the caller record a purchase against an imported product. */
+  canCreateImported?: boolean;
   /** Stock tracking is set up - enables the inline "Receive" flow. */
   stockReady?: boolean;
 }
@@ -821,17 +826,71 @@ const renderPaymentStatus = (purchase: EnhancedPurchase) => {
   );
 };
 
+/**
+ * Header button for a server-sorted column.
+ *
+ * It always passes an explicit direction to `toggleSorting`, so a click flips
+ * asc <-> desc and can never clear the sort: the URL-backed sort has no
+ * "unsorted" state (the server defaults to newest-first). The click writes
+ * `?sort=&dir=&page=1`, which refetches the page from the server in that order.
+ */
+function SortHeader({
+  column,
+  label,
+  disabled
+}: {
+  column: Column<EnhancedPurchase, any>;
+  label: string;
+  disabled?: boolean;
+}) {
+  const sorted = column.getIsSorted();
+  const nextDesc = sorted ? sorted === 'asc' : column.getFirstSortDir() === 'desc';
+
+  return (
+    <Button
+      variant="ghost"
+      disabled={disabled}
+      onClick={() => column.toggleSorting(nextDesc)}
+      title={`Sort by ${label.toLowerCase()}`}
+      className={cn('h-8 gap-1 p-0 hover:bg-transparent', RIGHT_ALIGNED.has(column.id) ? '-mr-3' : '-ml-3')}
+    >
+      {label}
+      {sorted === 'asc' ? (
+        <ChevronUp className="h-4 w-4" />
+      ) : sorted === 'desc' ? (
+        <ChevronDown className="h-4 w-4" />
+      ) : (
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      )}
+    </Button>
+  );
+}
+
 export function PurchasesTableWithActions({
   purchasesData,
   products,
   userRole,
+  canViewImportedCosts = userRole !== 'staff',
+  canCreateImported = userRole !== 'staff',
   stockReady = false
 }: PurchasesTableWithActionsProps) {
   // Staff may create + view purchases; only admins may edit or delete.
   const canManage = userRole !== 'staff';
+  // Cost of an imported product's purchase is admin-only - the server already
+  // strips those fields, this only decides how the row is rendered.
+  const hideImportedCosts = !canViewImportedCosts;
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [sorting, setSorting] = useState<SortingState>([]);
+  // Sorting is server-driven: a header click pushes ?sort=&dir= to the URL and
+  // the page refetches (like the search box already does). `isPending` covers
+  // that round trip so headers can be disabled while the new order loads.
+  const [isPending, startTransition] = useTransition();
+  const sortParam = searchParams.get('sort');
+  const dirParam = searchParams.get('dir');
+  const sorting = useMemo<SortingState>(() => {
+    const { id, desc } = parsePurchaseSort(sortParam, dirParam);
+    return [{ id, desc }];
+  }, [sortParam, dirParam]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     retailPrice: false
   });
@@ -866,6 +925,12 @@ export function PurchasesTableWithActions({
   }, [purchasesData]);
 
   const purchases = purchasesData.docs as EnhancedPurchase[];
+
+  // A row whose cost the signed-in user may not see (the server already
+  // redacted it; the origin check is a fallback for rows fetched without the
+  // action).
+  const importedCostHidden = (purchase: EnhancedPurchase) =>
+    !!purchase.costsRedacted || (hideImportedCosts && purchase.origin === 'imported');
 
   // Push debounced search to URL.
   // Bail out when the URL already matches, so mounting doesn't fire a
@@ -1067,12 +1132,22 @@ export function PurchasesTableWithActions({
       {
         accessorKey: 'totalCost',
         header: 'Cost',
-        cell: ({ row }) => (
-          <div className="flex flex-col items-end tabular-nums">
-            <span className="font-medium">{formatCurrency(row.original.totalCost)}</span>
-            <span className="text-xs text-muted-foreground">{formatCurrency(row.original.unitPrice)} each</span>
-          </div>
-        )
+        cell: ({ row }) => {
+          // Imported purchases cost admin-only - show the row, hide the money.
+          if (importedCostHidden(row.original)) {
+            return (
+              <span className="text-muted-foreground" title="Cost of imported products is hidden">
+                —
+              </span>
+            );
+          }
+          return (
+            <div className="flex flex-col items-end tabular-nums">
+              <span className="font-medium">{formatCurrency(row.original.totalCost)}</span>
+              <span className="text-xs text-muted-foreground">{formatCurrency(row.original.unitPrice)} each</span>
+            </div>
+          );
+        }
       },
       {
         accessorKey: 'retailPrice',
@@ -1180,41 +1255,64 @@ export function PurchasesTableWithActions({
     // Handlers only call stable setters, the router, or imported actions,
     // so they don't need to be dependencies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, stockReady, router]
+    [canManage, hideImportedCosts, stockReady, router]
   );
 
   const table = useReactTable({
     data: purchases,
     columns,
     state: { sorting, columnVisibility },
-    onSortingChange: setSorting,
+    onSortingChange: updater => {
+      const next = typeof updater === 'function' ? updater(sorting) : updater;
+      const first = next[0];
+      const params = new URLSearchParams(searchParams.toString());
+      if (first && (first.id !== DEFAULT_PURCHASE_SORT.id || first.desc !== DEFAULT_PURCHASE_SORT.desc)) {
+        params.set('sort', first.id);
+        params.set('dir', first.desc ? 'desc' : 'asc');
+      } else {
+        // Back to the server default (newest first) - keep the URL clean.
+        params.delete('sort');
+        params.delete('dir');
+      }
+      params.set('page', '1');
+      startTransition(() => router.push(`?${params.toString()}`, { scroll: false }));
+    },
     onColumnVisibilityChange: setColumnVisibility,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel()
+    // Rows arrive already ordered by the aggregation pipeline - reordering the
+    // loaded page here would disagree with pagination.
+    manualSorting: true,
+    getCoreRowModel: getCoreRowModel()
   });
 
   const handleExportCsv = () => {
-    const data = table.getRowModel().rows.map(row => ({
-      'Purchase Date': formatDate(row.original.purchaseDate),
-      Product: row.original.productName || 'Unknown',
-      Variant: row.original.variant?.sku || row.original.variantId || '',
-      Supplier: row.original.supplier || '',
-      Quantity: row.original.quantity,
-      Remaining: row.original.remaining,
-      'Unit Price': String(formatCurrency(row.original.unitPrice || 0)),
-      'Retail Price': String(formatCurrency(row.original.retailPrice || 0)),
-      'Wholesale Price': String(formatCurrency(row.original.wholesalePrice || 0)),
-      'Shipping Cost': String(formatCurrency(row.original.shippingCost || 0)),
-      'Total Cost': String(formatCurrency(row.original.totalCost)),
-      // Supplier money columns are admin-only, same as in the table.
-      ...(canManage
-        ? {
-            Paid: String(formatCurrency(row.original.paidAmount || 0)),
-            Balance: String(formatCurrency(row.original.balanceAmount ?? 0))
-          }
-        : {}),
-      'Payment Status': row.original.isUntracked ? 'Paid (untracked)' : getPaymentStatus(row.original)
-    }));
+    const data = table.getRowModel().rows.map(row => {
+      // Cost columns are blank for imported purchases the user may not price
+      // (retail price always ships: staff sell at it). Same rule as the table.
+      const hideCost = importedCostHidden(row.original);
+      const cost = (value: number | undefined) => (hideCost ? '' : String(formatCurrency(value || 0)));
+
+      return {
+        'Purchase Date': formatDate(row.original.purchaseDate),
+        Product: row.original.productName || 'Unknown',
+        Variant: row.original.variant?.sku || row.original.variantId || '',
+        Supplier: row.original.supplier || '',
+        Quantity: row.original.quantity,
+        Remaining: row.original.remaining,
+        'Unit Price': cost(row.original.unitPrice),
+        'Retail Price': String(formatCurrency(row.original.retailPrice || 0)),
+        'Wholesale Price': cost(row.original.wholesalePrice),
+        'Shipping Cost': cost(row.original.shippingCost),
+        'Total Cost': cost(row.original.totalCost),
+        // Supplier money columns are admin-only, same as in the table.
+        ...(canManage
+          ? {
+              Paid: String(formatCurrency(row.original.paidAmount || 0)),
+              Balance: String(formatCurrency(row.original.balanceAmount ?? 0))
+            }
+          : {}),
+        'Payment Status': row.original.isUntracked ? 'Paid (untracked)' : getPaymentStatus(row.original)
+      };
+    });
     exportToCsv(data, `purchases-${new Date().toISOString().split('T')[0]}`);
   };
 
@@ -1293,8 +1391,8 @@ export function PurchasesTableWithActions({
         </div>
       </div>
 
-      {/* Table: scrolls inside its own box so the header stays visible */}
-      <div className="max-h-[70vh] overflow-auto rounded-md border">
+      {/* Table: scrolls inside its own box so the header stays visible  */}
+      <div className="overflow-auto rounded-md border">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background">
             {table.getHeaderGroups().map(headerGroup => (
@@ -1398,6 +1496,7 @@ export function PurchasesTableWithActions({
         productId=""
         variants={products}
         locations={locations}
+        canCreateImported={canCreateImported}
         open={addPurchaseOpen}
         onOpenChange={setAddPurchaseOpen}
         onSuccess={handlePurchaseSuccess}
@@ -1410,6 +1509,7 @@ export function PurchasesTableWithActions({
           variants={products.filter(p => p.productId === purchaseToEdit.productId)}
           purchase={purchaseToEdit}
           locations={locations}
+          canCreateImported={canCreateImported}
           open={editPurchaseOpen}
           onOpenChange={setEditPurchaseOpen}
           onSuccess={handlePurchaseSuccess}

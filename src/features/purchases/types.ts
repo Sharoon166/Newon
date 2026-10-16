@@ -50,6 +50,13 @@ export interface Purchase {
   /** Where the product comes from - mirrored from the linked Product document. */
   origin?: 'local' | 'imported';
   /**
+   * True when the cost fields (unitPrice, totalCost, payments, ...) were
+   * stripped server-side because the row belongs to an imported product and the
+   * caller lacks `view:imported-purchase-costs`. Render "—" for those fields
+   * instead of a number.
+   */
+  costsRedacted?: boolean;
+  /**
    * Partial payment tracking. Amount owed = goods cost (quantity *
    * purchasePrice, or totalCost for legacy rows); shipping excluded.
    */
@@ -141,6 +148,13 @@ export interface PurchaseFilters {
   supplierId?: string;
   dateFrom?: Date;
   dateTo?: Date;
+  /**
+   * Column id to sort by (must be a key of PURCHASE_SORT_FIELDS - anything
+   * else is ignored and the newest-first default applies).
+   */
+  sortBy?: string;
+  /** Sort direction, defaults to 'desc'. */
+  sortDir?: 'asc' | 'desc';
 }
 
 export interface PaginatedPurchases {

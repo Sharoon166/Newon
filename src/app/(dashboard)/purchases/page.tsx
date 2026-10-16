@@ -4,6 +4,7 @@ import { getProductsBasic } from '@/features/inventory/actions';
 import { getStockTrackingStatus } from '@/features/stock/actions';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
 import { getSession, requirePermission } from '@/lib/auth-utils';
+import { userHasPermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,8 @@ interface PurchasesPageProps {
     limit?: string;
     search?: string;
     supplier?: string;
+    sort?: string;
+    dir?: string;
   }>;
 }
 
@@ -24,11 +27,13 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const limit = params.limit ? parseInt(params.limit) : 10;
   const search = params.search;
   const supplier = params.supplier;
+  const sortBy = params.sort;
+  const sortDir = params.dir === 'asc' ? 'asc' : params.dir === 'desc' ? 'desc' : undefined;
 
   const session = await getSession();
 
   const [purchasesData, products, stockStatus] = await Promise.all([
-    getAllPurchases({ page, limit, search, supplier }),
+    getAllPurchases({ page, limit, search, supplier, sortBy, sortDir }),
     getProductsBasic(),
     getStockTrackingStatus()
   ]);
@@ -46,6 +51,8 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
           purchasesData={purchasesData}
           products={products}
           userRole={session?.user?.role}
+          canViewImportedCosts={userHasPermission(session, 'view:imported-purchase-costs')}
+          canCreateImported={userHasPermission(session, 'create:imported-purchases')}
           stockReady={stockStatus.initialized}
         />
       </div>
