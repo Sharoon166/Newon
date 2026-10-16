@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { getProductById } from '@/features/inventory/actions';
 import { ProductForm } from '@/features/inventory/components/product-form';
+import { getSession } from '@/lib/auth-utils';
+import { userHasPermission } from '@/lib/rbac';
 
 interface EditProductPageProps {
   params: Promise<{
@@ -143,5 +145,14 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     description: String(product.description || '')
   };
 
-  return <ProductForm mode="edit" initialData={serializedProduct} />;
+  const session = await getSession();
+
+  return (
+    <ProductForm
+      mode="edit"
+      initialData={serializedProduct}
+      canCreateImported={userHasPermission(session, 'create:imported-purchases')}
+      canManagePurchases={userHasPermission(session, 'edit:purchases')}
+    />
+  );
 }

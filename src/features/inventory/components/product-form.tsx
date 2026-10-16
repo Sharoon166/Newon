@@ -187,9 +187,18 @@ interface ProductFormProps {
   initialData?: ProductFormValues & {
     _id: string;
   };
+  /** When false, purchases can't be added against this product if it's imported. */
+  canCreateImported?: boolean;
+  /** When false, the purchase tab hides its edit/delete actions (staff). */
+  canManagePurchases?: boolean;
 }
 
-export function ProductForm({ mode = 'create', initialData }: ProductFormProps) {
+export function ProductForm({
+  mode = 'create',
+  initialData,
+  canCreateImported = true,
+  canManagePurchases = true
+}: ProductFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('attributes');
@@ -730,6 +739,11 @@ export function ProductForm({ mode = 'create', initialData }: ProductFormProps) 
                       locations={watch('locations') || []}
                       suppliers={watch('supplier') ? [watch('supplier')] : []}
                       supplierId={watch('supplierId')}
+                      // The saved origin, not the in-progress form value: the
+                      // server checks the stored product document.
+                      origin={initialData.origin}
+                      canCreateImported={canCreateImported}
+                      canManagePurchases={canManagePurchases}
                     />
                   </Card>
                 </TabsContent>

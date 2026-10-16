@@ -725,6 +725,14 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     throw new Error('PurchaseModel not found');
   }
 
+  // Editing a purchase against an imported product requires the same
+  // permission as creating one - the origin always comes from the stored
+  // product, never from the client payload.
+  const origin = await getProductOrigin(purchase.productId);
+  if (origin === 'imported') {
+    await assertPermission('create:imported-purchases');
+  }
+
   // Units already sold/allocated from this purchase. This amount does not change
   // when the ordered quantity is edited, so the invariant is always:
   // remaining = quantity - used.

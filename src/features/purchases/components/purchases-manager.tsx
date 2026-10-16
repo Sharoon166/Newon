@@ -19,6 +19,12 @@ interface PurchasesManagerProps {
   locations?: Array<{ id: string; name: string; address?: string; isActive: boolean }>;
   suppliers?: string[];
   supplierId?: string;
+  /** Origin of this product - imported products are admin-only to purchase. */
+  origin?: 'local' | 'imported';
+  /** When false, purchases can't be added/edited against an imported product. */
+  canCreateImported?: boolean;
+  /** When false, the edit/delete actions are hidden (staff can't edit purchases). */
+  canManagePurchases?: boolean;
 }
 
 export function PurchasesManager({
@@ -27,7 +33,10 @@ export function PurchasesManager({
   variants = [],
   locations = [],
   suppliers = [],
-  supplierId
+  supplierId,
+  origin,
+  canCreateImported = true,
+  canManagePurchases = true
 }: PurchasesManagerProps) {
   const router = useRouter();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -230,7 +239,15 @@ export function PurchasesManager({
               e.preventDefault();
             }
           }}
-          disabled={(!selectedVariantId || selectedVariantId === 'all') && variants.length > 0}
+          disabled={
+            ((!selectedVariantId || selectedVariantId === 'all') && variants.length > 0) ||
+            (!canCreateImported && origin === 'imported')
+          }
+          title={
+            !canCreateImported && origin === 'imported'
+              ? 'Purchases for imported products can only be recorded by an admin'
+              : undefined
+          }
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Purchase
@@ -246,6 +263,7 @@ export function PurchasesManager({
           locations={locations}
           onEdit={handleEdit}
           onRefresh={handleDeleteSuccess}
+          readOnly={!canManagePurchases}
         />
       )}
 
@@ -258,6 +276,8 @@ export function PurchasesManager({
         locations={locations}
         supplier={suppliers.length > 0 ? suppliers[0] : undefined}
         defaultSupplierId={supplierId}
+        origin={origin}
+        canCreateImported={canCreateImported}
         open={formOpen}
         onOpenChange={handleFormClose}
         onSuccess={handleFormSuccess}
