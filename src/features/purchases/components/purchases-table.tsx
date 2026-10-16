@@ -9,6 +9,8 @@ import { Purchase } from '../types';
 import { deletePurchase } from '../actions';
 import { toast } from 'sonner';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+import { PurchaseDeleteBlockedDialog } from './purchase-delete-blocked-dialog';
+import { resolvePurchasePaymentBlock, type PurchasePaymentBlock } from '../utils/delete-guard';
 import { AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
@@ -30,8 +32,23 @@ export function PurchasesTable({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [purchaseToDelete, setPurchaseToDelete] = useState<Purchase | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Set instead of the confirmation dialog when the purchase still has payments.
+  const [paymentBlock, setPaymentBlock] = useState<{
+    purchase: Purchase;
+    block: PurchasePaymentBlock;
+  } | null>(null);
 
-  const handleDeleteClick = (purchase: Purchase) => {
+  const handleDeleteClick = async (purchase: Purchase) => {
+    try {
+      const block = await resolvePurchasePaymentBlock(purchase);
+      if (block) {
+        setPaymentBlock({ purchase, block });
+        return;
+      }
+    } catch (error) {
+      // The check itself failed - fall through and let the server-side guard decide.
+      console.error('Error checking purchase payments:', error);
+    }
     setPurchaseToDelete(purchase);
     setDeleteDialogOpen(true);
   };
@@ -171,6 +188,15 @@ export function PurchasesTable({
         icon={<AlertCircle className="h-12 w-12 text-destructive" />}
         onConfirm={handleDelete}
         isProcessing={isDeleting}
+      />
+
+      <PurchaseDeleteBlockedDialog
+        open={!!paymentBlock}
+        onOpenChange={open => {
+          if (!open) setPaymentBlock(null);
+        }}
+        purchase={paymentBlock?.purchase ?? null}
+        block={paymentBlock?.block ?? null}
       />
     </div>
   );

@@ -720,7 +720,8 @@ import {
   PackagePlus,
   Banknote,
   MoreHorizontal,
-  Columns3
+  Columns3,
+  Filter
 } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
@@ -731,6 +732,8 @@ import { exportToCsv } from '../utils/export-utils';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { deletePurchase, getPurchasePayments, addPurchasePayment, deletePurchasePayment } from '../actions';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
+import { PurchaseDeleteBlockedDialog } from './purchase-delete-blocked-dialog';
+import { resolvePurchasePaymentBlock, type PurchasePaymentBlock } from '../utils/delete-guard';
 import { ReceiveDialog, type ReceiveTarget } from '@/features/stock/components/receive-dialog';
 import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
@@ -903,6 +906,11 @@ export function PurchasesTableWithActions({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [purchaseToDelete, setPurchaseToDelete] = useState<EnhancedPurchase | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Set instead of the confirmation dialog when the purchase still has payments.
+  const [paymentBlock, setPaymentBlock] = useState<{
+    purchase: EnhancedPurchase;
+    block: PurchasePaymentBlock;
+  } | null>(null);
   const [addPurchaseOpen, setAddPurchaseOpen] = useState(false);
   const [editPurchaseOpen, setEditPurchaseOpen] = useState(false);
   const [purchaseToEdit, setPurchaseToEdit] = useState<EnhancedPurchase | null>(null);
@@ -978,7 +986,17 @@ export function PurchasesTableWithActions({
     return Array.from(locationSet.values());
   }, [products]);
 
-  const handleDeleteClick = (purchase: EnhancedPurchase) => {
+  const handleDeleteClick = async (purchase: EnhancedPurchase) => {
+    try {
+      const block = await resolvePurchasePaymentBlock(purchase);
+      if (block) {
+        setPaymentBlock({ purchase, block });
+        return;
+      }
+    } catch (error) {
+      // The check itself failed - fall through and let the server-side guard decide.
+      console.error('Error checking purchase payments:', error);
+    }
     setPurchaseToDelete(purchase);
     setDeleteDialogOpen(true);
   };
@@ -1376,6 +1394,7 @@ export function PurchasesTableWithActions({
             </Button>
             <Select value={supplierFilter} onValueChange={handleSupplierChange}>
               <SelectTrigger className="w-45">
+                <Filter className="h-4 w-4 text-muted-foreground" />
                 <SelectValue placeholder="Filter by supplier" />
               </SelectTrigger>
               <SelectContent>
@@ -1464,6 +1483,15 @@ export function PurchasesTableWithActions({
         icon={<AlertCircle className="h-12 w-12 text-destructive" />}
         onConfirm={handleDeleteConfirm}
         isProcessing={isDeleting}
+      />
+
+      <PurchaseDeleteBlockedDialog
+        open={!!paymentBlock}
+        onOpenChange={open => {
+          if (!open) setPaymentBlock(null);
+        }}
+        purchase={paymentBlock?.purchase ?? null}
+        block={paymentBlock?.block ?? null}
       />
 
       <ReceiveDialog

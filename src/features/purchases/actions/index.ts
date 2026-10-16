@@ -999,6 +999,22 @@ export const deletePurchase = async (id: string) => {
     throw new Error('Purchase not found');
   }
 
+  // Real money has been recorded against this purchase: deleting it would
+  // destroy the payment history (and silently reverse the supplier's paid
+  // total). The payments must be removed from the purchase first.
+  const recordedPayments = purchase.payments || [];
+  const recordedTotal =
+    purchase.paymentsTracked === true
+      ? purchase.paidAmount || recordedPayments.reduce((sum, p) => sum + (p.amount || 0), 0)
+      : 0;
+  if (recordedPayments.length > 0 || recordedTotal > 0) {
+    throw new Error(
+      `Cannot delete this purchase. It has ${
+        recordedPayments.length > 0 ? `${recordedPayments.length} recorded payment(s)` : 'recorded payments'
+      } totalling ${formatCurrency(recordedTotal)}. Please adjust (remove) the payments first, then delete the purchase.`
+    );
+  }
+
   // Check if any quantity has been used (sold/allocated)
   if (purchase.remaining < purchase.quantity) {
     throw new Error(
