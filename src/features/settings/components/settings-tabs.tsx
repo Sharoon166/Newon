@@ -41,12 +41,12 @@ export function SettingsTabs({ paymentDetails, invoiceTerms, brandSettings, curr
       {/* Content area */}
       <div className="flex-1 min-w-0">
         <TabsContent value="account" className="mt-0">
-          <Card>
+          <Card className='shadow-none border-none *:px-0'>
             <CardHeader>
               <CardTitle>Account</CardTitle>
               <CardDescription>Manage your account settings and password</CardDescription>
             </CardHeader>
-            <CardContent className="w-full max-w-xl mx-auto">
+            <CardContent className="w-full max-w-xl">
               <AccountSettings currentUser={currentUser} />
             </CardContent>
           </Card>
@@ -57,7 +57,7 @@ export function SettingsTabs({ paymentDetails, invoiceTerms, brandSettings, curr
         </TabsContent>
 
         <TabsContent value="invoice" className="mt-0">
-          <Card>
+          <Card className='shadow-none border-none *:px-0'>
             <CardHeader>
               <CardTitle>Invoice Settings</CardTitle>
               <CardDescription>Configure payment details and terms & conditions for invoices</CardDescription>

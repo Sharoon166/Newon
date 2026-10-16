@@ -75,7 +75,7 @@ export function InvoiceSettings({ initialPaymentDetails, initialTerms }: Invoice
   return (
     <div className="space-y-8">
       {/* Payment Details Section */}
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-2xl">
         <div>
           <h3 className="text-lg font-medium flex items-center gap-2">
             <Receipt className="size-5" />

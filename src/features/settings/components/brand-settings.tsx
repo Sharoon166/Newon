@@ -251,7 +251,7 @@ export function BrandSettings({ initialSettings }: BrandSettingsProps) {
         </TabsList>
 
         <TabsContent value="newon" className="mt-6">
-          <Card>
+          <Card className='shadow-none border-none max-w-xl'>
             <CardHeader>
               <CardTitle>Newon Brand Settings</CardTitle>
               <CardDescription>Configure settings for the Newon brand</CardDescription>
@@ -281,7 +281,7 @@ export function BrandSettings({ initialSettings }: BrandSettingsProps) {
         </TabsContent>
 
         <TabsContent value="waymor" className="mt-6">
-          <Card>
+          <Card className='shadow-none border-none max-w-xl'>
             <CardHeader>
               <CardTitle>Waymor Brand Settings</CardTitle>
               <CardDescription>Configure settings for the Waymor brand</CardDescription>
