@@ -33,20 +33,20 @@ interface ICustomExpense {
   actualCost: number;
   clientCost: number;
   category:
-  | 'materials'
-  | 'labor'
-  | 'equipment'
-  | 'transport'
-  | 'rent'
-  | 'utilities'
-  | 'fuel'
-  | 'maintenance'
-  | 'marketing'
-  | 'office-supplies'
-  | 'professional-services'
-  | 'insurance'
-  | 'taxes'
-  | 'other';
+    | 'materials'
+    | 'labor'
+    | 'equipment'
+    | 'transport'
+    | 'rent'
+    | 'utilities'
+    | 'fuel'
+    | 'maintenance'
+    | 'marketing'
+    | 'office-supplies'
+    | 'professional-services'
+    | 'insurance'
+    | 'taxes'
+    | 'other';
   description?: string;
   expenseId?: string;
 }
@@ -108,17 +108,17 @@ interface IInvoice extends Document {
   gstAmount: number;
   totalAmount: number;
   status:
-  | 'pending'
-  | 'paid'
-  | 'partial'
-  | 'delivered'
-  | 'cancelled'
-  | 'draft'
-  | 'sent'
-  | 'accepted'
-  | 'rejected'
-  | 'expired'
-  | 'converted';
+    | 'pending'
+    | 'paid'
+    | 'partial'
+    | 'delivered'
+    | 'cancelled'
+    | 'draft'
+    | 'sent'
+    | 'accepted'
+    | 'rejected'
+    | 'expired'
+    | 'converted';
   paymentMethod?: 'cash' | 'bank_transfer' | 'online' | 'cheque' | 'upi';
   paidAmount: number;
   balanceAmount: number;
@@ -599,6 +599,7 @@ invoiceSchema.index({ type: 1, status: 1, date: 1 });
 invoiceSchema.index({ customerId: 1, date: -1 });
 invoiceSchema.index({ date: -1 });
 invoiceSchema.index({ market: 1, billingType: 1 });
+invoiceSchema.index({ dueDate: 1 });
 
 // Add pagination plugin
 invoiceSchema.plugin(mongoosePaginate);
