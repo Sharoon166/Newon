@@ -9,6 +9,8 @@ export interface Supplier {
   city?: string;
   state?: string;
   zip?: string;
+  /** ISO 3166-1 alpha-2 code, e.g. "PK" for Pakistan */
+  country?: string;
   notes?: string;
   disabled?: boolean;
   totalPurchased?: number;
@@ -29,6 +31,7 @@ export interface CreateSupplierDto {
   city?: string;
   state?: string;
   zip?: string;
+  country?: string;
   notes?: string;
 }
 
@@ -39,4 +42,35 @@ export interface SupplierFilters {
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
+}
+
+/**
+ * A single row in a supplier's mini ledger. Purchases are debits (what the
+ * supplier is owed), payments recorded against those purchases are credits.
+ */
+export interface SupplierLedgerEntry {
+  id: string;
+  date: Date;
+  type: 'purchase' | 'payment';
+  /** Purchase id (e.g. "PR-25-001") or payment reference */
+  reference?: string;
+  method?: string;
+  note?: string;
+  debit: number;
+  credit: number;
+  /** Running balance owed to the supplier after this entry */
+  balance: number;
+}
+
+export interface SupplierLedgerSummary {
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+}
+
+export interface SupplierLedgerData {
+  supplier: Supplier;
+  entries: SupplierLedgerEntry[];
+  totalEntries: number;
+  summary: SupplierLedgerSummary;
 }

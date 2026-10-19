@@ -1,7 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import type { Supplier, CreateSupplierDto, UpdateSupplierDto, SupplierFilters } from '../types';
+import type {
+  Supplier,
+  CreateSupplierDto,
+  UpdateSupplierDto,
+  SupplierFilters,
+  SupplierLedgerData,
+  SupplierLedgerEntry
+} from '../types';
 import dbConnect from '@/lib/db';
 import SupplierModel from '../../../models/Supplier';
 import ProductModel from '@/models/Product';
@@ -20,6 +27,7 @@ interface LeanSupplier {
   city?: string;
   state?: string;
   zip?: string;
+  country?: string;
   notes?: string;
   disabled?: boolean;
   totalPurchased?: number;
@@ -36,6 +44,8 @@ interface LeanSupplier {
 function transformLeanSupplier(leanDoc: LeanSupplier): Supplier {
   return {
     ...leanDoc,
+    // Documents created before the country field existed default to Pakistan.
+    country: leanDoc.country || 'PK',
     id: String(leanDoc._id),
     _id: undefined,
     __v: undefined
@@ -417,5 +427,170 @@ export async function reverseSupplierFinancialsOnPaymentDelete(
   } catch (error) {
     console.error(`Error reversing supplier payment for ${supplierId}:`, error);
     // Don't throw - payment deletion should succeed even if supplier update failed
+  }
+}
+
+/**
+ * Build a supplier mini ledger from purchase history.
+ *
+ * One indexed aggregation on Purchase.supplierId produces the whole ledger:
+ * every purchase is a debit (what the supplier is owed) and every payment
+ * recorded against it is a credit. Legacy purchases that predate payment
+ * tracking are treated as settled (same rule as effectivePaidAmount in the
+ * purchases feature) and get an offsetting credit so the ledger reconciles
+ * with the supplier's outstanding balance.
+ */
+export async function getSupplierLedger(
+  id: string,
+  options?: { limit?: number }
+): Promise<SupplierLedgerData> {
+  try {
+    await dbConnect();
+
+    const supplier = await SupplierModel.findOne({ supplierId: id }).lean();
+    // Fall back to the raw _id so callers can pass either identifier (same
+    // resolution rules as getSupplierById).
+    const supplierDoc =
+      supplier ??
+      (mongoose.Types.ObjectId.isValid(id) ? await SupplierModel.findById(id).lean() : null);
+    if (!supplierDoc) {
+      throw new Error('Supplier not found');
+    }
+
+    // Single pass: flatten each purchase into its debit entry + credit entries
+    // (one per recorded payment, plus a synthetic "settled" credit for legacy
+    // untracked purchases), sorted ascending by date.
+    const supplierId = (supplierDoc as { supplierId?: string }).supplierId;
+    if (!supplierId) {
+      // Purchases link through the business id; without it there is no history.
+      return {
+        supplier: transformLeanSupplier(supplierDoc as unknown as LeanSupplier),
+        entries: [],
+        totalEntries: 0,
+        summary: { totalDebit: 0, totalCredit: 0, closingBalance: 0 }
+      };
+    }
+
+    const rawEntries = (await PurchaseModel.aggregate([
+      { $match: { supplierId } },
+      {
+        $addFields: {
+          // Goods amount owed to the supplier - shipping excluded, mirroring
+          // resolveAmountDue() in the purchases feature.
+          ledgerAmountDue: {
+            $cond: [
+              { $and: [{ $ne: ['$purchasePrice', null] }, { $gt: [{ $ifNull: ['$quantity', 0] }, 0] }] },
+              { $multiply: ['$quantity', '$purchasePrice'] },
+              { $ifNull: ['$totalCost', 0] }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          purchaseId: 1,
+          purchaseDate: 1,
+          ledgerAmountDue: 1,
+          payments: {
+            $map: {
+              input: { $ifNull: ['$payments', []] },
+              as: 'p',
+              in: {
+                amount: '$$p.amount',
+                method: '$$p.method',
+                date: '$$p.date',
+                reference: '$$p.reference'
+              }
+            }
+          },
+          entries: {
+            $concatArrays: [
+              [
+                {
+                  date: '$purchaseDate',
+                  type: 'purchase',
+                  reference: '$purchaseId',
+                  debit: '$ledgerAmountDue',
+                  credit: 0
+                }
+              ],
+              // Purchases predating payment tracking count as fully settled.
+              {
+                $cond: [
+                  { $ne: [{ $ifNull: ['$paymentsTracked', false] }, true] },
+                  [
+                    {
+                      date: '$purchaseDate',
+                      type: 'payment',
+                      note: 'Legacy purchase (settled)',
+                      debit: 0,
+                      credit: '$ledgerAmountDue'
+                    }
+                  ],
+                  []
+                ]
+              },
+              {
+                $map: {
+                  input: '$payments',
+                  as: 'p',
+                  in: {
+                    date: '$$p.date',
+                    type: 'payment',
+                    reference: '$$p.reference',
+                    method: '$$p.method',
+                    debit: 0,
+                    credit: '$$p.amount'
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      { $unwind: '$entries' },
+      { $replaceRoot: { newRoot: '$entries' } },
+      { $sort: { date: 1 } }
+    ])) as Array<Omit<SupplierLedgerEntry, 'id' | 'balance'> & { date: Date }>;
+
+    // Compute the running balance and totals in one pass.
+    let runningBalance = 0;
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    const allEntries: SupplierLedgerEntry[] = rawEntries.map((entry, index) => {
+      runningBalance += entry.debit - entry.credit;
+      totalDebit += entry.debit;
+      totalCredit += entry.credit;
+
+      return {
+        id: `${entry.type}-${index}`,
+        date: entry.date,
+        type: entry.type as 'purchase' | 'payment',
+        reference: entry.reference,
+        method: entry.method,
+        note: entry.note,
+        debit: entry.debit,
+        credit: entry.credit,
+        balance: Math.max(0, runningBalance)
+      };
+    });
+
+    // Mini ledger shows the most recent entries; totals cover the full history.
+    const entries = options?.limit ? allEntries.slice(-options.limit) : allEntries;
+
+    return {
+      supplier: transformLeanSupplier(supplierDoc as unknown as LeanSupplier),
+      entries,
+      totalEntries: allEntries.length,
+      summary: {
+        totalDebit,
+        totalCredit,
+        closingBalance: Math.max(0, runningBalance)
+      }
+    };
+  } catch (error) {
+    console.error(`Error building supplier ledger ${id}:`, error);
+    throw new Error('Failed to build supplier ledger');
   }
 }

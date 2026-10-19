@@ -12,6 +12,8 @@ interface ISupplier extends Document {
   city?: string;
   state?: string;
   zip?: string;
+  // ISO 3166-1 alpha-2 code (e.g. "PK" for Pakistan)
+  country?: string;
   notes?: string;
   disabled: boolean;
   // Financial tracking fields - updated by purchases and purchase payments
@@ -76,6 +78,13 @@ const supplierSchema = new Schema(
     zip: {
       type: String,
       trim: true
+    },
+    // ISO 3166-1 alpha-2 country code. Defaults to Pakistan ("PK").
+    country: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: 'PK'
     },
     notes: {
       type: String,

@@ -15,6 +15,8 @@ import type {
   PendingPaymentAlert,
   ProductOriginData,
   ProductOriginProfitData,
+  PayableSupplier,
+  PayablesSummary,
   DashboardData
 } from '../types';
 
@@ -1343,6 +1345,78 @@ export async function getProductOriginProfitData(
 
 
 /**
+ * Get Payables Summary for the dashboard.
+ *
+ * One aggregation over Purchase (filtered to payment-tracked rows with an
+ * open balance) groups by supplier to produce the total owed, supplier count,
+ * aging buckets (driven by each supplier's oldest unpaid purchase), and the
+ * top debtors. Legacy purchases that predate payment tracking are treated as
+ * settled everywhere else in the app, so they are excluded here too.
+ */
+export async function getPayablesSummary(topN: number = 5): Promise<PayablesSummary> {
+  const empty: PayablesSummary = {
+    totalOutstanding: 0,
+    supplierCount: 0,
+    aging: { current: 0, days30: 0, days60: 0, days90Plus: 0 },
+    topSuppliers: []
+  };
+
+  try {
+    await dbConnect();
+
+    interface PayableGroup {
+      _id: string | null;
+      supplierName?: string;
+      outstanding: number;
+      oldestUnpaidDate?: Date;
+    }
+
+    const groups = (await PurchaseModel.aggregate([
+      { $match: { paymentsTracked: true, balanceAmount: { $gt: 0 } } },
+      {
+        $group: {
+          _id: { $ifNull: ['$supplierId', null] },
+          supplierName: { $first: '$supplier' },
+          outstanding: { $sum: '$balanceAmount' },
+          oldestUnpaidDate: { $min: '$purchaseDate' }
+        }
+      },
+      { $sort: { outstanding: -1 } }
+    ])) as PayableGroup[];
+
+    const today = startOfDay(new Date());
+    const payables: PayableSupplier[] = groups
+      .filter(group => group._id)
+      .map(group => ({
+        id: group._id as string,
+        supplierId: group._id as string,
+        name: group.supplierName || 'Unknown supplier',
+        outstandingBalance: group.outstanding,
+        oldestUnpaidDate: group.oldestUnpaidDate
+      }));
+
+    const aging = { current: 0, days30: 0, days60: 0, days90Plus: 0 };
+    for (const payable of payables) {
+      const age = payable.oldestUnpaidDate ? differenceInDays(today, new Date(payable.oldestUnpaidDate)) : 0;
+      if (age > 90) aging.days90Plus += payable.outstandingBalance;
+      else if (age > 60) aging.days60 += payable.outstandingBalance;
+      else if (age > 30) aging.days30 += payable.outstandingBalance;
+      else aging.current += payable.outstandingBalance;
+    }
+
+    return {
+      totalOutstanding: payables.reduce((sum, p) => sum + p.outstandingBalance, 0),
+      supplierCount: payables.length,
+      aging,
+      topSuppliers: payables.slice(0, topN)
+    };
+  } catch (error) {
+    console.error('Error fetching payables summary:', error);
+    return empty;
+  }
+}
+
+/**
  * Get Complete Dashboard Data
  */
 export async function getDashboardData(): Promise<DashboardData> {
@@ -1357,7 +1431,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     outOfStockAlerts,
     overdueInvoices,
     pendingPayments,
-    productOriginData
+    productOriginData,
+    payables
   ] = await Promise.all([
     getDashboardMetrics(),
     getSalesTrend(7),
@@ -1369,7 +1444,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     getLowStockAlerts(),
     getOverdueInvoices(),
     getPendingPayments(),
-    getProductOriginData()
+    getProductOriginData(),
+    getPayablesSummary()
   ]);
 
   return {
@@ -1383,6 +1459,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     outOfStockAlerts,
     overdueInvoices,
     pendingPayments,
-    productOriginData
+    productOriginData,
+    payables
   };
 }

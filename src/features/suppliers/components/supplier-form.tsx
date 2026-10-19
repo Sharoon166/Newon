@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { CountryDropdown } from '@/components/ui/country-dropdown';
 import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
 import { Supplier, CreateSupplierDto, UpdateSupplierDto } from '../types';
@@ -30,6 +31,7 @@ const supplierFormSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   zip: z.string().optional(),
+  country: z.string().optional(),
   notes: z.string().optional()
 });
 
@@ -56,6 +58,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
       city: initialData?.city || '',
       state: initialData?.state || '',
       zip: initialData?.zip || '',
+      country: initialData?.country || 'PK',
       notes: initialData?.notes || ''
     }
   });
@@ -90,6 +93,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
         if (transformedData.city) updateData.city = transformedData.city;
         if (transformedData.state) updateData.state = transformedData.state;
         if (transformedData.zip) updateData.zip = transformedData.zip;
+        updateData.country = data.country || 'PK';
         if (transformedData.notes) updateData.notes = transformedData.notes;
 
         const result = await updateSupplier(initialData.supplierId || '', updateData);
@@ -111,6 +115,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
         if (transformedData.city) createData.city = transformedData.city;
         if (transformedData.state) createData.state = transformedData.state;
         if (transformedData.zip) createData.zip = transformedData.zip;
+        createData.country = data.country || 'PK';
         if (transformedData.notes) createData.notes = transformedData.notes;
 
         const result = await createSupplier(createData);
@@ -205,7 +210,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <FormField
             control={form.control}
             name="city"
@@ -240,6 +245,19 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
                 <FormLabel>ZIP Code</FormLabel>
                 <FormControl>
                   <Input placeholder="10001" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="country"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Country</FormLabel>
+                <FormControl>
+                  <CountryDropdown value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

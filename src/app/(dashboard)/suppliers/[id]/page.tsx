@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { requirePermission } from '@/lib/auth-utils';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { getSupplierById } from '@/features/suppliers/actions';
+import { getSupplierById, getSupplierLedger } from '@/features/suppliers/actions';
+import { SupplierLedgerCard } from '@/features/suppliers/components/supplier-ledger-card';
+import { getCountryName } from '@/lib/countries';
 import { getAllPurchases } from '@/features/purchases/actions';
 import type { Purchase } from '@/features/purchases/types';
 import { Building2, Mail, MapPin, Pencil, Phone } from 'lucide-react';
@@ -17,6 +19,7 @@ interface SupplierDetailPageProps {
 }
 
 const PURCHASES_SHOWN = 25;
+const LEDGER_ENTRIES_SHOWN = 15;
 
 // getAllPurchases serializes the joined product name and variant details onto
 // each row; PaginatedPurchases' docs don't carry those fields.
@@ -82,11 +85,14 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
   const supplier = await getSupplierById(id);
   if (!supplier) notFound();
 
-  const purchasesData = await getAllPurchases({
-    supplierId: supplier.supplierId,
-    supplier: supplier.name,
-    limit: PURCHASES_SHOWN
-  });
+  const [purchasesData, ledger] = await Promise.all([
+    getAllPurchases({
+      supplierId: supplier.supplierId,
+      supplier: supplier.name,
+      limit: PURCHASES_SHOWN
+    }),
+    getSupplierLedger(supplier.supplierId || supplier.id, { limit: LEDGER_ENTRIES_SHOWN })
+  ]);
   const purchases = purchasesData.docs as PurchaseWithProduct[];
 
   const locationLine = [supplier.address, [supplier.city, supplier.state].filter(Boolean).join(', '), supplier.zip]
@@ -207,6 +213,8 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
               )}
             </CardContent>
           </Card>
+
+          <SupplierLedgerCard ledger={ledger} />
         </div>
 
         <div className="space-y-6">
@@ -255,6 +263,10 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Supplier ID</span>
                 <span className="font-mono text-xs">{supplier.supplierId || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Country</span>
+                <span>{getCountryName(supplier.country || 'PK')}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Added on</span>

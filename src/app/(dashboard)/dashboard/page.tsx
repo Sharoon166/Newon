@@ -9,6 +9,7 @@ import { SalesChart } from '@/features/dashboard/components/sales-chart';
 import { ProfitChart } from '@/features/dashboard/components/profit-chart';
 import { AlertsSection } from '@/features/dashboard/components/alerts-section';
 import { ProductOriginChart } from '@/features/dashboard/components/product-origin-chart';
+import { PayablesWidget } from '@/features/dashboard/components/payables-widget';
 import { getSession } from '@/lib/auth-utils';
 
 export const dynamic = 'force-dynamic';
@@ -64,15 +65,20 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section aria-labelledby="dashboard-alerts" className="grid gap-6">
-        <h2 id="dashboard-alerts" className="sr-only">
-          Alerts and tasks
+      <section aria-labelledby="dashboard-payables" className="grid gap-6 lg:grid-cols-3">
+        <h2 id="dashboard-payables" className="sr-only">
+          Payables
         </h2>
-        <AlertsSection
-          outOfStockAlerts={data.outOfStockAlerts}
-          overdueInvoices={data.overdueInvoices}
-          pendingPayments={data.pendingPayments}
-        />
+        <div className="lg:col-span-1">
+          <PayablesWidget summary={data.payables} />
+        </div>
+        <div className="lg:col-span-2">
+          <AlertsSection
+            outOfStockAlerts={data.outOfStockAlerts}
+            overdueInvoices={data.overdueInvoices}
+            pendingPayments={data.pendingPayments}
+          />
+        </div>
       </section>
     </div>
   );

@@ -88,6 +88,35 @@ export interface ProductOriginData {
 }
 
 /**
+ * A supplier that owes money, used by the Payables widget.
+ */
+export interface PayableSupplier {
+  id: string;
+  supplierId?: string;
+  name: string;
+  outstandingBalance: number;
+  /** Date of the oldest unpaid purchase - drives the aging buckets */
+  oldestUnpaidDate?: string | Date;
+}
+
+/**
+ * Payables summary for the dashboard: total owed, how many suppliers have an
+ * open balance, aging buckets (based on each supplier's oldest unpaid
+ * purchase), and the top debtors.
+ */
+export interface PayablesSummary {
+  totalOutstanding: number;
+  supplierCount: number;
+  aging: {
+    current: number;
+    days30: number;
+    days60: number;
+    days90Plus: number;
+  };
+  topSuppliers: PayableSupplier[];
+}
+
+/**
  * Dashboard Data
  */
 export interface DashboardData {
@@ -102,6 +131,7 @@ export interface DashboardData {
   overdueInvoices: OverdueInvoiceAlert[];
   pendingPayments: PendingPaymentAlert[];
   productOriginData: ProductOriginData[];
+  payables: PayablesSummary;
   productOriginProfitData?: ProductOriginProfitData[];
 }
 

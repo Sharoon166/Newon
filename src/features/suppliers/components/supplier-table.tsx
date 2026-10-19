@@ -18,8 +18,10 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowUpDown, Pencil, Search, Filter, Ban } from 'lucide-react';
+import { CircleFlag } from 'react-circle-flags';
 import { Supplier } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { getCountryName } from '@/lib/countries';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { TablePagination } from '@/components/general/table-pagination';
 
@@ -110,6 +112,28 @@ export function SupplierTable({ data, onEdit, actions }: SupplierTableProps) {
         const { city, state } = row.original;
         if (!city && !state) return '-';
         return `${city || ''}${city && state ? ', ' : ''}${state || ''}`;
+      }
+    },
+    {
+      accessorKey: 'country',
+      header: ({ column }) => (
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+          Country
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      // Sort by the display name, not the ISO code, so the column reads
+      // alphabetically; missing country falls back to Pakistan.
+      sortingFn: (rowA, rowB) =>
+        getCountryName(rowA.original.country || 'PK').localeCompare(getCountryName(rowB.original.country || 'PK')),
+      cell: ({ row }) => {
+        const code = row.original.country || 'PK';
+        return (
+          <div className="flex items-center gap-2">
+            <CircleFlag countryCode={code.toLowerCase()} height={8} className='size-8' />
+            <span>{getCountryName(code)}</span>
+          </div>
+        );
       }
     },
     {
