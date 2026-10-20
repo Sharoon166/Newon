@@ -14,6 +14,7 @@ interface PurchasesPageProps {
     limit?: string;
     search?: string;
     supplier?: string;
+    supplierId?: string;
     sort?: string;
     dir?: string;
   }>;
@@ -27,13 +28,14 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
   const limit = params.limit ? parseInt(params.limit) : 10;
   const search = params.search;
   const supplier = params.supplier;
+  const supplierId = params.supplierId;
   const sortBy = params.sort;
   const sortDir = params.dir === 'asc' ? 'asc' : params.dir === 'desc' ? 'desc' : undefined;
 
   const session = await getSession();
 
   const [purchasesData, products, stockStatus] = await Promise.all([
-    getAllPurchases({ page, limit, search, supplier, sortBy, sortDir }),
+    getAllPurchases({ page, limit, search, supplier, supplierId, sortBy, sortDir }),
     getProductsBasic(),
     getStockTrackingStatus()
   ]);

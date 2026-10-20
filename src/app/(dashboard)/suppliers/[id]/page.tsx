@@ -12,7 +12,7 @@ import { SupplierLedgerCard } from '@/features/suppliers/components/supplier-led
 import { getCountryName } from '@/lib/countries';
 import { getAllPurchases } from '@/features/purchases/actions';
 import type { Purchase } from '@/features/purchases/types';
-import { Building2, Mail, MapPin, Pencil, Phone } from 'lucide-react';
+import { ArrowUpRight, Building2, Mail, MapPin, Pencil, Phone } from 'lucide-react';
 
 interface SupplierDetailPageProps {
   params: Promise<{ id: string }>;
@@ -152,7 +152,15 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Purchases</CardTitle>
               <Button variant="outline" size="sm" asChild>
-                <Link href={`/purchases?supplier=${encodeURIComponent(supplier.name)}`}>View all purchases</Link>
+                {/* Pass the supplier id so the filter matches rows even after a
+                    rename (purchases store an old name snapshot); the name is
+                    kept as a fallback for legacy rows without a supplierId. */}
+                <Link
+                  href={`/purchases?supplierId=${encodeURIComponent(supplier.supplierId || supplier.id)}&supplier=${encodeURIComponent(supplier.name)}`}
+                  className='inline-flex items-center gap-1'
+                >
+                  View all purchases <ArrowUpRight />
+                </Link>
               </Button>
             </CardHeader>
             <CardContent>

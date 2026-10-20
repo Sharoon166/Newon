@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList
+} from '@/components/ui/combobox';
 import { getSuppliers } from '../actions';
 
 interface SupplierSelectProps {
@@ -25,6 +32,13 @@ interface SupplierSelectProps {
 }
 
 const LEGACY_PREFIX = '__legacy__:';
+
+interface SupplierOption {
+  supplierId: string;
+  name: string;
+  /** False for the pseudo entries (legacy name, unavailable supplier). */
+  selectable: boolean;
+}
 
 export function SupplierSelect({
   value,
@@ -64,40 +78,50 @@ export function SupplierSelect({
   const missingLinkedSupplier = !!value && !suppliers.some(s => s.supplierId === value);
   const selectValue = value || (hasLegacy ? `${LEGACY_PREFIX}${legacyName}` : '');
 
+  const options: SupplierOption[] = [
+    ...(hasLegacy
+      ? [{ supplierId: `${LEGACY_PREFIX}${legacyName}`, name: `${legacyName} (unlinked)`, selectable: false }]
+      : []),
+    ...(missingLinkedSupplier
+      ? [{ supplierId: value as string, name: `${currentName || value} (unavailable)`, selectable: false }]
+      : []),
+    ...suppliers.map(s => ({ ...s, selectable: true }))
+  ];
+
   return (
-    <Select
-      value={selectValue}
-      onValueChange={next => {
-        if (next.startsWith(LEGACY_PREFIX)) return;
-        const supplier = suppliers.find(s => s.supplierId === next);
-        if (supplier) {
-          onChange(supplier.supplierId, supplier.name);
-        } else {
-          onChange('', '');
-        }
+    <Combobox
+      items={options}
+      // The selected value is the option object itself; these two convert it to
+      // the name shown in the input and the text the list filters against.
+      itemToStringValue={(option: SupplierOption) => option.name}
+      itemToStringLabel={(option: SupplierOption) => option.name}
+      // Same object references as the ones handed to <ComboboxItem>, so Base UI's
+      // Object.is equality marks the current selection.
+      value={options.find(o => o.supplierId === selectValue) ?? null}
+      onValueChange={option => {
+        // The legacy "unlinked" entry only labels the free-text name; picking
+        // it shouldn't clear or change the linked supplier.
+        if (!option?.selectable) return;
+        onChange(option.supplierId, option.name);
       }}
+      autoHighlight
       disabled={disabled || loading}
     >
-      <SelectTrigger className={className ?? 'w-full truncate'}>
-        <SelectValue placeholder={loading ? 'Loading suppliers...' : placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {hasLegacy && (
-          <SelectItem value={`${LEGACY_PREFIX}${legacyName}`}>{legacyName} (unlinked)</SelectItem>
-        )}
-        {missingLinkedSupplier && (
-          <SelectItem value={value}>{currentName || value} (unavailable)</SelectItem>
-        )}
-        {suppliers.length === 0 && !hasLegacy && !missingLinkedSupplier ? (
-          <div className="px-2 py-1.5 text-sm text-muted-foreground">No suppliers yet</div>
-        ) : (
-          suppliers.map(supplier => (
-            <SelectItem key={supplier.supplierId} value={supplier.supplierId}>
-              {supplier.name}
-            </SelectItem>
-          ))
-        )}
-      </SelectContent>
-    </Select>
+      <ComboboxInput
+        className={className ?? 'w-full'}
+        placeholder={loading ? 'Loading suppliers...' : placeholder}
+        disabled={disabled || loading}
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>No suppliers found.</ComboboxEmpty>
+        <ComboboxList>
+          {(option: SupplierOption) => (
+            <ComboboxItem key={option.supplierId} value={option} disabled={!option.selectable}>
+              {option.name}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }

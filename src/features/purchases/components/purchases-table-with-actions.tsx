@@ -961,10 +961,14 @@ export function PurchasesTableWithActions({
     setSupplierFilter(value);
     const params = new URLSearchParams(searchParams.toString());
     if (value && value !== 'all') {
+      // The dropdown filters by the name snapshot on the rows; drop any
+      // supplierId deep-link param so it can't override this choice.
       params.set('supplier', value);
+      params.delete('supplierId');
       params.set('page', '1');
     } else {
       params.delete('supplier');
+      params.delete('supplierId');
     }
     router.push(`?${params.toString()}`, { scroll: false });
   };

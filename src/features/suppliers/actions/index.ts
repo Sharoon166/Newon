@@ -169,6 +169,11 @@ export async function updateSupplier(id: string, data: UpdateSupplierDto): Promi
   try {
     await dbConnect();
 
+    const existing = await SupplierModel.findOne({ supplierId: id }).lean();
+    if (!existing) {
+      return { success: false, error: 'Supplier not found' };
+    }
+
     // Filter out undefined values to avoid issues with MongoDB
     const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 
@@ -180,6 +185,25 @@ export async function updateSupplier(id: string, data: UpdateSupplierDto): Promi
 
     if (!updatedSupplier) {
       return { success: false, error: 'Supplier not found' };
+    }
+
+    // Purchases and products keep a denormalized `supplier` name snapshot taken
+    // at creation time. Renaming the supplier would leave those rows showing -
+    // and filtering by - the old name, so keep the snapshots in sync. Legacy
+    // rows created before supplier linking carry only the name (no supplierId),
+    // so they're matched by an exact old-name match instead.
+    const newName = data.name;
+    const oldName = existing.name;
+    if (newName && newName !== oldName) {
+      const syncSnapshot = { $set: { supplier: newName } };
+      const linked = { supplierId: id };
+      const unlinkedByName = { supplier: oldName, supplierId: { $in: [null, ''] } };
+      await Promise.all([
+        PurchaseModel.updateMany(linked, syncSnapshot),
+        PurchaseModel.updateMany(unlinkedByName, syncSnapshot),
+        ProductModel.updateMany(linked, syncSnapshot),
+        ProductModel.updateMany(unlinkedByName, syncSnapshot)
+      ]);
     }
 
     revalidatePath('/suppliers');
