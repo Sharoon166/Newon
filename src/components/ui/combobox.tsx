@@ -7,6 +7,7 @@ import { CheckIcon, ChevronDownIcon, XIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
+import { usePopupContainer } from '@/components/ui/popup-container';
 
 const Combobox = ComboboxPrimitive.Root;
 
@@ -84,8 +85,17 @@ function ComboboxContent({
   ...props
 }: ComboboxPrimitive.Popup.Props &
   Pick<ComboboxPrimitive.Positioner.Props, 'side' | 'align' | 'sideOffset' | 'alignOffset' | 'anchor'>) {
+  // Inside a Radix Dialog the popup must portal into the dialog content
+  // instead of `<body>`, where the dialog's body pointer-events lock would
+  // make every click on it dead (see popup-container.tsx).
+  const container = usePopupContainer();
   return (
-    <ComboboxPrimitive.Portal>
+    <ComboboxPrimitive.Portal
+      container={container ?? undefined}
+      // `display: contents` keeps the portal wrapper out of the dialog's grid
+      // layout, so opening the popup doesn't shift the dialog's contents.
+      className={container ? 'contents' : undefined}
+    >
       <ComboboxPrimitive.Positioner
         side={side}
         sideOffset={sideOffset}
