@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, Pencil, Search, Filter, Ban } from 'lucide-react';
+import { ArrowUpDown, Pencil, Search, Filter } from 'lucide-react';
 import { CircleFlag } from 'react-circle-flags';
 import { Supplier } from '../types';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -70,7 +70,6 @@ export function SupplierTable({ data, onEdit, actions }: SupplierTableProps) {
       header: 'Supplier ID',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {row.original.disabled && <Ban className="h-4 w-4 text-red-500" />}
           <div className="font-mono text-sm">{row.original.supplierId || '-'}</div>
         </div>
       )
