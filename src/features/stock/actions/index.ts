@@ -786,6 +786,9 @@ const CHALLAN_KIND: Record<string, StockChallanKind> = {
  * product.
  */
 export async function getStockChallan(input: { movementId: string }): Promise<StockChallanData | null> {
+  // Challan printing is admin-only - assert before touching the database so
+  // the action can't be invoked directly by staff.
+  await assertPermission('print:stock');
   await dbConnect();
 
   const movement = (await StockMovementModel.findOne({ movementId: input.movementId })

@@ -14,7 +14,8 @@ const PAGE_LIMIT = 1_000;
 const SLIP_KINDS: StockMovementKind[] = ['receive', 'deliver', 'adjustment', 'opening', 'reversal'];
 
 export default async function StockPrintSlipsPage({ searchParams }: StockPrintSlipsPageProps) {
-  await requirePermission('view:stock');
+  // Staff may view stock, but printing slips (and challans) is admin-only.
+  await requirePermission('print:stock');
 
   const session = await getSession();
   const params = await searchParams;

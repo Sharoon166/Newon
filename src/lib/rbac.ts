@@ -45,7 +45,9 @@ export type Permission =
   // Physical stock tracking
   | 'view:stock'
   | 'edit:stock'
-  | 'reverse:stock';
+  | 'reverse:stock'
+  // Printing stock slips and challans is admin-only.
+  | 'print:stock';
 
 // Define permissions for each role
 const rolePermissions: Record<Role, Permission[]> = {
@@ -89,7 +91,8 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:project-invoices',
     'view:stock',
     'edit:stock',
-    'reverse:stock'
+    'reverse:stock',
+    'print:stock'
   ],
   // Staff can view invoices and create purchases/suppliers, but never create,
   // edit or delete invoices (quotations included — same permission), and never

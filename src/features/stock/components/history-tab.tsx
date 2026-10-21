@@ -284,6 +284,10 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   };
 
   const canReverse = userRole === 'admin';
+  // Printing slips and challans is admin-only (mirrors server-side checks:
+  // requirePermission('print:stock') on /stock/print and assertPermission in
+  // getStockChallan) - staff simply never see the print actions.
+  const canPrint = userRole === 'admin';
 
   const columns = useMemo<ColumnDef<StockMovement>[]>(
     () => [
@@ -448,7 +452,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
             movement.reversed || movement.kind === 'opening' || movement.kind === 'reversal';
           return (
             <div className="flex items-center justify-end gap-1">
-              {canChallan && (
+              {canChallan && canPrint && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -459,7 +463,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                   <FileDown className="h-3.5 w-3.5" />
                 </Button>
               )}
-              {stockMeta && StockIcon && (
+              {stockMeta && StockIcon && canPrint && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -470,17 +474,19 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                   <StockIcon className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                aria-label={`Print slip ${movement.movementId}`}
-                title="Print slip"
-              >
-                <Link href={`/stock/print?ids=${encodeURIComponent(movement.id)}`} target="_blank">
-                  <Printer className="h-3.5 w-3.5" />
-                </Link>
-              </Button>
+              {canPrint && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  asChild
+                  aria-label={`Print slip ${movement.movementId}`}
+                  title="Print slip"
+                >
+                  <Link href={`/stock/print?ids=${encodeURIComponent(movement.id)}`} target="_blank">
+                    <Printer className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              )}
               {canReverse && (
                 <Button
                   variant="ghost"
@@ -499,7 +505,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         }
       } satisfies ColumnDef<StockMovement>
     ],
-    [canReverse, expandedIds, toggleExpanded]
+    [canPrint, canReverse, expandedIds, toggleExpanded]
   );
 
   const table = useReactTable({
@@ -598,12 +604,14 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
             </SelectContent>
           </Select>
         </div>
-        <Button variant="secondary" size="sm" asChild>
-          <Link href={printHref} target="_blank">
-            <PrinterIcon />
-            Print slips
-          </Link>
-        </Button>
+        {canPrint && (
+          <Button variant="secondary" size="sm" asChild>
+            <Link href={printHref} target="_blank">
+              <PrinterIcon />
+              Print slips
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className={`rounded-md border overflow-x-auto ${isRefetching ? 'opacity-60' : ''}`}>
