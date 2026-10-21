@@ -68,124 +68,126 @@ import { groupItemsByVariant, buildEffectiveStockByPurchase, type GroupedInvoice
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 
-const invoiceFormSchema = z.object({
-  logo: z.string().optional(),
-  billingType: z.enum(['wholesale', 'retail']).default('retail'),
-  market: z.enum(['newon', 'waymor']).default('newon'),
-  customerId: z.string().optional(),
-  company: z.object({
-    name: z.string().min(1, 'Company name is required'),
-    address: z.string().min(1, 'Address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State is required'),
-    zip: z.string().min(1, 'ZIP code is required'),
-    phone: z.string().min(1, 'Phone is required'),
-    email: z.string().email('Invalid email address'),
-    website: z.string().optional()
-  }),
-  client: z.object({
-    name: z.string().min(1, 'Client name is required'),
-    company: z.string().optional(),
-    address: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    zip: z.string().optional(),
-    email: z.email('Invalid email address').optional().or(z.literal('')),
-    phone: z.string().optional()
-  }),
-  invoiceNumber: z.string().optional(), // Auto-generated on save
-  date: z.string().min(1, 'Date is required'),
-  dueDate: z.string().min(1, 'Due date is required'),
-  customerPO: z.string().optional(),
-  items: z
-    .array(
-      z.object({
-        id: z.string(),
-        description: z.string().min(1, 'Description is required'),
-        quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
-        unit: z.string().min(1, 'Unit is required').default('pcs'),
-        rate: z.number().min(0, 'Rate must be 0 or greater'),
-        amount: z.number().min(0, 'Amount must be 0 or greater'),
-        productId: z.string().optional(),
-        variantId: z.string().optional(),
-        variantSKU: z.string().optional(),
-        virtualProductId: z.string().optional(),
-        isVirtualProduct: z.boolean().optional(),
-        purchaseId: z.string().optional(),
-        originalRate: z.number().optional(),
-        saleRate: z.number().optional(),
-        componentBreakdown: z
-          .array(
-            z.object({
-              productId: z.string(),
-              variantId: z.string(),
-              productName: z.string(),
-              sku: z.string(),
-              quantity: z.number(),
-              purchaseId: z.string(),
-              unitCost: z.number(),
-              totalCost: z.number()
-            })
-          )
-          .optional(),
-        customExpenses: z
-          .array(
-            z.object({
-              name: z.string(),
-              amount: z.number(),
-              actualCost: z.number(),
-              clientCost: z.number(),
-              category: z.string(),
-              description: z.string().optional(),
-              expenseId: z.string().optional()
-            })
-          )
-          .optional(),
-        totalComponentCost: z.number().optional(),
-        totalCustomExpenses: z.number().optional()
-      })
-    )
-    .min(1, 'At least one item is required'),
-  taxRate: z.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100').default(0),
-  discount: z.number().min(0, 'Discount cannot be negative').default(0),
-  discountType: z.enum(['percentage', 'fixed']).default('fixed'),
-  amountInWords: z.string().optional(),
-  paid: z.number().min(0, 'Cannot be negative').default(0),
-  remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
-  profit: z.number().min(0, 'Profit cannot be negative').default(0),
-  description: z.string().optional(),
-  notes: z.string().optional(),
-  terms: z.string().optional(),
-  additionalCharges: z
-    .array(
-      z.object({
-        description: z.string().min(1, 'Description is required'),
-        value: z.number().min(0, 'Value must be 0 or greater')
-      })
-    )
-    .optional(),
-  paymentDetails: z.object({
-    bankName: z.string(),
-    accountNumber: z.string(),
-    iban: z.string()
+const invoiceFormSchema = z
+  .object({
+    logo: z.string().optional(),
+    billingType: z.enum(['wholesale', 'retail']).default('retail'),
+    market: z.enum(['newon', 'waymor']).default('newon'),
+    customerId: z.string().optional(),
+    company: z.object({
+      name: z.string().min(1, 'Company name is required'),
+      address: z.string().min(1, 'Address is required'),
+      city: z.string().min(1, 'City is required'),
+      state: z.string().min(1, 'State is required'),
+      zip: z.string().min(1, 'ZIP code is required'),
+      phone: z.string().min(1, 'Phone is required'),
+      email: z.string().email('Invalid email address'),
+      website: z.string().optional()
+    }),
+    client: z.object({
+      name: z.string().min(1, 'Client name is required'),
+      company: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      zip: z.string().optional(),
+      email: z.email('Invalid email address').optional().or(z.literal('')),
+      phone: z.string().optional()
+    }),
+    invoiceNumber: z.string().optional(), // Auto-generated on save
+    date: z.string().min(1, 'Date is required'),
+    dueDate: z.string().min(1, 'Due date is required'),
+    customerPO: z.string().optional(),
+    items: z
+      .array(
+        z.object({
+          id: z.string(),
+          description: z.string().min(1, 'Description is required'),
+          quantity: z.number().int('Quantity must be a whole number').min(1, 'Quantity must be at least 1'),
+          unit: z.string().min(1, 'Unit is required').default('pcs'),
+          rate: z.number().min(0, 'Rate must be 0 or greater'),
+          amount: z.number().min(0, 'Amount must be 0 or greater'),
+          productId: z.string().optional(),
+          variantId: z.string().optional(),
+          variantSKU: z.string().optional(),
+          virtualProductId: z.string().optional(),
+          isVirtualProduct: z.boolean().optional(),
+          purchaseId: z.string().optional(),
+          originalRate: z.number().optional(),
+          saleRate: z.number().optional(),
+          componentBreakdown: z
+            .array(
+              z.object({
+                productId: z.string(),
+                variantId: z.string(),
+                productName: z.string(),
+                sku: z.string(),
+                quantity: z.number(),
+                purchaseId: z.string(),
+                unitCost: z.number(),
+                totalCost: z.number()
+              })
+            )
+            .optional(),
+          customExpenses: z
+            .array(
+              z.object({
+                name: z.string(),
+                amount: z.number(),
+                actualCost: z.number(),
+                clientCost: z.number(),
+                category: z.string(),
+                description: z.string().optional(),
+                expenseId: z.string().optional()
+              })
+            )
+            .optional(),
+          totalComponentCost: z.number().optional(),
+          totalCustomExpenses: z.number().optional()
+        })
+      )
+      .min(1, 'At least one item is required'),
+    taxRate: z.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100').default(0),
+    discount: z.number().min(0, 'Discount cannot be negative').default(0),
+    discountType: z.enum(['percentage', 'fixed']).default('fixed'),
+    amountInWords: z.string().optional(),
+    paid: z.number().min(0, 'Cannot be negative').default(0),
+    remainingPayment: z.number().min(0, 'Cannot be negative').default(0),
+    profit: z.number().min(0, 'Profit cannot be negative').default(0),
+    description: z.string().optional(),
+    notes: z.string().optional(),
+    terms: z.string().optional(),
+    additionalCharges: z
+      .array(
+        z.object({
+          description: z.string().min(1, 'Description is required'),
+          value: z.number().min(0, 'Value must be 0 or greater')
+        })
+      )
+      .optional(),
+    paymentDetails: z.object({
+      bankName: z.string(),
+      accountNumber: z.string(),
+      iban: z.string()
+    })
   })
-}).superRefine((data, ctx) => {
-  // The due date must land on or after the invoice date - the same day is
-  // fine, only an earlier one is not.
-  if (!data.date || !data.dueDate) return;
+  .superRefine((data, ctx) => {
+    // The due date must land on or after the invoice date - the same day is
+    // fine, only an earlier one is not.
+    if (!data.date || !data.dueDate) return;
 
-  const invoiceDate = new Date(data.date);
-  const dueDate = new Date(data.dueDate);
-  if (Number.isNaN(invoiceDate.getTime()) || Number.isNaN(dueDate.getTime())) return;
+    const invoiceDate = new Date(data.date);
+    const dueDate = new Date(data.dueDate);
+    if (Number.isNaN(invoiceDate.getTime()) || Number.isNaN(dueDate.getTime())) return;
 
-  if (dueDate.getTime() < invoiceDate.getTime()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dueDate'],
-      message: 'Due date cannot be before the invoice date'
-    });
-  }
-});
+    if (dueDate.getTime() < invoiceDate.getTime()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['dueDate'],
+        message: 'Due date cannot be before the invoice date'
+      });
+    }
+  });
 
 type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 
@@ -235,14 +237,16 @@ export function NewInvoiceForm({
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
   const getBrandById = useBrandStore(state => state.getBrandById);
-  
+
   // Get payment details with brand-specific fallback
-  const globalPaymentDetails = initialPaymentDetails ? {
-    bankName: initialPaymentDetails.BANK_NAME,
-    accountNumber: initialPaymentDetails.ACCOUNT_NUMBER,
-    iban: initialPaymentDetails.IBAN
-  } : undefined;
-  
+  const globalPaymentDetails = initialPaymentDetails
+    ? {
+        bankName: initialPaymentDetails.BANK_NAME,
+        accountNumber: initialPaymentDetails.ACCOUNT_NUMBER,
+        iban: initialPaymentDetails.IBAN
+      }
+    : undefined;
+
   const form = useForm<InvoiceFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(invoiceFormSchema) as any,
@@ -276,7 +280,7 @@ export function NewInvoiceForm({
       // The due date may share the invoice date, so it starts on it when the
       // caller did not supply one.
       dueDate: initialData?.dueDate || initialData?.date || getToday(),
-      customerPO: initialData?.customerPO || "",
+      customerPO: initialData?.customerPO || '',
       items: initialData?.items || [],
       taxRate: initialData?.taxRate ?? 0,
       discount: initialData?.discount ?? 0,
@@ -457,7 +461,7 @@ export function NewInvoiceForm({
     const diff = newTotalQty - group.totalQuantity;
     if (diff === 0) return;
 
-if (diff > 0) {
+    if (diff > 0) {
       // Increase: distribute across batches in order, moving to the next batch once
       // the current one has consumed all its purchase stock headroom. Headroom comes
       // from the same reactive effectiveStockByPurchase map the selector uses, so
@@ -466,9 +470,7 @@ if (diff > 0) {
       for (const batch of group.batches) {
         if (toAdd <= 0) break;
         const currentQty = form.getValues(`items.${batch.fieldIndex}.quantity`);
-        const headroom = !batch.purchaseId
-          ? Infinity
-          : (effectiveStockByPurchase.get(batch.purchaseId) ?? Infinity);
+        const headroom = !batch.purchaseId ? Infinity : (effectiveStockByPurchase.get(batch.purchaseId) ?? Infinity);
         const increase = Math.min(toAdd, headroom);
         if (increase <= 0) continue;
         form.setValue(`items.${batch.fieldIndex}.quantity`, currentQty + increase);
@@ -477,7 +479,7 @@ if (diff > 0) {
       }
       // No batch had headroom left (all stock exhausted, or untracked purchases):
       // oversell on the last batch rather than blocking the increase.
-            // When existing batches are exhausted, create new line items from the next
+      // When existing batches are exhausted, create new line items from the next
       // available purchase — identical to what the card's "Add to Invoice" does.
       if (toAdd > 0) {
         const usedPurchaseIds = new Set(group.batches.map(b => b.purchaseId).filter(Boolean));
@@ -492,7 +494,7 @@ if (diff > 0) {
           const existingRate = group.batches[0]?.rate;
           const refPurchase = purchases.find(p => p.purchaseId === group.batches[0]?.purchaseId);
           const useRetail = refPurchase ? existingRate === refPurchase.retailPrice : true;
-          const rate = useRetail ? (purchase.retailPrice || 0) : (purchase.wholesalePrice || 0);
+          const rate = useRetail ? purchase.retailPrice || 0 : purchase.wholesalePrice || 0;
           append({
             id: uuidv4(),
             description: group.description,
@@ -505,7 +507,7 @@ if (diff > 0) {
             variantSKU: group.variantSKU,
             purchaseId: purchase.purchaseId,
             originalRate: purchase.unitPrice,
-            saleRate: rate,
+            saleRate: rate
           });
           toAdd -= increase;
         }
@@ -551,14 +553,25 @@ if (diff > 0) {
       let exhausted = true;
       for (const batch of group.batches) {
         if (batch.purchaseId) {
-          if ((effectiveStockByPurchase.get(batch.purchaseId) ?? Infinity) > 0) { exhausted = false; break; }
-        } else { exhausted = false; break; }
+          if ((effectiveStockByPurchase.get(batch.purchaseId) ?? Infinity) > 0) {
+            exhausted = false;
+            break;
+          }
+        } else {
+          exhausted = false;
+          break;
+        }
       }
       if (exhausted) {
         const used = new Set(group.batches.map(b => b.purchaseId).filter(Boolean));
         for (const p of purchases) {
-          if (p.variantId === group.variantId && !used.has(p.purchaseId) && (effectiveStockByPurchase.get(p.purchaseId) ?? 0) > 0) {
-            exhausted = false; break;
+          if (
+            p.variantId === group.variantId &&
+            !used.has(p.purchaseId) &&
+            (effectiveStockByPurchase.get(p.purchaseId) ?? 0) > 0
+          ) {
+            exhausted = false;
+            break;
           }
         }
       }
@@ -851,7 +864,11 @@ if (diff > 0) {
     // Validate due date is not before the invoice date (same day is allowed)
     const dueDate = new Date(data.dueDate);
     const invoiceDate = new Date(data.date);
-    if (!Number.isNaN(invoiceDate.getTime()) && !Number.isNaN(dueDate.getTime()) && dueDate.getTime() < invoiceDate.getTime()) {
+    if (
+      !Number.isNaN(invoiceDate.getTime()) &&
+      !Number.isNaN(dueDate.getTime()) &&
+      dueDate.getTime() < invoiceDate.getTime()
+    ) {
       toast.error('Invalid due date', {
         description: 'Due date cannot be before the invoice date.'
       });
@@ -969,8 +986,7 @@ if (diff > 0) {
   const todayStart = new Date(`${today}T00:00:00`);
   const invoiceDateStart = watchedInvoiceDate ? new Date(`${watchedInvoiceDate}T00:00:00`) : null;
   const isDueDateDisabled = (date: Date) =>
-    !Number.isNaN(date.getTime()) &&
-    (date < todayStart || (invoiceDateStart !== null && date < invoiceDateStart));
+    !Number.isNaN(date.getTime()) && (date < todayStart || (invoiceDateStart !== null && date < invoiceDateStart));
 
   const handleNumericInput = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -1140,9 +1156,7 @@ if (diff > 0) {
                   </Popover>
                   <FormMessage />
                   {invoiceDateStart && !Number.isNaN(invoiceDateStart.getTime()) && (
-                    <p className="text-xs text-muted-foreground">
-                      On or after {format(invoiceDateStart, 'PPP')}
-                    </p>
+                    <p className="text-xs text-muted-foreground">On or after {format(invoiceDateStart, 'PPP')}</p>
                   )}
                 </FormItem>
               )}
@@ -1316,13 +1330,11 @@ if (diff > 0) {
             <FormItem>
               <FormLabel className="text-base font-semibold">Purchase Order (PO) Number</FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="Enter customer's PO number (e.g., PO-2026-001)" 
-                  {...field}
-                  className="text-base"
-                />
+                <Input placeholder="Enter customer's PO number (e.g., PO-2026-001)" {...field} className="text-base" />
               </FormControl>
-              <p className="text-xs text-muted-foreground">Customer's purchase order reference - will appear on the invoice</p>
+              <p className="text-xs text-muted-foreground">
+                Customer's purchase order reference - will appear on the invoice
+              </p>
               <FormMessage />
             </FormItem>
           )}
@@ -1428,10 +1440,10 @@ if (diff > 0) {
 
                   const firstBatchField = group.batches[0];
                   const vpTotalComponentCost = group.isVirtualProduct
-                    ? (form.watch(`items.${firstBatchField.fieldIndex}.totalComponentCost`) || 0)
+                    ? form.watch(`items.${firstBatchField.fieldIndex}.totalComponentCost`) || 0
                     : 0;
                   const vpTotalCustomExpenses = group.isVirtualProduct
-                    ? (form.watch(`items.${firstBatchField.fieldIndex}.totalCustomExpenses`) || 0)
+                    ? form.watch(`items.${firstBatchField.fieldIndex}.totalCustomExpenses`) || 0
                     : 0;
                   const vpActualCost = vpTotalComponentCost + vpTotalCustomExpenses;
                   const vpProfitPerUnit = group.unifiedRate - vpActualCost;
@@ -1468,28 +1480,26 @@ if (diff > 0) {
                         </div>
                         <div className="flex items-center gap-1">
                           {group.batches.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => toggleGroupExpand(group.key)}
-                          >
-                            {expandedGroups.has(group.key) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => toggleGroupExpand(group.key)}
+                            >
+                              {expandedGroups.has(group.key) ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
                           )}
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                              const indices = group.batches
-                                .map(b => b.fieldIndex)
-                                .sort((a, b) => b - a);
+                              const indices = group.batches.map(b => b.fieldIndex).sort((a, b) => b - a);
                               for (const idx of indices) {
                                 remove(idx);
                               }

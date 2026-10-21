@@ -356,7 +356,7 @@ export function PurchaseForm({
           notes: data.notes
         };
         await createPurchase(createData);
-        window.location.reload(); // to update the inventory tab
+        // window.location.reload(); // to update the inventory tab
         toast.success('Purchase created successfully');
       }
 

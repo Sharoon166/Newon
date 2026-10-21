@@ -70,7 +70,7 @@ export function PrintableSupplierLedger({ ledger }: PrintableSupplierLedgerProps
               <span className="font-medium">{formatCurrency(summary.totalCredit)}</span>
             </div>
             <div className="flex justify-between font-semibold border-t pt-1">
-              <span>Balance Owed:</span>
+              <span>Balance Payable:</span>
               <span>{formatCurrency(summary.closingBalance)}</span>
             </div>
           </div>
@@ -121,7 +121,7 @@ export function PrintableSupplierLedger({ ledger }: PrintableSupplierLedgerProps
             <tfoot>
               <tr className="border-t-2 border-black font-semibold">
                 <td colSpan={3} className="py-2">
-                  Totals
+                  Closing Balance Payable
                 </td>
                 <td className="py-2 text-right">{formatCurrency(summary.totalDebit)}</td>
                 <td className="py-2 text-right">{formatCurrency(summary.totalCredit)}</td>

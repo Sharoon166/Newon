@@ -63,7 +63,11 @@ export function groupItemsByVariant<T extends {
     const item = items[i];
     if (!item || item.quantity <= 0) continue; // skip fully-consumed batches
     const isVP = item.isVirtualProduct === true;
-    const groupKey = isVP ? `vp_${item.virtualProductId}` : `variant_${item.variantId}`;
+    // Composite key so a duplicate/corrupt variantId alone can never merge
+    // unrelated products — productId and SKU disambiguate.
+    const groupKey = isVP
+      ? `vp_${item.virtualProductId}`
+      : `variant_${item.productId ?? ''}_${item.variantId ?? ''}_${item.variantSKU ?? ''}`;
     const itemDescription = item.description || item.productName || 'Unnamed';
 
     const originalCost = isVP
