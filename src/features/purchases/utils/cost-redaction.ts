@@ -22,19 +22,31 @@ const COST_FIELDS = [
   'balanceAmount'
 ] as const;
 
+/**
+ * Purchase fields that reveal which supplier the goods were bought from.
+ *
+ * The source of imported stock is confidential for the same reason as its
+ * cost, so these are stripped together with `COST_FIELDS` (same permission,
+ * same rows). `productSupplier` is the supplier snapshot carried over from
+ * the joined Product document, so it must not survive either.
+ */
+const SUPPLIER_FIELDS = ['supplier', 'supplierId', 'productSupplier'] as const;
+
 /** True when this purchase must hide its cost data from the caller. */
 export function redactsImportedCosts(origin: Purchase['origin'], canViewImportedCosts: boolean): boolean {
   return !canViewImportedCosts && origin === 'imported';
 }
 
 /**
- * Strip the cost fields off a purchase of an imported product when the caller
- * lacks `view:imported-purchase-costs`.
+ * Strip the cost and supplier fields off a purchase of an imported product
+ * when the caller lacks `view:imported-purchase-costs`.
  *
- * The cost fields become `undefined` at runtime; the object is returned typed
- * as `T` so the rest of the codebase keeps its `number` types. Consumers must
- * check `costsRedacted` before rendering a number - `formatCurrency` renders a
- * missing value as "Rs 0", which would be a lie, so the UI shows "—" instead.
+ * The stripped fields become `undefined` at runtime; the object is returned
+ * typed as `T` so the rest of the codebase keeps its `number` types.
+ * Consumers must check `costsRedacted` before rendering a number -
+ * `formatCurrency` renders a missing value as "Rs 0", which would be a lie,
+ * so the UI shows "—" instead - and `supplierRedacted` before rendering the
+ * supplier name.
  *
  * `origin` may be passed explicitly for payloads that were projected without
  * the joined product document (e.g. the aggregate actions). Loose `object`
@@ -47,8 +59,14 @@ export function redactImportedCosts<T extends object>(
 ): T {
   if (!redactsImportedCosts(origin, canViewImportedCosts)) return purchase;
 
-  const redacted = { ...purchase, costsRedacted: true } as T & { costsRedacted?: boolean };
+  const redacted = { ...purchase, costsRedacted: true, supplierRedacted: true } as T & {
+    costsRedacted?: boolean;
+    supplierRedacted?: boolean;
+  };
   for (const field of COST_FIELDS) {
+    (redacted as Record<string, unknown>)[field] = undefined;
+  }
+  for (const field of SUPPLIER_FIELDS) {
     (redacted as Record<string, unknown>)[field] = undefined;
   }
   return redacted;

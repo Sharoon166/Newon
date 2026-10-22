@@ -1119,11 +1119,21 @@ export function PurchasesTableWithActions({
       {
         accessorKey: 'supplier',
         header: 'Supplier',
-        cell: ({ row }) => (
-          <Badge variant="outline" className="whitespace-nowrap">
-            {row.original.supplier}
-          </Badge>
-        )
+        cell: ({ row }) => {
+          // Who supplies imported stock is admin-only - show the row, hide the name.
+          if (row.original.supplierRedacted) {
+            return (
+              <span className="text-muted-foreground" title="Supplier of imported products is hidden">
+                —
+              </span>
+            );
+          }
+          return (
+            <Badge variant="outline" className="whitespace-nowrap">
+              {row.original.supplier}
+            </Badge>
+          );
+        }
       },
       {
         id: 'stock',

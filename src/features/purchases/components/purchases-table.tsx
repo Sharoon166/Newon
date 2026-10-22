@@ -117,7 +117,15 @@ export function PurchasesTable({
                 </TableCell>
                 <TableCell>{formatDate(purchase.purchaseDate)}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{purchase.supplier}</Badge>
+                  {/* Supplier of imported rows is admin-only (already stripped
+                      server-side) - "—" mirrors the redacted cost columns. */}
+                  {purchase.supplierRedacted ? (
+                    <span className="text-muted-foreground" title="Supplier of imported products is hidden">
+                      —
+                    </span>
+                  ) : (
+                    <Badge variant="outline">{purchase.supplier}</Badge>
+                  )}
                 </TableCell>
                 <TableCell>{getLocationName(purchase.locationId)}</TableCell>
                 <TableCell className="text-right">{purchase.quantity}</TableCell>

@@ -72,6 +72,13 @@ export async function getSuppliers(filters?: SupplierFilters & { includeDisabled
       ];
     }
 
+    if (filters?.country) {
+      // Legacy suppliers created before the country field existed have no
+      // stored value; they are Pakistani by the same convention the transform
+      // uses, so null/missing matches the requested country too.
+      query.country = { $in: [filters.country.toUpperCase(), null] };
+    }
+
     if (filters?.dateFrom || filters?.dateTo) {
       const dateQuery: Record<string, Date> = {};
       if (filters.dateFrom) {

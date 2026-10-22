@@ -29,6 +29,11 @@ interface SupplierSelectProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /**
+   * ISO 3166-1 alpha-2 code (e.g. "PK") to restrict the list to suppliers of
+   * that country. Undefined shows every supplier.
+   */
+  restrictToCountry?: string;
 }
 
 const LEGACY_PREFIX = '__legacy__:';
@@ -47,14 +52,15 @@ export function SupplierSelect({
   currentName,
   placeholder = 'Select supplier',
   disabled,
-  className
+  className,
+  restrictToCountry
 }: SupplierSelectProps) {
   const [suppliers, setSuppliers] = useState<{ supplierId: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    getSuppliers()
+    getSuppliers(restrictToCountry ? { country: restrictToCountry } : undefined)
       .then(list => {
         if (!active) return;
         setSuppliers(
@@ -70,7 +76,7 @@ export function SupplierSelect({
     return () => {
       active = false;
     };
-  }, []);
+  }, [restrictToCountry]);
 
   const hasLegacy = !value && !!legacyName;
   // The linked supplier may no longer be selectable (disabled). Keep showing it

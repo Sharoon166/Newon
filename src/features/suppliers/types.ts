@@ -39,6 +39,8 @@ export type UpdateSupplierDto = Partial<CreateSupplierDto>;
 
 export interface SupplierFilters {
   search?: string;
+  /** ISO 3166-1 alpha-2 code (e.g. "PK") to narrow results to one country. */
+  country?: string;
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;

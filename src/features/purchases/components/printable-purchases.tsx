@@ -34,10 +34,14 @@ export function PrintablePurchases({ data, selectedSupplier }: PrintablePurchase
   const hasRedactedCosts = filteredData.some(p => p.costsRedacted);
   const totalCostLabel = hasRedactedCosts ? '—' : formatCurrency(totalCost);
 
-  // Group purchases by supplier for better organization
+  // Group purchases by supplier for better organization. Rows whose supplier
+  // was redacted (imported purchases for staff) are grouped under a neutral
+  // label instead of "Unknown Supplier", so the report never invents a name.
   const purchasesBySupplier = filteredData.reduce(
     (acc, purchase) => {
-      const supplier = purchase.supplier || 'Unknown Supplier';
+      const supplier = purchase.supplierRedacted
+        ? 'Confidential'
+        : purchase.supplier || 'Unknown Supplier';
       if (!acc[supplier]) {
         acc[supplier] = [];
       }

@@ -57,6 +57,12 @@ export interface Purchase {
    */
   costsRedacted?: boolean;
   /**
+   * True when the supplier fields (supplier, supplierId, productSupplier) were
+   * stripped server-side for the same reason as `costsRedacted` - who supplies
+   * imported stock is confidential too. Render "—" for the supplier column.
+   */
+  supplierRedacted?: boolean;
+  /**
    * Partial payment tracking. Amount owed = goods cost (quantity *
    * purchasePrice, or totalCost for legacy rows); shipping excluded.
    */

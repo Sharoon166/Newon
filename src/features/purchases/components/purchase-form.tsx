@@ -595,6 +595,7 @@ export function PurchaseForm({
                         value={form.watch('supplierId')}
                         legacyName={!form.watch('supplierId') ? form.watch('supplier') : undefined}
                         currentName={form.watch('supplier')}
+                        restrictToCountry={!canCreateImported ? 'PK' : undefined}
                         onChange={(supplierId, supplierName) => {
                           form.setValue('supplierId', supplierId, { shouldValidate: true });
                           form.setValue('supplier', supplierName, { shouldValidate: true });
