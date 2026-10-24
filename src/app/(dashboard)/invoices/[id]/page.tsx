@@ -31,7 +31,7 @@ import { convertToWords } from '@/features/invoices/utils';
 import { printInvoicePDF } from '@/features/invoices/utils/print-invoice';
 import { InvoiceItemsTable } from '@/components/invoices/invoice-items-table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePermission } from '@/hooks/use-permission';
+import { usePermission, useIsAdmin } from '@/hooks/use-permission';
 import { groupItemsByVariant } from '@/features/invoices/utils/group-items';
 
 // Code-split the delivery card (it pulls in the deliver dialog and the stock
@@ -58,6 +58,7 @@ export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const canEdit = usePermission('edit:invoices');
+  const isAdmin = useIsAdmin();
   const canAddPayment = canEdit;
   const getBrandById = useBrandStore(state => state.getBrandById);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -704,7 +705,7 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
 
-              {invoice.profit !== undefined && invoice.profit > 0 && (
+              {isAdmin && invoice.profit !== undefined && invoice.profit > 0 && (
                 <div className="flex justify-between bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
                   <span className="text-sm font-medium text-green-800">Profit:</span>
 
