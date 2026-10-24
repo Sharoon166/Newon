@@ -239,6 +239,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: ScrollTextIcon
         },
         {
+          name: 'Expenses',
+          url: '/expenses',
+          icon: Receipt
+        },
+        {
           name: 'Stock',
           url: '/stock',
           icon: BarChart4

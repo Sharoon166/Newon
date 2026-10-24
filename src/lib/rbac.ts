@@ -101,6 +101,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'view:inventory',
     'view:projects',
     'add:expenses',
+    // Staff can read the manual expense ledger but cannot manage every entry —
+    // writes are limited by ownership checks in the expense actions, and
+    // deletion stays admin-only.
+    'view:expenses',
     'view:invoices',
     'view:purchases',
     'create:purchases',

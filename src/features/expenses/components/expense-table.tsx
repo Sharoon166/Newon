@@ -23,6 +23,11 @@ interface ExpenseTableProps {
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   mode?: 'manual' | 'project' | 'invoice';
+  // Caller identity, used for ownership gating: staff only see edit actions on
+  // their own manual expenses. Deletion is gated one level higher by only
+  // passing `onDelete` to admins — it is not rendered for staff at all.
+  currentUserId?: string;
+  userRole?: 'admin' | 'staff';
 }
 
 const categoryLabels: Record<ExpenseCategory, string> = {
@@ -43,7 +48,14 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   other: 'Other'
 };
 
-export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }: ExpenseTableProps) {
+export function ExpenseTable({
+  expensesData,
+  onEdit,
+  onDelete,
+  mode = 'manual',
+  currentUserId,
+  userRole = 'admin'
+}: ExpenseTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const columns: ColumnDef<Expense>[] = [
@@ -174,9 +186,12 @@ export function ExpenseTable({ expensesData, onEdit, onDelete, mode = 'manual' }
       cell: ({ row }) => {
         const expense = row.original;
         const isFromInvoiceOrExpense = expense.source === 'invoice' || expense.source === 'project';
+        // Ownership gate mirrors the server-side check in the expense actions
+        // (staff may only edit their own manual expenses; admin may edit any).
+        const canEditThisRow = userRole === 'admin' || expense.addedBy === currentUserId;
         return (
           <div className="flex justify-end gap-2">
-            {onEdit && (
+            {onEdit && canEditThisRow && (
               <Button
                 variant="ghost"
                 size="icon"

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import ExpenseModel from '@/models/Expense';
+import { assertPermission } from '@/lib/auth-utils';
 import type {
   Expense,
   CreateExpenseDto,
@@ -12,9 +13,9 @@ import type {
   ExpenseFilters,
   PaginatedExpenses,
   ExpenseKPIs,
-  LeanExpense,
-  ExpenseCategory
+  LeanExpense
 } from '../types';
+import { canUseCategory } from '../types';
 
 type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
 
@@ -176,9 +177,20 @@ export async function getExpense(id: string): Promise<ActionResult<Expense>> {
 
 export async function createExpense(data: CreateExpenseDto): Promise<ActionResult<Expense>> {
   try {
+    const session = await assertPermission('add:expenses');
     await dbConnect();
 
     const validated = createExpenseSchema.parse(data);
+
+    // Category must be allowed for the caller's role (salary/taxes/etc. are
+    // admin-only). Never trust the client for this — the dropdown is only a
+    // convenience.
+    if (!canUseCategory(validated.category, session.user.role)) {
+      return { success: false, error: 'You do not have permission to log this type of expense' };
+    }
+
+    // Ownership comes from the session, not the client payload.
+    validated.addedBy = session.user.id;
 
     const newExpense = new ExpenseModel(validated);
     const savedExpense = await newExpense.save();
@@ -198,6 +210,7 @@ export async function createExpense(data: CreateExpenseDto): Promise<ActionResul
 
 export async function updateExpense(id: string, data: UpdateExpenseDto): Promise<ActionResult<Expense>> {
   try {
+    const session = await assertPermission('add:expenses');
     await dbConnect();
 
     const existingExpense = await ExpenseModel.findOne({ expenseId: id }).lean();
@@ -210,7 +223,16 @@ export async function updateExpense(id: string, data: UpdateExpenseDto): Promise
       return { success: false, error: 'Cannot edit expense from invoice. Please edit the invoice instead.' };
     }
 
+    // Staff may only edit their own manual expenses; admins can edit any.
+    if (session.user.role !== 'admin' && existingExpense.addedBy !== session.user.id) {
+      return { success: false, error: 'You can only edit your own expenses' };
+    }
+
     const validated = updateExpenseSchema.parse(data);
+
+    if (validated.category && !canUseCategory(validated.category, session.user.role)) {
+      return { success: false, error: 'You do not have permission to use this category' };
+    }
 
     const updateData = Object.fromEntries(Object.entries(validated).filter(([, value]) => value !== undefined));
 
@@ -239,6 +261,14 @@ export async function updateExpense(id: string, data: UpdateExpenseDto): Promise
 
 export async function deleteExpense(id: string): Promise<ActionResult<void>> {
   try {
+    const session = await assertPermission('view:expenses');
+
+    // Deletion is an accounting-level action — staff (and the project flow's
+    // "own expense" rule) never applies here. Admin only.
+    if (session.user.role !== 'admin') {
+      return { success: false, error: 'Only admins can delete expenses' };
+    }
+
     await dbConnect();
 
     const existingExpense = await ExpenseModel.findOne({ expenseId: id }).lean();

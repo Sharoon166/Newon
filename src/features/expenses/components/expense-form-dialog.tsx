@@ -25,6 +25,7 @@ import { CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createExpense, updateExpense } from '../actions';
 import type { Expense, ExpenseCategory } from '../types';
+import { canUseCategory } from '../types';
 
 const formSchema = z.object({
   description: z.string().min(1, 'Description is required'),
@@ -60,6 +61,7 @@ interface ExpenseFormDialogProps {
   onOpenChange: (open: boolean) => void;
   expense?: Expense;
   userId: string;
+  userRole?: 'admin' | 'staff';
   onSuccess?: () => void;
 }
 
@@ -81,7 +83,7 @@ const categoryLabels: Record<ExpenseCategory, string> = {
   other: 'Other'
 };
 
-export function ExpenseFormDialog({ open, onOpenChange, expense, userId, onSuccess }: ExpenseFormDialogProps) {
+export function ExpenseFormDialog({ open, onOpenChange, expense, userId, userRole = 'admin', onSuccess }: ExpenseFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = Boolean(expense);
 
@@ -201,11 +203,13 @@ export function ExpenseFormDialog({ open, onOpenChange, expense, userId, onSucce
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.entries(categoryLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
-                          </SelectItem>
-                        ))}
+                        {Object.entries(categoryLabels)
+                          .filter(([value]) => canUseCategory(value as ExpenseCategory, userRole))
+                          .map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

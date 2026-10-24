@@ -10,6 +10,7 @@ import { ExpenseFormDialog } from './expense-form-dialog';
 import { ExpenseFilter } from './expense-filter';
 import { deleteExpense, getExpense } from '../actions';
 import type { Expense, ExpenseCategory, PaginatedExpenses } from '../types';
+import { canUseCategory } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -31,6 +32,7 @@ interface ExpensesPageClientProps {
   invoiceExpensesData: PaginatedExpenses;
   projectExpensesData: PaginatedExpenses;
   userId: string;
+  userRole: 'admin' | 'staff';
   activeTab?: string;
 }
 
@@ -39,8 +41,10 @@ export function ExpensesPageClient({
   invoiceExpensesData,
   projectExpensesData,
   userId,
+  userRole,
   activeTab
 }: ExpensesPageClientProps) {
+  const isAdmin = userRole === 'admin';
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -187,11 +191,13 @@ export function ExpensesPageClient({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {Object.entries(categoryLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
+                {Object.entries(categoryLabels)
+                  .filter(([value]) => canUseCategory(value as ExpenseCategory, userRole))
+                  .map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <Button className="grow" onClick={() => setIsFormOpen(true)}>
@@ -202,7 +208,14 @@ export function ExpensesPageClient({
         </div>
       </div>
 
-      <ExpenseTable mode="manual" expensesData={expensesData} onEdit={handleEdit} onDelete={handleDelete} />
+      <ExpenseTable
+        mode="manual"
+        expensesData={expensesData}
+        currentUserId={userId}
+        userRole={userRole}
+        onEdit={handleEdit}
+        onDelete={isAdmin ? handleDelete : undefined}
+      />
 
       {/* <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="space-y-2">
@@ -249,6 +262,7 @@ export function ExpensesPageClient({
         onOpenChange={handleOpenChange}
         expense={selectedExpense}
         userId={userId}
+        userRole={userRole}
         onSuccess={handleSuccess}
       />
 

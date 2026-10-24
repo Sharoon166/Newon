@@ -32,6 +32,22 @@ export const EXPENSE_CATEGORIES: ReadonlyArray<{ value: ExpenseCategory; label: 
   { value: 'other', label: 'Other' }
 ] as const;
 
+// Company/management-level categories. Staff log operational expenses; these
+// stay admin-only. Enforced server-side in createExpense/updateExpense and
+// mirrored in the UI dropdowns — never rely on the UI alone.
+export const ADMIN_ONLY_EXPENSE_CATEGORIES: ReadonlyArray<ExpenseCategory> = [
+  'rent',
+  'marketing',
+  'professional-services',
+  'insurance',
+  'taxes',
+  'salary'
+];
+
+export function canUseCategory(category: ExpenseCategory, role?: string | null): boolean {
+  return role === 'admin' || !ADMIN_ONLY_EXPENSE_CATEGORIES.includes(category);
+}
+
 export interface Expense {
   id: string;
   expenseId: string;
