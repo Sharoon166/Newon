@@ -4,7 +4,7 @@ import { StockView } from '@/features/stock/components/stock-view';
 import { getStockTrackingStatus, getStockWorkCounts } from '@/features/stock/actions';
 import { getSession, requirePermission } from '@/lib/auth-utils';
 
-// export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 interface StockPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
