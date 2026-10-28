@@ -1397,6 +1397,38 @@ async function buildShortageError(
 }
 
 // ---------------------------------------------------------------------------
+// Suggested count (derived from movement history)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the `inShopAfter` value from the most recent non-reversed movement
+ * for a given variant. This is the last known shelf count according to the
+ * audit log — distinct from `available` (which is purchase-ledger based) and
+ * from `inShop` (which is the live field on the product document).
+ *
+ * Returns `null` when there is no movement history for the variant yet.
+ */
+export async function getVariantSuggestedCount(input: {
+  productId: string;
+  variantId: string;
+}): Promise<{ suggested: number | null }> {
+  await dbConnect();
+
+  const movement = await StockMovementModel.findOne({
+    productId: input.productId,
+    variantId: input.variantId,
+    reversed: { $ne: true },
+  })
+    .sort({ createdAt: -1 })
+    .select('inShopAfter kind')
+    .lean() as { inShopAfter?: number; kind?: string } | null;
+
+  if (!movement) return { suggested: null };
+
+  return { suggested: movement.inShopAfter ?? null };
+}
+
+// ---------------------------------------------------------------------------
 // Quick count
 // ---------------------------------------------------------------------------
 

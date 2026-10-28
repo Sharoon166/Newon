@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NumberInput } from '@/components/ui/number-input';
-import { quickCount } from '../actions';
+import { quickCount, getVariantSuggestedCount } from '../actions';
 import { toast } from 'sonner';
 
 export interface QuickCountTarget {
@@ -33,10 +33,18 @@ interface QuickCountDialogProps {
 export function QuickCountDialog({ open, onOpenChange, target, onSuccess }: QuickCountDialogProps) {
   const [count, setCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [suggested, setSuggested] = useState<number | null>(null);
+  const [isFetchingSuggested, setIsFetchingSuggested] = useState(false);
 
   useEffect(() => {
     if (open && target) {
       setCount(target.currentInShop);
+      setSuggested(null);
+      setIsFetchingSuggested(true);
+      getVariantSuggestedCount({ productId: target.productId, variantId: target.variantId })
+        .then(res => setSuggested(res.suggested))
+        .catch(() => setSuggested(null))
+        .finally(() => setIsFetchingSuggested(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, target]);
@@ -48,7 +56,6 @@ export function QuickCountDialog({ open, onOpenChange, target, onSuccess }: Quic
       const clientRef = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : undefined;
       const result = await quickCount({ productId: target.productId, variantId: target.variantId, count, clientRef });
       if (!result.success) {
-        // Expected failures come back as a value so their wording reaches the toast.
         toast.error(result.error);
         return;
       }
@@ -56,7 +63,6 @@ export function QuickCountDialog({ open, onOpenChange, target, onSuccess }: Quic
       onOpenChange(false);
       onSuccess?.();
     } catch {
-      // Safety net for auth/network faults - expected problems never throw.
       toast.error('Failed to update count');
     } finally {
       setIsSubmitting(false);
@@ -90,6 +96,27 @@ export function QuickCountDialog({ open, onOpenChange, target, onSuccess }: Quic
                 <div className="text-lg font-bold text-primary">{target.currentInShop}</div>
               </div>
             </div>
+
+            {!isFetchingSuggested && suggested !== null && suggested !== target.currentInShop && (
+              <div className="rounded-md border border-dashed bg-muted/40 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Suggested count</p>
+                    <p className="mt-0.5 text-sm">
+                      <span className="font-semibold">{suggested}</span>
+                      <span className="ml-1 text-xs text-muted-foreground">based on movement history</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCount(suggested)}
+                    className="shrink-0 rounded-md bg-background px-2.5 py-1 text-xs font-medium ring-1 ring-border hover:bg-muted transition-colors"
+                  >
+                    Use this
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Counted in shop</label>
