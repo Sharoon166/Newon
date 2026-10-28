@@ -1122,7 +1122,16 @@ export async function deliverInvoice(input: DeliverInvoiceInput): Promise<StockA
   const filters: Array<Record<string, unknown>> = [];
   requested.forEach(({ itemIndex, quantity, item }) => {
     inc[`items.${itemIndex}.deliveredQuantity`] = quantity;
-    filters.push({ [`items.${itemIndex}.deliveredQuantity`]: { $lte: item.quantity - quantity } });
+    // The guard must also accept the field being ABSENT: items start with no
+    // deliveredQuantity (new invoices, or anything the baseline missed) and the
+    // very first delivery creates it via $inc. A plain `$lte` never matches a
+    // missing field, so it would abort forever.
+    filters.push({
+      $or: [
+        { [`items.${itemIndex}.deliveredQuantity`]: { $lte: item.quantity - quantity } },
+        { [`items.${itemIndex}.deliveredQuantity`]: { $exists: false } }
+      ]
+    });
   });
 
   const cas = await InvoiceModel.updateOne({ _id: input.invoiceId, $and: filters }, { $inc: inc });

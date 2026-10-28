@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, PackageCheck, Search, Truck } from 'lucide-react';
+import { ArrowUpDown, Loader2, PackageCheck, Search, Truck } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -13,6 +13,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,7 +31,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { formatDate } from '@/lib/utils';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { EmptyState } from '@/components/general/empty-state';
-import { getAwaitingDelivery } from '../actions';
+import { getAwaitingDelivery, deliverInvoice } from '../actions';
 import type { AwaitingDeliveryItem, PaginatedStock } from '../types';
 import { DeliverDialog, type DeliverTarget } from './deliver-dialog';
 import { toast } from 'sonner';
@@ -44,11 +55,16 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
   const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [target, setTarget] = useState<DeliverTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
 
   // The deep link (?q=) can arrive after this tab mounted - StockView may only
   // get usable search params a render or two in.
@@ -59,7 +75,7 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await getAwaitingDelivery({ page, limit: 15, search: debouncedSearch || undefined });
+      const result = await getAwaitingDelivery({ page, limit, search: debouncedSearch || undefined });
       setData(result);
     } catch (error) {
       console.error('Failed to load awaiting delivery:', error);
@@ -68,7 +84,7 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
       setIsLoading(false);
       setHasLoaded(true);
     }
-  }, [page, debouncedSearch]);
+  }, [page, limit, debouncedSearch]);
 
   useEffect(() => {
     if (enabled) load();
@@ -80,8 +96,100 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
 
   const totalPages = Math.max(1, Math.ceil(data.total / data.limit));
 
+  // Selection is scoped to the current page of results; switching page or
+  // starting a new search would leave stale selections pointing at rows the
+  // user can no longer see.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, limit, debouncedSearch]);
+
+  const bulkTargets = useMemo(() => data.docs.filter(doc => selectedIds.has(doc.id)), [data.docs, selectedIds]);
+
+  const toggleInvoice = (id: string, checked: boolean) =>
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
+  const toggleAllOnPage = (checked: boolean) =>
+    setSelectedIds(checked ? new Set(data.docs.map(doc => doc.id)) : new Set());
+
+  /**
+   * Deliver every selected invoice in full, one at a time. Sequential (not one
+   * big write) so each invoice becomes its own history slip / delivery challan,
+   * progress is visible live, and a failure stops the run with the exact
+   * reason — everything delivered before it stays delivered.
+   */
+  const runBulkDeliver = async () => {
+    if (bulkTargets.length === 0) return;
+    setBulkConfirmOpen(false);
+    setBulkRunning(true);
+    setBulkProgress(0);
+    let delivered = 0;
+    let units = 0;
+    try {
+      for (const [position, invoice] of bulkTargets.entries()) {
+        setBulkProgress(position);
+        const lines = invoice.lines
+          .filter(line => line.pending > 0)
+          .map(line => ({ itemIndex: line.index, quantity: line.pending }));
+        if (lines.length === 0) continue;
+        const clientRef = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : undefined;
+        const result = await deliverInvoice({ invoiceId: invoice.id, lines, clientRef });
+        if (!result.success) {
+          if (delivered > 0) {
+            toast.error(`Stopped at ${invoice.invoiceNumber} — ${result.error}`);
+          } else {
+            toast.error(result.error);
+          }
+          break;
+        }
+        delivered += 1;
+        units += invoice.totalPending;
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          next.delete(invoice.id);
+          return next;
+        });
+      }
+      if (delivered > 0) {
+        toast.success(`Delivered ${units} unit(s) across ${delivered} invoice(s)`);
+        await load();
+        onChanged?.();
+      }
+    } catch {
+      // Safety net for auth/network faults - expected problems never throw.
+      toast.error('Failed to record delivery');
+    } finally {
+      setBulkRunning(false);
+    }
+  };
+
   const columns = useMemo<ColumnDef<AwaitingDeliveryItem>[]>(
     () => [
+      {
+        id: 'select',
+        enableSorting: false,
+        header: () => (
+          <Checkbox
+            aria-label="Select all invoices on this page"
+            checked={data.docs.length > 0 && data.docs.every(doc => selectedIds.has(doc.id))}
+            onCheckedChange={checked => toggleAllOnPage(!!checked)}
+            disabled={bulkRunning}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label={`Select invoice ${row.original.invoiceNumber}`}
+            checked={selectedIds.has(row.original.id)}
+            onCheckedChange={checked => toggleInvoice(row.original.id, !!checked)}
+            disabled={bulkRunning}
+            onClick={e => e.stopPropagation()}
+          />
+        )
+      },
       {
         accessorKey: 'invoiceNumber',
         header: 'Invoice',
@@ -217,7 +325,7 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
       }
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [data.docs, selectedIds, bulkRunning]
   );
 
   const table = useReactTable({
@@ -278,6 +386,37 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
         </p>
       </div>
 
+      {(selectedIds.size > 0 || bulkRunning) && (
+        <div className="flex flex-col gap-3 rounded-md border bg-muted/40 p-3 md:flex-row md:items-center md:justify-between">
+          {bulkRunning ? (
+            <p className="flex items-center gap-2 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="font-medium">
+                Delivering invoice {bulkProgress + 1} of {bulkTargets.length}...
+              </span>
+              <span className="text-muted-foreground">each invoice gets its own delivery slip</span>
+            </p>
+          ) : (
+            <>
+              <p className="text-sm">
+                <span className="font-medium">{selectedIds.size}</span> invoice(s) selected —{' '}
+                <span className="font-medium">{bulkTargets.reduce((sum, doc) => sum + doc.totalPending, 0)}</span>{' '}
+                unit(s) will be marked delivered
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>
+                  Clear
+                </Button>
+                <Button variant="success" size="sm" onClick={() => setBulkConfirmOpen(true)}>
+                  <Truck className="mr-1 h-3.5 w-3.5" />
+                  Deliver completely
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div className={`rounded-md border overflow-x-auto ${isRefetching ? 'opacity-60' : ''}`}>
         <Table>
           <TableHeader>
@@ -298,6 +437,9 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
             {showSkeleton ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={`sk-${i}`} className="hover:bg-transparent">
+                  <TableCell>
+                    <Skeleton className="h-5 w-4" />
+                  </TableCell>
                   <TableCell>
                     <Skeleton className="h-5 w-24" />
                   </TableCell>
@@ -343,9 +485,14 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
           totalDocs={data.total}
           hasNextPage={page < totalPages}
           hasPrevPage={page > 1}
-          pageSize={data.limit}
+          pageSize={limit}
           itemName="invoices"
+          pageSizeOptions={[15, 25, 50, 100]}
           onPageChange={setPage}
+          onPageSizeChange={newLimit => {
+            setPage(1);
+            setLimit(newLimit);
+          }}
         />
       )}
 
@@ -358,6 +505,37 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
           onChanged?.();
         }}
       />
+
+      <AlertDialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deliver {bulkTargets.length} invoice(s) completely?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every pending unit on the selected invoices will be marked delivered and taken out of “In shop” in
+              small pauses — one slip per invoice. If anything cannot leave the shop (a shortage), the run stops
+              there and invoices before it stay delivered.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="max-h-60 space-y-1 overflow-auto rounded-md border p-2 text-sm">
+            {bulkTargets.map(invoice => (
+              <li key={invoice.id} className="flex items-center justify-between gap-2">
+                <span>
+                  <span className="font-mono text-xs">{invoice.invoiceNumber}</span>{' '}
+                  <span className="text-muted-foreground">{invoice.customerName || '—'}</span>
+                </span>
+                <span className="whitespace-nowrap font-medium">{invoice.totalPending} pending</span>
+              </li>
+            ))}
+          </ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={runBulkDeliver}>
+              <Truck className="mr-1 h-3.5 w-3.5" />
+              Deliver all completely
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
