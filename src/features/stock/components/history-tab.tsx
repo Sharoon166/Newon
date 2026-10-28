@@ -411,6 +411,19 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         }
       },
       {
+        accessorKey: 'note',
+        header: 'Note',
+        cell: ({ row }) => {
+          const note = row.original.note;
+          if (!note) return <span className="text-muted-foreground">—</span>;
+          return (
+            <span className="text-sm text-muted-foreground" title={note}>
+              {note}
+            </span>
+          );
+        }
+      },
+      {
         accessorKey: 'userName',
         header: 'By',
         cell: ({ row }) => <span className="text-muted-foreground">{row.original.userName ?? '—'}</span>
@@ -651,6 +664,9 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                     </TableCell>
                     <TableCell>
                       <Skeleton className="mx-auto h-4 w-16" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
                     </TableCell>
                     <TableCell>
                       <Skeleton className="h-4 w-24" />

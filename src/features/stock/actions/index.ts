@@ -1397,6 +1397,154 @@ async function buildShortageError(
 }
 
 // ---------------------------------------------------------------------------
+// Mark damaged (write off units from a specific purchase batch)
+// ---------------------------------------------------------------------------
+
+export interface MarkDamagedInput {
+  purchaseId: string;
+  quantity: number;
+  note?: string;
+  clientRef?: string;
+}
+
+/**
+ * Writes off `quantity` damaged units from a specific purchase batch.
+ *
+ * Rules (mirror the receive-purchase rules in reverse):
+ * - `quantity` must be ≤ `purchase.remaining` (can't damage what was already sold)
+ * - `quantity` must be ≤ the variant's current `inShop` (can't remove from shelf
+ *   more than physically there)
+ * - Decrements `purchase.remaining` so the batch's sellable stock shrinks
+ * - Decrements `variants.$.inShop` so the shelf count drops
+ * - Writes a `kind: 'adjustment'` StockMovement (negative quantity) linked to
+ *   the purchase, so History shows "Damaged" against the originating PO
+ */
+export async function markDamaged(input: MarkDamagedInput): Promise<StockActionResult> {
+  const session = await assertPermission('edit:stock');
+  await dbConnect();
+
+  const quantity = Math.floor(Number(input.quantity));
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return { success: false, error: 'Enter a positive quantity.' };
+  }
+
+  const purchase = await PurchaseModel.findById(input.purchaseId).lean();
+  if (!purchase) return { success: false, error: 'Purchase not found.' };
+
+  const remaining = purchase.remaining ?? 0;
+  if (quantity > remaining) {
+    return {
+      success: false,
+      error: `Cannot mark ${formatQty(quantity)} as damaged: only ${formatQty(remaining)} unit(s) remaining in this batch.`
+    };
+  }
+
+  // Decrement purchase.remaining atomically (CAS: guard prevents over-removal).
+  const updatedPurchase = await PurchaseModel.findOneAndUpdate(
+    { _id: input.purchaseId, remaining: { $gte: quantity } },
+    { $inc: { remaining: -quantity } },
+    { new: true }
+  );
+
+  if (!updatedPurchase) {
+    const fresh = await PurchaseModel.findById(input.purchaseId).lean();
+    const freshRemaining = fresh?.remaining ?? 0;
+    return {
+      success: false,
+      error: `Cannot mark ${formatQty(quantity)} as damaged: only ${formatQty(freshRemaining)} unit(s) remaining.`
+    };
+  }
+
+  // Decrement inShop on the product variant. Guard: can't go below 0.
+  const product = await ProductModel.findOneAndUpdate(
+    {
+      _id: purchase.productId,
+      'variants.id': purchase.variantId,
+      'variants.inShop': { $gte: quantity }
+    },
+    { $inc: { 'variants.$.inShop': -quantity } },
+    { new: true }
+  );
+
+  if (!product) {
+    // Roll back the purchase decrement.
+    await PurchaseModel.updateOne({ _id: input.purchaseId }, { $inc: { remaining: quantity } });
+    // Fetch fresh inShop to give a meaningful error.
+    const freshProduct = (await ProductModel.findOne({
+      _id: purchase.productId,
+      'variants.id': purchase.variantId
+    }).lean()) as unknown as LeanProduct | null;
+    const freshVariant = freshProduct?.variants?.find(v => v.id === purchase.variantId);
+    const freshInShop = freshVariant?.inShop ?? 0;
+    if (freshInShop < quantity) {
+      return {
+        success: false,
+        error: `Cannot remove ${formatQty(quantity)}: only ${formatQty(freshInShop)} unit(s) physically in shop.`
+      };
+    }
+    return { success: false, error: 'The linked product was not found. Nothing was changed.' };
+  }
+
+  const variant = product.variants?.find((v: any) => v.id === purchase.variantId);
+  const inShopAfter = variant?.inShop ?? 0;
+  const inShopBefore = inShopAfter + quantity;
+
+  const movementId = await generateId('SM');
+  const noteText = input.note?.trim() ? `Damaged – ${input.note.trim()}` : 'Damaged';
+
+  try {
+    await StockMovementModel.create({
+      movementId,
+      kind: 'adjustment',
+      productId: String(purchase.productId),
+      variantId: purchase.variantId,
+      productName: product.name,
+      sku: variant?.sku ?? purchase.variantId,
+      quantity: -quantity,
+      inShopBefore,
+      inShopAfter,
+      purchaseId: String(purchase._id),
+      purchaseNumber: purchase.purchaseId,
+      note: noteText,
+      userId: session.user?.id,
+      userName: session.user?.name,
+      clientRef: input.clientRef,
+      searchText: await buildSearchText([
+        product.name,
+        variant?.sku,
+        purchase.purchaseId,
+        'damaged',
+        input.note,
+        session.user?.name
+      ])
+    });
+  } catch (error) {
+    if (input.clientRef && isDuplicateKeyError(error)) {
+      // Idempotent retry — undo this request's side effects, report success.
+      await PurchaseModel.updateOne({ _id: input.purchaseId }, { $inc: { remaining: quantity } });
+      await ProductModel.updateOne(
+        { _id: purchase.productId, 'variants.id': purchase.variantId },
+        { $inc: { 'variants.$.inShop': quantity } }
+      );
+      return { success: true, data: { idempotent: true } };
+    }
+    // Roll back both decrements.
+    await PurchaseModel.updateOne({ _id: input.purchaseId }, { $inc: { remaining: quantity } });
+    await ProductModel.updateOne(
+      { _id: purchase.productId, 'variants.id': purchase.variantId },
+      { $inc: { 'variants.$.inShop': quantity } }
+    );
+    return toFailure(error, 'Failed to record damaged stock.');
+  }
+
+  revalidateStock();
+  revalidatePath(`/inventory/${String(purchase.productId)}`);
+  revalidatePath(`/inventory/${String(purchase.productId)}/edit`);
+  revalidatePath('/purchases');
+  return { success: true, data: {} };
+}
+
+// ---------------------------------------------------------------------------
 // Suggested count (derived from movement history)
 // ---------------------------------------------------------------------------
 

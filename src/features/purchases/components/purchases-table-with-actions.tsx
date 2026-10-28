@@ -721,7 +721,8 @@ import {
   Banknote,
   MoreHorizontal,
   Columns3,
-  Filter
+  Filter,
+  ShieldAlert
 } from 'lucide-react';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { Purchase, PaginatedPurchases, PurchasePaymentStatus } from '../types';
@@ -735,6 +736,7 @@ import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { PurchaseDeleteBlockedDialog } from './purchase-delete-blocked-dialog';
 import { resolvePurchasePaymentBlock, type PurchasePaymentBlock } from '../utils/delete-guard';
 import { ReceiveDialog, type ReceiveTarget } from '@/features/stock/components/receive-dialog';
+import { MarkDamagedDialog, type MarkDamagedTarget } from '@/features/stock/components/mark-damaged-dialog';
 import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import { PurchaseForm } from './purchase-form';
@@ -919,6 +921,10 @@ export function PurchasesTableWithActions({
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveTarget, setReceiveTarget] = useState<ReceiveTarget | null>(null);
 
+  // Mark damaged - write off units from a specific purchase batch.
+  const [damagedOpen, setDamagedOpen] = useState(false);
+  const [damagedTarget, setDamagedTarget] = useState<MarkDamagedTarget | null>(null);
+
   // Partial payment tracking.
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentPurchase, setPaymentPurchase] = useState<EnhancedPurchase | null>(null);
@@ -1047,6 +1053,18 @@ export function PurchasesTableWithActions({
       supplier: purchase.supplier
     });
     setReceiveOpen(true);
+  };
+
+  const handleDamagedClick = (purchase: EnhancedPurchase) => {
+    setDamagedTarget({
+      id: purchase.id || purchase._id!,
+      purchaseId: purchase.purchaseId,
+      productName: purchase.productName || 'Unknown product',
+      sku: purchase.variant?.sku || purchase.variantId || '',
+      quantity: purchase.quantity,
+      remaining: purchase.remaining
+    });
+    setDamagedOpen(true);
   };
 
   const handlePaymentClick = async (purchase: EnhancedPurchase) => {
@@ -1262,6 +1280,19 @@ export function PurchasesTableWithActions({
                   <DropdownMenuItem onClick={() => router.push(`/inventory/${row.original.productId}/edit`)}>
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Go to product
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => handleDamagedClick(row.original)}
+                    disabled={row.original.remaining <= 0}
+                    title={
+                      row.original.remaining <= 0
+                        ? 'No remaining units to mark as damaged'
+                        : 'Mark units as damaged'
+                    }
+                  >
+                    <ShieldAlert className="mr-2 h-4 w-4" />
+                    Mark as damaged
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -1512,6 +1543,13 @@ export function PurchasesTableWithActions({
         open={receiveOpen}
         onOpenChange={setReceiveOpen}
         target={receiveTarget}
+        onSuccess={() => router.refresh()}
+      />
+
+      <MarkDamagedDialog
+        open={damagedOpen}
+        onOpenChange={setDamagedOpen}
+        target={damagedTarget}
         onSuccess={() => router.refresh()}
       />
 
