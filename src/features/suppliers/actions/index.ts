@@ -14,6 +14,7 @@ import SupplierModel from '../../../models/Supplier';
 import ProductModel from '@/models/Product';
 import PurchaseModel from '@/models/Purchase';
 import mongoose from 'mongoose';
+import { ADJUSTMENT_SUPPLIER_NAME } from '@/features/purchases/constants';
 
 // Type for lean Mongoose document - using Record for _id to handle Mongoose's FlattenMaps type
 interface LeanSupplier {
@@ -129,6 +130,47 @@ export async function getSupplierFilterOptions(): Promise<Array<{ supplierId: st
   } catch (error) {
     console.error('Error fetching supplier filter options:', error);
     return [];
+  }
+}
+
+/**
+ * Find-or-create the shared "Adjustment" supplier used by the Stock page's
+ * Add-to-in-shop flow. Its purchases are settled in full on creation, so it
+ * never carries a balance.
+ *
+ * - prefers an enabled record and re-enables a disabled one, so the name
+ *   always stays linkable (historical purchases must keep resolving),
+ * - tolerates pre-existing duplicates with a deterministic pick (enabled
+ *   first, then newest),
+ * - re-finds after a lost create race instead of throwing.
+ */
+export async function ensureAdjustmentSupplier(): Promise<{ supplierId: string; name: string }> {
+  await dbConnect();
+
+  const escaped = ADJUSTMENT_SUPPLIER_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const nameQuery = { $regex: `^${escaped}$`, $options: 'i' };
+
+  const candidates = await SupplierModel.find({ name: nameQuery }).sort({ createdAt: -1 }).lean();
+  const existing = candidates.find(s => !s.disabled) ?? candidates[0];
+
+  if (existing) {
+    if (existing.disabled) {
+      await SupplierModel.updateOne({ _id: existing._id }, { $set: { disabled: false } });
+    }
+    return { supplierId: existing.supplierId || String(existing._id), name: existing.name };
+  }
+
+  try {
+    const created = await SupplierModel.create({ name: ADJUSTMENT_SUPPLIER_NAME });
+    return { supplierId: created.supplierId || String(created._id), name: created.name };
+  } catch (error) {
+    // Concurrent first use can race the insert - whatever won, re-find it.
+    const winner = (await SupplierModel.findOne({ name: nameQuery }).sort({ createdAt: -1 }).lean()) as
+      | { supplierId?: string; name?: string }
+      | null;
+    if (winner?.supplierId) return { supplierId: winner.supplierId, name: winner.name || ADJUSTMENT_SUPPLIER_NAME };
+    console.error('Error creating the Adjustment supplier:', error);
+    throw new Error('Failed to set up the Adjustment supplier');
   }
 }
 

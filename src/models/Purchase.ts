@@ -133,6 +133,16 @@ const purchaseSchema = new mongoose.Schema(
       default: '',
       trim: true
     },
+    // True for "found stock" purchases created by the Stock page's
+    // Add-to-in-shop flow: recorded against the Adjustment supplier and
+    // settled in full + fully received on creation. Carried on the document so
+    // future rules (e.g. blocking edits/deletes of adjustment rows) can
+    // identify these purchases without relying on the supplier name.
+    isAdjustment: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
     // Partial payment tracking. The amount owed for a purchase is the goods
     // cost - quantity * purchasePrice (or totalCost for legacy rows) - see
     // `amountDue`. Shipping is excluded: it is an expense to the company, not
@@ -285,6 +295,8 @@ export interface IPurchase extends mongoose.Document {
   balanceAmount?: number;
   paymentStatus?: 'unpaid' | 'partial' | 'paid';
   paymentsTracked?: boolean;
+  /** True for purchases created by the Stock page's Add-to-in-shop flow. */
+  isAdjustment?: boolean;
 }
 
 // Create and export the model with PaginateModel type

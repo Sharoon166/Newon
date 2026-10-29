@@ -28,6 +28,12 @@ export interface Purchase {
   supplier: string;
   /** Business id (e.g. "SP-25-001") of the linked Supplier, when linked. */
   supplierId?: string;
+  /**
+   * True for purchases created by the Stock page's Add-to-in-shop flow:
+   * recorded against the Adjustment supplier, settled in full and fully
+   * received on creation.
+   */
+  isAdjustment?: boolean;
   locationId?: string;
   quantity: number;
   unitPrice: number;

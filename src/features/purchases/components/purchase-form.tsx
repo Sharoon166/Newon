@@ -21,9 +21,10 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Loader2, Info, CalendarIcon } from 'lucide-react';
+import { Loader2, Info, CalendarIcon, LockKeyhole } from 'lucide-react';
 import { Purchase, CreatePurchaseDto, UpdatePurchaseDto } from '../types';
 import { createPurchase, updatePurchase } from '../actions';
+import { createAdjustmentPurchase } from '@/features/stock/actions';
 import { formatCurrency, cn } from '@/lib/utils';
 import { NumberInput } from '@/components/ui/number-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,6 +94,13 @@ interface PurchaseFormProps {
   // suppliers?: string[];
   supplier?: string; // Direct supplier name prop for single-product context
   defaultSupplierId?: string; // Direct supplier id prop for single-product context
+  /**
+   * Locks the supplier to a fixed record and switches submit to the stock
+   * page's adjustment flow ("Add to in-shop"): the server creates the
+   * purchase against it, settles it in full, marks it received and bumps
+   * "In shop" in one action. Passed as `{ supplierId, name }`.
+   */
+  lockSupplier?: { supplierId: string; name: string };
   /** When false, imported products can't be selected (and submitting is blocked). */
   canCreateImported?: boolean;
   /**
@@ -115,6 +123,7 @@ export function PurchaseForm({
   // suppliers = [],
   supplier,
   defaultSupplierId,
+  lockSupplier,
   canCreateImported = true,
   origin,
   open,
@@ -138,8 +147,8 @@ export function PurchaseForm({
     defaultValues: {
       productId: productId || '',
       variantId: defaultVariantId,
-      supplier: '',
-      supplierId: defaultSupplierId || '',
+      supplier: lockSupplier?.name || '',
+      supplierId: lockSupplier?.supplierId || defaultSupplierId || '',
       locationId: 'office',
       quantity: 1,
       purchasePrice: 0,
@@ -339,6 +348,29 @@ export function PurchaseForm({
         const updateData: UpdatePurchaseDto = purchaseData;
         await updatePurchase(purchase.id || purchase._id!, updateData);
         toast.success('Purchase updated successfully');
+      } else if (lockSupplier) {
+        // Adjustment flow (Stock page's "Add to in-shop"): the supplier is
+        // fixed, and the server settles the purchase in full, marks it fully
+        // received and bumps "In shop" in one action.
+        const result = await createAdjustmentPurchase({
+          productId: data.productId || productId,
+          variantId: data.variantId,
+          quantity: data.quantity,
+          purchasePrice: data.purchasePrice,
+          unitPrice: data.unitPrice,
+          retailPrice: data.retailPrice,
+          wholesalePrice: data.wholesalePrice,
+          shippingCost: data.shippingCost,
+          purchaseDate: data.purchaseDate,
+          notes: data.notes,
+          locationId: data.locationId,
+          clientRef: crypto.randomUUID()
+        });
+        if (!result.success) {
+          toast.error(result.error || 'Failed to add stock to in-shop');
+          return;
+        }
+        toast.success(`Added ${data.quantity} unit(s) to in-shop`);
       } else {
         const createData: CreatePurchaseDto = {
           productId: data.productId || productId,
@@ -415,7 +447,11 @@ export function PurchaseForm({
               )}
             </DialogTitle>
             <DialogDescription>
-              {isEditMode ? 'Update the purchase details below.' : 'Add a new purchase record for this variant.'}
+              {lockSupplier
+                ? 'Add stock that is already physically in the shop. The purchase is settled in full on creation.'
+                : isEditMode
+                  ? 'Update the purchase details below.'
+                  : 'Add a new purchase record for this variant.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -591,16 +627,25 @@ export function PurchaseForm({
                       <FormLabel>
                         Supplier <span className="text-destructive">*</span>
                       </FormLabel>
-                      <SupplierSelect
-                        value={form.watch('supplierId')}
-                        legacyName={!form.watch('supplierId') ? form.watch('supplier') : undefined}
-                        currentName={form.watch('supplier')}
-                        restrictToCountry={!canCreateImported ? 'PK' : undefined}
-                        onChange={(supplierId, supplierName) => {
-                          form.setValue('supplierId', supplierId, { shouldValidate: true });
-                          form.setValue('supplier', supplierName, { shouldValidate: true });
-                        }}
-                      />
+                      {lockSupplier ? (
+                        // Adjustment flow: the supplier is fixed server-side too.
+                        <div className="flex h-9 items-center gap-2 rounded-md border border-input bg-muted/50 px-3">
+                          <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="font-medium">{lockSupplier.name}</span>
+                          <span className="text-xs text-muted-foreground">locked for stock adjustments</span>
+                        </div>
+                      ) : (
+                        <SupplierSelect
+                          value={form.watch('supplierId')}
+                          legacyName={!form.watch('supplierId') ? form.watch('supplier') : undefined}
+                          currentName={form.watch('supplier')}
+                          restrictToCountry={!canCreateImported ? 'PK' : undefined}
+                          onChange={(supplierId, supplierName) => {
+                            form.setValue('supplierId', supplierId, { shouldValidate: true });
+                            form.setValue('supplier', supplierName, { shouldValidate: true });
+                          }}
+                        />
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

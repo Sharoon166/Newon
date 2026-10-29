@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpDown, FileDown, PackageSearch, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
+import { ArrowUpDown, FileDown, Loader2, PackagePlus, PackageSearch, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -23,6 +23,10 @@ import type { InShopRow, PaginatedStock } from '../types';
 import { QuickCountDialog, type QuickCountTarget } from './quick-count-dialog';
 import { StockSummarySheet } from './stock-summary-sheet';
 import { EmptyState } from '@/components/general/empty-state';
+import { getProductsBasic } from '@/features/inventory/actions';
+import type { EnhancedVariants, ProductLocation } from '@/features/inventory/types';
+import { ensureAdjustmentSupplier } from '@/features/suppliers/actions';
+import { PurchaseForm } from '@/features/purchases/components/purchase-form';
 import { toast } from 'sonner';
 
 interface InShopTabProps {
@@ -58,6 +62,17 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
   const [target, setTarget] = useState<QuickCountTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+
+  // "Add to in-shop" (adjustment purchase against the Adjustment supplier).
+  const [adjustmentOpen, setAdjustmentOpen] = useState(false);
+  const [isPreparingAdjustment, setIsPreparingAdjustment] = useState(false);
+  const [adjustmentContext, setAdjustmentContext] = useState<{
+    supplier: { supplierId: string; name: string };
+    variant: EnhancedVariants;
+    locations: ProductLocation[];
+  } | null>(null);
+  // getProductsBasic is heavy-ish - fetch it once per page load.
+  const productsRef = useRef<EnhancedVariants[] | null>(null);
 
   // Derive server-side sort params from the TanStack sorting state.
   const sort = sorting[0];
@@ -105,6 +120,38 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
       available: row.available
     });
     setDialogOpen(true);
+  };
+
+  // Opens the purchase dialog in adjustment mode: supplier locked to the
+  // shared "Adjustment" record (created on demand), stock added straight to
+  // In shop, purchase settled in full by the server.
+  const handleAddToInShop = async (row: InShopRow) => {
+    try {
+      setIsPreparingAdjustment(true);
+      const [supplier, products] = await Promise.all([
+        ensureAdjustmentSupplier(),
+        productsRef.current ? Promise.resolve(productsRef.current) : getProductsBasic()
+      ]);
+      productsRef.current = products;
+
+      const variant = products.find(p => p.productId === row.productId && p.id === row.variantId);
+      if (!variant) {
+        toast.error('This variant could not be loaded. Refresh the page and try again.');
+        return;
+      }
+
+      setAdjustmentContext({
+        supplier,
+        variant,
+        locations: (variant.locations ?? []).filter(location => location.isActive)
+      });
+      setAdjustmentOpen(true);
+    } catch (error) {
+      console.error('Error preparing the adjustment:', error);
+      toast.error('Could not open the adjustment form.');
+    } finally {
+      setIsPreparingAdjustment(false);
+    }
   };
 
   const columns = useMemo<ColumnDef<InShopRow>[]>(
@@ -233,12 +280,31 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
               <PackageSearch className="mr-1 h-3.5 w-3.5" />
               View purchases
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={row.original.disabled || isPreparingAdjustment}
+              onClick={async e => {
+                e.stopPropagation();
+                await handleAddToInShop(row.original);
+              }}
+              title="Add found stock to this variant via the Adjustment supplier"
+            >
+              {isPreparingAdjustment ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <PackagePlus className="mr-1 h-3.5 w-3.5" />
+              )}
+              Add to in-shop
+            </Button>
           </div>
         )
       }
     ],
+    // Handlers only call stable setters / refs, so they don't need to be
+    // dependencies - except the preparing flag, which disables the button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [isPreparingAdjustment]
   );
 
   const table = useReactTable({
@@ -447,6 +513,25 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
           onChanged?.();
         }}
       />
+
+      {adjustmentContext && (
+        <PurchaseForm
+          productId={adjustmentContext.variant.productId}
+          variantId={adjustmentContext.variant.id}
+          variants={[adjustmentContext.variant]}
+          locations={adjustmentContext.locations}
+          origin={adjustmentContext.variant.origin}
+          lockSupplier={adjustmentContext.supplier}
+          open={adjustmentOpen}
+          onOpenChange={setAdjustmentOpen}
+          onSuccess={() => {
+            setAdjustmentOpen(false);
+            setAdjustmentContext(null);
+            load();
+            onChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 }

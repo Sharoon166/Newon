@@ -414,6 +414,7 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
       variantId: doc.variantId,
       supplier: doc.supplier,
       supplierId: doc.supplierId,
+      isAdjustment: !!doc.isAdjustment,
       locationId: doc.locationId,
       quantity: doc.quantity,
       unitPrice: doc.unitPrice,

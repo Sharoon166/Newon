@@ -9,6 +9,12 @@ import StockTrackingModel from '@/models/StockTracking';
 import { generateId } from '@/models/Counter';
 import { assertPermission } from '@/lib/auth-utils';
 import { revalidatePath } from 'next/cache';
+import { createPurchase } from '@/features/purchases/actions';
+import {
+  ensureAdjustmentSupplier,
+  reverseSupplierFinancialsOnPurchaseDelete,
+  updateSupplierFinancialsOnPayment
+} from '@/features/suppliers/actions';
 import {
   deliverableItemMongoExpr,
   isDeliverableItem,
@@ -2029,4 +2035,214 @@ async function recordReversal(movement: any, session: any, direction: 'in' | 'ou
 
 function formatQty(qty: number): string {
   return Number.isInteger(qty) ? String(qty) : qty.toFixed(2);
+}
+
+// ---------------------------------------------------------------------------
+// Add to in-shop (adjustment purchases)
+// ---------------------------------------------------------------------------
+
+export interface AddToInShopInput {
+  productId: string;
+  variantId: string;
+  quantity: number;
+  purchasePrice?: number;
+  unitPrice?: number;
+  retailPrice?: number;
+  wholesalePrice?: number;
+  shippingCost?: number;
+  /** Value of the form's date picker (yyyy-MM-dd). */
+  purchaseDate?: string;
+  notes?: string;
+  locationId?: string;
+  clientRef?: string;
+}
+
+/**
+ * "Add to in-shop": record stock that is already physically in the shop as a
+ * purchase against the shared Adjustment supplier (created on demand).
+ *
+ * On success, in one flow:
+ * - a purchase exists with `isAdjustment: true` (so future rules can identify
+ *   it without relying on the supplier name),
+ * - it is settled in full - the Adjustment supplier's balance stays at 0,
+ * - it is fully received - it never shows in Awaiting arrival,
+ * - Available (remaining) and "In shop" both go up by the quantity,
+ * - a `receive` movement documents the slip in History (reversible like any
+ *   receive - that is the supported undo path).
+ *
+ * Compensation mirrors the rest of the feature: every step that can fail
+ * rolls back the ones before it.
+ */
+export async function createAdjustmentPurchase(input: AddToInShopInput): Promise<StockActionResult> {
+  const session = await assertPermission('edit:stock');
+  await dbConnect();
+
+  const tracking = (await StockTrackingModel.findOne({}).lean()) as { initialized?: boolean } | null;
+  if (!tracking?.initialized) {
+    return { success: false, error: 'Stock tracking is not set up yet. Set the starting counts first.' };
+  }
+
+  const quantity = Math.floor(Number(input.quantity));
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return { success: false, error: 'Enter a positive quantity to add.' };
+  }
+
+  const product = (await ProductModel.findOne({ _id: input.productId, 'variants.id': input.variantId }).lean()) as
+    unknown as LeanProduct | null;
+  if (!product) return { success: false, error: 'Product not found.' };
+  const variant = product.variants?.find(v => v.id === input.variantId);
+  if (!variant) return { success: false, error: 'Variant not found.' };
+
+  // Shared supplier, created on demand. Throws a readable message on failure.
+  const supplier = await ensureAdjustmentSupplier();
+
+  // 1. Create the purchase. createPurchase handles the origin permission gate
+  //    (staff can't adjust imported stock), the cost math, the location
+  //    counters and the payable - which the settlement below nets back to 0.
+  let purchaseId: string;
+  let purchaseNumber: string | undefined;
+  let amountDue = 0;
+  try {
+    const created = await createPurchase({
+      productId: input.productId,
+      variantId: input.variantId,
+      supplier: supplier.name,
+      supplierId: supplier.supplierId,
+      locationId: input.locationId?.trim() || 'office',
+      quantity,
+      unitPrice: input.unitPrice ?? 0,
+      purchasePrice: input.purchasePrice ?? 0,
+      retailPrice: input.retailPrice ?? 0,
+      wholesalePrice: input.wholesalePrice ?? 0,
+      shippingCost: input.shippingCost ?? 0,
+      purchaseDate: input.purchaseDate ? new Date(input.purchaseDate) : new Date(),
+      notes: input.notes?.trim() ? `[Adjustment] ${input.notes.trim()}` : '[Adjustment]'
+    });
+    purchaseId = created.id as string;
+    purchaseNumber = created.purchaseId;
+    amountDue = (created.amountDue as number) ?? 0;
+  } catch (error) {
+    // Permission failures (e.g. staff adjusting an imported product) arrive
+    // as thrown errors - surface their message instead of a generic one.
+    console.error('[stock] Failed to create the adjustment purchase:', error);
+    return {
+      success: false,
+      error: error instanceof Error && error.message ? error.message : 'Failed to create the adjustment purchase.'
+    };
+  }
+
+  // 2. Settle in full. A zero-cost adjustment has no meaningful payment record
+  //    to write, but is still marked tracked + paid so the purchases table
+  //    never shows it as Unpaid/Untracked.
+  let paidAppliedToSupplier = false;
+  try {
+    const purchase = await PurchaseModel.findById(purchaseId);
+    if (!purchase) {
+      return { success: false, error: 'The adjustment purchase could not be found. Nothing else was changed.' };
+    }
+
+    purchase.isAdjustment = true;
+    purchase.paymentsTracked = true;
+
+    if (amountDue > 0) {
+      purchase.payments = purchase.payments || [];
+      purchase.payments.push({
+        amount: amountDue,
+        method: 'cash',
+        date: purchase.purchaseDate,
+        notes: 'Settled on creation (Adjustment)'
+      });
+      // Pre-save hook recalculates paidAmount / balanceAmount / paymentStatus.
+      await purchase.save();
+      await updateSupplierFinancialsOnPayment(supplier.supplierId, amountDue, purchase.purchaseDate);
+      paidAppliedToSupplier = true;
+    } else {
+      purchase.paymentStatus = 'paid';
+      await purchase.save();
+    }
+  } catch (error) {
+    // Compensate: remove the purchase and the payable it created.
+    await PurchaseModel.deleteOne({ _id: purchaseId });
+    await reverseSupplierFinancialsOnPurchaseDelete(
+      supplier.supplierId,
+      amountDue,
+      paidAppliedToSupplier ? amountDue : 0
+    );
+    return toFailure(error, 'Failed to settle the adjustment purchase.');
+  }
+
+  // 3. The units are physically in the shop already: fully receive the
+  //    purchase and bump the in-shop counter (receivePurchase's pattern).
+  await PurchaseModel.updateOne({ _id: purchaseId }, { $set: { receivedQuantity: quantity } });
+
+  const updatedProduct = await ProductModel.findOneAndUpdate(
+    { _id: input.productId, 'variants.id': input.variantId },
+    { $inc: { 'variants.$.inShop': quantity } },
+    { new: true }
+  );
+
+  if (!updatedProduct) {
+    await PurchaseModel.deleteOne({ _id: purchaseId });
+    await reverseSupplierFinancialsOnPurchaseDelete(supplier.supplierId, amountDue, amountDue);
+    return { success: false, error: 'The linked product was not found. Nothing was changed.' };
+  }
+
+  const updatedVariant = updatedProduct.variants?.find((v: { id: string }) => v.id === input.variantId);
+  const inShopAfter = updatedVariant?.inShop ?? quantity;
+  const movementId = await generateId('SM');
+  const noteText = input.notes?.trim()
+    ? `Added to in-shop (Adjustment) – ${input.notes.trim()}`
+    : 'Added to in-shop (Adjustment)';
+
+  try {
+    await StockMovementModel.create({
+      movementId,
+      kind: 'receive',
+      productId: String(input.productId),
+      variantId: input.variantId,
+      productName: product.name,
+      sku: updatedVariant?.sku ?? input.variantId,
+      quantity,
+      inShopBefore: inShopAfter - quantity,
+      inShopAfter,
+      purchaseId,
+      purchaseNumber,
+      note: noteText,
+      userId: session.user?.id,
+      userName: session.user?.name,
+      clientRef: input.clientRef,
+      searchText: await buildSearchText([
+        product.name,
+        updatedVariant?.sku,
+        purchaseNumber,
+        'adjustment',
+        'added to in-shop',
+        input.notes,
+        session.user?.name
+      ])
+    });
+  } catch (error) {
+    if (input.clientRef && isDuplicateKeyError(error)) {
+      // Idempotent retry: undo only this request's in-shop bump and report
+      // success - the original flow already created everything.
+      await ProductModel.updateOne(
+        { _id: input.productId, 'variants.id': input.variantId },
+        { $inc: { 'variants.$.inShop': -quantity } }
+      );
+      return { success: true, data: { idempotent: true } };
+    }
+    await ProductModel.updateOne(
+      { _id: input.productId, 'variants.id': input.variantId },
+      { $inc: { 'variants.$.inShop': -quantity } }
+    );
+    await PurchaseModel.deleteOne({ _id: purchaseId });
+    await reverseSupplierFinancialsOnPurchaseDelete(supplier.supplierId, amountDue, amountDue);
+    return toFailure(error, 'Failed to record the adjustment.');
+  }
+
+  revalidateStock();
+  revalidatePath('/purchases');
+  revalidatePath(`/inventory/${input.productId}`);
+  revalidatePath(`/inventory/${input.productId}/edit`);
+  return { success: true, data: { receivedQuantity: quantity } };
 }
