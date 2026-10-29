@@ -5,7 +5,6 @@ import { ArrowUpDown, PackageCheck, PackagePlus, Search } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState
@@ -34,15 +33,21 @@ interface AwaitingArrivalTabProps {
 const CENTERED_COLUMNS = ['ordered', 'received', 'pending'];
 
 export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: AwaitingArrivalTabProps) {
-  const [data, setData] = useState<PaginatedStock<AwaitingArrivalItem>>({ docs: [], total: 0, page: 1, limit: 15 });
+  const [data, setData] = useState<PaginatedStock<AwaitingArrivalItem>>({ docs: [], totalDocs: 0, limit: 15, page: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false });
   const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [target, setTarget] = useState<ReceiveTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Derive server-side sort params from the TanStack sorting state.
+  const sort = sorting[0];
+  const sortBy = sort?.id;
+  const sortDir = sort?.desc ? 'desc' : 'asc';
 
   // The deep link (?q=) can arrive after this tab mounted - StockView may only
   // get usable search params a render or two in.
@@ -53,8 +58,9 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await getAwaitingArrival({ page, limit: 15, search: debouncedSearch || undefined });
+      const result = await getAwaitingArrival({ page, limit, search: debouncedSearch || undefined, sortBy, sortDir });
       setData(result);
+      if (page > result.totalPages) setPage(result.totalPages);
     } catch (error) {
       console.error('Failed to load awaiting arrival:', error);
       toast.error('Failed to load purchases');
@@ -62,7 +68,7 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
       setIsLoading(false);
       setHasLoaded(true);
     }
-  }, [page, debouncedSearch]);
+  }, [page, limit, debouncedSearch, sortBy, sortDir]);
 
   useEffect(() => {
     if (enabled) load();
@@ -70,9 +76,7 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
-
-  const totalPages = Math.max(1, Math.ceil(data.total / data.limit));
+  }, [debouncedSearch, sortBy, sortDir]);
 
   const columns = useMemo<ColumnDef<AwaitingArrivalItem>[]>(
     () => [
@@ -183,8 +187,9 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
     columns,
     state: { sorting },
     onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel()
+    manualSorting: true,
+    enableMultiSort: false,
+    getCoreRowModel: getCoreRowModel()
   });
 
   const showSkeleton = isLoading && !hasLoaded;
@@ -232,7 +237,7 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
           />
         </div>
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium">{data.total}</span> purchase(s) still to receive
+          <span className="font-medium">{data.totalDocs}</span> purchase(s) still to receive
         </p>
       </div>
 
@@ -294,16 +299,21 @@ export function AwaitingArrivalTab({ enabled, initialSearch, onChanged }: Awaiti
         </Table>
       </div>
 
-      {data.total > 0 && (
+      {data.totalDocs > 0 && (
         <ServerPagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalDocs={data.total}
-          hasNextPage={page < totalPages}
-          hasPrevPage={page > 1}
-          pageSize={data.limit}
+          currentPage={data.page}
+          totalPages={data.totalPages}
+          totalDocs={data.totalDocs}
+          hasNextPage={data.hasNextPage}
+          hasPrevPage={data.hasPrevPage}
+          pageSize={limit}
           itemName="purchases"
+          pageSizeOptions={[15, 25, 50, 100]}
           onPageChange={setPage}
+          onPageSizeChange={newLimit => {
+            setPage(1);
+            setLimit(newLimit);
+          }}
         />
       )}
 

@@ -5,7 +5,6 @@ import { ArrowUpDown, ChevronDown, FileDown, History as HistoryIcon, Printer, Pr
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState
@@ -201,11 +200,12 @@ function inShopPair(before?: number, after?: number): string | null {
 
 export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: HistoryTabProps) {
   const router = useRouter();
-  const [data, setData] = useState<PaginatedStock<StockMovement>>({ docs: [], total: 0, page: 1, limit: 15 });
+  const [data, setData] = useState<PaginatedStock<StockMovement>>({ docs: [], totalDocs: 0, limit: 15, page: 1, totalPages: 1, hasNextPage: false, hasPrevPage: false });
   const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [kind, setKind] = useState<StockMovementKind | 'all'>('all');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -218,6 +218,11 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const [stockChallanMovement, setStockChallanMovement] = useState<StockMovement | null>(null);
   // Movements whose product breakdown (multi-product deliveries) is expanded.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // Derive server-side sort params from the TanStack sorting state.
+  const sort = sorting[0];
+  const sortBy = sort?.id;
+  const sortDir = sort?.desc ? 'desc' : 'asc';
 
   // The deep link (?q=INV-0042) can reach StockView after this tab already
   // mounted - useSearchParams() is sometimes empty on the first render. Re-apply
@@ -238,8 +243,9 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await getStockMovements({ page, limit: 15, search: debouncedSearch || undefined, kind });
+      const result = await getStockMovements({ page, limit, search: debouncedSearch || undefined, kind, sortBy, sortDir });
       setData(result);
+      if (page > result.totalPages) setPage(result.totalPages);
     } catch (error) {
       console.error('Failed to load movements:', error);
       toast.error('Failed to load history');
@@ -247,7 +253,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
       setIsLoading(false);
       setHasLoaded(true);
     }
-  }, [page, debouncedSearch, kind]);
+  }, [page, limit, debouncedSearch, kind, sortBy, sortDir]);
 
   useEffect(() => {
     if (enabled) load();
@@ -255,9 +261,7 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, kind]);
-
-  const totalPages = Math.max(1, Math.ceil(data.total / data.limit));
+  }, [debouncedSearch, kind, sortBy, sortDir]);
 
   const handleReverse = async () => {
     if (!pendingReversal) return;
@@ -317,6 +321,11 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
             <div>
               <div className="font-medium">{movement.productName}</div>
               <div className="font-mono text-xs text-muted-foreground">{movement.sku}</div>
+              {movement.note && (
+                <div className="text-xs text-muted-foreground" title={movement.note}>
+                  {movement.note}
+                </div>
+              )}
               {extraLines > 0 && (
                 <Button
                   type="button"
@@ -407,19 +416,6 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
               <span className="text-lg mx-1">→</span>
               {recorded ? inShopAfter : '—'}
             </div>
-          );
-        }
-      },
-      {
-        accessorKey: 'note',
-        header: 'Note',
-        cell: ({ row }) => {
-          const note = row.original.note;
-          if (!note) return <span className="text-muted-foreground">—</span>;
-          return (
-            <span className="text-sm text-muted-foreground" title={note}>
-              {note}
-            </span>
           );
         }
       },
@@ -526,8 +522,9 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
     columns,
     state: { sorting },
     onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel()
+    manualSorting: true,
+    enableMultiSort: false,
+    getCoreRowModel: getCoreRowModel()
   });
 
   const showSkeleton = isLoading && !hasLoaded;
@@ -666,9 +663,6 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
                       <Skeleton className="mx-auto h-4 w-16" />
                     </TableCell>
                     <TableCell>
-                      <Skeleton className="h-4 w-28" />
-                    </TableCell>
-                    <TableCell>
                       <Skeleton className="h-4 w-24" />
                     </TableCell>
                     <TableCell>
@@ -710,16 +704,21 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
         </Table>
       </div>
 
-      {data.total > 0 && (
+      {data.totalDocs > 0 && (
         <ServerPagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalDocs={data.total}
-          hasNextPage={page < totalPages}
-          hasPrevPage={page > 1}
-          pageSize={data.limit}
+          currentPage={data.page}
+          totalPages={data.totalPages}
+          totalDocs={data.totalDocs}
+          hasNextPage={data.hasNextPage}
+          hasPrevPage={data.hasPrevPage}
+          pageSize={limit}
           itemName="movements"
+          pageSizeOptions={[15, 25, 50, 100]}
           onPageChange={setPage}
+          onPageSizeChange={newLimit => {
+            setPage(1);
+            setLimit(newLimit);
+          }}
         />
       )}
 

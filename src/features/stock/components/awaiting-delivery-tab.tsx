@@ -5,7 +5,6 @@ import { ArrowUpDown, Loader2, PackageCheck, Search, Truck } from 'lucide-react'
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState
@@ -48,9 +47,12 @@ const CENTERED_COLUMNS = ['delivered', 'totalPending'];
 export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: AwaitingDeliveryTabProps) {
   const [data, setData] = useState<PaginatedStock<AwaitingDeliveryItem>>({
     docs: [],
-    total: 0,
+    totalDocs: 0,
+    limit: 15,
     page: 1,
-    limit: 15
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false
   });
   const [searchInput, setSearchInput] = useState(initialSearch ?? '');
   const debouncedSearch = useDebounce(searchInput, 400);
@@ -62,6 +64,11 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
   const [target, setTarget] = useState<DeliverTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Derive server-side sort params from the TanStack sorting state.
+  const sort = sorting[0];
+  const sortBy = sort?.id;
+  const sortDir = sort?.desc ? 'desc' : 'asc';
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
@@ -75,8 +82,9 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await getAwaitingDelivery({ page, limit, search: debouncedSearch || undefined });
+      const result = await getAwaitingDelivery({ page, limit, search: debouncedSearch || undefined, sortBy, sortDir });
       setData(result);
+      if (page > result.totalPages) setPage(result.totalPages);
     } catch (error) {
       console.error('Failed to load awaiting delivery:', error);
       toast.error('Failed to load invoices');
@@ -84,7 +92,7 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
       setIsLoading(false);
       setHasLoaded(true);
     }
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, sortBy, sortDir]);
 
   useEffect(() => {
     if (enabled) load();
@@ -92,16 +100,14 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
-
-  const totalPages = Math.max(1, Math.ceil(data.total / data.limit));
+  }, [debouncedSearch, sortBy, sortDir]);
 
   // Selection is scoped to the current page of results; switching page or
   // starting a new search would leave stale selections pointing at rows the
   // user can no longer see.
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, sortBy, sortDir]);
 
   const bulkTargets = useMemo(() => data.docs.filter(doc => selectedIds.has(doc.id)), [data.docs, selectedIds]);
 
@@ -333,8 +339,9 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
     columns,
     state: { sorting },
     onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel()
+    manualSorting: true,
+    enableMultiSort: false,
+    getCoreRowModel: getCoreRowModel()
   });
 
   const showSkeleton = isLoading && !hasLoaded;
@@ -382,7 +389,7 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
           />
         </div>
         <p className="text-sm text-muted-foreground">
-          <span className="font-medium">{data.total}</span> invoice(s) with items still to deliver
+          <span className="font-medium">{data.totalDocs}</span> invoice(s) with items still to deliver
         </p>
       </div>
 
@@ -478,13 +485,13 @@ export function AwaitingDeliveryTab({ enabled, initialSearch, onChanged }: Await
         </Table>
       </div>
 
-      {data.total > 0 && (
+      {data.totalDocs > 0 && (
         <ServerPagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalDocs={data.total}
-          hasNextPage={page < totalPages}
-          hasPrevPage={page > 1}
+          currentPage={data.page}
+          totalPages={data.totalPages}
+          totalDocs={data.totalDocs}
+          hasNextPage={data.hasNextPage}
+          hasPrevPage={data.hasPrevPage}
           pageSize={limit}
           itemName="invoices"
           pageSizeOptions={[15, 25, 50, 100]}

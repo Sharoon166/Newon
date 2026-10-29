@@ -5,7 +5,6 @@ import { ArrowUpDown, FileDown, Search, Tally5Icon, TriangleAlert } from 'lucide
 import {
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState
@@ -17,8 +16,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Toggle } from '@/components/ui/toggle';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebounce } from '@/hooks/use-debounce';
+import { ServerPagination } from '@/components/general/server-pagination';
 import { getInShopRows } from '../actions';
-import type { InShopRow } from '../types';
+import type { InShopRow, PaginatedStock } from '../types';
 import { QuickCountDialog, type QuickCountTarget } from './quick-count-dialog';
 import { StockSummarySheet } from './stock-summary-sheet';
 import { EmptyState } from '@/components/general/empty-state';
@@ -30,10 +30,25 @@ interface InShopTabProps {
   onChanged?: () => void;
 }
 
+type InShopPage = PaginatedStock<InShopRow> & { mismatchCount: number };
+
+const EMPTY_DATA: InShopPage = {
+  docs: [],
+  totalDocs: 0,
+  limit: 15,
+  page: 1,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPrevPage: false,
+  mismatchCount: 0
+};
+
 export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
-  const [rows, setRows] = useState<InShopRow[]>([]);
+  const [data, setData] = useState<InShopPage>(EMPTY_DATA);
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 400);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [onlyMismatches, setOnlyMismatches] = useState(false);
@@ -42,11 +57,24 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
+  // Derive server-side sort params from the TanStack sorting state.
+  const sort = sorting[0];
+  const sortBy = sort?.id;
+  const sortDir = sort?.desc ? 'desc' : 'asc';
+
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const data = await getInShopRows(debouncedSearch || undefined);
-      setRows(data);
+      const result = await getInShopRows({
+        page,
+        limit,
+        search: debouncedSearch || undefined,
+        onlyMismatches,
+        sortBy,
+        sortDir
+      });
+      setData(result);
+      if (page > result.totalPages) setPage(result.totalPages);
     } catch (error) {
       console.error('Failed to load stock snapshot:', error);
       toast.error('Failed to load stock');
@@ -54,11 +82,16 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
       setIsLoading(false);
       setHasLoaded(true);
     }
-  }, [debouncedSearch]);
+  }, [page, limit, debouncedSearch, onlyMismatches, sortBy, sortDir]);
 
   useEffect(() => {
     if (enabled) load();
   }, [enabled, load]);
+
+  // Reset to first page on search or filter change.
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, onlyMismatches, sortBy, sortDir]);
 
   const handleQuickCount = (row: InShopRow) => {
     setTarget({
@@ -71,14 +104,6 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
     });
     setDialogOpen(true);
   };
-
-  const mismatchCount = useMemo(() => rows.filter(r => r.inShop !== r.available).length, [rows]);
-
-  // Stock-take view: only variants where the shelf disagrees with the system.
-  const visibleRows = useMemo(
-    () => (onlyMismatches ? rows.filter(r => r.inShop !== r.available) : rows),
-    [rows, onlyMismatches]
-  );
 
   const columns = useMemo<ColumnDef<InShopRow>[]>(
     () => [
@@ -103,7 +128,12 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
       },
       {
         accessorKey: 'sku',
-        header: 'SKU',
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
+            SKU
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
         cell: ({ row }) => (
           <Badge variant="outline" className="font-mono whitespace-nowrap">
             {row.original.sku}
@@ -197,12 +227,13 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
   );
 
   const table = useReactTable({
-    data: visibleRows,
+    data: data.docs,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel()
+    manualSorting: true,
+    enableMultiSort: false,
+    getCoreRowModel: getCoreRowModel()
   });
 
   const showSkeleton = isLoading && !hasLoaded;
@@ -227,7 +258,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
         </TableRow>
       );
     }
-    if (onlyMismatches && rows.length > 0) {
+    if (onlyMismatches) {
       return (
         <TableRow>
           <TableCell colSpan={columns.length}>
@@ -273,15 +304,15 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
           <Toggle
             pressed={onlyMismatches}
             onPressedChange={setOnlyMismatches}
-            disabled={rows.length === 0}
-            aria-label={`Only show variants whose count differs from the system${mismatchCount ? ` (${mismatchCount})` : ''}`}
+            disabled={data.totalDocs === 0 && !onlyMismatches}
+            aria-label={`Only show variants whose count differs from the system${data.mismatchCount ? ` (${data.mismatchCount})` : ''}`}
             className="cursor-pointer"
           >
             <TriangleAlert className="h-4 w-4" />
             Mismatches only
-            {mismatchCount > 0 && (
+            {data.mismatchCount > 0 && (
               <Badge variant="secondary" className="ml-1 px-1.5 tabular-nums">
-                {mismatchCount}
+                {data.mismatchCount}
               </Badge>
             )}
           </Toggle>
@@ -289,10 +320,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
         <div className="flex items-center gap-3">
           <p className="text-sm text-muted-foreground">
             <Tally5Icon className="mr-1 inline h-4 w-4" />
-            <span className="font-medium">
-              {visibleRows.length}
-              {onlyMismatches ? ` of ${rows.length}` : ''}
-            </span>{' '}
+            <span className="font-medium">{data.totalDocs}</span>{' '}
             variants
           </p>
           {userRole === 'admin' && (
@@ -300,7 +328,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
               variant="secondary"
               size="sm"
               onClick={() => setSummaryOpen(true)}
-              disabled={visibleRows.length === 0}
+              disabled={data.docs.length === 0}
               title="Download a compact stock summary"
             >
               <FileDown className="mr-1.5 h-4 w-4" />
@@ -369,11 +397,29 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
         </Table>
       </div>
 
+      {data.totalDocs > 0 && (
+        <ServerPagination
+          currentPage={data.page}
+          totalPages={data.totalPages}
+          totalDocs={data.totalDocs}
+          hasNextPage={data.hasNextPage}
+          hasPrevPage={data.hasPrevPage}
+          pageSize={limit}
+          itemName="variants"
+          pageSizeOptions={[15, 25, 50, 100]}
+          onPageChange={setPage}
+          onPageSizeChange={newLimit => {
+            setPage(1);
+            setLimit(newLimit);
+          }}
+        />
+      )}
+
       <StockSummarySheet
         open={summaryOpen}
         onOpenChange={setSummaryOpen}
-        rows={visibleRows}
-        totalRows={rows.length}
+        rows={data.docs}
+        totalRows={data.totalDocs}
         filterNote={summaryFilterNote || undefined}
       />
 

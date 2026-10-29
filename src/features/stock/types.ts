@@ -170,9 +170,12 @@ export interface AwaitingDeliveryItem {
 
 export interface PaginatedStock<T> {
   docs: T[];
-  total: number;
-  page: number;
+  totalDocs: number;
   limit: number;
+  page: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 
 export interface StockTrackingStatus {

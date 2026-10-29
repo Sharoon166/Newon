@@ -142,7 +142,62 @@ function pendingDeliverySumExpr(): Record<string, unknown> {
         in: {
           $cond: [
             deliverableItemMongoExpr('$$i'),
-            { $subtract: [{ $ifNull: ['$$i.quantity', 0] }, { $ifNull: ['$$i.deliveredQuantity', 0] }] },
+            {
+              $max: [
+                0,
+                {
+                  $subtract: [
+                    { $ifNull: ['$$i.quantity', 0] },
+                    { $min: [{ $ifNull: ['$$i.deliveredQuantity', 0] }, { $ifNull: ['$$i.quantity', 0] }] }
+                  ]
+                }
+              ]
+            },
+            0
+          ]
+        }
+      }
+    }
+  };
+}
+
+function pendingDeliveryMetricExpr(field: 'quantity' | 'deliveredQuantity'): Record<string, unknown> {
+  return {
+    $sum: {
+      $map: {
+        input: { $ifNull: ['$items', []] },
+        as: 'i',
+        in: {
+          $cond: [
+            {
+              $and: [
+                deliverableItemMongoExpr('$$i'),
+                {
+                  $gt: [
+                    {
+                      $max: [
+                        0,
+                        {
+                          $subtract: [
+                            { $ifNull: ['$$i.quantity', 0] },
+                            {
+                              $min: [
+                                { $ifNull: ['$$i.deliveredQuantity', 0] },
+                                { $ifNull: ['$$i.quantity', 0] }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    0
+                  ]
+                }
+              ]
+            },
+            field === 'quantity'
+              ? { $ifNull: ['$$i.quantity', 0] }
+              : { $min: [{ $ifNull: ['$$i.deliveredQuantity', 0] }, { $ifNull: ['$$i.quantity', 0] }] },
             0
           ]
         }
@@ -425,72 +480,133 @@ export async function initializeStockTracking(startedAtISO?: string): Promise<St
 // In shop snapshot
 // ---------------------------------------------------------------------------
 
-export async function getInShopRows(search?: string): Promise<InShopRow[]> {
+export async function getInShopRows(input: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  onlyMismatches?: boolean;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+}): Promise<PaginatedStock<InShopRow> & { mismatchCount: number }> {
   await dbConnect();
+  const page = Math.max(1, input.page ?? 1);
+  const limit = Math.min(100, Math.max(1, input.limit ?? 15));
 
   const productQuery: Record<string, unknown> = {};
-  if (search) {
-    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+  if (input.search) {
+    const regex = new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     productQuery.$or = [{ name: regex }, { 'variants.sku': regex }];
   }
 
-  const products = await ProductModel.find(productQuery).select('name variants').lean();
-
-  const [availableAgg, arriveAgg] = await Promise.all([
-    PurchaseModel.aggregate([
-      {
-        $group: {
-          _id: { productId: '$productId', variantId: '$variantId' },
-          available: { $sum: { $ifNull: ['$remaining', 0] } }
-        }
-      }
-    ]),
-    PurchaseModel.aggregate([
-      {
-        $group: {
-          _id: { productId: '$productId', variantId: '$variantId' },
-          toArrive: {
-            $sum: {
-              $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }]
+  const sortFields: Record<string, string> = {
+    productName: 'name',
+    sku: 'variants.sku',
+    available: 'available',
+    inShop: 'inShop',
+    toArrive: 'toArrive'
+  };
+  const sortField = input.sortBy && sortFields[input.sortBy] ? sortFields[input.sortBy] : 'name';
+  const sortDir = input.sortDir === 'desc' ? -1 : 1;
+  const mismatchFilter = input.onlyMismatches ? [{ $match: { $expr: { $ne: ['$inShop', '$available'] } } }] : [];
+  const [result] = await ProductModel.aggregate([
+    { $match: productQuery },
+    { $unwind: '$variants' },
+    {
+      $lookup: {
+        from: PurchaseModel.collection.name,
+        let: { productId: '$_id', variantId: '$variants.id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{ $eq: ['$productId', '$$productId'] }, { $eq: ['$variantId', '$$variantId'] }]
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              available: { $sum: { $ifNull: ['$remaining', 0] } },
+              toArrive: {
+                $sum: { $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }] }
+              }
             }
           }
-        }
+        ],
+        as: 'purchaseTotals'
       }
-    ])
-  ]);
-
-  const availableMap = new Map<string, number>();
-  availableAgg.forEach(e => availableMap.set(`${String(e._id.productId)}|${e._id.variantId}`, e.available));
-  const arriveMap = new Map<string, number>();
-  arriveAgg.forEach(e => arriveMap.set(`${String(e._id.productId)}|${e._id.variantId}`, e.toArrive));
-
-  const rows: InShopRow[] = [];
-  for (const product of products) {
-    const productName = (product as unknown as LeanProduct).name;
-    const variants = (product as { variants?: Array<any> }).variants ?? [];
-    for (const v of variants) {
-      const key = `${String(product._id)}|${v.id}`;
-      rows.push({
-        productId: String(product._id),
-        variantId: v.id,
-        productName,
-        sku: v.sku ?? '',
-        attributes: v.attributes ?? {},
-        disabled: v.disabled ?? false,
-        available: availableMap.get(key) ?? 0,
-        inShop: v.inShop ?? 0,
-        toArrive: arriveMap.get(key) ?? 0
-      });
+    },
+    {
+      $set: {
+        productId: { $toString: '$_id' },
+        productName: '$name',
+        variantId: '$variants.id',
+        sku: { $ifNull: ['$variants.sku', ''] },
+        attributes: { $ifNull: ['$variants.attributes', {}] },
+        disabled: { $ifNull: ['$variants.disabled', false] },
+        inShop: { $ifNull: ['$variants.inShop', 0] },
+        available: { $ifNull: [{ $arrayElemAt: ['$purchaseTotals.available', 0] }, 0] },
+        toArrive: { $ifNull: [{ $arrayElemAt: ['$purchaseTotals.toArrive', 0] }, 0] }
+      }
+    },
+    {
+      $facet: {
+        mismatchCount: [
+          {
+            $group: {
+              _id: null,
+              count: { $sum: { $cond: [{ $ne: ['$inShop', '$available'] }, 1, 0] } }
+            }
+          }
+        ],
+        totalDocs: [...mismatchFilter, { $count: 'totalDocs' }],
+        docs: [
+          ...mismatchFilter,
+          { $sort: { [sortField]: sortDir, _id: 1, 'variants.id': 1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 0,
+              productId: 1,
+              variantId: 1,
+              productName: 1,
+              sku: 1,
+              attributes: 1,
+              disabled: 1,
+              available: 1,
+              inShop: 1,
+              toArrive: 1
+            }
+          }
+        ]
+      }
     }
-  }
+  ]).exec();
 
-  return rows;
+  const totalDocs = result?.totalDocs?.[0]?.totalDocs ?? 0;
+  const docs = (result?.docs ?? []) as InShopRow[];
+  const mismatchCount = result?.mismatchCount?.[0]?.count ?? 0;
+  const actualTotalPages = Math.max(1, Math.ceil(totalDocs / limit));
+
+  return {
+    docs,
+    totalDocs,
+    limit,
+    page,
+    totalPages: actualTotalPages,
+    hasNextPage: page < actualTotalPages,
+    hasPrevPage: page > 1,
+    mismatchCount
+  };
 }
 
 export async function getAwaitingArrival(input: {
   page?: number;
   limit?: number;
   search?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }): Promise<PaginatedStock<AwaitingArrivalItem>> {
   await dbConnect();
   const page = Math.max(1, input.page ?? 1);
@@ -501,71 +617,106 @@ export async function getAwaitingArrival(input: {
       $gt: [{ $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }] }, 0]
     }
   };
+  let searchRegex: RegExp | undefined;
   if (input.search) {
-    const regex = new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    const or: Record<string, unknown>[] = [{ purchaseId: regex }, { supplier: regex }];
-
-    // Product name and variant SKU both live on the Product document, not on
-    // the purchase, so resolve the matching products first and search purchases
-    // by their ids (indexed on productId) instead of joining at query time.
-    const matchingProducts = await ProductModel.find({ $or: [{ name: regex }, { 'variants.sku': regex }] })
-      .select('name variants.id variants.sku')
-      .lean();
-
-    const nameMatchedIds: unknown[] = [];
-    for (const rawProduct of matchingProducts) {
-      const product = rawProduct as unknown as LeanProduct & { _id: unknown };
-
-      // A name hit means every variant of that product is relevant - the same
-      // scope the tab had before SKU search existed.
-      if (product.name && regex.test(product.name)) {
-        nameMatchedIds.push(product._id);
-        continue;
-      }
-
-      // SKU hits are narrowed to the matching variants, so searching one SKU
-      // doesn't drag in the product's other variants.
-      const variantIds = (product.variants ?? [])
-        .filter(variant => variant.sku && regex.test(variant.sku))
-        .map(variant => variant.id);
-      if (variantIds.length > 0) {
-        or.push({ productId: product._id, variantId: { $in: variantIds } });
-      }
-    }
-    if (nameMatchedIds.length > 0) {
-      or.push({ productId: { $in: nameMatchedIds } });
-    }
-
-    query.$or = or;
+    searchRegex = new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
   }
 
-  const [docs, total] = await Promise.all([
-    PurchaseModel.find(query)
-      .sort({ purchaseDate: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate({ path: 'productId', select: 'name variants' })
-      .lean(),
-    PurchaseModel.countDocuments(query)
-  ]);
+  const sortFields: Record<string, string> = {
+    productName: 'productName',
+    ordered: 'ordered',
+    received: 'received',
+    pending: 'pending'
+  };
+  const sortField = input.sortBy && sortFields[input.sortBy] ? sortFields[input.sortBy] : 'purchaseDate';
+  const sortDir = input.sortBy ? (input.sortDir === 'desc' ? -1 : 1) : -1;
+  const [result] = await PurchaseModel.aggregate([
+    { $match: query },
+    {
+      $lookup: {
+        from: ProductModel.collection.name,
+        localField: 'productId',
+        foreignField: '_id',
+        as: 'product'
+      }
+    },
+    { $unwind: { path: '$product', preserveNullAndEmptyArrays: true } },
+    {
+      $set: {
+        productName: { $ifNull: ['$product.name', 'Unknown'] },
+        matchedVariant: {
+          $arrayElemAt: [
+            {
+              $filter: {
+                input: { $ifNull: ['$product.variants', []] },
+                as: 'variant',
+                cond: { $eq: ['$$variant.id', '$variantId'] }
+              }
+            },
+            0
+          ]
+        },
+        ordered: '$quantity',
+        received: { $ifNull: ['$receivedQuantity', '$quantity'] }
+      }
+    },
+    ...(searchRegex
+      ? [
+          {
+            $match: {
+              $or: [
+                { purchaseId: searchRegex },
+                { supplier: searchRegex },
+                { productName: searchRegex },
+                { 'matchedVariant.sku': searchRegex }
+              ]
+            }
+          }
+        ]
+      : []),
+    { $set: { sku: { $ifNull: ['$matchedVariant.sku', '$variantId'] }, pending: { $max: [0, { $subtract: ['$ordered', '$received'] }] } } },
+    {
+      $facet: {
+        totalDocs: [{ $count: 'totalDocs' }],
+        docs: [
+          { $sort: { [sortField]: sortDir, _id: 1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 0,
+              id: { $toString: '$_id' },
+              purchaseId: { $ifNull: ['$purchaseId', 'N/A'] },
+              productName: 1,
+              sku: 1,
+              supplier: { $ifNull: ['$supplier', ''] },
+              purchaseDate: 1,
+              ordered: 1,
+              received: 1,
+              pending: 1
+            }
+          }
+        ]
+      }
+    }
+  ]).exec();
 
-  const items: AwaitingArrivalItem[] = docs.map((doc: any) => {
-    const variant = doc.productId?.variants?.find((v: any) => v.id === doc.variantId);
-    const received = doc.receivedQuantity ?? doc.quantity;
-    return {
-      id: String(doc._id),
-      purchaseId: doc.purchaseId || 'N/A',
-      productName: doc.productId?.name || 'Unknown',
-      sku: variant?.sku || doc.variantId,
-      supplier: doc.supplier || '',
-      purchaseDate: doc.purchaseDate?.toISOString?.() || String(doc.purchaseDate),
-      ordered: doc.quantity,
-      received,
-      pending: Math.max(0, doc.quantity - received)
-    };
-  });
+  const total = result?.totalDocs?.[0]?.totalDocs ?? 0;
+  const pagedItems = (result?.docs ?? []).map((doc: any): AwaitingArrivalItem => ({
+    ...doc,
+    purchaseDate: doc.purchaseDate?.toISOString?.() || String(doc.purchaseDate)
+  }));
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  return { docs: items, total, page, limit };
+  return {
+    docs: pagedItems,
+    totalDocs: total,
+    limit,
+    page,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1
+  };
 }
 
 /**
@@ -620,6 +771,8 @@ export async function getAwaitingDelivery(input: {
   page?: number;
   limit?: number;
   search?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }): Promise<PaginatedStock<AwaitingDeliveryItem>> {
   await dbConnect();
   const page = Math.max(1, input.page ?? 1);
@@ -637,23 +790,38 @@ export async function getAwaitingDelivery(input: {
     query.$or = [{ invoiceNumber: regex }, { customerName: regex }, { customerCompany: regex }];
   }
 
-  const [docs, total] = await Promise.all([
-    InvoiceModel.find(query)
-      .sort({ date: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean(),
-    InvoiceModel.countDocuments(query)
-  ]);
+  const sortFields: Record<string, string> = {
+    customerName: 'customerName',
+    date: 'date',
+    delivered: 'totalDelivered',
+    totalPending: 'totalPending'
+  };
+  const sortField = input.sortBy && sortFields[input.sortBy] ? sortFields[input.sortBy] : 'date';
+  const sortDir = input.sortBy ? (input.sortDir === 'desc' ? -1 : 1) : -1;
+  const [result] = await InvoiceModel.aggregate([
+    { $match: query },
+    {
+      $set: {
+        totalPending: pendingDeliverySumExpr(),
+        totalInvoiced: pendingDeliveryMetricExpr('quantity'),
+        totalDelivered: pendingDeliveryMetricExpr('deliveredQuantity')
+      }
+    },
+    {
+      $facet: {
+        totalDocs: [{ $count: 'totalDocs' }],
+        docs: [{ $sort: { [sortField]: sortDir, _id: 1 } }, { $skip: (page - 1) * limit }, { $limit: limit }]
+      }
+    }
+  ]).exec();
 
+  const total = result?.totalDocs?.[0]?.totalDocs ?? 0;
   const items: AwaitingDeliveryItem[] = [];
-  for (const doc of docs as any[]) {
-    const rawItems: any[] = doc.items ?? [];
+  for (const doc of (result?.docs ?? []) as any[]) {
+    const rawItems = (doc.items ?? []) as any[];
     const lines: AwaitingDeliveryItemLine[] = rawItems
-      .map((item, index) => buildDeliveryLine(item, index))
-      .filter((line): line is AwaitingDeliveryItemLine => line !== null && line.pending > 0);
-
-    if (lines.length === 0) continue;
+      .map((item: any, index: number) => buildDeliveryLine(item, index))
+      .filter((line: AwaitingDeliveryItemLine | null): line is AwaitingDeliveryItemLine => line !== null && line.pending > 0);
 
     items.push({
       id: String(doc._id),
@@ -663,13 +831,23 @@ export async function getAwaitingDelivery(input: {
       date: doc.date instanceof Date ? doc.date.toISOString() : String(doc.date),
       status: doc.status,
       lines,
-      totalInvoiced: lines.reduce((s, l) => s + l.quantity, 0),
-      totalDelivered: lines.reduce((s, l) => s + l.delivered, 0),
-      totalPending: lines.reduce((s, l) => s + l.pending, 0)
+      totalInvoiced: doc.totalInvoiced,
+      totalDelivered: doc.totalDelivered,
+      totalPending: doc.totalPending
     });
   }
 
-  return { docs: items, total, page, limit };
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  return {
+    docs: items,
+    totalDocs: total,
+    limit,
+    page,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1
+  };
 }
 
 /**
@@ -709,6 +887,8 @@ export async function getStockMovements(input: {
   search?: string;
   kind?: StockMovementKind | 'all';
   ids?: string[];
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }): Promise<PaginatedStock<StockMovement>> {
   await dbConnect();
   const page = Math.max(1, input.page ?? 1);
@@ -734,20 +914,34 @@ export async function getStockMovements(input: {
     ];
   }
 
+  // All sortable fields exist directly on the movement document.
+  const SORT_FIELDS: Record<string, string> = {
+    productName: 'productName',
+    quantity: 'quantity',
+    createdAt: 'createdAt'
+  };
+  const sortField = input.sortBy && SORT_FIELDS[input.sortBy] ? SORT_FIELDS[input.sortBy] : 'createdAt';
+  const sortDir = input.sortDir === 'asc' ? 1 : -1;
+
   const [docs, total] = await Promise.all([
     StockMovementModel.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ [sortField]: sortDir })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
     StockMovementModel.countDocuments(query)
   ]);
 
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
   return {
     docs: docs.map(doc => serializeMovement(doc)),
-    total,
+    totalDocs: total,
+    limit,
     page,
-    limit
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1
   };
 }
 
@@ -982,7 +1176,7 @@ export async function receivePurchase(input: ReceivePurchaseInput): Promise<Stoc
   const purchase = await PurchaseModel.findById(input.purchaseId).lean();
   if (!purchase) return { success: false, error: 'Purchase not found.' };
 
-  const received = (purchase as any).receivedQuantity ?? 0;
+  const received = purchase.receivedQuantity ?? 0;
   const pending = Math.max(0, purchase.quantity - received);
   if (quantity > pending) {
     return { success: false, error: `Cannot receive ${quantity}: only ${formatQty(pending)} still to come.` };
@@ -997,7 +1191,7 @@ export async function receivePurchase(input: ReceivePurchaseInput): Promise<Stoc
 
   if (!updated) {
     const fresh = await PurchaseModel.findById(input.purchaseId).lean();
-    const freshReceived = (fresh as any)?.receivedQuantity ?? 0;
+    const freshReceived = fresh?.receivedQuantity ?? 0;
     const freshPending = Math.max(0, (fresh as any)?.quantity - freshReceived);
     return {
       success: false,
