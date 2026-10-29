@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpDown, FileDown, Loader2, PackagePlus, PackageSearch, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
+import { ArrowUpDown, FileDown, MoreHorizontal, PackagePlus, PackageSearch, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -16,6 +16,12 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toggle } from '@/components/ui/toggle';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { useDebounce } from '@/hooks/use-debounce';
 import { ServerPagination } from '@/components/general/server-pagination';
 import { getInShopRows } from '../actions';
@@ -253,20 +259,13 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
       {
         id: 'actions',
         enableHiding: false,
-        header: () => <span className="sr-only">Quick count</span>,
+        header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => (
+          // "View purchases" stays a one-click button; the remaining actions
+          // live behind the ellipsis. stopPropagation keeps both the trigger
+          // and the menu items from firing the row's quick-count click (they
+          // render in a portal but bubble through the React tree).
           <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={e => {
-                e.stopPropagation();
-                handleQuickCount(row.original);
-              }}
-            >
-              <Tally5Icon className="mr-1 h-3.5 w-3.5" />
-              Count
-            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -280,23 +279,39 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
               <PackageSearch className="mr-1 h-3.5 w-3.5" />
               View purchases
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={row.original.disabled || isPreparingAdjustment}
-              onClick={async e => {
-                e.stopPropagation();
-                await handleAddToInShop(row.original);
-              }}
-              title="Add found stock to this variant via the Adjustment supplier"
-            >
-              {isPreparingAdjustment ? (
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <PackagePlus className="mr-1 h-3.5 w-3.5" />
-              )}
-              Add to in-shop
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="More actions"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleQuickCount(row.original);
+                  }}
+                >
+                  <Tally5Icon className="mr-2 h-4 w-4" />
+                  Count
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={row.original.disabled || isPreparingAdjustment}
+                  onClick={e => {
+                    e.stopPropagation();
+                    void handleAddToInShop(row.original);
+                  }}
+                >
+                  <PackagePlus className="mr-2 h-4 w-4" />
+                  Add to in-shop
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )
       }
@@ -455,7 +470,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
                     <Skeleton className="mx-auto h-4 w-10" />
                   </TableCell>
                   <TableCell>
-                    <Skeleton className="ml-auto h-8 w-20" />
+                    <Skeleton className="ml-auto h-8 w-36" />
                   </TableCell>
                 </TableRow>
               ))

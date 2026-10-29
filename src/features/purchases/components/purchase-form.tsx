@@ -29,6 +29,14 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { NumberInput } from '@/components/ui/number-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SupplierSelect } from '@/features/suppliers/components/supplier-select';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList
+} from '@/components/ui/combobox';
 
 const purchaseFormSchema = z
   .object({
@@ -180,6 +188,17 @@ export function PurchaseForm({
     if (canCreateImported) return ids;
     return ids.filter(id => variants.find(v => v.productId === id)?.origin !== 'imported');
   }, [variants, canCreateImported]);
+
+  // Options for the searchable product combobox - same shape the supplier
+  // select uses, so the input can filter by product name as you type.
+  const productOptions = useMemo(
+    () =>
+      selectableProductIds.map(prodId => {
+        const variant = variants.find(v => v.productId === prodId);
+        return { value: prodId, label: variant?.productName || `Product ${prodId}` };
+      }),
+    [selectableProductIds, variants]
+  );
 
   // Origin of the product this form would create a purchase for. In the
   // single-product context the variants carry no origin, so fall back to the
@@ -544,29 +563,36 @@ export function PurchaseForm({
                           Product <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
-                          <Select
-                            value={field.value}
-                            onValueChange={value => {
-                              field.onChange(value);
+                          {/* Searchable product picker - mirrors SupplierSelect's combobox. */}
+                          <Combobox
+                            items={productOptions}
+                            itemToStringValue={option => option.label}
+                            itemToStringLabel={option => option.label}
+                            value={productOptions.find(option => option.value === field.value) ?? null}
+                            onValueChange={option => {
+                              field.onChange(option?.value ?? '');
                               // Reset variant selection when product changes
                               form.setValue('variantId', '');
                             }}
+                            autoHighlight
                             disabled={isEditMode}
                           >
-                            <SelectTrigger className="w-full truncate">
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {selectableProductIds.map(prodId => {
-                                const variant = variants.find(v => v.productId === prodId);
-                                return (
-                                  <SelectItem key={prodId} value={prodId || ''}>
-                                    {variant?.productName || `Product ${prodId}`}
-                                  </SelectItem>
-                                );
-                              })}
-                            </SelectContent>
-                          </Select>
+                            <ComboboxInput
+                              className="w-full"
+                              placeholder="Search product..."
+                              disabled={isEditMode}
+                            />
+                            <ComboboxContent>
+                              <ComboboxEmpty>No products found.</ComboboxEmpty>
+                              <ComboboxList>
+                                {(option: (typeof productOptions)[number]) => (
+                                  <ComboboxItem key={option.value} value={option}>
+                                    {option.label}
+                                  </ComboboxItem>
+                                )}
+                              </ComboboxList>
+                            </ComboboxContent>
+                          </Combobox>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

@@ -154,7 +154,7 @@ function MovementLinesDetail({ movement }: { movement: StockMovement }) {
             <li key={`${movement.id}-line-${i}`} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <div className="font-medium">{line.productName}</div>
-                <div className="font-mono text-xs text-muted-foreground">{line.sku || '—'}</div>
+                <Badge className="font-mono text-xs text-muted-foreground">{line.sku || '—'}</Badge>
                 {line.components?.length ? (
                   <div className="text-xs text-muted-foreground">
                     ={' '}
@@ -208,7 +208,9 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const [limit, setLimit] = useState(15);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [sorting, setSorting] = useState<SortingState>([]);
+  // Newest first by default - with no sort selected the server falls back to
+  // createdAt ascending, which renders the history oldest-first (reversed).
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'createdAt', desc: true }]);
   const [pendingReversal, setPendingReversal] = useState<StockMovement | null>(null);
   const [isReversing, setIsReversing] = useState(false);
   // Movement whose invoice delivery challan is open in the preview sheet.
