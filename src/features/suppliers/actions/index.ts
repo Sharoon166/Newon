@@ -105,6 +105,33 @@ export async function getSuppliers(filters?: SupplierFilters & { includeDisabled
   }
 }
 
+/**
+ * Minimal supplier list for filter dropdowns (e.g. the Purchases table's
+ * supplier filter). Projects only the business id and name - the query stays
+ * cheap no matter how many purchases exist. Disabled suppliers are included:
+ * purchases made before disabling them still have to be reachable.
+ *
+ * Returns [] instead of throwing: the filter dropdown is never worth failing
+ * the page for.
+ */
+export async function getSupplierFilterOptions(): Promise<Array<{ supplierId: string; name: string }>> {
+  try {
+    await dbConnect();
+
+    const suppliers = await SupplierModel.find({})
+      .select('supplierId name')
+      .sort({ name: 1 })
+      .lean();
+
+    return suppliers
+      .map(supplier => ({ supplierId: supplier.supplierId || '', name: supplier.name }))
+      .filter(option => !!option.supplierId);
+  } catch (error) {
+    console.error('Error fetching supplier filter options:', error);
+    return [];
+  }
+}
+
 export async function getSupplier(id: string): Promise<Supplier> {
   try {
     await dbConnect();

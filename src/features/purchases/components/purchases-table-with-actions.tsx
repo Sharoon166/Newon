@@ -754,6 +754,12 @@ export interface EnhancedPurchase extends Purchase {
 interface PurchasesTableWithActionsProps {
   purchasesData: PaginatedPurchases;
   products: EnhancedVariants[];
+  /**
+   * Supplier options for the filter dropdown, loaded from the Supplier
+   * collection by the page. Falls back to the suppliers on the loaded rows
+   * when omitted.
+   */
+  suppliers?: Array<{ supplierId: string; name: string }>;
   userRole?: 'admin' | 'staff';
   /** May the caller see cost data (cost, unit price, payments) of imported products. */
   canViewImportedCosts?: boolean;
@@ -874,6 +880,7 @@ function SortHeader({
 export function PurchasesTableWithActions({
   purchasesData,
   products,
+  suppliers,
   userRole,
   canViewImportedCosts = userRole !== 'staff',
   canCreateImported = userRole !== 'staff',
@@ -903,6 +910,9 @@ export function PurchasesTableWithActions({
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebounce(searchInput, 400);
   const [supplierFilter, setSupplierFilter] = useState(searchParams.get('supplier') || 'all');
+  // Exact variant-SKU deep-link (?sku=), e.g. the Stock page's "View
+  // purchases" button. The server has already scoped the rows to it.
+  const skuFilter = searchParams.get('sku') || '';
 
   // Dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -930,13 +940,19 @@ export function PurchasesTableWithActions({
   const [paymentPurchase, setPaymentPurchase] = useState<EnhancedPurchase | null>(null);
   const [paymentInitial, setPaymentInitial] = useState<PaymentRow[]>([]);
 
+  // Supplier filter options come from the Supplier collection (passed by the
+  // page), so the dropdown lists every supplier - not only those that happen
+  // to have purchases on the currently rendered page.
   const allSuppliers = useMemo(() => {
-    const supplierSet = new Set<string>();
+    if (suppliers) return [...suppliers].sort((a, b) => a.name.localeCompare(b.name));
+    const seen = new Map<string, { supplierId: string; name: string }>();
     purchasesData.docs.forEach(purchase => {
-      if (purchase.supplier) supplierSet.add(purchase.supplier);
+      if (purchase.supplier && !seen.has(purchase.supplier)) {
+        seen.set(purchase.supplier, { supplierId: '', name: purchase.supplier });
+      }
     });
-    return Array.from(supplierSet).sort();
-  }, [purchasesData]);
+    return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [suppliers, purchasesData]);
 
   const purchases = purchasesData.docs as EnhancedPurchase[];
 
@@ -967,10 +983,16 @@ export function PurchasesTableWithActions({
     setSupplierFilter(value);
     const params = new URLSearchParams(searchParams.toString());
     if (value && value !== 'all') {
-      // The dropdown filters by the name snapshot on the rows; drop any
-      // supplierId deep-link param so it can't override this choice.
+      // A name on its own filters loosely; pair it with the supplier's
+      // business id so the server can match linked purchases exactly (with
+      // an anchored-name fallback for purchases that predate linking).
+      const option = allSuppliers.find(s => s.name === value);
       params.set('supplier', value);
-      params.delete('supplierId');
+      if (option?.supplierId) {
+        params.set('supplierId', option.supplierId);
+      } else {
+        params.delete('supplierId');
+      }
       params.set('page', '1');
     } else {
       params.delete('supplier');
@@ -1445,8 +1467,8 @@ export function PurchasesTableWithActions({
               <SelectContent>
                 <SelectItem value="all">All Suppliers</SelectItem>
                 {allSuppliers.map(supplier => (
-                  <SelectItem key={supplier} value={supplier}>
-                    {supplier}
+                  <SelectItem key={supplier.supplierId || supplier.name} value={supplier.name}>
+                    {supplier.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1454,6 +1476,28 @@ export function PurchasesTableWithActions({
           </div>
         </div>
       </div>
+
+      {/* Exact-SKU deep-link: show what the list is scoped to, and a way out. */}
+      {skuFilter && (
+        <div className="flex flex-wrap items-center gap-2 pb-4">
+          <Badge variant="secondary" className="gap-1">
+            Variant
+            <span className="font-mono">{skuFilter}</span>
+          </Badge>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.delete('sku');
+              params.set('page', '1');
+              router.push(`?${params.toString()}`, { scroll: false });
+            }}
+          >
+            View all purchases
+          </Button>
+        </div>
+      )}
 
       {/* Table: scrolls inside its own box so the header stays visible  */}
       <div className="overflow-auto rounded-md border">

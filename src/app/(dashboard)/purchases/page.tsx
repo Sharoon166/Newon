@@ -2,6 +2,7 @@ import { PageHeader } from '@/components/general/page-header';
 import { getAllPurchases } from '@/features/purchases/actions';
 import { getProductsBasic } from '@/features/inventory/actions';
 import { getStockTrackingStatus } from '@/features/stock/actions';
+import { getSupplierFilterOptions } from '@/features/suppliers/actions';
 import { PurchasesTableWithActions } from '@/features/purchases/components/purchases-table-with-actions';
 import { getSession, requirePermission } from '@/lib/auth-utils';
 import { userHasPermission } from '@/lib/rbac';
@@ -17,6 +18,7 @@ interface PurchasesPageProps {
     supplierId?: string;
     sort?: string;
     dir?: string;
+    sku?: string;
   }>;
 }
 
@@ -34,10 +36,11 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
 
   const session = await getSession();
 
-  const [purchasesData, products, stockStatus] = await Promise.all([
-    getAllPurchases({ page, limit, search, supplier, supplierId, sortBy, sortDir }),
+  const [purchasesData, products, stockStatus, supplierOptions] = await Promise.all([
+    getAllPurchases({ page, limit, search, supplier, supplierId, sortBy, sortDir, sku: params.sku }),
     getProductsBasic(),
-    getStockTrackingStatus()
+    getStockTrackingStatus(),
+    getSupplierFilterOptions()
   ]);
 
   return (
@@ -52,6 +55,7 @@ export default async function PurchasesPage({ searchParams }: PurchasesPageProps
         <PurchasesTableWithActions
           purchasesData={purchasesData}
           products={products}
+          suppliers={supplierOptions}
           userRole={session?.user?.role}
           canViewImportedCosts={userHasPermission(session, 'view:imported-purchase-costs')}
           canCreateImported={userHasPermission(session, 'create:imported-purchases')}

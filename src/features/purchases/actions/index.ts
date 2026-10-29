@@ -251,6 +251,38 @@ export const getAllPurchases = async (filters?: PurchaseFilters): Promise<Pagina
     matchQuery.purchaseDate = dateQuery;
   }
 
+  // Exact variant-SKU filter. SKUs live on the Product's variants, so resolve
+  // the variant up front and filter on the purchase's own variantId - exact,
+  // unlike the generic search which fuzzily matches similar SKUs too.
+  if (filters?.sku) {
+    const sku = filters.sku.trim();
+    const product = (await ProductModel.findOne({ 'variants.sku': sku })
+      .select('_id variants')
+      .lean()) as unknown as {
+      _id: mongoose.Types.ObjectId;
+      variants?: Array<{ id: string; sku: string }>;
+    } | null;
+    const variant = product?.variants?.find(v => v.sku === sku);
+
+    // No variant with this SKU - nothing can match.
+    if (!product?._id || !variant) {
+      return {
+        docs: [],
+        totalDocs: 0,
+        limit,
+        page,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+        nextPage: null,
+        prevPage: null
+      };
+    }
+
+    matchQuery.productId = product._id;
+    matchQuery.variantId = variant.id;
+  }
+
   // NOTE: Do NOT add search conditions here — product name and variant SKU live
   // on the joined Product document, so filtering before $lookup would silently
   // drop rows whose only match is in those fields.

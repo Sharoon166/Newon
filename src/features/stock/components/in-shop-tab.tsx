@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, FileDown, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowUpDown, FileDown, PackageSearch, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -44,6 +45,7 @@ const EMPTY_DATA: InShopPage = {
 };
 
 export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
+  const router = useRouter();
   const [data, setData] = useState<InShopPage>(EMPTY_DATA);
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 400);
@@ -206,7 +208,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
         enableHiding: false,
         header: () => <span className="sr-only">Quick count</span>,
         cell: ({ row }) => (
-          <div className="text-right">
+          <div className="flex items-center justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -217,6 +219,19 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
             >
               <Tally5Icon className="mr-1 h-3.5 w-3.5" />
               Count
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={e => {
+                e.stopPropagation();
+                // Exact SKU filter on the purchases page (not the fuzzy search).
+                router.push(`/purchases?sku=${encodeURIComponent(row.original.sku)}&page=1`);
+              }}
+              title="View purchases of this variant"
+            >
+              <PackageSearch className="mr-1 h-3.5 w-3.5" />
+              View purchases
             </Button>
           </div>
         )

@@ -155,6 +155,12 @@ export interface PurchaseFilters {
   dateFrom?: Date;
   dateTo?: Date;
   /**
+   * Exact variant SKU to scope the list to (deep-link from the Stock page's
+   * "View purchases" button). Unlike `search` this is an exact match on a
+   * single variant - similar SKUs are not pulled in.
+   */
+  sku?: string;
+  /**
    * Column id to sort by (must be a key of PURCHASE_SORT_FIELDS - anything
    * else is ignored and the newest-first default applies).
    */
