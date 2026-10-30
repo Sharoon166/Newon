@@ -1,9 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getStockWorkCounts } from '../actions';
@@ -16,7 +14,6 @@ import { HistoryTab } from './history-tab';
 
 interface StockViewProps {
   initialized: boolean;
-  startedAt?: string;
   counts?: StockWorkCounts;
   userRole?: 'admin' | 'staff';
 }
@@ -42,7 +39,7 @@ function CountBadge({ count, srLabel }: { count?: number; srLabel: string }) {
 
 const TAB_VALUES = ['in-shop', 'awaiting-arrival', 'awaiting-delivery', 'history'] as const;
 
-export function StockView({ initialized, startedAt, counts: initialCounts, userRole }: StockViewProps) {
+export function StockView({ initialized, counts: initialCounts, userRole }: StockViewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -58,7 +55,6 @@ export function StockView({ initialized, startedAt, counts: initialCounts, userR
   const [activeTab, setActiveTab] = useState('in-shop');
   const [initialSearch, setInitialSearch] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [isChangingDate, setIsChangingDate] = useState(false);
   const [counts, setCounts] = useState<StockWorkCounts | undefined>(initialCounts);
 
   // Hand each ?q= to the tabs only once: searchParams gets a fresh identity on
@@ -136,27 +132,7 @@ export function StockView({ initialized, startedAt, counts: initialCounts, userR
     <div className="space-y-6">
       {!initialized && <SetupBanner mode="setup" userRole={userRole} onDone={handleSetupDone} />}
 
-      {initialized && isChangingDate && (
-        <SetupBanner
-          mode="change"
-          userRole={userRole}
-          startedAt={startedAt}
-          onDone={() => {
-            setIsChangingDate(false);
-            handleSetupDone();
-          }}
-          onCancel={() => setIsChangingDate(false)}
-        />
-      )}
 
-      {initialized && userRole === 'admin' && !isChangingDate && (
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" onClick={() => setIsChangingDate(true)}>
-            <CalendarDays className="mr-2 h-4 w-4" />
-            Change start date
-          </Button>
-        </div>
-      )}
 
       {!initialized && userRole !== 'admin' ? (
         <p className="text-sm text-muted-foreground">

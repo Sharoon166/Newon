@@ -607,6 +607,97 @@ export async function getInShopRows(input: {
   };
 }
 
+/**
+ * Download all stock summary rows without pagination.
+ * Used by the CSV/PDF download feature to export all filtered variants.
+ */
+export async function downloadStockSummary(input: {
+  search?: string;
+  onlyMismatches?: boolean;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+}): Promise<InShopRow[]> {
+  await dbConnect();
+
+  const productQuery: Record<string, unknown> = {};
+  if (input.search) {
+    const regex = new RegExp(input.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    productQuery.$or = [{ name: regex }, { 'variants.sku': regex }];
+  }
+
+  const sortFields: Record<string, string> = {
+    productName: 'name',
+    sku: 'variants.sku',
+    available: 'available',
+    inShop: 'inShop',
+    toArrive: 'toArrive'
+  };
+  const sortField = input.sortBy && sortFields[input.sortBy] ? sortFields[input.sortBy] : 'name';
+  const sortDir = input.sortDir === 'desc' ? -1 : 1;
+  const mismatchFilter = input.onlyMismatches ? [{ $match: { $expr: { $ne: ['$inShop', '$available'] } } }] : [];
+
+  const results = await ProductModel.aggregate([
+    { $match: productQuery },
+    { $unwind: '$variants' },
+    {
+      $lookup: {
+        from: PurchaseModel.collection.name,
+        let: { productId: '$_id', variantId: '$variants.id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{ $eq: ['$productId', '$$productId'] }, { $eq: ['$variantId', '$$variantId'] }]
+              }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              available: { $sum: { $ifNull: ['$remaining', 0] } },
+              toArrive: {
+                $sum: { $subtract: ['$quantity', { $ifNull: ['$receivedQuantity', '$quantity'] }] }
+              }
+            }
+          }
+        ],
+        as: 'purchaseTotals'
+      }
+    },
+    {
+      $set: {
+        productId: { $toString: '$_id' },
+        productName: '$name',
+        variantId: '$variants.id',
+        sku: { $ifNull: ['$variants.sku', ''] },
+        attributes: { $ifNull: ['$variants.attributes', {}] },
+        disabled: { $ifNull: ['$variants.disabled', false] },
+        inShop: { $ifNull: ['$variants.inShop', 0] },
+        available: { $ifNull: [{ $arrayElemAt: ['$purchaseTotals.available', 0] }, 0] },
+        toArrive: { $ifNull: [{ $arrayElemAt: ['$purchaseTotals.toArrive', 0] }, 0] }
+      }
+    },
+    ...mismatchFilter,
+    { $sort: { [sortField]: sortDir, _id: 1, 'variants.id': 1 } },
+    {
+      $project: {
+        _id: 0,
+        productId: 1,
+        variantId: 1,
+        productName: 1,
+        sku: 1,
+        attributes: 1,
+        disabled: 1,
+        available: 1,
+        inShop: 1,
+        toArrive: 1
+      }
+    }
+  ]).exec();
+
+  return (results ?? []) as InShopRow[];
+}
+
 export async function getAwaitingArrival(input: {
   page?: number;
   limit?: number;
@@ -892,6 +983,8 @@ export async function getStockMovements(input: {
   limit?: number;
   search?: string;
   kind?: StockMovementKind | 'all';
+  /** When true, opening/starting-count movements are included even when kind='all'. Defaults to false. */
+  includeOpening?: boolean;
   ids?: string[];
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
@@ -903,7 +996,12 @@ export async function getStockMovements(input: {
   const limit = Math.min(1000, Math.max(1, input.limit ?? 15));
 
   const query: Record<string, unknown> = {};
-  if (input.kind && input.kind !== 'all') query.kind = input.kind;
+  if (input.kind && input.kind !== 'all') {
+    query.kind = input.kind;
+  } else if (!input.includeOpening) {
+    // By default, hide opening/starting-count movements unless explicitly requested.
+    query.kind = { $ne: 'opening' };
+  }
   if (input.ids?.length) {
     query._id = { $in: input.ids };
   }

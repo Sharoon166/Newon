@@ -245,7 +245,15 @@ export function HistoryTab({ enabled, userRole, initialSearch, onChanged }: Hist
   const load = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await getStockMovements({ page, limit, search: debouncedSearch || undefined, kind, sortBy, sortDir });
+      const result = await getStockMovements({
+        page,
+        limit,
+        search: debouncedSearch || undefined,
+        kind,
+        includeOpening: kind === 'opening',
+        sortBy,
+        sortDir
+      });
       setData(result);
       if (page > result.totalPages) setPage(result.totalPages);
     } catch (error) {

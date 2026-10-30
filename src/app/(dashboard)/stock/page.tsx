@@ -36,7 +36,6 @@ export default async function StockPage() {
     <Suspense fallback={<StockViewFallback />}>
       <StockView
         initialized={status.initialized}
-        startedAt={status.startedAt}
         counts={counts}
         userRole={session?.user?.role === 'staff' ? 'staff' : 'admin'}
       />

@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useDebounce } from '@/hooks/use-debounce';
 import { ServerPagination } from '@/components/general/server-pagination';
-import { getInShopRows } from '../actions';
+import { getInShopRows, downloadStockSummary } from '../actions';
 import type { InShopRow, PaginatedStock } from '../types';
 import { QuickCountDialog, type QuickCountTarget } from './quick-count-dialog';
 import { StockSummarySheet } from './stock-summary-sheet';
@@ -68,6 +68,8 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
   const [target, setTarget] = useState<QuickCountTarget | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [downloadRows, setDownloadRows] = useState<InShopRow[]>([]);
+  const [totalDownloadRows, setTotalDownloadRows] = useState(0);
 
   // "Add to in-shop" (adjustment purchase against the Adjustment supplier).
   const [adjustmentOpen, setAdjustmentOpen] = useState(false);
@@ -79,6 +81,28 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
   } | null>(null);
   // getProductsBasic is heavy-ish - fetch it once per page load.
   const productsRef = useRef<EnhancedVariants[] | null>(null);
+
+  // Fetch all stock for download (no pagination).
+  const handleDownloadSummary = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const sort = sorting[0];
+      const allDocs = await downloadStockSummary({
+        search: debouncedSearch || undefined,
+        onlyMismatches,
+        sortBy: sort?.id,
+        sortDir: sort?.desc ? 'desc' : 'asc'
+      });
+      setDownloadRows(allDocs);
+      setTotalDownloadRows(allDocs.length);
+      setSummaryOpen(true);
+    } catch (error) {
+      console.error('Failed to download stock summary:', error);
+      toast.error('Failed to download stock summary');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [debouncedSearch, onlyMismatches, sorting]);
 
   // Derive server-side sort params from the TanStack sorting state.
   const sort = sorting[0];
@@ -267,7 +291,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
           // render in a portal but bubble through the React tree).
           <div className="flex items-center justify-end gap-2">
             <Button
-              variant="outline"
+              variant="link"
               size="sm"
               onClick={e => {
                 e.stopPropagation();
@@ -279,39 +303,41 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
               <PackageSearch className="mr-1 h-3.5 w-3.5" />
               View purchases
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="More actions"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuItem
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleQuickCount(row.original);
-                  }}
-                >
-                  <Tally5Icon className="mr-2 h-4 w-4" />
-                  Count
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={row.original.disabled || isPreparingAdjustment}
-                  onClick={e => {
-                    e.stopPropagation();
-                    void handleAddToInShop(row.original);
-                  }}
-                >
-                  <PackagePlus className="mr-2 h-4 w-4" />
-                  Add to in-shop
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {userRole === 'admin' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="More actions"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  {/* <DropdownMenuItem
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleQuickCount(row.original);
+                    }}
+                  >
+                    <Tally5Icon className="mr-2 h-4 w-4" />
+                    Count
+                  </DropdownMenuItem> */}
+                  <DropdownMenuItem
+                    disabled={row.original.disabled || isPreparingAdjustment}
+                    onClick={e => {
+                      e.stopPropagation();
+                      void handleAddToInShop(row.original);
+                    }}
+                  >
+                    <PackagePlus className="mr-2 h-4 w-4" />
+                    Make Adjustments
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         )
       }
@@ -319,7 +345,7 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
     // Handlers only call stable setters / refs, so they don't need to be
     // dependencies - except the preparing flag, which disables the button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isPreparingAdjustment]
+    [isPreparingAdjustment, userRole]
   );
 
   const table = useReactTable({
@@ -421,10 +447,9 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
           </p>
           {userRole === 'admin' && (
             <Button
-              variant="secondary"
               size="sm"
-              onClick={() => setSummaryOpen(true)}
-              disabled={data.docs.length === 0}
+              onClick={handleDownloadSummary}
+              disabled={data.totalDocs === 0}
               title="Download a compact stock summary"
             >
               <FileDown className="mr-1.5 h-4 w-4" />
@@ -514,8 +539,8 @@ export function InShopTab({ enabled, userRole, onChanged }: InShopTabProps) {
       <StockSummarySheet
         open={summaryOpen}
         onOpenChange={setSummaryOpen}
-        rows={data.docs}
-        totalRows={data.totalDocs}
+        rows={downloadRows}
+        totalRows={totalDownloadRows}
         filterNote={summaryFilterNote || undefined}
       />
 
