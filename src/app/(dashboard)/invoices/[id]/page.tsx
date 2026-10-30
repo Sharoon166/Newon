@@ -59,6 +59,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const canEdit = usePermission('edit:invoices');
   const isAdmin = useIsAdmin();
+  const canViewFinancials = usePermission('view:client-financials');
   const canAddPayment = canEdit;
   const getBrandById = useBrandStore(state => state.getBrandById);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
@@ -436,7 +437,7 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          {canAddPayment && invoice.type === 'invoice' && invoice.balanceAmount > 0 && invoice.status !== 'cancelled' && (
+          {canAddPayment && canViewFinancials && invoice.type === 'invoice' && invoice.balanceAmount > 0 && invoice.status !== 'cancelled' && (
             <Button onClick={() => setPaymentDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Payment
@@ -757,7 +758,7 @@ export default function InvoiceDetailPage() {
                 <span className="text-primary">{formatCurrency(invoice.totalAmount)}</span>
               </div>
 
-              {invoice.type === 'invoice' && (
+              {invoice.type === 'invoice' && canViewFinancials && (
                 <>
                   <div className="border-t pt-3 flex justify-between">
                     <span className="text-muted-foreground">Paid:</span>
@@ -779,7 +780,7 @@ export default function InvoiceDetailPage() {
 
           {/* Payments */}
 
-          {invoice.type === 'invoice' && (
+          {invoice.type === 'invoice' && canViewFinancials && (
             <Card>
               <CardHeader>
                 <CardTitle>Payment History</CardTitle>
