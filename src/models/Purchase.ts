@@ -203,7 +203,7 @@ purchaseSchema.pre('save', async function (next) {
     if (this.purchasePrice != null) {
       // Landed: goods + shipping. unitPrice is derived (read-only in the form).
       this.totalCost = this.quantity * this.purchasePrice + (this.shippingCost || 0);
-      this.unitPrice = this.totalCost / this.quantity;
+      this.unitPrice = Math.round((this.totalCost / this.quantity) * 100) / 100;
     } else {
       // Legacy: unitPrice is the goods price; shipping (always 0 in prod for
       // these rows) is not part of the supplier-facing total.

@@ -434,7 +434,7 @@ export function PurchaseForm({
   // in sync so validations, DTOs and displays always agree with the inputs.
   useEffect(() => {
     if (!open || quantity <= 0) return;
-    const derived = (quantity * purchasePrice + shippingCost) / quantity;
+    const derived = Math.round(((quantity * purchasePrice + shippingCost) / quantity) * 100) / 100;
     if (form.getValues('unitPrice') !== derived) {
       form.setValue('unitPrice', derived);
     }
@@ -925,6 +925,7 @@ export function PurchaseForm({
                               e.stopPropagation();
                             }
                           }}
+                          className='max-w-96'
                         />
                       </FormControl>
                       <FormMessage />

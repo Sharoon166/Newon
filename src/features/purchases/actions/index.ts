@@ -935,7 +935,7 @@ export const updatePurchase = async (id: string, data: UpdatePurchaseDto) => {
     if (nextPurchasePrice != null) {
       const landedTotal = nextQuantity * nextPurchasePrice + (nextShippingCost || 0);
       updateData.totalCost = landedTotal;
-      updateData.unitPrice = landedTotal / nextQuantity;
+      updateData.unitPrice = Math.round((landedTotal / nextQuantity) * 100) / 100;
     } else {
       updateData.totalCost = nextQuantity * nextUnitPrice;
     }
