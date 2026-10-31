@@ -12,9 +12,10 @@ import { groupItemsByVariant, type GroupedInvoiceItem } from '@/features/invoice
 interface InvoiceItemsTableProps {
   invoice: Invoice;
   showTotals?: boolean;
+  hideFinancials?: boolean;
 }
 
-export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsTableProps) {
+export function InvoiceItemsTable({ invoice, showTotals = false, hideFinancials = false }: InvoiceItemsTableProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const toggleGroupExpansion = (key: string) => {
@@ -63,8 +64,8 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
             <TableHead className="w-[50px]"></TableHead>
             <TableHead>Product</TableHead>
             <TableHead className="text-right">Quantity</TableHead>
-            <TableHead className="text-right">Unit Price</TableHead>
-            <TableHead className="text-right">Total</TableHead>
+            {!hideFinancials && <TableHead className="text-right">Unit Price</TableHead>}
+            {!hideFinancials && <TableHead className="text-right">Total</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -105,23 +106,27 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                 <TableCell className="text-right">
                   {group.totalQuantity} {group.unit}
                 </TableCell>
-                <TableCell className="text-right">
-                  {formatCurrency(group.unifiedRate)}
-                  {group.batches.length > 1 && (
-                    <div className="text-muted-foreground text-xs">
-                      Avg across {group.batches.length} batches
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="text-right font-semibold">
-                  {formatCurrency(group.totalAmount)}
-                </TableCell>
+                {!hideFinancials && (
+                  <TableCell className="text-right">
+                    {formatCurrency(group.unifiedRate)}
+                    {group.batches.length > 1 && (
+                      <div className="text-muted-foreground text-xs">
+                        Avg across {group.batches.length} batches
+                      </div>
+                    )}
+                  </TableCell>
+                )}
+                {!hideFinancials && (
+                  <TableCell className="text-right font-semibold">
+                    {formatCurrency(group.totalAmount)}
+                  </TableCell>
+                )}
               </TableRow>
 
               {/* Batch breakdown when expanded */}
               {expandedGroups.has(group.key) && group.batches.length > 1 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="bg-gray-50 p-0">
+                  <TableCell colSpan={hideFinancials ? 3 : 5} className="bg-gray-50 p-0">
                     <div className="p-4">
                       <h4 className="text-sm font-semibold text-gray-900 mb-3">Batch Breakdown</h4>
                       <div className="bg-white rounded border">
@@ -130,8 +135,8 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                             <TableRow className="bg-gray-50">
                               <TableHead className="text-xs font-semibold">Purchase/Batch</TableHead>
                               <TableHead className="text-xs font-semibold text-right">Quantity</TableHead>
-                              <TableHead className="text-xs font-semibold text-right">Unit Price</TableHead>
-                              <TableHead className="text-xs font-semibold text-right">Total</TableHead>
+                              {!hideFinancials && <TableHead className="text-xs font-semibold text-right">Unit Price</TableHead>}
+                              {!hideFinancials && <TableHead className="text-xs font-semibold text-right">Total</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -143,24 +148,32 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
                                     {batch.purchaseId || `Batch ${idx + 1}`}
                                   </TableCell>
                                   <TableCell className="text-sm text-right">{batch.quantity}</TableCell>
-                                  <TableCell className="text-sm text-right">
-                                    {formatCurrency(batch.rate)}
-                                  </TableCell>
-                                  <TableCell className="text-sm text-right font-semibold">
-                                    {formatCurrency(batch.amount)}
-                                  </TableCell>
+                                  {!hideFinancials && (
+                                    <TableCell className="text-sm text-right">
+                                      {formatCurrency(batch.rate)}
+                                    </TableCell>
+                                  )}
+                                  {!hideFinancials && (
+                                    <TableCell className="text-sm text-right font-semibold">
+                                      {formatCurrency(batch.amount)}
+                                    </TableCell>
+                                  )}
                                 </TableRow>
                               );
                             })}
                             <TableRow className="bg-blue-50">
                               <TableCell className="text-sm font-semibold">Total</TableCell>
                               <TableCell className="text-sm text-right font-bold">{group.totalQuantity}</TableCell>
-                              <TableCell className="text-sm text-right font-bold">
-                                {formatCurrency(group.unifiedRate)}
-                              </TableCell>
-                              <TableCell className="text-sm text-right font-bold text-blue-700">
-                                {formatCurrency(group.totalAmount)}
-                              </TableCell>
+                              {!hideFinancials && (
+                                <TableCell className="text-sm text-right font-bold">
+                                  {formatCurrency(group.unifiedRate)}
+                                </TableCell>
+                              )}
+                              {!hideFinancials && (
+                                <TableCell className="text-sm text-right font-bold text-blue-700">
+                                  {formatCurrency(group.totalAmount)}
+                                </TableCell>
+                              )}
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -173,7 +186,7 @@ export function InvoiceItemsTable({ invoice, showTotals = false }: InvoiceItemsT
               {/* VP component breakdown when expanded */}
               {group.isVirtualProduct && expandedGroups.has(group.key) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="bg-gray-50 p-0">
+                  <TableCell colSpan={hideFinancials ? 3 : 5} className="bg-gray-50 p-0">
                     <div className="p-4 space-y-4">
                       {/* Show component breakdown from the first batch item that has it */}
                       {invoice.items

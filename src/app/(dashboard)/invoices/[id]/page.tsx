@@ -465,15 +465,19 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
 
-          <Button variant="secondary" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
+          {canViewFinancials && (
+            <Button variant="secondary" onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+          )}
 
-          <Button variant="secondary" onClick={handleDeliveryNote}>
-            <Download className="h-4 w-4 mr-2" />
-            Delivery Note
-          </Button>
+          {canViewFinancials && (
+            <Button variant="secondary" onClick={handleDeliveryNote}>
+              <Download className="h-4 w-4 mr-2" />
+              Delivery Note
+            </Button>
+          )}
 
           <Button hidden aria-hidden onClick={handleDownloadPDF} disabled={isGeneratingPDF}>
             <Download className="h-4 w-4 mr-2" />
@@ -651,7 +655,7 @@ export default function InvoiceDetailPage() {
             </Card>
           )}
 
-          <InvoiceItemsTable invoice={invoice} />
+          <InvoiceItemsTable invoice={invoice} hideFinancials={!canViewFinancials} />
 
           {/* Delivery status (loads separately - see InvoiceDeliveryCard) */}
           {invoice.type === 'invoice' && (
@@ -714,13 +718,15 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
 
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal:</span>
+              {canViewFinancials && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal:</span>
 
-                <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
-              </div>
+                  <span className="font-medium">{formatCurrency(invoice.subtotal)}</span>
+                </div>
+              )}
 
-              {invoice.discountAmount > 0 && (
+              {canViewFinancials && invoice.discountAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
                     Discount {invoice.discountType === 'percentage' ? `(${invoice.discountValue}%)` : ''}:
@@ -730,7 +736,7 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
 
-              {invoice.gstAmount > 0 && (
+              {canViewFinancials && invoice.gstAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
                     GST {invoice.gstType === 'percentage' ? `(${invoice.gstValue}%)` : ''}:
@@ -740,7 +746,7 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
 
-              {invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
+              {canViewFinancials && invoice.additionalCharges && invoice.additionalCharges.length > 0 && (
                 <>
                   {invoice.additionalCharges.map((charge, index) => (
                     <div key={index} className="flex justify-between">
@@ -752,11 +758,13 @@ export default function InvoiceDetailPage() {
                 </>
               )}
 
-              <div className="border-t pt-3 flex justify-between text-lg font-bold">
-                <span>Total:</span>
+              {canViewFinancials && (
+                <div className="border-t pt-3 flex justify-between text-lg font-bold">
+                  <span>Total:</span>
 
-                <span className="text-primary">{formatCurrency(invoice.totalAmount)}</span>
-              </div>
+                  <span className="text-primary">{formatCurrency(invoice.totalAmount)}</span>
+                </div>
+              )}
 
               {invoice.type === 'invoice' && canViewFinancials && (
                 <>
