@@ -1,3 +1,5 @@
+import { isCustomItem } from './deliverable-items';
+
 /**
  * Groups invoice items by variantId for display purposes.
  * The underlying data stays as separate lines (per batch/purchase),
@@ -37,6 +39,8 @@ export interface GroupedInvoiceItem {
  *
  * For virtual products, groups by virtualProductId.
  * For regular products, groups by variantId.
+ * For custom (hand-typed) lines, groups by nothing — each gets its own group so
+ * they are never batched/merged together. See `isCustomItem`.
  */
 export function groupItemsByVariant<T extends {
   id?: string;
@@ -63,11 +67,24 @@ export function groupItemsByVariant<T extends {
     const item = items[i];
     if (!item || item.quantity <= 0) continue; // skip fully-consumed batches
     const isVP = item.isVirtualProduct === true;
-    // Composite key so a duplicate/corrupt variantId alone can never merge
-    // unrelated products — productId and SKU disambiguate.
+    // Hand-typed lines (no stock behind them) must never merge — neither with
+    // each other nor with real products — so each gets its own single-batch
+    // group. `id` is a uuid on fresh form rows but is stripped when loaded from
+    // the DB (transformInvoice), so fall back to the array index: unique within
+    // a list, and the same index used as the form fieldIndex.
     const groupKey = isVP
       ? `vp_${item.virtualProductId}`
-      : `variant_${item.productId ?? ''}_${item.variantId ?? ''}_${item.variantSKU ?? ''}`;
+      : isCustomItem({
+          productId: item.productId ?? '',
+          variantId: item.variantId,
+          purchaseId: item.purchaseId,
+          virtualProductId: item.virtualProductId,
+          isVirtualProduct: item.isVirtualProduct
+        })
+        ? `custom_${item.id ?? `idx:${i}`}`
+        : // Composite key so a duplicate/corrupt variantId alone can never merge
+          // unrelated products — productId and SKU disambiguate.
+          `variant_${item.productId ?? ''}_${item.variantId ?? ''}_${item.variantSKU ?? ''}`;
     const itemDescription = item.description || item.productName || 'Unnamed';
 
     const originalCost = isVP

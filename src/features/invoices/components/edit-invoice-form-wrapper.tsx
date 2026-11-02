@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Info } from 'lucide-react';
+import { DEFAULT_QUOTATION_TERMS } from '@/constants';
 
 interface FormData {
   invoiceNumber?: string;
@@ -374,7 +375,7 @@ export function EditInvoiceFormWrapper({
           variants={variants}
           purchases={purchases}
           virtualProducts={virtualProducts}
-          invoiceTerms={invoiceTerms}
+          invoiceTerms={DEFAULT_QUOTATION_TERMS}
           initialData={initialData}
           isEditMode={true}
           restoredItems={originalItems}

@@ -20,6 +20,14 @@ export const INVOICE_TERMS_AND_CONDITIONS = [
   'No shipping charges included in above prices.'
 ];
 
+export const DEFAULT_QUOTATION_TERMS = [
+  "All prices are exclusive of taxes.",
+  "Mentioned material supply and installation included.",
+  "Any extra material/work needed will be charged as per market rate.",
+  "70% payment needed for order confirmation and remaining before completion.",
+  "Completion time 10-15 working days after order confirmation.",
+]
+
 export const OTC_CUSTOMER = {
   id: 'otc',
   customerId: 'OTC-001',

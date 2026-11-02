@@ -47,7 +47,7 @@ import type { EnhancedVariants } from '@/features/inventory/types';
 import type { Purchase } from '@/features/purchases/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import type { InvoiceItem } from '../types';
-import { INVOICE_TERMS_AND_CONDITIONS } from '@/constants';
+import { DEFAULT_QUOTATION_TERMS } from '@/constants';
 import { toast } from 'sonner';
 import { QuotationTemplate } from './quotation-template';
 import { v4 as uuidv4 } from 'uuid';
@@ -221,7 +221,7 @@ export function NewQuotationForm({
       additionalCharges: initialData?.additionalCharges || [],
       terms:
         initialData?.terms ||
-        (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : INVOICE_TERMS_AND_CONDITIONS.join('\n'))
+        (initialInvoiceTerms ? initialInvoiceTerms.join('\n') : DEFAULT_QUOTATION_TERMS.join('\n'))
     }
   });
 

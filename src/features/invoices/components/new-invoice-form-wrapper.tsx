@@ -12,6 +12,7 @@ import type { Purchase } from '@/features/purchases/types';
 import type { PaymentDetails } from '@/features/settings/types';
 import type { EnhancedVirtualProduct } from '@/features/virtual-products/types';
 import { toast } from 'sonner';
+import { DEFAULT_QUOTATION_TERMS } from '@/constants';
 
 type DocumentType = 'invoice' | 'quotation';
 
@@ -321,7 +322,7 @@ export function NewInvoiceFormWrapper({
           variants={variants}
           purchases={purchases}
           virtualProducts={virtualProducts}
-          invoiceTerms={invoiceTerms}
+          invoiceTerms={DEFAULT_QUOTATION_TERMS}
           initialData={initialData}
           fromProject={fromProject}
           projectId={projectId}
