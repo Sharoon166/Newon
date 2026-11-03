@@ -42,11 +42,22 @@ export async function proxy(request: NextRequest) {
 
   // Role-based access control for staff
   if (token && token.role === 'staff') {
+    // Invoices and purchases are admin-only for now. Check this explicitly
+    // before the allow-list so these routes stay blocked even if the list is
+    // broadened later. The check is segment-aware so only the route itself and
+    // its subpages are matched.
+    const blockedStaffRoutes = ['/invoices', '/purchases'];
+    const isBlockedStaffRoute = blockedStaffRoutes.some(
+      route => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+    if (isBlockedStaffRoute) {
+      return NextResponse.redirect(new URL('/not-allowed', request.url));
+    }
+
     const allowedStaffRoutes = [
       '/inventory/staff',
       '/projects',
-      '/invoices',
-      '/purchases',
       '/expenses',
       '/stock',
       // requirePermission() redirects denied staff here — without it they'd

@@ -94,9 +94,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'reverse:stock',
     'print:stock'
   ],
-  // Staff can view invoices and create purchases/suppliers, but never create,
-  // edit or delete invoices (quotations included — same permission), and never
-  // edit or delete purchases.
+  // Staff cannot access the invoices or purchases pages (or any subpage) —
+  // those sections are admin-only for now. `create:purchases` is kept because
+  // the stock page's "add to in-shop" adjustment reuses the purchase creation
+  // action, and staff still record what physically arrives/leaves the shop.
   staff: [
     'view:inventory',
     'view:projects',
@@ -105,12 +106,9 @@ const rolePermissions: Record<Role, Permission[]> = {
     // writes are limited by ownership checks in the expense actions, and
     // deletion stays admin-only.
     'view:expenses',
-    'view:invoices',
-    'view:purchases',
     'create:purchases',
     'view:suppliers',
     'create:suppliers',
-    // Staff record what physically arrives / leaves the shop.
     'view:stock',
     'edit:stock'
   ]

@@ -229,16 +229,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: FolderKanban
         },
         {
-          name: 'Purchases',
-          url: '/purchases',
-          icon: Package
-        },
-        {
-          name: 'Invoices & Quotations',
-          url: '/invoices',
-          icon: ScrollTextIcon
-        },
-        {
           name: 'Expenses',
           url: '/expenses',
           icon: Receipt
