@@ -1,10 +1,12 @@
+import type { Role } from '@/lib/rbac';
+
 export interface StaffMember {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   phoneNumber?: string;
-  role: string;
+  role: Role;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -15,7 +17,7 @@ export interface CreateStaffDto {
   lastName: string;
   email: string;
   phoneNumber?: string;
-  role: string;
+  role: Role;
   password: string;
 }
 
@@ -25,6 +27,7 @@ export interface UpdateStaffDto extends Partial<CreateStaffDto> {
 
 export interface StaffFilters {
   search?: string;
-  role?: string;
+  role?: Role;
+  roles?: Role[];
   isActive?: boolean;
 }

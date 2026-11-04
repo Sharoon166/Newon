@@ -9,7 +9,7 @@ const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   phoneNumber: z.string().optional(),
-  role: z.enum(['admin', 'staff']).default('staff')
+  role: z.enum(['admin', 'staff', 'operations-staff']).default('staff')
 });
 
 export async function POST(request: NextRequest) {

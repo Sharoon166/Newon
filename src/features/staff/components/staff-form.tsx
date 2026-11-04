@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { StaffMember, CreateStaffDto, UpdateStaffDto } from '../types';
 import { createStaffMember, updateStaffMember } from '../actions';
+import type { Role } from '@/lib/rbac';
 
 const staffFormSchema = z.object({
   firstName: z.string().min(2, {
@@ -25,7 +26,7 @@ const staffFormSchema = z.object({
     message: 'Please enter a valid email address.'
   }),
   phoneNumber: z.string().optional(),
-  role: z.string().min(1, 'Please select a role.'),
+  role: z.string().min(1, 'Please select a role.').transform(role => role as Role),
   password: z
     .string()
     .min(8, {
@@ -35,7 +36,8 @@ const staffFormSchema = z.object({
     .or(z.literal(''))
 });
 
-type StaffFormValues = z.infer<typeof staffFormSchema>;
+type StaffFormValues = z.input<typeof staffFormSchema>;
+type StaffFormOutput = z.output<typeof staffFormSchema>;
 
 interface StaffFormProps {
   initialData?: StaffMember;
@@ -48,7 +50,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
   const [loading, setLoading] = useState(false);
   const isEditMode = !!initialData;
 
-  const form = useForm<StaffFormValues>({
+  const form = useForm<StaffFormValues, unknown, StaffFormOutput>({
     resolver: zodResolver(staffFormSchema),
     defaultValues: {
       firstName: initialData?.firstName || '',
@@ -60,7 +62,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
     }
   });
 
-  const onSubmit = async (data: StaffFormValues) => {
+  const onSubmit = async (data: StaffFormOutput) => {
     try {
       setLoading(true);
 
@@ -178,6 +180,7 @@ export function StaffForm({ initialData, onSuccess, onCancel }: StaffFormProps) 
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="operations-staff">Operations Staff</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />

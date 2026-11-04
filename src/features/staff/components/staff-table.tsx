@@ -28,6 +28,7 @@ import { deleteStaffMember } from '@/features/staff/actions';
 import { StaffMember } from '../types';
 import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import type { Role } from '@/lib/rbac';
 
 interface Staff {
   id: string;
@@ -36,7 +37,7 @@ interface Staff {
   lastName: string;
   email: string;
   phoneNumber?: string;
-  role: string;
+  role: Role;
   isActive: boolean;
   createdAt: string | Date;
 }
@@ -144,9 +145,10 @@ export function StaffTable({ staff }: StaffTableProps) {
         ),
         cell: ({ row }) => {
           const role = row.getValue('role') as string;
+          const roleLabel = role === 'operations-staff' ? 'Operations Staff' : role;
           return (
             <Badge variant={role === 'admin' ? 'default' : 'secondary'} className="capitalize">
-              {role}
+              {roleLabel}
             </Badge>
           );
         },

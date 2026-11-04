@@ -18,7 +18,7 @@ export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMemb
     await dbConnect();
 
     const query: {
-      role?: string;
+      role?: string | { $in: string[] };
       $or?: Array<{
         [key: string]: { $regex: string; $options: string };
       }>;
@@ -41,6 +41,10 @@ export async function getStaffMembers(filters?: StaffFilters): Promise<StaffMemb
 
     if (filters?.role) {
       query.role = filters.role;
+    }
+
+    if (filters?.roles?.length) {
+      query.role = { $in: filters.roles };
     }
 
     const staffMembers = await Staff.find(query).sort({ role: 1, createdAt: -1 }).lean();

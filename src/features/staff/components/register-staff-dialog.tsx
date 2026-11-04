@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import type { Role } from '@/lib/rbac';
 
 interface RegisterStaffDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
     email: '',
     password: '',
     phoneNumber: '',
-    role: 'staff' as 'admin' | 'staff'
+    role: 'staff' as Role
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,13 +123,14 @@ export function RegisterStaffDialog({ open, onOpenChange, onSuccess }: RegisterS
             <Label htmlFor="role">Role</Label>
             <Select
               value={formData.role}
-              onValueChange={(value: 'admin' | 'staff') => setFormData({ ...formData, role: value })}
+              onValueChange={(value: Role) => setFormData({ ...formData, role: value })}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="staff">Staff</SelectItem>
+                                <SelectItem value="operations-staff">Operations Staff</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>

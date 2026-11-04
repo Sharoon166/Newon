@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Role } from '@/lib/rbac';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     phoneNumber: '',
-    role: 'staff' as 'admin' | 'staff'
+    role: 'staff' as Role
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -127,13 +128,14 @@ export default function RegisterPage() {
               <Label htmlFor="role">Role</Label>
               <Select
                 value={formData.role}
-                onValueChange={(value: 'admin' | 'staff') => setFormData({ ...formData, role: value })}
+                onValueChange={(value: Role) => setFormData({ ...formData, role: value })}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="operations-staff">Operations Staff</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>

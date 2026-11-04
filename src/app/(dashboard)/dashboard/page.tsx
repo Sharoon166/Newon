@@ -17,8 +17,8 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   const session = await getSession();
 
-  if (session?.user?.role === 'staff') {
-    redirect('/inventory');
+  if (session?.user?.role === 'staff' || session?.user?.role === 'operations-staff') {
+    redirect('/inventory/staff');
   }
 
   const data = await getDashboardData();

@@ -10,7 +10,7 @@ export interface IStaff extends Document {
   email: string;
   password: string;
   phoneNumber?: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'staff' | 'operations-staff';
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -56,7 +56,7 @@ const staffSchema = new Schema<IStaff>(
     role: {
       type: String,
       required: [true, 'Role is required'],
-      enum: ['admin', 'staff'],
+      enum: ['admin', 'staff', 'operations-staff'],
       default: 'staff'
     },
     isActive: {

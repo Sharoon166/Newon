@@ -37,7 +37,7 @@ export default async function StockPage() {
       <StockView
         initialized={status.initialized}
         counts={counts}
-        userRole={session?.user?.role === 'staff' ? 'staff' : 'admin'}
+        userRole={session?.user?.role ?? 'staff'}
       />
     </Suspense>
   );

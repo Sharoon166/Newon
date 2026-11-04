@@ -22,8 +22,6 @@ interface AddExpenseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   projectId: string;
-  userId: string;
-  userRole: string;
   onSuccess?: () => void;
 }
 
@@ -31,8 +29,6 @@ export function AddExpenseDialog({
   open,
   onOpenChange,
   projectId,
-  userId,
-  userRole,
   onSuccess
 }: AddExpenseDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,12 +66,10 @@ export function AddExpenseDialog({
         amount: Number(data.amount),
         category: data.category,
         date: expenseDate,
-        addedBy: userId,
-        addedByRole: userRole as 'admin' | 'staff',
         notes: data.notes || undefined
       };
 
-      await addExpense(projectId, expenseData, userRole);
+      await addExpense(projectId, expenseData);
       toast.success('Expense added successfully');
       reset();
       setExpenseDate(new Date());

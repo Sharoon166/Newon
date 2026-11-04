@@ -1,6 +1,6 @@
 import type { Session } from 'next-auth';
 
-export type Role = 'admin' | 'staff';
+export type Role = 'admin' | 'staff' | 'operations-staff';
 
 export type Permission =
   | 'view:inventory'
@@ -34,6 +34,7 @@ export type Permission =
   | 'delete:projects'
   | 'view:expenses'
   | 'add:expenses'
+  | 'add:project-expenses'
   | 'view:budget'
   | 'view:project-inventory'
   | 'add:project-inventory'
@@ -81,6 +82,7 @@ const rolePermissions: Record<Role, Permission[]> = {
     'delete:projects',
     'view:expenses',
     'add:expenses',
+    'add:project-expenses',
     'view:budget',
     'view:project-inventory',
     'add:project-inventory',
@@ -94,15 +96,18 @@ const rolePermissions: Record<Role, Permission[]> = {
     'reverse:stock',
     'print:stock'
   ],
-  // Staff cannot access the invoices or purchases pages (or any subpage) —
-  // those sections are admin-only for now. `create:purchases` is kept because
-  // the stock page's "add to in-shop" adjustment reuses the purchase creation
-  // action, and staff still record what physically arrives/leaves the shop.
+  // Regular staff are limited to inventory and project workflows.
   staff: [
     'view:inventory',
     'view:projects',
+    'add:project-expenses'
+  ],
+  'operations-staff': [
+    'view:inventory',
+    'view:projects',
+    'add:project-expenses',
     'add:expenses',
-    // Staff can read the manual expense ledger but cannot manage every entry —
+    // Operations staff can read the manual expense ledger but cannot manage every entry —
     // writes are limited by ownership checks in the expense actions, and
     // deletion stays admin-only.
     'view:expenses',
@@ -140,7 +145,11 @@ export function isAdmin(session: Session | null): boolean {
  * Check if user is staff
  */
 export function isStaff(session: Session | null): boolean {
-  return session?.user?.role === 'staff';
+  return session?.user?.role === 'staff' || session?.user?.role === 'operations-staff';
+}
+
+export function isStaffRole(role: string | null | undefined): boolean {
+  return role === 'staff' || role === 'operations-staff';
 }
 
 /**

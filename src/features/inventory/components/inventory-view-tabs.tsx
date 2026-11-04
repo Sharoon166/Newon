@@ -6,10 +6,11 @@ import { ProductsTable } from './products-table';
 import { ProductsCards } from './products-cards';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { EnhancedVariants } from '../types';
+import type { Role } from '@/lib/rbac';
 
 interface InventoryViewTabsProps {
   products: EnhancedVariants[];
-  userRole?: 'admin' | 'staff' | undefined;
+  userRole?: Role;
 }
 
 export function InventoryViewTabs({ products, userRole }: InventoryViewTabsProps) {

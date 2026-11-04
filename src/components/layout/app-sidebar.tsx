@@ -211,7 +211,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const currentBrand = getCurrentBrand();
   const { isMobile } = useSidebar();
   const { data: session, status } = useSession();
-  const isStaff = session?.user?.role === 'staff' || status == 'loading';
+  const isStaff = session?.user?.role === 'staff' || session?.user?.role === 'operations-staff' || status == 'loading';
 
   // Filter links based on user role
   const staffCategories = [
@@ -228,21 +228,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: '/projects',
           icon: FolderKanban
         },
-        {
-          name: 'Expenses',
-          url: '/expenses',
-          icon: Receipt
-        },
-        {
-          name: 'Stock',
-          url: '/stock',
-          icon: BarChart4
-        },
       ]
     }
   ];
 
-  const visibleCategories = isStaff ? staffCategories : data.categories;
+  const operationsStaffCategories = [
+    {
+      title: 'Operations',
+      items: [
+        ...staffCategories[0].items,
+        { name: 'Expenses', url: '/expenses', icon: Receipt },
+        { name: 'Stock', url: '/stock', icon: BarChart4 }
+      ]
+    }
+  ];
+
+  const visibleCategories =
+    session?.user?.role === 'operations-staff'
+      ? operationsStaffCategories
+      : isStaff
+        ? staffCategories
+        : data.categories;
   const visibleSecondary = isStaff ? [] : data.navSecondary;
 
   return (

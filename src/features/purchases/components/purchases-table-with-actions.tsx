@@ -680,6 +680,7 @@
 //     </div>
 //   );
 // }
+
 'use client';
 
 import { useState, useEffect, useMemo, useTransition } from 'react';
@@ -741,6 +742,8 @@ import { toast } from 'sonner';
 import type { EnhancedVariants } from '@/features/inventory/types';
 import { PurchaseForm } from './purchase-form';
 import { PurchasePaymentDialog, type PaymentRow } from './purchase-payment-dialog';
+import type { Role } from '@/lib/rbac';
+
 
 export interface EnhancedPurchase extends Purchase {
   variant?: {
@@ -760,7 +763,7 @@ interface PurchasesTableWithActionsProps {
    * when omitted.
    */
   suppliers?: Array<{ supplierId: string; name: string }>;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
   /** May the caller see cost data (cost, unit price, payments) of imported products. */
   canViewImportedCosts?: boolean;
   /** May the caller record a purchase against an imported product. */
@@ -882,12 +885,12 @@ export function PurchasesTableWithActions({
   products,
   suppliers,
   userRole,
-  canViewImportedCosts = userRole !== 'staff',
-  canCreateImported = userRole !== 'staff',
+  canViewImportedCosts = userRole === 'admin',
+  canCreateImported = userRole === 'admin',
   stockReady = false
 }: PurchasesTableWithActionsProps) {
   // Staff may create + view purchases; only admins may edit or delete.
-  const canManage = userRole !== 'staff';
+  const canManage = userRole === 'admin';
   // Cost of an imported product's purchase is admin-only - the server already
   // strips those fields, this only decides how the row is rendered.
   const hideImportedCosts = !canViewImportedCosts;

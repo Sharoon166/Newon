@@ -73,7 +73,7 @@ async function ProjectPageContent({ params }: ProjectPageProps) {
 
   const permissions = {
     canEdit: userHasPermission(session, 'edit:projects'),
-    canAddExpense: userHasPermission(session, 'add:expenses'),
+    canAddExpense: userHasPermission(session, 'add:project-expenses'),
     canViewBudget: userHasPermission(session, 'view:budget'),
     canViewInvoiceItems: userHasPermission(session, 'view:project-inventory'),
     canViewAuditLogs: userHasPermission(session, 'view:audit-logs'),

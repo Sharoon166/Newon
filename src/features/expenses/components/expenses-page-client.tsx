@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Search, Filter } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
+import type { Role } from '@/lib/rbac';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +33,7 @@ interface ExpensesPageClientProps {
   invoiceExpensesData: PaginatedExpenses;
   projectExpensesData: PaginatedExpenses;
   userId: string;
-  userRole: 'admin' | 'staff';
+  userRole: Role;
   activeTab?: string;
 }
 

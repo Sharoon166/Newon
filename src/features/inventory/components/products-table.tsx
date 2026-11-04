@@ -13,6 +13,7 @@ import {
   useReactTable
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
+import type { Role } from '@/lib/rbac';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -326,7 +327,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
 
 interface ProductsTableProps {
   data?: EnhancedVariants[];
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
 }
 
 export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
@@ -334,8 +335,8 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    categories: userRole !== 'staff',
-    supplier: userRole !== 'staff'
+    categories: userRole === 'admin',
+    supplier: userRole === 'admin'
   });
   const [rowSelection, setRowSelection] = useState({});
   const [pagination, setPagination] = useState({

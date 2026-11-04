@@ -10,7 +10,7 @@ export async function registerStaff(data: {
   email: string;
   password: string;
   phoneNumber?: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'staff' | 'operations-staff';
 }) {
   try {
     await dbConnect();

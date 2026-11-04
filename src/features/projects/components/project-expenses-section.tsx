@@ -80,8 +80,6 @@ export function ProjectExpensesSection({
           open={expenseDialogOpen}
           onOpenChange={setExpenseDialogOpen}
           projectId={projectId}
-          userId={userId}
-          userRole={userRole}
           onSuccess={handleRefresh}
         />
       )}

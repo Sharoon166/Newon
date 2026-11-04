@@ -1,5 +1,6 @@
 'use client';
 
+import type { Role } from '@/lib/rbac';
 import { useRouter } from 'next/navigation';
 import {
   ColumnDef,
@@ -56,7 +57,7 @@ import { printInvoicePDF } from '../utils/print-invoice';
 interface QuotationsTableProps {
   quotations: Invoice[];
   onRefresh?: () => void;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
 }
 
 export function QuotationsTable({ quotations, onRefresh, userRole }: QuotationsTableProps) {
@@ -279,7 +280,7 @@ export function QuotationsTable({ quotations, onRefresh, userRole }: QuotationsT
         cell: ({ row }: { row: { original: Invoice } }) => {
           const quotation = row.original;
           const isEditRestricted = new Date(quotation.date) < INVOICE_EDIT_CUTOFF_DATE;
-          const canManage = userRole !== 'staff';
+          const canManage = userRole === 'admin';
 
           return (
             <DropdownMenu>

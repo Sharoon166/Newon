@@ -1,5 +1,6 @@
 'use client';
 
+import type { Role } from '@/lib/rbac';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,7 +62,7 @@ const methodConfig: Record<string, { variant: 'default' | 'secondary' | 'outline
 interface PaymentsPageClientProps {
   customers: Customer[];
   initialPayments: GeneralPayment[];
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
 }
 
 export function PaymentsPageClient({ customers, initialPayments }: PaymentsPageClientProps) {

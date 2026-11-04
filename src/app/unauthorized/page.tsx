@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react';
 export default function UnauthorizedPage() {
   const { data: session } = useSession();
   // Staff are blocked from /inventory by the proxy — send them to their own hub.
-  const homeHref = session?.user?.role === 'staff' ? '/inventory/staff' : '/inventory';
+  const homeHref = session?.user?.role === 'staff' || session?.user?.role === 'operations-staff' ? '/inventory/staff' : '/inventory';
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">

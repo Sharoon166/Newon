@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { Role } from '@/lib/rbac';
 import {
   ColumnDef,
   SortingState,
@@ -27,7 +28,7 @@ interface ExpenseTableProps {
   // their own manual expenses. Deletion is gated one level higher by only
   // passing `onDelete` to admins — it is not rendered for staff at all.
   currentUserId?: string;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
 }
 
 const categoryLabels: Record<ExpenseCategory, string> = {

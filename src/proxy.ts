@@ -21,7 +21,7 @@ export async function proxy(request: NextRequest) {
   // Redirect to inventory if authenticated and trying to access auth pages
   if (token && isPublicRoute) {
     // Staff users go to their restricted page
-    if (token.role === 'staff') {
+    if (token.role === 'staff' || token.role === 'operations-staff') {
       const staffInventoryUrl = new URL('/inventory/staff', request.url);
       return NextResponse.redirect(staffInventoryUrl);
     }
@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
 
   // Redirect root to appropriate page based on role
   if (pathname === '/') {
-    if (token?.role === 'staff') {
+    if (token?.role === 'staff' || token?.role === 'operations-staff') {
       const staffInventoryUrl = new URL('/inventory/staff', request.url);
       return NextResponse.redirect(staffInventoryUrl);
     }
@@ -41,7 +41,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // Role-based access control for staff
-  if (token && token.role === 'staff') {
+  if (token && (token.role === 'staff' || token.role === 'operations-staff')) {
+    const isOperationsStaff = token.role === 'operations-staff';
     // Invoices and purchases are admin-only for now. Check this explicitly
     // before the allow-list so these routes stay blocked even if the list is
     // broadened later. The check is segment-aware so only the route itself and
@@ -58,14 +59,15 @@ export async function proxy(request: NextRequest) {
     const allowedStaffRoutes = [
       '/inventory/staff',
       '/projects',
-      '/expenses',
-      '/stock',
       // requirePermission() redirects denied staff here — without it they'd
       // bounce to /not-allowed instead of the explanatory Access Denied page.
       '/unauthorized',
       '/not-allowed',
       '/api'
     ];
+    if (isOperationsStaff) {
+      allowedStaffRoutes.push('/expenses', '/stock');
+    }
     const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
 
     // Also allow access to static assets and Next.js internals

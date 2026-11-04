@@ -22,7 +22,7 @@ async function AddProjectContent() {
     redirect('/not-allowed');
   }
 
-  const staffMembers = await getStaffMembers({ isActive: true, role: 'staff' });
+  const staffMembers = await getStaffMembers({ isActive: true, roles: ['staff', 'operations-staff'] });
   const invoicesResult = await getInvoices({ type: 'invoice', limit: 10000 });
   const invoices = invoicesResult.docs;
 

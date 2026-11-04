@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import dbConnect from '@/lib/db';
 import Staff from '@/models/Staff';
+import type { Role } from '@/lib/rbac';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -68,7 +69,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as 'admin' | 'staff';
+        session.user.role = token.role as Role;
         session.user.staffId = token.staffId as string;
         session.user.name = token.name as string;
         session.user.email = token.email as string;

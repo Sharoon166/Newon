@@ -19,7 +19,7 @@ async function ProjectsContent() {
   }
 
   // Allow both admin and staff to access
-  if (session.user.role !== 'admin' && session.user.role !== 'staff') {
+  if (session.user.role !== 'admin' && session.user.role !== 'staff' && session.user.role !== 'operations-staff') {
     redirect('/not-allowed');
   }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import type { Role } from '@/lib/rbac';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,7 +62,7 @@ interface ExpenseFormDialogProps {
   onOpenChange: (open: boolean) => void;
   expense?: Expense;
   userId: string;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
   onSuccess?: () => void;
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import type { Role } from '@/lib/rbac';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Invoice } from '../types';
@@ -70,7 +71,7 @@ import { ServerPagination } from '@/components/general/server-pagination';
 interface InvoicesTableProps {
   invoicesData: PaginatedInvoices;
   onRefresh?: () => void;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
 }
 
 export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTableProps) {
@@ -468,7 +469,7 @@ export function InvoicesTable({ invoicesData, onRefresh, userRole }: InvoicesTab
         cell: ({ row }: { row: { original: Invoice } }) => {
           const invoice = row.original;
           const isEditRestricted = new Date(invoice.date) < INVOICE_EDIT_CUTOFF_DATE;
-          const canManage = userRole !== 'staff';
+          const canManage = userRole === 'admin';
 
           return (
             <DropdownMenu>

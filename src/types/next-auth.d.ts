@@ -1,12 +1,13 @@
 import 'next-auth';
 import 'next-auth/jwt';
+import type { Role } from '@/lib/rbac';
 
 declare module 'next-auth' {
   interface User {
     id: string;
     email: string;
     name: string;
-    role: 'admin' | 'staff';
+    role: Role;
     staffId?: string;
   }
 
@@ -15,7 +16,7 @@ declare module 'next-auth' {
       id: string;
       email: string;
       name: string;
-      role: 'admin' | 'staff';
+      role: Role;
       staffId?: string;
     };
   }
@@ -24,7 +25,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
-    role: 'admin' | 'staff';
+    role: Role;
     staffId?: string;
   }
 }

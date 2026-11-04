@@ -1,4 +1,5 @@
 import type { ExpenseCategory } from '@/features/expenses/types';
+import type { Role } from '@/lib/rbac';
 
 export type ProjectStatus = 'planning' | 'active' | 'on-hold' | 'completed' | 'cancelled';
 
@@ -11,7 +12,7 @@ export interface Expense {
   date: Date | string;
   addedBy: string;
   addedByName?: string;
-  addedByRole: 'admin' | 'staff';
+  addedByRole: Role;
   receipt?: string;
   notes?: string;
   createdAt?: Date | string;
@@ -37,7 +38,7 @@ export interface ProjectExpenseWithTransactions {
   date: Date | string;
   addedBy: string;
   addedByName?: string;
-  addedByRole: 'admin' | 'staff';
+  addedByRole: Role;
   receipt?: string;
   notes?: string;
   projectId: string;
@@ -117,8 +118,6 @@ export interface AddExpenseDto {
   amount: number;
   category: ExpenseCategory;
   date: Date;
-  addedBy: string;
-  addedByRole: 'admin' | 'staff';
   receipt?: string;
   notes?: string;
 }

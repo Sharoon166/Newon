@@ -22,6 +22,9 @@ import Staff from '@/models/Staff';
 import Customer from '@/models/Customer';
 import ExpenseModel from '@/models/Expense';
 import { ExpenseCategory, LeanExpense } from '@/features/expenses/types';
+import { assertPermission } from '@/lib/auth-utils';
+import { isStaffRole } from '@/lib/rbac';
+import type { Role } from '@/lib/rbac';
 
 // Helper function to transform lean project to Project type
 function transformLeanProject(leanDoc: LeanProject): Project {
@@ -116,7 +119,7 @@ export async function getProjects(
     const query: Record<string, unknown> = {};
 
     // Staff can only see projects they're assigned to
-    if (userRole === 'staff' && userId) {
+    if (isStaffRole(userRole) && userId) {
       query.assignedStaff = userId;
     }
 
@@ -356,7 +359,7 @@ export async function getProject(id: string, userId?: string, userRole?: string)
     }
 
     // Staff can only view projects they're assigned to
-    if (userRole === 'staff' && userId && !project.assignedStaff.includes(userId)) {
+    if (isStaffRole(userRole) && userId && !project.assignedStaff.includes(userId)) {
       throw new Error('You do not have permission to view this project');
     }
 
@@ -796,7 +799,7 @@ export async function updateProject(id: string, data: UpdateProjectDto, userRole
     }
 
     // Staff cannot edit projects with certain statuses
-    if (userRole === 'staff' && ['on-hold', 'completed', 'cancelled'].includes(existingProject.status)) {
+    if (isStaffRole(userRole) && ['on-hold', 'completed', 'cancelled'].includes(existingProject.status)) {
       throw new Error('Staff members cannot edit projects with status: on-hold, completed, or cancelled');
     }
 
@@ -1055,7 +1058,10 @@ export async function cancelProject(id: string, reason?: string): Promise<Projec
 // EXPENSE MANAGEMENT FOR PROJECTS
 // ============================================
 
-export async function addExpense(projectId: string, data: AddExpenseDto, userRole: string): Promise<Project> {
+export async function addExpense(projectId: string, data: AddExpenseDto): Promise<Project> {
+  const authSession = await assertPermission('add:project-expenses');
+  const userRole = authSession.user.role;
+  const addedBy = authSession.user.id;
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -1063,7 +1069,7 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
     await dbConnect();
 
     // Get staff name
-    const staff = (await Staff.findById(data.addedBy).select('firstName lastName').session(session).lean()) as {
+    const staff = (await Staff.findById(addedBy).select('firstName lastName').session(session).lean()) as {
       firstName: string;
       lastName: string;
     } | null;
@@ -1075,7 +1081,7 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
       amount: data.amount,
       category: data.category,
       date: data.date,
-      addedBy: data.addedBy,
+      addedBy,
       addedByName,
       source: 'project' as const,
       projectId,
@@ -1088,7 +1094,7 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
               date: data.date,
               source: 'cash', // Default source for auto-pay
               notes: 'Automatically paid (Admin addition)',
-              addedBy: data.addedBy,
+              addedBy,
               addedByName,
               createdAt: new Date()
             }
@@ -1111,10 +1117,10 @@ export async function addExpense(projectId: string, data: AddExpenseDto, userRol
     await createAuditLog({
       projectId,
       action: 'expense_added',
-      userId: data.addedBy,
+      userId: addedBy,
       userName: addedByName,
-      userRole: data.addedByRole,
-      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)} ${data.addedByRole == 'admin' ? '(along with payment)' : '(pending payment)'}`,
+      userRole,
+      description: `Added expense: ${data.description} (${data.category}) - ${formatCurrency(data.amount)} ${userRole === 'admin' ? '(along with payment)' : '(pending payment)'}`,
       metadata: {
         expenseId: savedExpense.expenseId,
         amount: data.amount,
@@ -1211,7 +1217,7 @@ export async function deleteExpense(
     }
 
     // Check project status
-    if (userRole === 'staff' && ['on-hold', 'completed', 'cancelled'].includes(project.status)) {
+    if (isStaffRole(userRole) && ['on-hold', 'completed', 'cancelled'].includes(project.status)) {
       throw new Error(`Cannot delete expenses from ${project.status} projects`);
     }
 
@@ -1227,7 +1233,7 @@ export async function deleteExpense(
     }
 
     // Check ownership: staff can only delete their own expenses, admin can delete any
-    if (userRole === 'staff' && expense.addedBy !== userId) {
+    if (isStaffRole(userRole) && expense.addedBy !== userId) {
       throw new Error('You can only delete your own expenses');
     }
 
@@ -1427,7 +1433,7 @@ export async function getProjectExpenseWithTransactions(
       date: Date | string;
       addedBy: string;
       addedByName?: string;
-      addedByRole: 'admin' | 'staff';
+      addedByRole: Role;
       receipt?: string;
       notes?: string;
       createdAt: Date | string;
@@ -1509,7 +1515,7 @@ export async function getProjectExpensesWithTransactions(
         date: Date | string;
         addedBy: string;
         addedByName?: string;
-        addedByRole: 'admin' | 'staff';
+        addedByRole: Role;
         receipt?: string;
         notes?: string;
         transactions: Array<{
@@ -1748,7 +1754,7 @@ export async function getProjectExpenses(
         date: Date | string;
         addedBy: string;
         addedByName?: string;
-        addedByRole: 'admin' | 'staff';
+        addedByRole: Role;
         receipt?: string;
         notes?: string;
         createdAt: Date | string;

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getStockWorkCounts } from '../actions';
 import type { StockWorkCounts } from '../types';
+import type { Role } from '@/lib/rbac';
 import { SetupBanner } from './setup-banner';
 import { InShopTab } from './in-shop-tab';
 import { AwaitingArrivalTab } from './awaiting-arrival-tab';
@@ -15,7 +16,7 @@ import { HistoryTab } from './history-tab';
 interface StockViewProps {
   initialized: boolean;
   counts?: StockWorkCounts;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
 }
 
 /**

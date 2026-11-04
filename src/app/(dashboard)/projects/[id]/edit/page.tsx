@@ -1,3 +1,4 @@
+import { isStaffRole } from '@/lib/rbac';
 import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
@@ -30,7 +31,7 @@ async function loadProjectForEdit(session: Session, id: string) {
   try {
     const [project, staffMembers, invoicesResult] = await Promise.all([
       getProject(id, session.user.id, session.user.role),
-      getStaffMembers({ isActive: true, role: 'staff' }),
+      getStaffMembers({ isActive: true, roles: ['staff', 'operations-staff'] }),
       getInvoices({ type: 'invoice', limit: 10000 })
     ]);
 
@@ -40,7 +41,7 @@ async function loadProjectForEdit(session: Session, id: string) {
     // Kept inside the try on purpose: redirect() throws a control-flow signal
     // that the catch below swallows, so blocked staff still end up on
     // /projects — unchanged behavior.
-    if (session.user.role === 'staff' && ['on-hold', 'completed', 'cancelled'].includes(project.status)) {
+    if (isStaffRole(session.user.role) && ['on-hold', 'completed', 'cancelled'].includes(project.status)) {
       redirect('/not-allowed');
     }
 

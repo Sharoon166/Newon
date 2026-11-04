@@ -1,5 +1,6 @@
 'use client';
 
+import type { Role } from '@/lib/rbac';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowUpDown, ChevronDown, FileDown, History as HistoryIcon, Printer, PrinterIcon, Search, Undo2 } from 'lucide-react';
 import {
@@ -30,7 +31,7 @@ import { useRouter } from 'next/navigation';
 
 interface HistoryTabProps {
   enabled: boolean;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
   /** Pre-fills the search box (deep link from another page, e.g. an invoice). */
   initialSearch?: string;
   onChanged?: () => void;

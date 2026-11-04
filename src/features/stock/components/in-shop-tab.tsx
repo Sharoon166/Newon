@@ -1,5 +1,6 @@
 'use client';
 
+import type { Role } from '@/lib/rbac';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpDown, FileDown, MoreHorizontal, PackagePlus, PackageSearch, Search, Tally5Icon, TriangleAlert } from 'lucide-react';
@@ -37,7 +38,7 @@ import { toast } from 'sonner';
 
 interface InShopTabProps {
   enabled: boolean;
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
   onChanged?: () => void;
 }
 

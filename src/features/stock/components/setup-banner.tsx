@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { Role } from '@/lib/rbac';
 import { CalendarClock, Lock, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -13,7 +14,7 @@ import { toast } from 'sonner';
 interface SetupBannerProps {
   // 'setup' = first run, 'change' = re-declare the start date of a live baseline.
   mode?: 'setup' | 'change';
-  userRole?: 'admin' | 'staff';
+  userRole?: Role;
   // Current start date, used to pre-fill the picker in 'change' mode.
   startedAt?: string;
   onDone?: () => void;
