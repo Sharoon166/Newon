@@ -29,6 +29,7 @@ type StaffProduct = {
   sku: string;
   categories: string[];
   retailPrice: number;
+  wholesalePrice: number;
   availableStock: number;
   image?: string;
   disabled: boolean;
@@ -177,6 +178,35 @@ const columns: ColumnDef<StaffProduct>[] = [
     },
     cell: ({ row }) => (
       <div className="font-medium whitespace-nowrap">{formatCurrency(row.original.retailPrice || 0)}</div>
+    ),
+    minSize: 120,
+    size: 150
+  },
+  {
+    accessorKey: 'wholesalePrice',
+    header: ({ column }) => {
+      const isSorted = column.getIsSorted();
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className="p-0 hover:bg-transparent"
+        >
+          Wholesale Price
+          {isSorted ? (
+            isSorted === 'asc' ? (
+              <ChevronUp className="ml-2 h-4 w-4" />
+            ) : (
+              <ChevronDown className="ml-2 h-4 w-4" />
+            )
+          ) : (
+            <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+          )}
+        </Button>
+      );
+    },
+    cell: ({ row }) => (
+      <div className="font-medium whitespace-nowrap">{formatCurrency(row.original.wholesalePrice || 0)}</div>
     ),
     minSize: 120,
     size: 150

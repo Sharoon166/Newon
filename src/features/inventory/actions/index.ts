@@ -97,6 +97,7 @@ export const getProductsForStaff = async (): Promise<
     sku: string;
     categories: string[];
     retailPrice: number;
+    wholesalePrice: number;
     availableStock: number;
     image?: string;
     disabled: boolean;
@@ -159,6 +160,7 @@ export const getProductsForStaff = async (): Promise<
       sku: variant.sku as string,
       categories: (variant.categories as string[]) || [],
       retailPrice: pricing.retailPrice,
+      wholesalePrice: pricing.wholesalePrice,
       availableStock: actualAvailableStock,
       image: variant.image as string | undefined,
       disabled: Boolean(variant.disabled)
