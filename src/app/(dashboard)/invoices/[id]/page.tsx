@@ -98,20 +98,22 @@ export default function InvoiceDetailPage() {
     const imageMap = new Map<string, string>();
 
     try {
-      const variantIds = items.filter(item => item.variantId).map(item => item.variantId as string);
-      if (variantIds.length === 0) return;
+      const variants = items
+        .filter(item => item.productId && item.variantId)
+        .map(item => ({ productId: item.productId, variantId: item.variantId as string }));
+      if (variants.length === 0) return;
       // Fetch images from API
       const response = await fetch('/api/products/images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variantIds })
+        body: JSON.stringify({ variants })
       });
 
       if (response.ok) {
         const data = await response.json();
-        Object.entries(data).forEach(([variantId, imageUrl]) => {
+        Object.entries(data).forEach(([key, imageUrl]) => {
           if (imageUrl) {
-            imageMap.set(variantId, imageUrl as string);
+            imageMap.set(key, imageUrl as string);
           }
         });
         setProductImages(imageMap);
@@ -343,7 +345,10 @@ export default function InvoiceDetailPage() {
               variantId: group.variantId,
               variantSKU: group.variantSKU,
               purchaseId: group.batches[0]?.purchaseId,
-              imageUrl: group.variantId ? productImages.get(group.variantId) : undefined
+              imageUrl:
+                group.productId && group.variantId
+                  ? productImages.get(JSON.stringify([group.productId, group.variantId]))
+                  : undefined
             }));
           })(),
 
@@ -399,7 +404,10 @@ export default function InvoiceDetailPage() {
               variantId: group.variantId,
               variantSKU: group.variantSKU,
               purchaseId: group.batches[0]?.purchaseId,
-              imageUrl: group.variantId ? productImages.get(group.variantId) : undefined
+              imageUrl:
+                group.productId && group.variantId
+                  ? productImages.get(JSON.stringify([group.productId, group.variantId]))
+                  : undefined
             }));
           })(),
           taxRate: invoice.gstValue || 0,
