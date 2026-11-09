@@ -24,6 +24,7 @@ import {
   ChevronsUpDown,
   ChevronDown,
   ChevronRight,
+  Check,
   Package,
   Save,
   Eye,
@@ -64,7 +65,9 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/i
 import { UnitSelector } from '@/components/ui/unit-selector';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
 import { groupItemsByVariant, buildEffectiveStockByPurchase, type GroupedInvoiceItem } from '../utils/group-items';
+import { isCustomItem } from '../utils/deliverable-items';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 const quotationFormSchema = z.object({
   logo: z.string().optional(),
@@ -177,6 +180,7 @@ export function NewQuotationForm({
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [isCustomExpenseDialogOpen, setIsCustomExpenseDialogOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [editingCustomItemName, setEditingCustomItemName] = useState<string | null>(null);
   const currentBrandId = useBrandStore(state => state.currentBrandId);
   const brand = useBrandStore(state => state.getCurrentBrand());
 
@@ -1286,6 +1290,10 @@ export function NewQuotationForm({
               <div className="divide-y">
                 {groupedItems.map((group, groupIndex) => {
                   const firstBatchField = group.batches[0];
+                  const firstItem = watchedItems[firstBatchField.fieldIndex];
+                  const canEditCustomFields = Boolean(
+                    isEditMode && firstItem && isCustomItem({ ...firstItem, productId: firstItem.productId || '' })
+                  );
 
                   return (
                     <div key={group.key} className="p-4 hover:bg-muted/30 transition-colors">
@@ -1296,7 +1304,42 @@ export function NewQuotationForm({
                             #{groupIndex + 1}
                           </span>
                           <div className="flex-1">
-                            <div className="font-medium text-sm">{group.description}</div>
+                            <div className="flex items-center gap-1">
+                              {editingCustomItemName === group.key && firstItem ? (
+                                <Input
+                                  autoFocus
+                                  aria-label="Custom item name"
+                                  value={firstItem.description}
+                                  onChange={event =>
+                                    form.setValue(`items.${firstBatchField.fieldIndex}.description`, event.target.value, {
+                                      shouldDirty: true,
+                                      shouldValidate: true
+                                    })
+                                  }
+                                  className="h-8 max-w-sm text-sm"
+                                />
+                              ) : (
+                                <div className="font-medium text-sm">{group.description}</div>
+                              )}
+                              {canEditCustomFields && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  aria-label={editingCustomItemName === group.key ? 'Finish editing item name' : 'Edit item name'}
+                                  onClick={() =>
+                                    setEditingCustomItemName(current => (current === group.key ? null : group.key))
+                                  }
+                                >
+                                  {editingCustomItemName === group.key ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <Edit className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 mt-1">
                               {group.isVirtualProduct && (
                                 <Badge variant="secondary" className="text-xs">
@@ -1351,6 +1394,20 @@ export function NewQuotationForm({
 
                       {/* Group content */}
                       <div className="space-y-3">
+                        {canEditCustomFields && firstItem && (
+                          <div className="max-w-xs">
+                            <label className="text-xs text-muted-foreground mb-1 block">Unit</label>
+                            <UnitSelector
+                              value={firstItem.unit}
+                              onChange={value =>
+                                form.setValue(`items.${firstBatchField.fieldIndex}.unit`, value, {
+                                  shouldDirty: true,
+                                  shouldValidate: true
+                                })
+                              }
+                            />
+                          </div>
+                        )}
                         {/* Quantity */}
                         <div className="flex max-xs:flex-col xs:items-center gap-2">
                           <div className="flex items-center gap-1 flex-1">
