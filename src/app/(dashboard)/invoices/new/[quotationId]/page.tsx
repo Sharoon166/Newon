@@ -127,8 +127,8 @@ export default async function QuotationConversionPage({ params }: QuotationConve
             customerState: quotation.customerState ?? '',
             customerZip: quotation.customerZip ?? '',
             customerId: quotation.customerId,
-            items: quotation.items.map(item => ({
-              id: item.productId,
+            items: quotation.items.map((item, index) => ({
+              id: `${quotation.id}:${index}`,
               productName: item.productName,
               description: item.productName,
               quantity: item.quantity,
