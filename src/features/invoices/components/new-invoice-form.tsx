@@ -65,6 +65,7 @@ import {
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
 import { UnitSelector } from '@/components/ui/unit-selector';
 import { AddCustomExpenseDialog } from './add-custom-expense-dialog';
+import { CustomItemNameEditor } from './custom-item-name-editor';
 import { groupItemsByVariant, buildEffectiveStockByPurchase, type GroupedInvoiceItem } from '../utils/group-items';
 import { isCustomItem } from '../utils/deliverable-items';
 import { Badge } from '@/components/ui/badge';
@@ -390,12 +391,17 @@ export function NewInvoiceForm({
     name: 'additionalCharges'
   });
 
+  // One subscription to `items` drives stock, grouping and totals. Extra
+  // `useWatch`/`watch('items')` calls each add their own re-render path, which
+  // makes typing in any item field feel slow on large documents.
+  const watchedItems = useWatch({ control: form.control, name: 'items' }) as InvoiceFormValues['items'];
+  const watchedMarket = useWatch({ control: form.control, name: 'market' }) as 'newon' | 'waymor';
+
   // Mirrors EnhancedProductSelector's effectiveStockByPurchase — single source of truth
   // for available stock used by both the selector and the items table stepper.
-  const currentItemsForStock = useWatch({ control: form.control, name: 'items' });
   const effectiveStockByPurchase = useMemo(
-    (): Map<string, number> => buildEffectiveStockByPurchase(purchases, currentItemsForStock || [], restoredItems),
-    [purchases, currentItemsForStock, restoredItems]
+    (): Map<string, number> => buildEffectiveStockByPurchase(purchases, watchedItems || [], restoredItems),
+    [purchases, watchedItems, restoredItems]
   );
 
   // Available stock for a variant — sums effective remaining across all purchases for that variant.
@@ -425,12 +431,11 @@ export function NewInvoiceForm({
     return max === Infinity ? 0 : max;
   };
 
-  const subtotal = form.watch('items').reduce((sum, item) => sum + item.amount, 0);
+  const subtotal = (watchedItems || []).reduce((sum, item) => sum + item.amount, 0);
 
-  // useWatch returns a plain array (not proxy) that triggers re-render on every item change
-  const watchedItems = useWatch({ control: form.control, name: 'items' }) as InvoiceFormValues['items'];
-  const watchedMarket = useWatch({ control: form.control, name: 'market' }) as 'newon' | 'waymor';
-  const groupedItems = groupItemsByVariant(watchedItems || []);
+  // Regrouping is cheap but was running on every render; memoise it so unrelated
+  // state changes (dialogs, toggles, typing) don't rebuild every line card.
+  const groupedItems = useMemo(() => groupItemsByVariant(watchedItems || []), [watchedItems]);
 
   // Update payment details when market (brand) changes
   useEffect(() => {
@@ -1399,7 +1404,7 @@ export function NewInvoiceForm({
                   variants={variants}
                   virtualProducts={virtualProducts}
                   purchases={purchases}
-                  currentItems={currentItemsForStock}
+                  currentItems={watchedItems}
                   onAddItem={handleAddItemFromSelector}
                   restoredItems={restoredItems}
                 />
@@ -1444,7 +1449,7 @@ export function NewInvoiceForm({
                   const firstBatchField = group.batches[0];
                   const firstItem = watchedItems[firstBatchField.fieldIndex];
                   const canEditCustomFields = Boolean(
-                    isEditMode && firstItem && isCustomItem({ ...firstItem, productId: firstItem.productId || '' })
+                    firstItem && isCustomItem({ ...firstItem, productId: firstItem.productId || '' })
                   );
                   const vpTotalComponentCost = group.isVirtualProduct
                     ? form.watch(`items.${firstBatchField.fieldIndex}.totalComponentCost`) || 0
@@ -1466,17 +1471,15 @@ export function NewInvoiceForm({
                           <div className="flex-1">
                             <div className="flex items-center gap-1">
                               {editingCustomItemName === group.key && firstItem ? (
-                                <Input
-                                  autoFocus
-                                  aria-label="Custom item name"
-                                  value={firstItem.description}
-                                  onChange={event =>
-                                    form.setValue(`items.${firstBatchField.fieldIndex}.description`, event.target.value, {
+                                <CustomItemNameEditor
+                                  initialValue={firstItem.description}
+                                  onCommit={value =>
+                                    form.setValue(`items.${firstBatchField.fieldIndex}.description`, value, {
                                       shouldDirty: true,
                                       shouldValidate: true
                                     })
                                   }
-                                  className="h-8 max-w-sm text-sm"
+                                  onClose={() => setEditingCustomItemName(null)}
                                 />
                               ) : (
                                 <div className="font-medium text-sm">{group.description}</div>
