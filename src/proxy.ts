@@ -20,24 +20,20 @@ export async function proxy(request: NextRequest) {
 
   // Redirect to inventory if authenticated and trying to access auth pages
   if (token && isPublicRoute) {
-    // Staff users go to their restricted page
-    if (token.role === 'staff' || token.role === 'operations-staff') {
-      const staffInventoryUrl = new URL('/inventory/staff', request.url);
-      return NextResponse.redirect(staffInventoryUrl);
+    // Regular staff go to the restricted inventory view.
+    if (token.role === 'staff') {
+      return NextResponse.redirect(new URL('/inventory/staff', request.url));
     }
-    // Admin users go to main inventory
-    const inventoryUrl = new URL('/inventory', request.url);
-    return NextResponse.redirect(inventoryUrl);
+    // All other authenticated users (admin, operations-staff) go to main inventory.
+    return NextResponse.redirect(new URL('/inventory', request.url));
   }
 
   // Redirect root to appropriate page based on role
   if (pathname === '/') {
-    if (token?.role === 'staff' || token?.role === 'operations-staff') {
-      const staffInventoryUrl = new URL('/inventory/staff', request.url);
-      return NextResponse.redirect(staffInventoryUrl);
+    if (token?.role === 'staff') {
+      return NextResponse.redirect(new URL('/inventory/staff', request.url));
     }
-    const dashboardUrl = new URL('/inventory', request.url);
-    return NextResponse.redirect(dashboardUrl);
+    return NextResponse.redirect(new URL('/inventory', request.url));
   }
 
   // Role-based access control for staff
