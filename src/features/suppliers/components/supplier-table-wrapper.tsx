@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { SupplierTable } from './supplier-table';
 import { SupplierActions } from './supplier-actions';
+import { usePermission } from '@/hooks/use-permission';
 import type { Supplier } from '../types';
 import { Row } from '@tanstack/react-table';
 
@@ -19,6 +20,8 @@ export function SupplierTableWrapper({
 }) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
+  const canEdit = usePermission('edit:suppliers');
+  const canDelete = usePermission('delete:suppliers');
 
   const handleDelete = async (id: string) => {
     try {
@@ -61,10 +64,12 @@ export function SupplierTableWrapper({
     <SupplierActions
       id={row.original.supplierId ?? row.original.id}
       disabled={row.original.disabled}
+      canEdit={canEdit}
+      canDelete={canDelete}
       onDelete={() => handleDelete(row.original.supplierId ?? row.original.id)}
       onToggleDisabled={() => handleToggleDisabled(row.original.supplierId ?? row.original.id)}
     />
   );
 
-  return <SupplierTable data={data} onEdit={handleEdit} actions={actions} />;
+  return <SupplierTable data={data} onEdit={canEdit ? handleEdit : undefined} actions={actions} />;
 }

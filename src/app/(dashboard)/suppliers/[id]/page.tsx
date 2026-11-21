@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { requirePermission } from '@/lib/auth-utils';
+import { userHasPermission } from '@/lib/rbac';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getSupplierById, getSupplierLedger } from '@/features/suppliers/actions';
 import { SupplierLedgerCard } from '@/features/suppliers/components/supplier-ledger-card';
@@ -79,7 +80,8 @@ function PaymentBadge({ purchase }: { purchase: Purchase }) {
 }
 
 export default async function SupplierDetailPage({ params }: SupplierDetailPageProps) {
-  await requirePermission('view:suppliers');
+  const session = await requirePermission('view:suppliers');
+  const canEdit = userHasPermission(session, 'edit:suppliers');
 
   const { id } = await params;
   const supplier = await getSupplierById(id);
@@ -116,12 +118,14 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
               Disabled
             </Badge>
           )}
-          <Button asChild>
-            <Link href={editHref}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit Supplier
-            </Link>
-          </Button>
+          {canEdit && (
+            <Button asChild>
+              <Link href={editHref}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit Supplier
+              </Link>
+            </Button>
+          )}
         </div>
       </PageHeader>
 

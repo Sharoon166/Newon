@@ -191,13 +191,16 @@ interface ProductFormProps {
   canCreateImported?: boolean;
   /** When false, the purchase tab hides its edit/delete actions (staff). */
   canManagePurchases?: boolean;
+  /** When false, the Delete Product action is hidden (requires `delete:inventory`). */
+  canDelete?: boolean;
 }
 
 export function ProductForm({
   mode = 'create',
   initialData,
   canCreateImported = true,
-  canManagePurchases = true
+  canManagePurchases = true,
+  canDelete = true
 }: ProductFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -480,7 +483,7 @@ export function ProductForm({
                     {mode === 'edit' ? 'Update the product details' : 'Add a new product to your inventory'}
                   </p>
                 </div>
-                {mode == 'edit' && (
+                {mode == 'edit' && canDelete && (
                   <Button
                     type="button"
                     variant="destructive"
@@ -551,6 +554,9 @@ export function ProductForm({
                           value={watch('supplierId')}
                           legacyName={!watch('supplierId') ? watch('supplier') : undefined}
                           currentName={watch('supplier')}
+                          // Non-admins only create local products, so they pick
+                          // from Pakistani suppliers (same rule as purchases).
+                          restrictToCountry={canCreateImported ? undefined : 'PK'}
                           onChange={(supplierId, supplierName) => {
                             setValue('supplierId', supplierId, { shouldValidate: true });
                             setValue('supplier', supplierName, { shouldValidate: true });
@@ -566,17 +572,31 @@ export function ProductForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Origin</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select origin" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="local">Local</SelectItem>
-                            <SelectItem value="imported">Imported</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {canCreateImported ? (
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select origin" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="local">Local</SelectItem>
+                              <SelectItem value="imported">Imported</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <>
+                            <FormControl>
+                              <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/40 px-3 text-sm">
+                                <span className="capitalize">{field.value || 'local'}</span>
+                                <span className="ml-auto text-xs text-muted-foreground">Locked</span>
+                              </div>
+                            </FormControl>
+                            <p className="text-xs text-muted-foreground">
+                              Only admins can create or edit imported products.
+                            </p>
+                          </>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

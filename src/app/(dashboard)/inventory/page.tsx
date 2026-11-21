@@ -2,13 +2,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { getProducts } from '@/features/inventory/actions';
-import { getSession } from '@/lib/auth-utils';
+import { getSession, requirePermission } from '@/lib/auth-utils';
 import { PageHeader } from '@/components/general/page-header';
 import { InventoryViewTabs } from '@/features/inventory/components/inventory-view-tabs';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
+  await requirePermission('view:inventory');
   const products = await getProducts();
   const session = await getSession();
 

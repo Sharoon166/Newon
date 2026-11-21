@@ -103,7 +103,10 @@ const rolePermissions: Record<Role, Permission[]> = {
     'add:project-expenses'
   ],
   'operations-staff': [
+    // Products: they may add and edit products, but only local ones — the
+    // inventory actions reject imported products without `create:imported-purchases`.
     'view:inventory',
+    'edit:inventory',
     'view:projects',
     'add:project-expenses',
     'add:expenses',
@@ -112,6 +115,9 @@ const rolePermissions: Record<Role, Permission[]> = {
     // deletion stays admin-only.
     'view:expenses',
     'create:purchases',
+    // Purchase history is readable; costs of imported purchases stay redacted
+    // because they lack `view:imported-purchase-costs`.
+    'view:purchases',
     'view:suppliers',
     'create:suppliers',
     'view:stock',

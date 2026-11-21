@@ -1,9 +1,12 @@
 import { SupplierFormWrapper } from '@/features/suppliers/components/supplier-form-wrapper';
 import { PageHeader } from '@/components/general/page-header';
 import { getSupplier } from '@/features/suppliers/actions';
+import { requirePermission } from '@/lib/auth-utils';
 import { notFound } from 'next/navigation';
 
 export default async function EditSupplierPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission('edit:suppliers');
+
   const { id } = await params;
 
   let supplier;

@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CountryDropdown } from '@/components/ui/country-dropdown';
 import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
+import { useIsAdmin } from '@/hooks/use-permission';
 import { Supplier, CreateSupplierDto, UpdateSupplierDto } from '../types';
 import { createSupplier, updateSupplier } from '../actions';
 
@@ -46,6 +47,10 @@ interface SupplierFormProps {
 export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormProps) {
   const [loading, setLoading] = useState(false);
   const isEditMode = !!initialData;
+  // Suppliers outside Pakistan are an admin-only concern: everyone else gets
+  // a locked country field (the server action enforces the same rule).
+  const isAdmin = useIsAdmin();
+  const lockCountry = !isAdmin;
 
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierFormSchema),
@@ -93,7 +98,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
         if (transformedData.city) updateData.city = transformedData.city;
         if (transformedData.state) updateData.state = transformedData.state;
         if (transformedData.zip) updateData.zip = transformedData.zip;
-        updateData.country = data.country || 'PK';
+        updateData.country = lockCountry ? 'PK' : data.country || 'PK';
         if (transformedData.notes) updateData.notes = transformedData.notes;
 
         const result = await updateSupplier(initialData.supplierId || '', updateData);
@@ -115,7 +120,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
         if (transformedData.city) createData.city = transformedData.city;
         if (transformedData.state) createData.state = transformedData.state;
         if (transformedData.zip) createData.zip = transformedData.zip;
-        createData.country = data.country || 'PK';
+        createData.country = lockCountry ? 'PK' : data.country || 'PK';
         if (transformedData.notes) createData.notes = transformedData.notes;
 
         const result = await createSupplier(createData);
@@ -250,19 +255,30 @@ export function SupplierForm({ initialData, onSuccess, onCancel }: SupplierFormP
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="country"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Country</FormLabel>
-                <FormControl>
-                  <CountryDropdown value={field.value} onChange={field.onChange} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {lockCountry ? (
+            <div className="space-y-2">
+              <FormLabel>Country</FormLabel>
+              <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted/40 px-3 text-sm">
+                Pakistan
+                <span className="ml-auto text-xs text-muted-foreground">Locked</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Only admins can add suppliers from other countries.</p>
+            </div>
+          ) : (
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <CountryDropdown value={field.value} onChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <FormField

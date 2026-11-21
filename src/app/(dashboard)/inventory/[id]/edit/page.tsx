@@ -1,8 +1,11 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getProductById } from '@/features/inventory/actions';
 import { ProductForm } from '@/features/inventory/components/product-form';
-import { getSession } from '@/lib/auth-utils';
+import { requirePermission } from '@/lib/auth-utils';
 import { userHasPermission } from '@/lib/rbac';
+import { Button } from '@/components/ui/button';
+import { ShieldAlert } from 'lucide-react';
 
 interface EditProductPageProps {
   params: Promise<{
@@ -11,11 +14,37 @@ interface EditProductPageProps {
 }
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
+  const session = await requirePermission('edit:inventory');
   const { id } = await params;
   const product = await getProductById(id);
 
   if (!product) {
     notFound();
+  }
+
+  // Imported products are admin-only: operations staff can edit local
+  // products only, so send them somewhere useful instead of the form.
+  if (product.origin === 'imported' && !userHasPermission(session, 'create:imported-purchases')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <div className="text-center space-y-6 max-w-md">
+          <div className="flex justify-center">
+            <div className="rounded-full bg-destructive/10 p-6">
+              <ShieldAlert className="h-16 w-16 text-destructive" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Imported product</h1>
+            <p className="text-muted-foreground text-lg">
+              Imported products can only be created and edited by an admin.
+            </p>
+          </div>
+          <Button asChild size="lg">
+            <Link href="/inventory">Back to inventory</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   // Helper function to serialize locations (remove MongoDB _id if present)
@@ -145,14 +174,13 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
     description: String(product.description || '')
   };
 
-  const session = await getSession();
-
   return (
     <ProductForm
       mode="edit"
       initialData={serializedProduct}
       canCreateImported={userHasPermission(session, 'create:imported-purchases')}
       canManagePurchases={userHasPermission(session, 'edit:purchases')}
+      canDelete={userHasPermission(session, 'delete:inventory')}
     />
   );
 }

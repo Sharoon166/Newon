@@ -8,6 +8,18 @@ import { revalidatePath } from 'next/cache';
 import { calculateVariantPricing } from '@/lib/pricing-utils';
 import type { Purchase } from '@/features/purchases/types';
 import { ProductVariant, ProductAttribute } from '../types';
+import { assertPermission, getSession } from '@/lib/auth-utils';
+import { userHasPermission } from '@/lib/rbac';
+
+/**
+ * Cost data of purchases belonging to imported products is admin-only
+ * (`view:imported-purchase-costs`). `getProducts` / `getProductWithPricing`
+ * feed the inventory screens, so the cost fields are stripped for callers
+ * without that permission instead of being returned and hidden in the UI.
+ */
+function redactsImportedCosts(origin: unknown, canViewImportedCosts: boolean): boolean {
+  return !canViewImportedCosts && origin === 'imported';
+}
 
 type LeanProduct = {
   _id?: string;
@@ -34,7 +46,19 @@ type LeanProduct = {
 
 export const createProduct = async (product: Omit<LeanProduct, '_id'>) => {
   try {
+    const session = await assertPermission('edit:inventory');
     await dbConnect();
+
+    // Origin is admin-controlled: staff may only create local products. The
+    // value is forced here rather than only hidden in the form, because the
+    // server action can be called directly.
+    const canCreateImported = userHasPermission(session, 'create:imported-purchases');
+    if (!canCreateImported) {
+      if (product.origin === 'imported') {
+        throw new Error('Only admins can create imported products');
+      }
+      product.origin = 'local';
+    }
 
     // Ensure attributes are properly structured
     const processedAttributes = Array.isArray(product.attributes)
@@ -353,6 +377,10 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
   // Fetch all purchases for pricing calculation
   const purchases = await PurchaseModel.find({}).lean();
 
+  // Imported cost data is admin-only; strip it before it reaches the UI.
+  const session = await getSession();
+  const canViewImportedCosts = userHasPermission(session, 'view:imported-purchase-costs');
+
   // Group purchases by productId-variantId
   const purchaseMap = new Map<string, Purchase[]>();
   (purchases as unknown[]).forEach(purchase => {
@@ -380,13 +408,15 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
     // Keep the original backorder value from the variant (this is managed separately)
     const actualBackorderStock = (variant.stockOnBackorder as number) || 0;
 
+    const hideImportedCosts = redactsImportedCosts(variant.origin, canViewImportedCosts);
+
     return {
       ...variant,
-      purchasePrice: pricing.purchasePrice,
+      purchasePrice: hideImportedCosts ? undefined : pricing.purchasePrice,
       retailPrice: pricing.retailPrice,
       wholesalePrice: pricing.wholesalePrice,
-      shippingCost: pricing.shippingCost,
-      unitPrice: pricing.unitPrice,
+      shippingCost: hideImportedCosts ? undefined : pricing.shippingCost,
+      unitPrice: hideImportedCosts ? undefined : pricing.unitPrice,
       // Override with actual stock from purchases
       availableStock: actualAvailableStock,
       stockOnBackorder: actualBackorderStock
@@ -397,6 +427,7 @@ export const getProducts = async (): Promise<EnhancedVariants[]> => {
 };
 
 export const deleteProduct = async (id: string) => {
+  await assertPermission('delete:inventory');
   await dbConnect();
 
   // Get the product to access variant images
@@ -682,9 +713,23 @@ export const deleteProductByName = async (name: string) => {
 // };
 
 export const updateProduct = async (id: string, data: LeanProduct) => {
+  const session = await assertPermission('edit:inventory');
   await dbConnect();
 
   try {
+    // Operations staff may only touch local products: the stored origin decides,
+    // so an imported product can't be edited (or downgraded) by a non-admin.
+    const existing = (await ProductModel.findById(id).select('origin').lean()) as { origin?: string } | null;
+    if (!existing) {
+      throw new Error('Product not found');
+    }
+    if (!userHasPermission(session, 'create:imported-purchases')) {
+      if (existing.origin === 'imported') {
+        throw new Error('Imported products can only be edited by an admin');
+      }
+      data.origin = 'local';
+    }
+
     // Ensure attributes are properly structured
     const processedAttributes = Array.isArray(data.attributes)
       ? data.attributes.map(attr => ({
@@ -806,6 +851,14 @@ export const getProductWithPricing = async (productId: string) => {
   const product = await ProductModel.findById(productId).lean();
   if (!product) return null;
 
+  // Imported cost data is admin-only (same rule as getProducts).
+  const session = await getSession();
+  const canViewImportedCosts = userHasPermission(session, 'view:imported-purchase-costs');
+  const hideImportedCosts = redactsImportedCosts(
+    (product as { origin?: string }).origin,
+    canViewImportedCosts
+  );
+
   // Get all purchases for this product
   const purchases = await PurchaseModel.find({ productId }).lean();
 
@@ -833,11 +886,11 @@ export const getProductWithPricing = async (productId: string) => {
 
     return {
       ...variant,
-      purchasePrice: pricing.purchasePrice,
+      purchasePrice: hideImportedCosts ? undefined : pricing.purchasePrice,
       retailPrice: pricing.retailPrice,
       wholesalePrice: pricing.wholesalePrice,
-      shippingCost: pricing.shippingCost,
-      unitPrice: pricing.unitPrice
+      shippingCost: hideImportedCosts ? undefined : pricing.shippingCost,
+      unitPrice: hideImportedCosts ? undefined : pricing.unitPrice
     };
   });
 

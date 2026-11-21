@@ -232,11 +232,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   ];
 
+  // Operations staff get the full inventory (they can add/edit local
+  // products), plus purchase and supplier history they're allowed to read.
   const operationsStaffCategories = [
     {
       title: 'Operations',
       items: [
-        ...staffCategories[0].items,
+        { name: 'Inventory', url: '/inventory', icon: ShoppingCart },
+        { name: 'Purchases', url: '/purchases', icon: PackagePlus },
+        { name: 'Suppliers', url: '/suppliers', icon: Truck },
+        { name: 'Projects', url: '/projects', icon: FolderKanban },
         { name: 'Expenses', url: '/expenses', icon: Receipt },
         { name: 'Stock', url: '/stock', icon: BarChart4 }
       ]

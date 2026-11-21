@@ -47,7 +47,11 @@ export async function proxy(request: NextRequest) {
     // before the allow-list so these routes stay blocked even if the list is
     // broadened later. The check is segment-aware so only the route itself and
     // its subpages are matched.
-    const blockedStaffRoutes = ['/invoices', '/purchases'];
+    const blockedStaffRoutes = ['/invoices'];
+    // Operations staff can access purchases and suppliers; regular staff cannot.
+    if (!isOperationsStaff) {
+      blockedStaffRoutes.push('/purchases', '/suppliers');
+    }
     const isBlockedStaffRoute = blockedStaffRoutes.some(
       route => pathname === route || pathname.startsWith(`${route}/`)
     );
@@ -66,7 +70,14 @@ export async function proxy(request: NextRequest) {
       '/api'
     ];
     if (isOperationsStaff) {
-      allowedStaffRoutes.push('/expenses', '/stock');
+      allowedStaffRoutes.push(
+        '/expenses',
+        '/stock',
+        // Covers /inventory, /inventory/add, /inventory/[id]/edit etc.
+        '/inventory',
+        '/suppliers',
+        '/purchases'
+      );
     }
     const isAllowedStaffRoute = allowedStaffRoutes.some(route => pathname.startsWith(route));
 

@@ -52,8 +52,11 @@ import { exportToCsv, exportToPdf, prepareProductExportData, extractImageUrls } 
 import { TablePagination } from '@/components/general/table-pagination';
 import { toast } from 'sonner';
 
-// Define columns
-const columns: ColumnDef<EnhancedVariants>[] = [
+// Define columns. `canModify` gates the "Modify" action: only admins and
+// operations staff may edit, and operations staff only ever edit local products.
+const buildColumns = (
+  canModify: (origin: EnhancedVariants['origin'] | undefined) => boolean
+): ColumnDef<EnhancedVariants>[] => [
   {
     accessorKey: 'productName',
     header: ({ column }) => {
@@ -160,7 +163,7 @@ const columns: ColumnDef<EnhancedVariants>[] = [
     header: 'Purchase Price',
     cell: ({ row }) => (
       <div className="text-sm text-muted-foreground whitespace-nowrap">
-        {formatCurrency(row.original.purchasePrice || 0)}
+        {row.original.purchasePrice != null ? formatCurrency(row.original.purchasePrice) : '—'}
       </div>
     ),
     minSize: 100,
@@ -309,12 +312,14 @@ const columns: ColumnDef<EnhancedVariants>[] = [
                 <span>View Details</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/inventory/${row.original.productId}/edit`} className="flex items-center cursor-pointer">
-                <Pencil className="mr-2 h-4 w-4" />
-                <span>Modify</span>
-              </Link>
-            </DropdownMenuItem>
+            {canModify(row.original.origin) && (
+              <DropdownMenuItem asChild>
+                <Link href={`/inventory/${row.original.productId}/edit`} className="flex items-center cursor-pointer">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  <span>Modify</span>
+                </Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -347,6 +352,12 @@ export function ProductsTable({ data = [], userRole }: ProductsTableProps) {
   const [stockFilter, setStockFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  // Only admins and operations staff may modify a product, and operations
+  // staff are limited to local products (imported ones are admin-only).
+  const canModify = (origin: EnhancedVariants['origin'] | undefined) =>
+    userRole === 'admin' || (userRole === 'operations-staff' && origin !== 'imported');
+  const columns = buildColumns(canModify);
 
   // Get unique suppliers for filter
   const suppliers = useMemo(() => {

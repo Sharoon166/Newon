@@ -16,11 +16,17 @@ import { ConfirmationDialog } from '@/components/general/confirmation-dialog';
 export function SupplierActions({
   id,
   disabled,
+  canEdit = true,
+  canDelete = true,
   onDelete,
   onToggleDisabled
 }: {
   id: string;
   disabled?: boolean;
+  /** Editing (including enable/disable) requires `edit:suppliers`. */
+  canEdit?: boolean;
+  /** Deletion requires `delete:suppliers`. */
+  canDelete?: boolean;
   onDelete: (id: string) => Promise<void>;
   onToggleDisabled: (id: string) => Promise<void>;
 }) {
@@ -68,26 +74,30 @@ export function SupplierActions({
               View Details
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleToggleDisabled} className="cursor-pointer">
-            {disabled ? (
-              <>
-                <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                Enable Supplier
-              </>
-            ) : (
-              <>
-                <Ban className="mr-2 h-4 w-4 text-orange-600" />
-                Disable Supplier
-              </>
-            )}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => setShowDeleteDialog(true)}
-            className="text-destructive focus:text-destructive cursor-pointer"
-          >
-            <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-            Delete
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={handleToggleDisabled} className="cursor-pointer">
+              {disabled ? (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                  Enable Supplier
+                </>
+              ) : (
+                <>
+                  <Ban className="mr-2 h-4 w-4 text-orange-600" />
+                  Disable Supplier
+                </>
+              )}
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              onClick={() => setShowDeleteDialog(true)}
+              className="text-destructive focus:text-destructive cursor-pointer"
+            >
+              <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+              Delete
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

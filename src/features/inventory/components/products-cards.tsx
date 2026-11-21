@@ -138,7 +138,10 @@ interface ProductsCardsProps {
 
 export function ProductsCards({ data, userRole }: ProductsCardsProps) {
   const router = useRouter();
-  const isAdmin = userRole === 'admin';
+  // Only admins and operations staff may modify a product, and operations
+  // staff are limited to local products (imported ones are admin-only).
+  const canModify = (origin?: string) =>
+    userRole === 'admin' || (userRole === 'operations-staff' && origin !== 'imported');
 
   // Pagination state
   const [pageIndex, setPageIndex] = useState(0);
@@ -217,7 +220,7 @@ export function ProductsCards({ data, userRole }: ProductsCardsProps) {
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </DropdownMenuItem>
-                      {isAdmin && (
+                      {canModify(firstVariant.origin) && (
                         <DropdownMenuItem onClick={() => router.push(`/inventory/${productId}/edit`)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit

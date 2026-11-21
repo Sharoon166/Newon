@@ -14,6 +14,8 @@ import SupplierModel from '../../../models/Supplier';
 import ProductModel from '@/models/Product';
 import PurchaseModel from '@/models/Purchase';
 import mongoose from 'mongoose';
+import { assertPermission } from '@/lib/auth-utils';
+import { isAdmin } from '@/lib/rbac';
 import { ADJUSTMENT_SUPPLIER_NAME } from '@/features/purchases/constants';
 
 // Type for lean Mongoose document - using Record for _id to handle Mongoose's FlattenMaps type
@@ -222,9 +224,13 @@ export type SupplierMutationResult = { success: true; supplier: Supplier } | { s
 
 export async function createSupplier(data: CreateSupplierDto): Promise<SupplierMutationResult> {
   try {
+    const session = await assertPermission('create:suppliers');
     await dbConnect();
 
-    const newSupplier = new SupplierModel(data);
+    // Only admins may record a supplier outside Pakistan.
+    const payload: CreateSupplierDto = isAdmin(session) ? data : { ...data, country: 'PK' };
+
+    const newSupplier = new SupplierModel(payload);
     const savedSupplier = await newSupplier.save();
 
     revalidatePath('/suppliers');
@@ -243,6 +249,7 @@ export async function createSupplier(data: CreateSupplierDto): Promise<SupplierM
 
 export async function updateSupplier(id: string, data: UpdateSupplierDto): Promise<SupplierMutationResult> {
   try {
+    const session = await assertPermission('edit:suppliers');
     await dbConnect();
 
     const existing = await SupplierModel.findOne({ supplierId: id }).lean();
@@ -252,6 +259,12 @@ export async function updateSupplier(id: string, data: UpdateSupplierDto): Promi
 
     // Filter out undefined values to avoid issues with MongoDB
     const updateData = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+
+    // Non-admins can't move a supplier out of Pakistan: the country change is
+    // dropped entirely instead of being silently rewritten.
+    if (!isAdmin(session)) {
+      delete updateData.country;
+    }
 
     const updatedSupplier = await SupplierModel.findOneAndUpdate(
       { supplierId: id },
@@ -300,6 +313,7 @@ export async function updateSupplier(id: string, data: UpdateSupplierDto): Promi
 
 export async function deleteSupplier(id: string): Promise<void> {
   try {
+    await assertPermission('delete:suppliers');
     await dbConnect();
 
     // Never hard delete a supplier that is still linked to products or
@@ -338,6 +352,7 @@ export async function deleteSupplier(id: string): Promise<void> {
  */
 export async function toggleSupplierDisabled(id: string): Promise<Supplier> {
   try {
+    await assertPermission('edit:suppliers');
     await dbConnect();
 
     const supplier = await SupplierModel.findOne({ supplierId: id });

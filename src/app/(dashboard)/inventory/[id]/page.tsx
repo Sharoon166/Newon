@@ -58,6 +58,10 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
 
   const product = productData as unknown as ProductWithPricing;
 
+  // Cost fields are stripped server-side for callers without
+  // `view:imported-purchase-costs`; show a dash rather than a misleading "Rs 0".
+  const cost = (value?: number | null) => (value != null ? formatCurrency(value) : '—');
+
   // Calculate total stock across all variants
   const totalStock =
     product.variants?.reduce((sum, variant) => {
@@ -277,15 +281,11 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                             </div>
                             <div>
                               <div className="text-muted-foreground flex items-center gap-1">Purchase Price</div>
-                              <div className="font-medium text-muted-foreground">
-                                {formatCurrency(variant.purchasePrice || 0)}
-                              </div>
+                              <div className="font-medium text-muted-foreground">{cost(variant.purchasePrice)}</div>
                             </div>
                             <div>
                               <div className="text-muted-foreground">Shipping Cost</div>
-                              <div className="font-medium text-muted-foreground">
-                                {formatCurrency(variant.shippingCost || 0)}
-                              </div>
+                              <div className="font-medium text-muted-foreground">{cost(variant.shippingCost)}</div>
                             </div>
                           </div>
 
@@ -386,15 +386,11 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   </div>
                   <div>
                     <div className="text-muted-foreground flex items-center gap-1">Purchase Price</div>
-                    <div className="font-medium text-muted-foreground">
-                      {formatCurrency(singleVariant.purchasePrice || 0)}
-                    </div>
+                    <div className="font-medium text-muted-foreground">{cost(singleVariant.purchasePrice)}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Shipping Cost</div>
-                    <div className="font-medium text-muted-foreground">
-                      {formatCurrency(singleVariant.shippingCost || 0)}
-                    </div>
+                    <div className="font-medium text-muted-foreground">{cost(singleVariant.shippingCost)}</div>
                   </div>
                 </div>
 
@@ -484,9 +480,14 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   <div>
                     <div className="text-sm font-medium mb-1 flex items-center gap-1">Average Purchase Price</div>
                     <div className="text-xl font-bold text-muted-foreground">
-                      {formatCurrency(
-                        product.variants.reduce((sum, v) => sum + (v.purchasePrice || 0), 0) / product.variants.length
-                      )}
+                      {(() => {
+                        const known = (product.variants || [])
+                          .map(v => v.purchasePrice)
+                          .filter((p): p is number => p != null);
+                        return known.length > 0
+                          ? formatCurrency(known.reduce((sum, p) => sum + p, 0) / known.length)
+                          : '—';
+                      })()}
                     </div>
                   </div>
                 </>
@@ -498,9 +499,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                   </div>
                   <div>
                     <div className="text-sm font-medium mb-1 flex items-center gap-1">Current Purchase Price</div>
-                    <div className="text-xl font-bold text-muted-foreground">
-                      {formatCurrency(singleVariant.purchasePrice || 0)}
-                    </div>
+                    <div className="text-xl font-bold text-muted-foreground">{cost(singleVariant.purchasePrice)}</div>
                   </div>
                 </>
               ) : null}
