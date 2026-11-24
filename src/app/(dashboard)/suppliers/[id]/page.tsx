@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { requirePermission } from '@/lib/auth-utils';
-import { userHasPermission } from '@/lib/rbac';
+import { getSupplierCountryScope, userHasPermission } from '@/lib/rbac';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { getSupplierById, getSupplierLedger } from '@/features/suppliers/actions';
 import { SupplierLedgerCard } from '@/features/suppliers/components/supplier-ledger-card';
@@ -85,7 +85,12 @@ export default async function SupplierDetailPage({ params }: SupplierDetailPageP
 
   const { id } = await params;
   const supplier = await getSupplierById(id);
-  if (!supplier) notFound();
+  // Operations staff only work with Pakistani suppliers; a direct link to a
+  // foreign supplier should look the same as a missing one.
+  const countryScope = getSupplierCountryScope(session);
+  if (!supplier || (countryScope && (supplier.country || 'PK').toUpperCase() !== countryScope.toUpperCase())) {
+    notFound();
+  }
 
   const [purchasesData, ledger] = await Promise.all([
     getAllPurchases({

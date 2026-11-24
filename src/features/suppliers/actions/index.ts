@@ -14,8 +14,8 @@ import SupplierModel from '../../../models/Supplier';
 import ProductModel from '@/models/Product';
 import PurchaseModel from '@/models/Purchase';
 import mongoose from 'mongoose';
-import { assertPermission } from '@/lib/auth-utils';
-import { isAdmin } from '@/lib/rbac';
+import { assertPermission, getSession } from '@/lib/auth-utils';
+import { getSupplierCountryScope, isAdmin } from '@/lib/rbac';
 import { ADJUSTMENT_SUPPLIER_NAME } from '@/features/purchases/constants';
 
 // Type for lean Mongoose document - using Record for _id to handle Mongoose's FlattenMaps type
@@ -75,11 +75,15 @@ export async function getSuppliers(filters?: SupplierFilters & { includeDisabled
       ];
     }
 
-    if (filters?.country) {
+    // Operations staff may only see Pakistani suppliers. Deriving this from
+    // the session (rather than trusting the caller's filters) keeps the limit
+    // in force for direct server-action calls too.
+    const country = getSupplierCountryScope(await getSession()) ?? filters?.country;
+    if (country) {
       // Legacy suppliers created before the country field existed have no
       // stored value; they are Pakistani by the same convention the transform
       // uses, so null/missing matches the requested country too.
-      query.country = { $in: [filters.country.toUpperCase(), null] };
+      query.country = { $in: [country.toUpperCase(), null] };
     }
 
     if (filters?.dateFrom || filters?.dateTo) {
@@ -559,6 +563,7 @@ export async function getSupplierLedger(
   id: string,
   options?: { limit?: number }
 ): Promise<SupplierLedgerData> {
+  const countryScope = getSupplierCountryScope(await getSession());
   try {
     await dbConnect();
 
@@ -569,6 +574,13 @@ export async function getSupplierLedger(
       supplier ??
       (mongoose.Types.ObjectId.isValid(id) ? await SupplierModel.findById(id).lean() : null);
     if (!supplierDoc) {
+      throw new Error('Supplier not found');
+    }
+
+    // Out-of-scope suppliers must stay invisible even when their id is known
+    // (e.g. the print-statement page calls this action directly).
+    const supplierCountry = (supplierDoc as unknown as LeanSupplier).country || 'PK';
+    if (countryScope && supplierCountry.toUpperCase() !== countryScope.toUpperCase()) {
       throw new Error('Supplier not found');
     }
 

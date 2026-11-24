@@ -159,6 +159,15 @@ export function isStaffRole(role: string | null | undefined): boolean {
 }
 
 /**
+ * Country scope for supplier records. Operations staff work with local
+ * suppliers only; admins see suppliers from every country. Supplier documents
+ * with no stored country are treated as Pakistan throughout this feature.
+ */
+export function getSupplierCountryScope(session: Session | null): string | undefined {
+  return session?.user?.role === 'operations-staff' ? 'PK' : undefined;
+}
+
+/**
  * Get all permissions for a role
  */
 export function getRolePermissions(role: Role): Permission[] {
