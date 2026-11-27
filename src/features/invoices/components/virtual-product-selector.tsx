@@ -367,12 +367,12 @@ export function VirtualProductSelector({
               const quantityInInvoice = inInvoice?.quantity || 0;
               return (
                 <Card key={product.id} className="p-4 hover:shadow-md transition-shadow justify-between">
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
                     {/* Left side - Product info */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex  items-start justify-between gap-2">
+                    <div className="flex-1 space-y-3 max-w-full">
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-base truncate">{product.name}</h4>
+                          <h4 className="font-semibold text-base truncate" title={product.name}>{product.name}</h4>
                           <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
                           {quantityInInvoice > 0 && (
                             <Badge variant="outline" className="mt-1 text-xs text-blue-600 border-blue-600">
